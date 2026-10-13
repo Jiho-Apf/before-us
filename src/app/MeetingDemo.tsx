@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Link } from "react-router"
 import { Button } from "./components/ui/button"
 import { Input } from "./components/ui/input"
+import { MeetingAftercare } from "./MemberTrust"
 import {
   Day04Panel,
   useAgreementDemo,
@@ -93,6 +94,14 @@ export function MeetingDemo() {
         </div>
       </section>
       <Day04Panel key={`${demo.generation}-${demo.memberId}`} />
+      <section className="mt-10 space-y-3 border border-accent/20 bg-accent/5 p-5">
+        <h2 className="text-lg text-accent">만남 전후 화면 미리보기 · 가상</h2>
+        <p className="text-xs leading-6">
+          실제 약속이 합의되면 약속 화면 아래에 같은 안전 가이드와 피드백이 나와요. 여기서는 만남 시각을 2026-10-24 14:00으로 두고,
+          위 가상 시각 입력값 기준으로 보여 줘요. (15:00 이후로 바꾸면 피드백이 열립니다.)
+        </p>
+        <MeetingAftercare memberId="preview-member-a" partnerId="preview-member-b" programId="virtual-meeting-preview" meetingAt="2026-10-24T14:00:00+09:00" now={new Date(`${clock}:00+09:00`)} />
+      </section>
     </main>
   )
 }

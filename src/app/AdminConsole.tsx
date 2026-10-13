@@ -36,6 +36,7 @@ import {
 } from "./components/ui/select"
 import { BEFORE_US } from "./config"
 import { seoulDate } from "./admin-model"
+import { GenderBalancePanel } from "./MatchingAssist"
 import {
   ADMIN_ACCESS,
   TODO_ITEMS,
@@ -590,6 +591,7 @@ export function AdminDashboard() {
           </Link>
         ))}
       </section>
+      <GenderBalancePanel state={data.admin} today={today} onChange={() => {}} />
       <section className="rounded-lg border border-border bg-card p-5">
         <SectionTitle
           title="결제 원장 요약"

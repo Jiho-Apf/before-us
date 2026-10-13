@@ -7,6 +7,7 @@ import { Input } from "./components/ui/input"
 import { AdminMemberRequests } from "./MemberOperations"
 import { AdminConductCases } from "./ConductPolicy"
 import { AdminPrivacyQueue } from "./PrivacyPanels"
+import { AdminMeetingFeedback } from "./MatchingAssist"
 import { RELEASE_CHECKLIST } from "./MemberProfile"
 import { syncMemberReportStatus } from "./member-operations-model"
 import { Textarea } from "./components/ui/textarea"
@@ -272,6 +273,7 @@ export function AdminGovernance({ section }: { section: string }) {
       {["safety","payments","settings"].includes(section) && <AdminMemberRequests />}
       {section === "safety" && <AdminConductCases />}
       {["safety","settings"].includes(section) && <AdminPrivacyQueue />}
+      {section === "reviews" && <AdminMeetingFeedback />}
       {section === "settings" && <section className="space-y-4 border border-border bg-muted p-5"><h2 className="text-lg">실제 출시 전 확인·구현 필요</h2><ul className="list-disc space-y-2 pl-5 text-xs leading-6 text-muted-foreground">{RELEASE_CHECKLIST.map(item=><li key={item}>{item}</li>)}</ul><p className="text-xs leading-6">가상 자료 데모입니다. 실제 과금·발송·자동 공개·법률 검토 완료·보안 완료로 표시하지 않습니다. 사진·편지·자유 입력·이상형은 광고·외부 분석에 원문 전송하지 않습니다. 운영 시간·소개 간격·상호 선택·교류 결제·완료·중단·환불은 실제 이벤트·분모가 있는 값만 내부 집계하며 가짜 지표를 만들지 않습니다.</p></section>}
       {section !== "settings" && section !== "notifications" && (
         <div className="flex flex-wrap items-end gap-3">

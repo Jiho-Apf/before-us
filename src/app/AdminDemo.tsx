@@ -2,6 +2,9 @@ import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import { loadReviewFixtures, recordCandidateView, useSharedAdmin } from "./admin-console-data"
 import DirectIntroduction from "./DirectIntroduction"
+import { MatchRecommendations } from "./MatchingAssist"
+import { recordOperatorChoice } from "./match-recommendation"
+import { aliasIdentity, getIdentity, identityAccount } from "./identity-model"
 import { AdminMemberHistory } from "./AdminOperations"
 import {
   ArrowLeft,
@@ -178,7 +181,8 @@ export default function AdminDemo({ embedded = false }: { embedded?: boolean }) 
   }
   const importCurrent = () => {
     if (!saved) return
-    const member = applicationMember(structuredClone(saved))
+    const member = { ...applicationMember(structuredClone(saved)), account: identityAccount(getIdentity("current-member")) }
+    aliasIdentity("current-member", member.id)
     setState((previous) => ({
       ...previous,
       revision: previous.revision + 1,
@@ -615,6 +619,16 @@ export default function AdminDemo({ embedded = false }: { embedded?: boolean }) 
               </div>
             ) : tab === "compare" ? (
               <div className="space-y-6">
+                <MatchRecommendations
+                  state={state}
+                  targetId={selected.id}
+                  today={today}
+                  onCompare={(id) => {
+                    setCounterpartId(id)
+                    setConsidered(false)
+                  }}
+                  onLoadFixtures={(next) => setState(next)}
+                />
                 <section className="border border-border bg-card p-6">
                   <h2 className="mb-4 text-xl font-semibold">
                     양쪽의 필수 조건을 대조합니다.
@@ -694,6 +708,7 @@ export default function AdminDemo({ embedded = false }: { embedded?: boolean }) 
                     <Button
                       disabled={blockers.length > 0 || !considered}
                       onClick={() => {
+                        recordOperatorChoice(selected.id, counterpart.id)
                         run({
                           kind: "prepare",
                           leftId: selected.id,

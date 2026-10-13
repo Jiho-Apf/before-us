@@ -1,7 +1,7 @@
 import { useMemo, useSyncExternalStore } from "react";
 import { emptyPaymentSession, requestPaymentCancellation, introductionRights, type PaymentSession } from "./payment-model";
 import { getConsoleData, replaceConsoleData, subscribeConsoleData } from "./admin-console-data";
-import { REPORT_TYPES, type Feedback } from "./admin-governance-model";
+import { PRIORITY_REPORT_TYPES, REPORT_TYPES, type Feedback } from "./admin-governance-model";
 import { EMPTY_NOTICE_PREFERENCES, type NoticePreferences } from "./noon-status-model";
 
 export const REQUEST_LABELS = { pause: "소개 일시정지", resume: "소개 재개 요청", refund: "결제·환불 요청", inquiry: "운영 문의", report: "신고·보호 요청", block: "차단", interrupt: "교류·약속 중단", revoke: "공개 철회", withdrawal: "회원 탈퇴", deletion: "자료 삭제 요청", correction: "정보 정정 요청", restriction: "처리정지 요청", reconsider: "결정 재검토 요청" } as const;
@@ -81,7 +81,7 @@ export function submitMemberRequest(context: RequestContext, kind: MemberRequest
   const request: MemberRequest = { ...context, id, kind, at: now.toISOString(), status: kind === "reconsider" ? "reconsidering" : "requested", description: (input.description || "").trim(), urgent: input.urgent === true, reportType: input.reportType, policyVersion: account.payment.policy.version, receiptId: input.receiptKind ? account.payment[input.receiptKind]?.id : undefined, parentId: input.parentId, decision: null, transitions: [] };
   account.requests.push(request); commit(next);
   if(kind==="refund"){const admin=structuredClone(getConsoleData());const transaction=admin.payments.find(item=>item.id===request.receiptId && item.memberId===context.memberId);if(transaction){const quote=account.payment[input.receiptKind || "introduction"]?.refundRequest;transaction.refundRequestedAt ||= request.at;if(quote){transaction.refundRequestedAmount=quote.amount;transaction.refundBasis=quote.reason;transaction.refundPolicyVersion=quote.policyVersion;}replaceConsoleData(admin);}}
-  if (kind === "report") { const admin = structuredClone(getConsoleData()); admin.source = "virtual"; admin.reports.push({ id, memberId: context.targetId || context.memberId, reporterId: context.memberId, targetId: context.targetId || undefined, introductionId: context.introductionId || null, exchangeId: context.programId || null, type: input.reportType || "기타", description: request.description, hasAttachment: false, urgent: request.urgent, priority: request.urgent ? "긴급" : "일반", status: "new", createdAt: request.at }); replaceConsoleData(admin); }
+  if (kind === "report") { const admin = structuredClone(getConsoleData()); admin.source = "virtual"; admin.reports.push({ id, memberId: context.targetId || context.memberId, reporterId: context.memberId, targetId: context.targetId || undefined, introductionId: context.introductionId || null, exchangeId: context.programId || null, type: input.reportType || "기타", description: request.description, hasAttachment: false, urgent: request.urgent, priority: request.urgent ? "긴급" : PRIORITY_REPORT_TYPES.includes(input.reportType || "") ? "우선 확인" : "일반", status: "new", createdAt: request.at }); replaceConsoleData(admin); }
   return { error: null, id };
 }
 export function decideMemberRequest(id: string, status: RequestStatus, note: string, now = new Date()) {

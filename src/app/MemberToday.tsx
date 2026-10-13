@@ -112,6 +112,7 @@ export function MeetingGate() {
   return <section className="py-8"><p className="mb-5 text-xs text-accent">약속 · 데모</p><h1 className="text-3xl font-semibold leading-relaxed">서로의 만남 의사가 확인된 뒤에.</h1><p className="mt-5 max-w-lg text-sm leading-7 text-muted-foreground">양쪽의 만남 희망이 확인되면 이곳에서 시간·장소와 약속 캘린더를 확인합니다. 현재는 확인된 만남 동의나 약속이 없습니다.</p><Button asChild className={`mt-7 rounded-xl ${interaction}`}><Link to="/today">오늘로 돌아가기 <ArrowRight size={15} /></Link></Button></section>;
 }
 
+import { ProfileCoaching, WaitingJourney } from "./MemberTrust";
 export default function MemberToday() {
   const [params] = useSearchParams();
   const saved = useSavedApplication();
@@ -119,7 +120,7 @@ export default function MemberToday() {
   if (params.get("demo") === "agreement") return <MemberAgreement context="today" />;
   const snapshot: TodaySnapshot = saved ? { ...EMPTY_TODAY, stage: "draft", resumeField: `${APPLICATION_STEPS[saved.step]} · ${saved.completedDemo ? "가상 작성 확인 완료" : "임시 저장된 지점"}`, resumePath: "/apply" } : EMPTY_TODAY;
   const effective=account?.payment.activity && account.payment.activity!=="active" ? {...snapshot,stage:"paused" as const,stateUpdatedAt:account.requests[account.requests.length-1]?.at || null,resumePath:"/profile"} : snapshot;
-  return <TodayView key={`${saved ? "saved-application" : "before-application"}-${effective.stage}`} snapshot={effective} />;
+  return <><TodayView key={`${saved ? "saved-application" : "before-application"}-${effective.stage}`} snapshot={effective} />{saved && effective.stage !== "paused" && <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2"><WaitingJourney application={saved} /><ProfileCoaching application={saved} /></div>}</>;
 }
 
 export function TodayDemo() {

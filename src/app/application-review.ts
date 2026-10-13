@@ -168,8 +168,8 @@ export function demoPreparationEligibility(
     )
   )
     reasons.push("필수 사진 기준 확인 필요")
-  if (BEFORE_US.unresolvedPolicies.retention === null)
-    reasons.push("제공·보유 기간 정책 검토 필요")
+  if (BEFORE_US.unresolvedPolicies.provisionPeriod === null)
+    reasons.push("상대 프로필 제공 기간 정책 검토 필요")
   return reasons
 }
 export function beginDemoPreparation(
@@ -193,7 +193,7 @@ export function beginDemoPreparation(
     proposalId: recipient.proposalId,
     profileVersion: draft.review.profileVersion,
     profile: publicApplicationProfile(draft, today, account),
-    period: BEFORE_US.unresolvedPolicies.retention,
+    period: BEFORE_US.unresolvedPolicies.provisionPeriod,
     consent: null,
     readyAt: null,
     disclosedAt: null,
@@ -224,7 +224,7 @@ export function publicPreparationResponse(
     draft.values["consent.matching"] !== true ||
     draft.values["consent.provision"] !== true ||
     draft.values["consent.review"] !== true ||
-    BEFORE_US.unresolvedPolicies.retention === null
+    BEFORE_US.unresolvedPolicies.provisionPeriod === null
   )
     return null
   const instant = new Date(now)

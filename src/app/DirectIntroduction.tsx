@@ -11,6 +11,11 @@ export default function DirectIntroduction() {
         운영진이 신청서와 사진, 외적인 취향, 관계 기준,
         생활·대화 성향을 직접 살펴 최종 한 사람을 제안합니다.
       </p>
+      <p className="mt-3 text-xs leading-6 text-muted-foreground">
+        신청이 많을 때는 직접 입력하신 답변이 서로 겹치는 지점을 정리해 주는
+        보조 도구로 후보를 좁힐 수 있어요. 사진이나 외모로 판단하지 않으며,
+        누구를 소개할지는 운영진이 직접 정합니다.
+      </p>
       <p className="mt-4 text-sm font-semibold text-primary">
         끌리는 사람을, 천천히 알아갑니다.
       </p>

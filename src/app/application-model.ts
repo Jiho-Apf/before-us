@@ -28,6 +28,7 @@ export const APPLICATION_FIELDS: readonly FieldDefinition[] = [
   { id: "self.purpose", label: "관계 목적", step: 0, group: "core", format: "single", purpose: "나의 관계 기준 참고", required: true, scope: "partner", options: ["진지한 연애", "천천히 알아가며 연애", "아직 정리 중"] },
   { id: "self.bio", label: "한 줄 소개", step: 0, group: "core", format: "text", purpose: "나를 소개하는 짧은 글", required: true, scope: "partner", min: 20, max: 150, placeholder: "가상 인물에 대한 소개를 20~150자로 적어주세요." },
   { id: "self.statement", label: "현재 다른 사람과 교제·혼인 관계가 없고 성실히 참여할 의사가 있습니다.", step: 0, group: "core", format: "boolean", purpose: "본인 진술 · 인증 아님", required: true, scope: "operator" },
+  { id: "self.pledge", label: "기혼·사실혼이거나 다른 사람과 교제 중인 사실이 확인되면 이용이 종료되고, 상대 보호에 필요한 조치가 이뤄질 수 있음을 이해했어요.", step: 0, group: "core", format: "boolean", purpose: "허위 진술 시 조치 고지 확인 · 미혼 인증 아님", required: true, scope: "operator" },
   { id: "self.height", label: "키", step: 0, group: "optional", format: "number", purpose: "본인이 입력한 키 · cm", required: false, scope: "partner", rule: "positive-cm", placeholder: "cm 직접 입력" },
   { id: "self.body", label: "체형", step: 0, group: "optional", format: "single", purpose: "본인이 선택한 표현", required: false, scope: "operator", options: ["마른 편", "보통", "탄탄한 편", "체격 있는 편", "미선택"] },
   { id: "self.style", label: "스타일", step: 0, group: "optional", format: "multi", purpose: "나의 평소 스타일 참고", required: false, scope: "operator", limit: 3, options: ["단정한", "캐주얼", "미니멀", "스포티", "개성 있는"] },

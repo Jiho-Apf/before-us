@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from "react"
+import { MeetingAftercare } from "./MemberTrust";
 import { Link, useSearchParams, useLocation } from "react-router"
 import {
   ArrowRight,
@@ -984,7 +985,7 @@ export function Day04Panel({ contactOnly = false }: { contactOnly?: boolean }) {
     const checked = appointmentView(store.appointment, store.memberId, new Date(store.now), true);
     return checked?.contact.released && !checked.contact.blocked ? checked.contact.peerNumber || null : null;
   }} /> : <p className="py-8 text-sm">최종 합의와 당사자 권한 확인 전에는 연락처 공개 동의를 진행하지 않습니다.</p>
-  if (appointment) return <AppointmentFlow key={`${demo.generation}-${demo.memberId}`} view={appointment} onCommand={performAppointment} />
+  if (appointment) return <><AppointmentFlow key={`${demo.generation}-${demo.memberId}`} view={appointment} onCommand={performAppointment} />{appointment.final?.when && Number.isFinite(Date.parse(appointment.final.when)) && <MeetingAftercare key={`aftercare-${demo.memberId}`} memberId={demo.memberId} partnerId={demo.state?.members.find(id => id !== demo.memberId) || null} programId={source.programId} meetingAt={appointment.final.when} now={new Date(demo.now)} />}</>
   return <section className="space-y-5 py-8"><p className="text-xs text-accent">DAY 04 · 가상 만남 의사 선택</p><MeetingChoice view={source} onSend={command => { const error = demo.scene ? performScene(command, source.revision) : performLetter(command, source.revision); if (error) window.alert(error) }} /><p className="text-xs text-muted-foreground">미응답은 YES나 NO가 아닙니다. 시간·두 계정 동기화·실제 발송은 미연결인 데모입니다.</p><Button asChild variant="outline"><Link to="/exchange?demo=agreement">지난 교류 확인</Link></Button><Button variant="outline" onClick={() => { const error = demo.scene ? performScene({ type: "contact" }, source.revision) : performLetter({ type: "contact" }, source.revision); window.alert(error || "가상 문의 요청을 기록했습니다. 실제 접수는 미연결입니다.") }}>운영자 문의</Button></section>
 }
 export function MemberMeeting({ contactOnly = false }: { contactOnly?: boolean }) {

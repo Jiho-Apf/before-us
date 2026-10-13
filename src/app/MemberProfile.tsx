@@ -56,6 +56,7 @@ import { ConductPolicyNotice, MemberConductSummary } from "./ConductPolicy"
 import { recordInterruption } from "./conduct-policy"
 import { DataRightsPanel, MyDataSchedule, RetentionPolicyTable, WithdrawalPanel } from "./PrivacyPanels"
 import type { DataInventory } from "./privacy-policy"
+import { IdentityPanel, ProfileCoaching, WaitingJourney } from "./MemberTrust"
 
 const format = (at: string | null) =>
   at
@@ -69,6 +70,7 @@ export const RELEASE_CHECKLIST = [
   "초안·비공개 응답 최소 제공·철회·삭제·차단 후 접근 재검토",
   "만료 링크·캐시·접근 기록 · 보유기간 초안(V6-privacy-01)의 법률 검토와 실제 삭제·백업 파기 작업",
   "사업자·법적 문서·카카오·보안 연동 · 취소·노쇼·재이용 운영 기준(V6-conduct-01)의 약관 반영·법률 검토",
+  "실제 휴대폰 본인인증 업체 연동·연계정보 중복 대조 · 결혼중개업법 해당 여부 법률 확인",
 ] as const
 
 function ExperienceFeedback({
@@ -371,6 +373,15 @@ export default function MemberProfile() {
           </div>
         </section>
       </div>
+      {!service.connected && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <WaitingJourney application={application} />
+          <div className="space-y-6">
+            <IdentityPanel />
+            <ProfileCoaching application={application} />
+          </div>
+        </div>
+      )}
       <section className="space-y-5">
         <div className="flex items-center gap-2">
           <Pencil className="size-4 text-primary" />

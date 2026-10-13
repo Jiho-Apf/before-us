@@ -2,7 +2,9 @@ import { BEFORE_US } from "./config"
 import { inRange, type ConsoleData, type DateRange } from "./admin-console-data"
 import { introductionRows } from "./admin-operations-model"
 
-export const REPORT_TYPES = ["부적절한 메시지", "사진·허위 정보 의심", "연락처 악용", "괴롭힘", "노쇼", "약속 취소", "실제 만남 관련 문제", "기타"] as const
+export const REPORT_TYPES = ["부적절한 메시지", "사진·허위 정보 의심", "기혼·교제 중 의심", "연락처 악용", "괴롭힘", "노쇼", "약속 취소", "실제 만남 관련 문제", "기타"] as const
+// 상대를 속였을 가능성이 있는 신고는 일반 신고보다 먼저 확인한다.
+export const PRIORITY_REPORT_TYPES: readonly string[] = ["기혼·교제 중 의심", "실제 만남 관련 문제"]
 export const REPORT_STATES = [{ id: "new", label: "신규" }, { id: "reviewing", label: "검토 중" }, { id: "checking", label: "추가 확인" }, { id: "action", label: "조치" }, { id: "closed", label: "종료" }] as const
 export type Feedback = {
   id: string

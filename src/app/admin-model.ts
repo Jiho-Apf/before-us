@@ -23,6 +23,8 @@ import {
   type PhotoReview,
   type PHOTO_REVIEW_REASONS,
 } from "./photo-model"
+import { isWaitlisted } from "./gender-balance"
+import { getIdentity } from "./identity-model"
 import {
   REVIEW_CONSENTS,
   changedReview,
@@ -227,6 +229,8 @@ export function pairIssues(
         `${member.id}: 활성 소개·상호 선택·결제·방식 합의·교류 진행 중`,
       )
     if (member.lifecycle && member.lifecycle !== "active") issues.push(`${member.id}: 일시정지·차단·탈퇴 요청 상태로 새 소개 불가`)
+    if (isWaitlisted(member.id)) issues.push(`${member.id}: 성비 순차 검토 대기 중 · 대기열에서 검토 시작 필요`)
+    if (getIdentity(member.id)?.rejoinFlag) issues.push(`${member.id}: 이전 이용 제한 계정과 같은 인증값 · 재가입 확인 필요`)
     if (member.rights === "first-program-started")
       issues.push(`${member.id}: 첫 교류 시작 후 재이용 정책 별도 확인 필요`)
     if (member.policyVersion !== BEFORE_US.policyVersion)
@@ -364,8 +368,8 @@ export function reservationIssues(
     const preparation = member.draft.review.preparation
     if (preparation && JSON.stringify(clonePublicProfile(preparation.profile)) !== JSON.stringify(proposal.profiles[member.id])) issues.push(`${member.id}: 동의한 제공 프로필과 준비 스냅샷 불일치`)
   }
-  if (BEFORE_US.unresolvedPolicies.retention === null)
-    issues.push("제공·보유 기간 정책 미확정: 실제 공개 예약 차단")
+  if (BEFORE_US.unresolvedPolicies.provisionPeriod === null)
+    issues.push("상대 프로필 제공 기간 정책 미확정: 실제 공개 예약 차단")
   return [...new Set(issues)]
 }
 export function adminTransition(
@@ -546,6 +550,7 @@ export function loadAdminFixtures(now = new Date()): AdminState {
         "self.bio":
           "이것은 실제 회원이 아닌 관리자 기능 설명을 위한 가상 소개입니다.",
         "self.statement": true,
+        "self.pledge": true,
         "self.smoking": index === 2 ? "자주" : "안 함",
         "self.work": "디자인·콘텐츠",
         "self.workTitle": "가상 콘텐츠 기획자",
