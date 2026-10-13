@@ -1526,14 +1526,14 @@ const CONTROL_MOTION = "transition-colors duration-200 motion-reduce:transition-
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <Link to="/" aria-label={`${BEFORE_US.brand.name} 공개 홈`} className="flex w-fit items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4">
+    <Link to="/" aria-label={`${BEFORE_US.brand.name} 공개 홈`} className="flex w-fit shrink-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4">
       <span aria-hidden="true" className="flex gap-1.5">
         <span className="size-3 rounded-full bg-primary" />
         <span className="size-3 rounded-full bg-accent" />
       </span>
       <span className="flex flex-col gap-1">
-        <span className={`${compact ? "text-xl" : "text-2xl"} font-bold leading-none`}>{BEFORE_US.brand.name}</span>
-        <span className="text-[9px] font-semibold leading-none tracking-[0.18em] text-muted-foreground">{BEFORE_US.brand.english}</span>
+        <span className={`${compact ? "text-xl" : "text-2xl"} whitespace-nowrap font-bold leading-none`}>{BEFORE_US.brand.name}</span>
+        <span className="whitespace-nowrap text-[9px] font-semibold leading-none tracking-[0.18em] text-muted-foreground">{BEFORE_US.brand.english}</span>
       </span>
     </Link>
   );
@@ -1569,7 +1569,7 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
           <div className="flex items-center gap-2 sm:gap-4">
             <ShellThemeToggle isDark={isDark} toggle={toggle} />
             <Button asChild variant="ghost" className={`hidden hover:bg-muted hover:text-foreground sm:inline-flex ${CONTROL_MOTION}`}><Link to="/login">로그인</Link></Button>
-            <Button asChild className={`h-11 rounded-full px-5 ${CONTROL_MOTION}`}><Link to="/apply">소개 신청하기 <ArrowRight size={15} /></Link></Button>
+            <Button asChild className={`h-11 rounded-full px-4 text-[13px] sm:px-5 sm:text-sm ${CONTROL_MOTION}`}><Link to="/apply">소개 신청하기 <ArrowRight size={15} className="hidden sm:block" /></Link></Button>
             <Button variant="ghost" size="icon" aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"} aria-expanded={menuOpen} aria-controls="public-mobile-menu" onClick={() => setMenuOpen(open => !open)} className={`lg:hidden hover:bg-muted hover:text-foreground ${CONTROL_MOTION}`}>
               {menuOpen ? <X /> : <Menu />}
             </Button>
