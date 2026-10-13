@@ -106,7 +106,7 @@ function ServiceCollage() {
   return (
     <div className="relative mx-auto w-full max-w-lg pb-8 lg:pb-0" aria-label="서비스 화면 예시: 편지 나누기와 첫 장면 만들기">
       <div className="mb-6 flex items-center justify-between text-xs text-white/85 dark:text-white"><span className="border border-white/30 px-3 py-1.5">서비스 화면 예시</span><span className="tracking-[0.15em]">DAY 01—03</span></div>
-      <div className="group/collage relative min-h-[430px] sm:min-h-[450px]">
+      <div className="group/collage relative min-h-[510px] sm:min-h-[555px]">
         <div className={`absolute top-0 left-0 w-[78%] -rotate-3 border border-white/40 bg-white text-[#151515] shadow-xl hover:-translate-y-1.5 hover:-rotate-2 ${lift}`}>
           <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 text-[10px] font-semibold tracking-[0.15em]"><span>A · 편지 나누기</span><span>DAY 01</span></div>
           <div className="px-6 pt-7 pb-12 sm:px-8"><div className="mb-6 flex gap-1.5" aria-hidden="true"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></div><p className="text-xl font-semibold leading-relaxed">당신의 하루에서<br />가장 좋아하는 순간은?</p><p className="mt-5 text-xs leading-6 text-black/55">서로에게 하루 한 통.<br />한 번에 조금씩, 나의 이야기를 전합니다.</p><div className="mt-8 h-px bg-black/10" /><div className="mt-3 h-px w-4/5 bg-black/10" /></div>
@@ -117,7 +117,7 @@ function ServiceCollage() {
           <div className="px-5 py-6"><p className="text-[15px] font-semibold leading-6">함께 고르는<br />우리의 첫 장면.</p><div className="mt-5 space-y-2"><div className="flex items-center justify-between rounded-xl border border-accent bg-accent/5 px-3 py-3 text-[11px]"><span>조용한 동네를 함께 걷기</span><Check size={13} className="text-accent" /></div><div className="rounded-xl border border-black/10 px-3 py-3 text-[11px] text-black/55">좋아하는 음악을 함께 듣기</div></div></div>
           <div className="bg-accent px-5 py-3 text-[11px] text-white">두 사람이 함께 선택합니다.</div>
         </div>
-        <span className="absolute bottom-3 left-0 text-[10px] tracking-[0.12em] text-white/85 dark:text-white">TWO PEOPLE. THEIR OWN PACE.</span>
+        <span className="absolute bottom-6 left-0 w-[30%] text-[10px] leading-5 tracking-[0.12em] text-white/85 dark:text-white">TWO PEOPLE.<br />THEIR OWN PACE.</span>
       </div>
       <p className="mt-3 text-[10px] leading-5 text-white/85 dark:text-white">실제 회원의 편지나 프로필이 아닌 서비스 화면 예시입니다.</p>
     </div>
