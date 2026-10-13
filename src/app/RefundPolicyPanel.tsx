@@ -56,7 +56,7 @@ export function RefundPolicyPanel({ session, kind, now = new Date(), onChange }:
       </>}
       <p className="text-muted-foreground">위 운영 기준은 법정 청약철회 권리와 실제 약관 검토에 따른 더 유리한 권리를 제한하지 않습니다. 개별 귀책·제공 이력·결제 원장을 확인하며 요청·산정·검토·실제 환불 완료는 구분합니다. 실제 PG 환불과 자동 예약 작업은 미연결입니다.</p>
       {message && <p role="status" className="text-primary">{message}</p>}
-      <p className="text-muted-foreground">현재 신규 가상 적용 정책: {REFUND_POLICY.version}. 실제 약관의 법률 검토 완료를 의미하지 않습니다. 보유기간·재이용 정책은 별도 검토 중입니다.</p>
+      <p className="text-muted-foreground">현재 신규 가상 적용 정책: {REFUND_POLICY.version}. 실제 약관의 법률 검토 완료를 의미하지 않습니다. 교류 중단·노쇼·재이용은 V6-conduct-01 기준을 따릅니다.</p>
     </div>
   );
 }

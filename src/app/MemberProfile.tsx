@@ -52,6 +52,7 @@ import {
 } from "./payment-model"
 import type { Feedback } from "./admin-governance-model"
 import { RefundPolicyPanel } from "./RefundPolicyPanel"
+import { ConductPolicyNotice, MemberConductSummary } from "./ConductPolicy"
 
 const format = (at: string | null) =>
   at
@@ -64,7 +65,7 @@ export const RELEASE_CHECKLIST = [
   "비공개 사진 저장·실형식·디코딩 검사·재인코딩·회전 정상화·GPS 제거",
   "초안·비공개 응답 최소 제공·철회·삭제·차단 후 접근 재검토",
   "만료 링크·캐시·백업·보유기간·접근 기록",
-  "사업자·법적 문서·카카오·보안 연동·취소·미시작·시작 후 중단·재이용 정책",
+  "사업자·법적 문서·카카오·보안 연동 · 취소·노쇼·재이용 운영 기준(V6-conduct-01)의 약관 반영·법률 검토",
 ] as const
 
 function ExperienceFeedback({
@@ -552,9 +553,20 @@ export default function MemberProfile() {
         )}
         <p className="text-xs leading-6 text-muted-foreground">
           중단·탈퇴·취소·미시작·시작 후 중단·재이용·자료 보유는 고지한 정책으로
-          처리합니다. 환불 운영 기준은 구매 시점 버전으로 관리하며 실제 약관 검토는 별도입니다. 보유기간·재이용 정책은 출시 전 확인 필요이며 영구
-          보관·무조건 환불 불가·숨은 기간 소멸을 지정하지 않습니다.
+          처리합니다. 환불 운영 기준은 구매 시점 버전으로 관리하며 실제 약관 검토는 별도입니다. 교류 중단·약속 취소·노쇼·재이용은 V6-conduct-01 운영 기준을 따르며
+          영구 보관·무조건 환불 불가·숨은 기간 소멸을 지정하지 않습니다.
         </p>
+      </section>
+      <section className="space-y-4 border-t border-border pt-6">
+        <h2 className="text-xl">교류·약속 기록과 다음 소개</h2>
+        <MemberConductSummary
+          memberId={service.memberId}
+          payment={payment}
+          now={service.now}
+          programEnded={service.complete}
+          lastReviewAt={null}
+        />
+        <ConductPolicyNotice compact />
       </section>
       <MemberContactSummary />
       <MemberSafetyTools

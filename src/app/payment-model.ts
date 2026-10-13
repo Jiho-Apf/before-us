@@ -136,7 +136,7 @@ export function paymentGate(
   if (session.activity !== "active")
     return "현재 활동 상태에서는 새 결제 요청을 받지 않습니다. 기존 권리·환불 여부는 별도 검토합니다."
   if (introductionRights(session, now) === "first-program-started")
-    return "이번 신청의 첫 교류가 실제 시작되어 소개 혜택이 종료됐습니다. 재이용 정책은 설정이 필요합니다."
+    return "이번 신청의 첫 교류가 실제 시작되어 소개 혜택이 종료됐습니다. 정상 종료 뒤 새 회차 소개비 5,000원으로 다시 이용할 수 있어요(V6-conduct-01)."
   if (kind === "introduction") {
     if (!readyForIntroduction(session, now))
       return "소개 제공 준비·현재 참여 가능·프로필 제공 범위 확인 후 안내합니다. 지금은 무료 대기입니다."
@@ -152,7 +152,7 @@ export function paymentGate(
     )
       return "기존 취소·환불 문의를 먼저 확인합니다. 새 청구나 자동 권리 소멸은 하지 않습니다."
     if (session.introduction?.status === "refunded")
-      return "기존 환불 기록을 확인해야 합니다. 재이용 정책은 설정이 필요합니다."
+      return "기존 환불 기록을 확인해야 합니다. 재이용은 내 정보의 새 회차 안내에서 확인해 주세요."
   } else {
     const program = session.program
     if (!program || !hasMutualSelection(session, now))
