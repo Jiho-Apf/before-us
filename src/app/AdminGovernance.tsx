@@ -8,6 +8,7 @@ import { AdminMemberRequests } from "./MemberOperations"
 import { AdminConductCases } from "./ConductPolicy"
 import { AdminPrivacyQueue } from "./PrivacyPanels"
 import { AdminMeetingFeedback } from "./MatchingAssist"
+import { MessageCenter } from "./MessageCenter"
 import { RELEASE_CHECKLIST } from "./MemberProfile"
 import { syncMemberReportStatus } from "./member-operations-model"
 import { Textarea } from "./components/ui/textarea"
@@ -735,53 +736,9 @@ export function AdminGovernance({ section }: { section: string }) {
         </>
       )}
       {section === "notifications" && (
-        <Panel title="정오 상태 알림 · 템플릿 초안">
-          <div className="space-y-4">
-            <p className="text-sm">
-              공개 시간 {BEFORE_US.introduction.readyAt} · Asia/Seoul · 정오
-              상태 알림은 회원이 선택합니다.
-            </p>
-            <Table
-              headings={["템플릿", "초안 버전", "카카오 승인", "실제 발송"]}
-              rows={data.governance.templates.map((template) => [
-                template.name,
-                `v${template.version}`,
-                "미연결 · 승인 확인 없음",
-                "미연결 · 발송 없음",
-              ])}
-            />
-            <label className="block space-y-2 text-xs">
-              초안 내용 (1~500자)
-              <Textarea
-                maxLength={500}
-                value={templateBody}
-                onChange={(event) => setTemplateBody(event.target.value)}
-              />
-            </label>
-            {reasonInput}
-            <div className="flex gap-2">
-              <Button
-                disabled={!data.governance.templates.length}
-                onClick={() =>
-                  run({
-                    kind: "template",
-                    id: data.governance.templates[0].id,
-                    body: templateBody,
-                    reason,
-                  })
-                }
-              >
-                가상 초안 저장
-              </Button>
-              <Button disabled variant="outline">
-                실제 발송 미연결
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              초안 수정은 카카오 템플릿 승인이나 실제 발송 준비 완료가 아닙니다.
-              공개 대상·동의·승인 상태는 실제 서버와 발송 연동에서 별도 검증해야
-              합니다.
-            </p>
+        <Panel title="회원 메시지 · 카카오 알림톡 / 문자">
+          <div className="space-y-6">
+            <MessageCenter state={data.admin} />
             <NoonAdminGuide />
           </div>
         </Panel>
