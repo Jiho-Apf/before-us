@@ -7,6 +7,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./
 import { BEFORE_US } from "./config";
 import DirectIntroduction from "./DirectIntroduction";
 import { REFUND_NOTICE } from "./refund-policy";
+import { DAY_PARTS, STORY, STORY_ENDING, STORY_NOTE, STORY_PEOPLE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
 const lift = "transition-transform duration-200 ease-out motion-reduce:transition-none";
@@ -51,8 +52,14 @@ function Texture() {
   </>;
 }
 
-function SectionLabel({ number, children }: { number: string; children: React.ReactNode }) {
-  return <div className="mb-8 flex items-center gap-4 text-xs font-semibold"><span className="text-accent">{number}</span><span className="tracking-[0.14em] text-muted-foreground">{children}</span></div>;
+function SectionLabel({ number, ko, children }: { number: string; ko?: string; children: React.ReactNode }) {
+  return <div className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px]"><span className="text-accent">({number})</span>{ko && <span className="font-sans font-semibold text-foreground">{ko}</span>}<span className="text-muted-foreground">—</span><span className="tracking-[0.14em] text-muted-foreground">{children}</span></div>;
+}
+// 1분마다 다시 읽는 현재 시각. 시간대 색과 문구에만 쓴다.
+function useMinuteNow() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 60000); return () => window.clearInterval(timer); }, []);
+  return now;
 }
 
 // 다음 정오(Asia/Seoul)까지 남은 시간. 소개가 매일 있다고 약속하지 않도록 ‘다음 정오’로만 말한다.
@@ -125,9 +132,12 @@ function ServiceCollage() {
 }
 
 function Hero() {
+  const part = DAY_PARTS[dayPart(useMinuteNow())];
   return (
     <section className="relative isolate -mx-5 overflow-hidden bg-primary text-primary-foreground sm:-mx-8 lg:-mx-12" aria-labelledby="home-title">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-20" style={{ backgroundImage: part.tint }} />
       <Texture />
+      <p aria-hidden="true" className="pointer-events-none absolute top-1/2 right-4 hidden -translate-y-1/2 text-[11px] tracking-[0.5em] text-white/60 [writing-mode:vertical-rl] xl:block">천천히 알아갑니다</p>
       <div className="grid gap-12 px-5 pt-14 pb-28 sm:px-8 sm:pt-20 sm:pb-32 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:px-12 lg:pt-20 lg:pb-32">
         <div className="relative z-10">
           <p className="mb-7 flex items-center gap-2.5 text-sm font-medium"><span aria-hidden="true" className="size-1.5 rounded-full bg-white" />운영진이 직접 고르는 일대일 소개</p>
@@ -137,7 +147,8 @@ function Hero() {
             <Button asChild className={`h-12 rounded-full bg-white px-6 text-primary hover:bg-white/90 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={17} /></Link></Button>
             <Button asChild variant="outline" className={`h-12 rounded-full border-white/35 bg-transparent px-5 text-white hover:bg-white/10 hover:text-white dark:bg-transparent ${interaction}`}><Link to="/two-starts">어떻게 알아가나요? <ArrowRight size={15} /></Link></Button>
           </div>
-          <div className="mt-10"><NoonClock /></div>
+          <p className="mt-10 text-sm text-white/90" aria-live="polite">{part.phrase}</p>
+          <div className="mt-3"><NoonClock /></div>
           <p className="mt-5 text-[11px] text-white/85 dark:text-white">데모 둘러보기 · 실제 신청이나 결제는 진행되지 않습니다.</p>
         </div>
         <ServiceCollage />
@@ -150,7 +161,7 @@ function Hero() {
 function Philosophy() {
   return (
     <section className="grid gap-8 py-20 sm:py-24 lg:grid-cols-[7fr_5fr] lg:gap-16" aria-labelledby="philosophy-title">
-      <div><SectionLabel number="01">OUR POINT OF VIEW</SectionLabel><h2 id="philosophy-title" className="max-w-xl text-3xl font-semibold leading-[1.5] sm:text-[38px]">마음을 서두르지 않고,<br />취향을 타협하지 않도록.</h2></div>
+      <div><SectionLabel number="01" ko="관점">OUR POINT OF VIEW</SectionLabel><h2 id="philosophy-title" className="max-w-xl text-3xl font-semibold leading-[1.5] sm:text-[38px]">마음을 서두르지 않고,<br />취향을 타협하지 않도록.</h2></div>
       <div className="lg:pt-16"><p className="text-[15px] leading-[2] text-muted-foreground">내가 좋아하는 사람인지, 나와 잘 맞는 사람인지. 조건표 한 장으로는 알 수 없어요. 그래서 함께 알아가는 시간 속에서 천천히 확인합니다. 억지로 호감을 만들거나, 다음 만남을 서두를 필요는 없어요.</p></div>
     </section>
   );
@@ -165,7 +176,7 @@ function Introduction() {
           <div className="group/pair flex items-center justify-center gap-5 py-7" aria-hidden="true"><span className={`size-20 rounded-full bg-primary sm:size-24 group-hover/pair:translate-x-2 ${lift}`} /><span className={`size-20 rounded-full bg-accent sm:size-24 group-hover/pair:-translate-x-2 ${lift}`} /></div>
           <div className="flex items-baseline justify-between"><span className="text-sm font-semibold">한 사람을 향한 집중</span><span className="text-5xl font-light text-primary">02</span></div>
         </div>
-        <div className="flex flex-col justify-center"><SectionLabel number="02">THE INTRODUCTION</SectionLabel><h2 id="introduction-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">많이 보여드리기보다,<br />한 사람을 신중하게.</h2><p className="mt-6 text-[15px] leading-[2] text-muted-foreground">사진 너머의 취향, 관계를 대하는 태도, 쉬는 날의 모습까지. 운영진이 두 사람의 이야기를 나란히 놓고 오래 들여다본 뒤에야 한 쌍을 제안해요.</p><div className="mt-7 flex items-start gap-3 border-t border-border pt-5"><Clock size={17} className="mt-1 shrink-0 text-accent" /><p className="text-sm leading-7">준비된 날, 정오 12시.<br /><span className="text-muted-foreground">두 사람에게 같은 순간에 도착해요.</span></p></div></div>
+        <div className="flex flex-col justify-center"><SectionLabel number="02" ko="소개">THE INTRODUCTION</SectionLabel><h2 id="introduction-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">많이 보여드리기보다,<br />한 사람을 신중하게.</h2><p className="mt-6 text-[15px] leading-[2] text-muted-foreground">사진 너머의 취향, 관계를 대하는 태도, 쉬는 날의 모습까지. 운영진이 두 사람의 이야기를 나란히 놓고 오래 들여다본 뒤에야 한 쌍을 제안해요.</p><div className="mt-7 flex items-start gap-3 border-t border-border pt-5"><Clock size={17} className="mt-1 shrink-0 text-accent" /><p className="text-sm leading-7">준비된 날, 정오 12시.<br /><span className="text-muted-foreground">두 사람에게 같은 순간에 도착해요.</span></p></div></div>
       </div>
     </section>
   );
@@ -175,7 +186,7 @@ function FounderLetter() {
   return (
     <section className="grid gap-10 border-t border-border py-16 sm:py-20 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="letter-title">
       <div>
-        <SectionLabel number="03">A LETTER FROM US</SectionLabel>
+        <SectionLabel number="03" ko="운영진의 편지">A LETTER FROM US</SectionLabel>
         <h2 id="letter-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">왜 하루에,<br />한 사람일까요?</h2>
       </div>
       <article className={`relative border border-border bg-card p-7 shadow-[0_1px_0_var(--border)] sm:p-10 hover:-translate-y-1 ${lift}`}>
@@ -203,16 +214,40 @@ function InitialOperation() {
   );
 }
 
-const QUESTIONS = ["당신의 하루에서 가장 좋아하는 순간은?", "요즘 나를 웃게 만든 작은 일은?", "누군가와 꼭 같이 가 보고 싶은 곳은?", "편안하다고 느끼는 대화는 어떤 대화인가요?", "쉬는 날 아침, 가장 먼저 하는 일은?"];
 const SCENES = ["조용한 동네를 함께 걷기", "좋아하는 음악을 함께 듣기", "작은 전시를 천천히 둘러보기"];
+// 지난 2주의 질문을 넘겨 볼 수 있는 달력. 내일 질문은 잠겨 있고, 다른 사람의 답은 보여 주지 않는다.
+function QuestionCalendar({ today, selected, onSelect }: { today: number; selected: number; onSelect: (day: number) => void }) {
+  const days = Array.from({ length: 15 }, (_, index) => today - 13 + index);
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      <p className="mb-3 text-[10px] tracking-[0.12em] text-muted-foreground">지난 질문 · 하루에 하나씩 열려요</p>
+      <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-8">
+        {days.map(day => {
+          const future = day > today;
+          const label = kstLabel(day);
+          return (
+            <button key={day} type="button" disabled={future} aria-pressed={selected === day} aria-label={future ? `${label} · 내일 열려요` : `${label} 질문 보기`} onClick={() => onSelect(day)}
+              className={`flex h-12 flex-col items-center justify-center rounded-lg border text-[11px] ${interaction} ${selected === day ? "border-accent bg-accent text-white" : future ? "border-dashed border-border text-muted-foreground" : day === today ? "border-accent/60 text-accent hover:bg-accent/5" : "border-border hover:border-accent/50"}`}>
+              {future ? <Lock size={12} /> : <span className="font-mono text-sm tabular-nums">{new Date(day * 86400000).getUTCDate()}</span>}
+              <span className="text-[9px] opacity-80">{future ? "내일" : day === today ? "오늘" : label.split(" ").pop()}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 function LetterTrial() {
-  const question = QUESTIONS[Math.floor(Date.now() / 86400000) % QUESTIONS.length];
+  const today = kstDayNumber(new Date());
+  const [day, setDay] = useState(today);
+  const question = questionForDay(day);
   const [text, setText] = useState("");
   const [sent, setSent] = useState(false);
+  const [calendar, setCalendar] = useState(false);
   return (
     <div className="mt-8 border border-border bg-card p-5">
-      <div className="flex justify-between text-[10px] font-medium text-accent"><span>오늘의 질문 · 체험</span><span>저장되지 않아요</span></div>
-      <p className="mt-4 text-[15px] font-semibold leading-7">{question}</p>
+      <div className="flex justify-between text-[10px] font-medium text-accent"><span>{day === today ? "오늘의 질문" : `${kstLabel(day)}의 질문`} · 체험</span><span>저장되지 않아요</span></div>
+      <p className="mt-4 text-[15px] font-semibold leading-7" aria-live="polite">{question}</p>
       {sent ? (
         <div className="mt-4 space-y-3" aria-live="polite">
           <div className="flex items-center gap-3 rounded-xl bg-accent/5 p-4 text-sm"><Lock size={16} className="shrink-0 text-accent" />한 통을 봉투에 넣었어요.</div>
@@ -225,6 +260,8 @@ function LetterTrial() {
           <div className="flex items-center justify-between"><span className="text-[11px] text-muted-foreground">{text.length}/200</span><Button size="sm" disabled={!text.trim()} onClick={() => setSent(true)}>한 통 보내 보기</Button></div>
         </div>
       )}
+      <Button variant="link" size="sm" className="mt-2 h-auto px-0 text-xs text-muted-foreground hover:text-accent" aria-expanded={calendar} onClick={() => setCalendar(open => !open)}>{calendar ? "지난 질문 접기" : "지난 질문 넘겨 보기"}</Button>
+      {calendar && <QuestionCalendar today={today} selected={day} onSelect={next => { setDay(next); setSent(false); setText(""); }} />}
     </div>
   );
 }
@@ -248,10 +285,52 @@ function SceneTrial() {
   );
 }
 
+function TwoVoices() {
+  const [voice, setVoice] = useState<"both" | "left" | "right">("both");
+  const show = (side: "left" | "right") => voice === "both" || voice === side;
+  return (
+    <section className="border-t border-border py-16 sm:py-20" aria-labelledby="story-title">
+      <SectionLabel number="04" ko="이야기">A STORY IN TWO VOICES</SectionLabel>
+      <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+        <div>
+          <h2 id="story-title" className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">지어낸 이야기예요.<br />하지만, 이렇게 흘러가요.</h2>
+          <p className="mt-5 max-w-lg text-sm leading-7 text-muted-foreground">정오에 도착한 한 사람과의 3일을, 두 사람의 시점으로 나란히 적었어요. 실제 회원의 기록이 아닌 가상의 이야기예요. 약 3분.</p>
+        </div>
+        <div role="group" aria-label="이야기 시점" className="flex w-fit rounded-full border border-border p-1 text-xs">
+          {([["both", "함께 읽기"], ["left", `${STORY_PEOPLE.left}의 시점`], ["right", `${STORY_PEOPLE.right}의 시점`]] as const).map(([id, label]) => (
+            <button key={id} type="button" aria-pressed={voice === id} onClick={() => setVoice(id)} className={`rounded-full px-4 py-2 ${interaction} ${voice === id ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
+          ))}
+        </div>
+      </div>
+      <div className="mt-12 hidden grid-cols-[1fr_auto_1fr] gap-x-10 border-b border-border pb-4 text-xs md:grid">
+        <span className={`flex items-center gap-2 ${show("left") ? "" : "opacity-30"}`}><span aria-hidden="true" className="size-2 rounded-full bg-primary" />{STORY_PEOPLE.left}</span>
+        <span />
+        <span className={`flex items-center justify-end gap-2 ${show("right") ? "" : "opacity-30"}`}>{STORY_PEOPLE.right}<span aria-hidden="true" className="size-2 rounded-full bg-accent" /></span>
+      </div>
+      <ol className="mt-4">
+        {STORY.map(chapter => (
+          <li key={chapter.id} className="grid gap-4 border-b border-border py-8 md:grid-cols-[1fr_9rem_1fr] md:gap-x-10">
+            <div className="md:order-2 md:text-center">
+              <p className="font-mono text-[11px] tracking-[0.12em] text-accent">{chapter.label}</p>
+              {chapter.prompt && <p className="mt-2 text-xs leading-5 text-muted-foreground">{chapter.prompt}</p>}
+            </div>
+            <p className={`text-[15px] leading-[1.95] md:order-1 ${show("left") ? "" : "hidden md:block md:opacity-25"} ${interaction}`}><span className="mr-2 inline-block size-1.5 rounded-full bg-primary align-middle md:hidden" aria-hidden="true" /><span className="sr-only">{STORY_PEOPLE.left}: </span>{chapter.left}</p>
+            <p className={`text-[15px] leading-[1.95] md:order-3 ${show("right") ? "" : "hidden md:block md:opacity-25"} ${interaction}`}><span className="mr-2 inline-block size-1.5 rounded-full bg-accent align-middle md:hidden" aria-hidden="true" /><span className="sr-only">{STORY_PEOPLE.right}: </span>{chapter.right}</p>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-10 grid gap-6 lg:grid-cols-[7fr_5fr] lg:gap-16">
+        <p className="text-lg leading-[1.9]">{STORY_ENDING}</p>
+        <p className="text-xs leading-6 text-muted-foreground lg:pt-2">{STORY_NOTE}</p>
+      </div>
+    </section>
+  );
+}
+
 function Exchange() {
   return (
     <section id="two-starts" className="py-20 sm:py-24" aria-labelledby="exchange-title">
-      <SectionLabel number="04">TWO WAYS TO BEGIN</SectionLabel>
+      <SectionLabel number="05" ko="두 가지 시작">TWO WAYS TO BEGIN</SectionLabel>
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end"><h2 id="exchange-title" className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">마주하기 전,<br />우리만의 3일.</h2><p className="max-w-sm text-sm leading-7 text-muted-foreground">얼굴을 마주하기 전에, 서로의 생각과 취향을 먼저 만나요. 두 사람이 함께 고른 방식으로.</p></div>
       <div className="mt-10 grid border border-border md:grid-cols-2">
         <article className="flex flex-col border-b border-border bg-muted p-7 sm:p-10 md:border-r md:border-b-0"><div className="mb-8 flex items-start justify-between"><span className="text-6xl font-light leading-none text-primary">A</span><span className="pt-2 text-[10px] tracking-[0.12em] text-muted-foreground">ONE LETTER A DAY</span></div><h3 className="text-2xl font-semibold">편지 나누기</h3><p className="mt-4 min-h-14 text-sm leading-7 text-muted-foreground">각자 하루 한 통의 편지.<br />서로의 생각과 일상을 천천히 나눕니다.</p><LetterTrial /></article>
@@ -284,7 +363,7 @@ const FAQ = [
 function Pricing() {
   return (
     <section id="pricing" className="-mx-5 bg-muted px-5 py-16 sm:-mx-8 sm:px-8 sm:py-20 lg:-mx-12 lg:px-12" aria-labelledby="pricing-title">
-      <SectionLabel number="05">CLEAR FROM THE BEGINNING</SectionLabel>
+      <SectionLabel number="06" ko="이용 요금">CLEAR FROM THE BEGINNING</SectionLabel>
       <div className="grid gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16"><div><h2 id="pricing-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">시작하기 전에,<br />분명하게 안내합니다.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청·검토·첫 소개 준비 전 대기는 무료.<br />첫 소개 준비와 현재 참여 가능성 확인 후 안내합니다.</p></div><div>
         <div className="flex flex-wrap items-center gap-5 border-b border-border pb-7"><div><p className="mb-3 text-xs text-muted-foreground">소개 이용료</p><span className="text-3xl font-semibold">{money(BEFORE_US.pricing.introduction)}</span></div><Plus size={18} className="text-muted-foreground" /><div><p className="mb-3 text-xs text-muted-foreground">상호 선택 후 교류비 · 각자</p><span className="text-3xl font-semibold">{money(BEFORE_US.pricing.exchangePerPerson)}</span></div></div>
         <div className="flex flex-wrap items-end justify-between gap-4 pt-6"><p className="text-sm">첫 교류까지 1인 총액 <span className="mt-2 block text-xs text-muted-foreground">부가세 포함 · 현장 비용 별도</span></p><strong className="text-4xl font-semibold text-primary sm:text-5xl">{money(BEFORE_US.pricing.firstExchangeTotalPerPerson)}</strong></div>
@@ -298,7 +377,7 @@ function Pricing() {
 function Faq() {
   return (
     <section id="faq" className="grid gap-8 py-16 sm:py-20 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="faq-title">
-      <div><p className="mb-5 text-xs font-semibold tracking-[0.15em] text-accent">BEFORE YOU BEGIN</p><h2 id="faq-title" className="text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">확정된 운영 기준과<br />아직 정해지지 않은 정책을 구분해 안내합니다.</p></div>
+      <div><SectionLabel number="07" ko="자주 묻는 질문">BEFORE YOU BEGIN</SectionLabel><h2 id="faq-title" className="text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">확정된 운영 기준과<br />아직 정해지지 않은 정책을 구분해 안내합니다.</p></div>
       <Accordion type="single" collapsible className="border-t border-border [&_[data-slot=accordion-content]]:motion-reduce:animate-none [&_svg]:motion-reduce:transition-none">
         {FAQ.map(item => <AccordionItem key={item.id} value={item.id} id={`faq-${item.id}`}><AccordionTrigger className={`py-6 text-[15px] hover:no-underline hover:text-primary ${interaction}`}>{item.title}</AccordionTrigger><AccordionContent className="pb-6 text-sm leading-7 text-muted-foreground">{item.text}</AccordionContent></AccordionItem>)}
       </Accordion>
@@ -346,14 +425,18 @@ function Together() {
         <Button asChild className={`h-12 rounded-full bg-white px-7 text-primary hover:bg-white/90 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={17} /></Link></Button>
         <NoonClock />
       </div>
+      <div className="mx-auto mt-16 max-w-xl border-t border-white/20 pt-6 text-xs leading-6 text-white/75">
+        <p className="text-sm text-white">끌리는 사람을, 천천히 알아갑니다.</p>
+        <p className="mt-1">Pretendard로 쓰고, 서울에서 천천히 만들었어요. — BEFORE US</p>
+      </div>
     </section>
   );
 }
 
 export function PublicInformation({ section }: { section: "introduction" | "exchange" | "pricing" }) {
-  return <div className="break-keep [overflow-wrap:anywhere]">{section === "introduction" && <><Introduction /><FounderLetter /><InitialOperation /></>}{section === "exchange" && <Exchange />}{section === "pricing" && <><Pricing /><Faq /></>}</div>;
+  return <div className="break-keep [overflow-wrap:anywhere]">{section === "introduction" && <><Introduction /><FounderLetter /><InitialOperation /></>}{section === "exchange" && <><TwoVoices /><Exchange /></>}{section === "pricing" && <><Pricing /><Faq /></>}</div>;
 }
 
 export default function PublicHome() {
-  return <div className="break-keep [overflow-wrap:anywhere]"><ScrollDots /><Hero /><Philosophy /><Introduction /><FounderLetter /><InitialOperation /><Exchange /><Pricing /><Faq /><Together /></div>;
+  return <div className="break-keep [overflow-wrap:anywhere]"><ScrollDots /><Hero /><Philosophy /><Introduction /><FounderLetter /><TwoVoices /><InitialOperation /><Exchange /><Pricing /><Faq /><Together /></div>;
 }
