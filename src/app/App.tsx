@@ -20,6 +20,7 @@ import { LetterDemo } from "./LetterDemo";
 import { SceneDemo } from "./SceneDemo";
 import { MeetingDemo } from "./MeetingDemo";
 import { ConductDemo } from "./ConductPolicy";
+import { PrivacyDemo } from "./PrivacyPanels";
 import {
   Search, Bell, ChevronLeft, ChevronRight, Plus, Share2,
   Calendar, BookOpen, User, Home, ExternalLink, Star,
@@ -1701,6 +1702,7 @@ const beforeUsRouter = createBrowserRouter([
     { path: "/demo/scene", element: <SceneDemo /> },
     { path: "/demo/meeting", element: <MeetingDemo /> },
     { path: "/demo/conduct", element: <ConductDemo /> },
+    { path: "/demo/privacy", element: <PrivacyDemo /> },
     { path: "/exchange", element: <MemberAgreement /> },
     { path: "/demo/payments", element: <PaymentDemo /> },
     { path: "/meeting", element: <MemberMeeting /> },

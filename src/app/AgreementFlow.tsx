@@ -922,7 +922,7 @@ function recordExchangeRequest(kind: "report" | "contact" | "interrupt" | "block
 export function useMemberServiceContext(enabled: boolean) {
   const demo=useAgreementDemo(), source=exchangeSnapshot(demo);
   const connected=enabled && !!demo.state && demo.state.members.includes(demo.memberId);
-  return { connected, memberId: connected ? demo.memberId : "current-member", targetId: connected ? demo.state!.members.find(id=>id!==demo.memberId) || null : null, programId: connected ? source?.programId || null : null, complete: connected && !!source?.readAccess && !!source.complete, startedAt: connected ? demo.state!.startedAt : null, now: connected ? new Date(demo.now) : new Date(), payment: connected ? demo.state!.sessions[demo.state!.members.indexOf(demo.memberId)] : null };
+  return { connected, memberId: connected ? demo.memberId : "current-member", targetId: connected ? demo.state!.members.find(id=>id!==demo.memberId) || null : null, programId: connected ? source?.programId || null : null, complete: connected && !!source?.readAccess && !!source.complete, startedAt: connected ? demo.state!.startedAt : null, now: connected ? new Date(demo.now) : new Date(), payment: connected ? demo.state!.sessions[demo.state!.members.indexOf(demo.memberId)] : null, exchangeStatus: connected ? demo.state!.status : null, appointmentActive: connected && !!demo.appointment, contactScheduled: connected && demo.appointment?.contactSharing?.reservation?.status === "scheduled" };
 }
 export function protectCurrentExchange(kind: "block" | "interrupt") {
   if (store.scene) return performScene({type:kind},store.scene.revision);

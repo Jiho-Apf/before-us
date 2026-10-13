@@ -4,7 +4,7 @@ import { getConsoleData, replaceConsoleData, subscribeConsoleData } from "./admi
 import { REPORT_TYPES, type Feedback } from "./admin-governance-model";
 import { EMPTY_NOTICE_PREFERENCES, type NoticePreferences } from "./noon-status-model";
 
-export const REQUEST_LABELS = { pause: "소개 일시정지", resume: "소개 재개 요청", refund: "결제·환불 요청", inquiry: "운영 문의", report: "신고·보호 요청", block: "차단", interrupt: "교류·약속 중단", revoke: "공개 철회", withdrawal: "탈퇴 요청", deletion: "자료 삭제 요청", reconsider: "결정 재검토 요청" } as const;
+export const REQUEST_LABELS = { pause: "소개 일시정지", resume: "소개 재개 요청", refund: "결제·환불 요청", inquiry: "운영 문의", report: "신고·보호 요청", block: "차단", interrupt: "교류·약속 중단", revoke: "공개 철회", withdrawal: "회원 탈퇴", deletion: "자료 삭제 요청", correction: "정보 정정 요청", restriction: "처리정지 요청", reconsider: "결정 재검토 요청" } as const;
 export type MemberRequestKind = keyof typeof REQUEST_LABELS;
 export type RequestStatus = "requested" | "protection" | "checking" | "decided" | "reconsidering";
 export const REQUEST_STATUSES: Record<RequestStatus,string> = { requested: "요청 접수 · 가상", protection: "보호 조치 확인", checking: "사실·정책 확인 중", decided: "운영 결정 기록", reconsidering: "재검토 요청" };
@@ -68,8 +68,13 @@ export function submitMemberRequest(context: RequestContext, kind: MemberRequest
   if (kind === "resume" && account.payment.activity === "active") return { error: "현재는 소개 일시정지 상태가 아닙니다. 재개 요청을 중복 생성하지 않습니다.", id: null };
   if (kind === "refund") { const result = requestPaymentCancellation(account.payment,input.receiptKind || "introduction",now); if (result.error) return { error: result.error, id: null }; account.payment = result.session; }
   if (["pause","revoke"].includes(kind)) account.payment.activity = "paused";
-  if (["withdrawal","deletion"].includes(kind)) account.payment.activity = "withdrawal-requested";
-  if (["pause","revoke","withdrawal","deletion"].includes(kind) && account.payment.refundOperations)
+  // 탈퇴: 진행 중 결제는 환불·취소 요청 상태로 만들고 서비스 처리 외 알림을 끈다. 자료 삭제 요청은 탈퇴가 아니다.
+  if (kind === "withdrawal") {
+    account.payment.activity = "withdrawal-requested";
+    for (const receiptKind of ["introduction","exchange"] as const) { const receipt = account.payment[receiptKind]; if (receipt && ["confirmed","requested"].includes(receipt.status)) { const result = requestPaymentCancellation(account.payment,receiptKind,now); if (!result.error) account.payment = result.session; } }
+    account.notices = { newIntroduction: false, dailyWaiting: false }; account.marketing = false;
+  }
+  if (["pause","revoke","withdrawal"].includes(kind) && account.payment.refundOperations)
     account.payment.refundOperations.activeWaitingSince = null;
   if (kind === "reconsider" && !account.requests.some(item => item.id === input.parentId && item.status === "decided")) return { error: "본인의 운영 결정 기록이 있어야 재검토를 요청할 수 있어요.", id: null };
   const id = `member-request-${next.revision + 1}-${account.requests.length + 1}`;

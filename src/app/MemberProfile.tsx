@@ -53,6 +53,9 @@ import {
 import type { Feedback } from "./admin-governance-model"
 import { RefundPolicyPanel } from "./RefundPolicyPanel"
 import { ConductPolicyNotice, MemberConductSummary } from "./ConductPolicy"
+import { recordInterruption } from "./conduct-policy"
+import { DataRightsPanel, MyDataSchedule, RetentionPolicyTable, WithdrawalPanel } from "./PrivacyPanels"
+import type { DataInventory } from "./privacy-policy"
 
 const format = (at: string | null) =>
   at
@@ -64,7 +67,7 @@ export const RELEASE_CHECKLIST = [
   "양쪽 동의·정책·프로필·약속 버전·발송 중복 방지·실제 결과",
   "비공개 사진 저장·실형식·디코딩 검사·재인코딩·회전 정상화·GPS 제거",
   "초안·비공개 응답 최소 제공·철회·삭제·차단 후 접근 재검토",
-  "만료 링크·캐시·백업·보유기간·접근 기록",
+  "만료 링크·캐시·접근 기록 · 보유기간 초안(V6-privacy-01)의 법률 검토와 실제 삭제·백업 파기 작업",
   "사업자·법적 문서·카카오·보안 연동 · 취소·노쇼·재이용 운영 기준(V6-conduct-01)의 약관 반영·법률 검토",
 ] as const
 
@@ -251,23 +254,40 @@ export default function MemberProfile() {
   const afterRequest = () => {
     if (service.connected && kind === "refund")
       requestCurrentMemberRefund(receiptKind)
-    if (
-      service.connected &&
-      kind &&
-      ["revoke", "withdrawal", "deletion"].includes(kind)
-    )
+    if (service.connected && kind === "revoke") setContactSafetyDemo("review")
+    if (application && kind === "revoke")
+      saveApplication(suspendDemoApplication(application, "held"))
+  }
+  // 탈퇴 요청 즉시: 상대 노출·신규 접근·미공개 연락처 예약을 멈추고, 진행 중 교류는 본인 요청 중단으로 기록한다.
+  const afterWithdrawal = () => {
+    if (service.connected) {
       setContactSafetyDemo("review")
-    if (
-      application &&
-      kind &&
-      ["revoke", "withdrawal", "deletion"].includes(kind)
-    )
-      saveApplication(
-        suspendDemoApplication(
-          application,
-          kind === "withdrawal" ? "withdrawn" : "held",
-        ),
-      )
+      for (const type of ["introduction", "exchange"] as const)
+        if (payment[type] && ["confirmed", "requested"].includes(payment[type]!.status))
+          requestCurrentMemberRefund(type)
+      if (service.exchangeStatus === "started" && !service.complete) {
+        protectCurrentExchange("interrupt")
+        if (service.programId && service.targetId)
+          recordInterruption({ programId: service.programId, actorId: service.memberId, partnerId: service.targetId, reason: "self-change", session: payment }, service.now)
+      }
+    }
+    if (application) saveApplication(suspendDemoApplication(application, "withdrawn"))
+  }
+  const inventory: DataInventory = {
+    memberId: service.memberId,
+    photoCount: application ? Object.values(application.photos).filter((photo) => photo.file).length : 0,
+    exchangeActive: service.exchangeStatus === "started" && !service.complete,
+    exchangeEndedAt: null,
+    meetingDate: null,
+    payments: [payment.introduction, payment.exchange]
+      .filter((receipt) => receipt?.confirmedAt)
+      .map((receipt) => ({ id: receipt!.id, at: receipt!.confirmedAt! })),
+    complaints: (account?.requests || [])
+      .filter((item) => ["refund", "reconsider"].includes(item.kind))
+      .map((item) => ({ id: item.id, closedAt: item.status === "decided" ? item.transitions.at(-1)?.at || null : null })),
+    safetyReports: [],
+    advertisingAt: null,
+    litigationHold: false,
   }
   const request = (value: MemberRequestKind) => {
     setKind(value)
@@ -317,23 +337,25 @@ export default function MemberProfile() {
         <section className="space-y-4 rounded-xl border border-border bg-background p-6">
           <div className="flex items-center gap-2 text-sm">
             <Pause className="size-4 text-primary" />
-            참여 상태
+            일시정지
           </div>
           <p className="text-xl">
             {account?.payment.activity === "paused"
               ? "새 소개 일시정지"
               : account?.payment.activity === "withdrawal-requested"
-                ? "탈퇴·삭제 요청 확인 대기"
-                : "새 소개 정지 요청 없음"}
+                ? "탈퇴 요청 접수"
+                : "새 소개 받는 중"}
           </p>
           <p className="text-xs leading-6 text-muted-foreground">
-            소개 일시정지는 진행 중인 교류를 자동 종료하지 않습니다. 재개는 현재
-            참여 가능 상태를 확인한 뒤 처리합니다.
+            일시정지는 신규 소개만 멈춰요. 소개 이용 권리·결제·진행 중인 교류는
+            그대로 보존하며, 재개는 현재 참여 가능 상태를 확인한 뒤 처리합니다.
+            탈퇴와는 다르며 자료를 삭제하지 않아요.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
               variant="outline"
+              disabled={account?.payment.activity === "withdrawal-requested"}
               onClick={() => request("pause")}
             >
               소개 일시정지
@@ -467,7 +489,7 @@ export default function MemberProfile() {
         </section>
       </div>
       {kind &&
-        !["revoke", "withdrawal", "deletion", "reconsider"].includes(kind) && (
+        !["revoke", "withdrawal", "deletion", "correction", "restriction", "reconsider"].includes(kind) && (
           <section className="rounded-xl border border-primary/20 bg-muted p-5">
             <MemberRequestForm
               key={`${service.memberId}-${kind}-${parentId || receiptKind}`}
@@ -576,25 +598,16 @@ export default function MemberProfile() {
         onProtect={service.connected ? protectCurrentExchange : undefined}
       />
       <section className="space-y-4 border-t border-border pt-6">
-        <h2 className="text-xl">공개·계정·자료 관리</h2>
-        <div className="flex flex-wrap gap-3">
-          {(["revoke", "withdrawal", "deletion"] as const).map((value) => (
-            <Button
-              key={value}
-              variant="outline"
-              onClick={() => request(value)}
-            >
-              {REQUEST_LABELS[value]}
-            </Button>
-          ))}
-        </div>
+        <h2 className="text-xl">공개 철회</h2>
+        <Button variant="outline" onClick={() => request("revoke")}>
+          {REQUEST_LABELS.revoke}
+        </Button>
         <p className="text-xs leading-6 text-muted-foreground">
-          요청 시 새 소개를 중지하고 기존 접근·증거 보존·삭제 범위를
-          재검토합니다. 바로 삭제 완료나 영구 보관으로 처리하지 않으며 이미 본
-          화면·저장·캡처의 회수도 보장하지 않습니다.
+          새 소개를 중지하고 기존 접근 범위를 재검토합니다. 이미 본
+          화면·저장·캡처의 회수는 보장하지 않습니다.
         </p>
       </section>
-      {kind && ["revoke", "withdrawal", "deletion"].includes(kind) && (
+      {kind === "revoke" && (
         <section className="rounded-xl border border-primary/20 bg-muted p-5">
           <MemberRequestForm
             key={`${service.memberId}-${kind}`}
@@ -605,6 +618,42 @@ export default function MemberProfile() {
           />
         </section>
       )}
+      <section className="space-y-4 border-t border-border pt-6">
+        <h2 className="text-xl">내 정보 정정·삭제·처리정지</h2>
+        <DataRightsPanel key={`rights-${service.memberId}`} context={context} inventory={inventory} now={service.now} />
+      </section>
+      <section className="space-y-4 border-t border-border pt-6">
+        <h2 className="text-xl">자료 보유 기간</h2>
+        <MyDataSchedule inventory={inventory} now={service.now} />
+        <details className="rounded-xl border border-border p-4">
+          <summary className="cursor-pointer text-sm">자료별 보유·삭제 기준 보기</summary>
+          <div className="mt-4">
+            <RetentionPolicyTable />
+          </div>
+        </details>
+      </section>
+      <section className="space-y-4 rounded-xl border border-destructive/30 p-5">
+        <h2 className="text-xl">회원 탈퇴</h2>
+        <p className="text-xs leading-6 text-muted-foreground">
+          일시정지와 달리 계정을 정리합니다. 진행 중인 소개·교류·약속이 있어도
+          탈퇴할 수 있으며, 종료되는 내용과 환불·취소 상태를 먼저 보여 드려요.
+        </p>
+        <WithdrawalPanel
+          key={`withdrawal-${service.memberId}`}
+          input={{
+            memberId: service.memberId,
+            payment,
+            introductionActive: !!payment.introduction && rights === "valid" && !!payment.program && !payment.program.withdrawn,
+            exchangeStatus: service.exchangeStatus,
+            appointmentActive: service.appointmentActive,
+            contactScheduled: service.contactScheduled,
+            inventory,
+            now: service.now,
+          }}
+          context={context}
+          onApplied={afterWithdrawal}
+        />
+      </section>
       <section className="space-y-4 border-t border-border pt-6">
         <h2 className="flex items-center gap-2 text-xl">
           <MessageSquare className="size-4 text-primary" />내 요청 진행

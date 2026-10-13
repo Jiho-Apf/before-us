@@ -416,7 +416,7 @@ export function ConductDemo() {
           <TabsTrigger value="reuse">재이용</TabsTrigger>
         </TabsList>
         <TabsContent value="interruption" className="space-y-4 pt-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Select value={progress} onValueChange={setProgress}>
               <SelectTrigger aria-label="교류 진행 상태">
                 <SelectValue />
@@ -455,12 +455,12 @@ export function ConductDemo() {
           </Button>
         </TabsContent>
         <TabsContent value="cancellation" className="space-y-4 pt-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Label className="space-y-2 text-xs">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Label className="flex-col items-stretch gap-2 text-xs">
               약속 시작 시각
               <Input type="datetime-local" value={meetingAt} onChange={(event) => setMeetingAt(event.target.value)} />
             </Label>
-            <Label className="space-y-2 text-xs">
+            <Label className="flex-col items-stretch gap-2 text-xs">
               불가피 사유 · 선택
               <Select value={excuse} onValueChange={(value) => setExcuse(value as ExcuseReason | "none")}>
                 <SelectTrigger aria-label="불가피 사유">
@@ -474,7 +474,7 @@ export function ConductDemo() {
                 </SelectContent>
               </Select>
             </Label>
-            <Label className="space-y-2 text-xs">
+            <Label className="flex-col items-stretch gap-2 text-xs">
               24시간 이전 취소 후
               <Select value={choice} onValueChange={(value) => setChoice(value as "reschedule" | "end")}>
                 <SelectTrigger aria-label="취소 후 선택">

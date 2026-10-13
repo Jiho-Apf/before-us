@@ -47,7 +47,9 @@ export function ContactStatus({ view }: { view: AppointmentView }) {
         {contact.blocked
           ? "공개 중지 · 안전 및 진행 상태 확인이 필요해요"
           : contact.released
-            ? "서로 연락처를 공유했어요."
+            ? contact.displayEnded
+              ? "연락처 표시 기간이 끝났어요."
+              : `서로 연락처를 공유했어요. ${contact.displayUntil ? `${format(contact.displayUntil)}까지 표시` : ""}`
             : contact.releaseAt
               ? `${format(contact.releaseAt)} · 만나는 날 자정 00:00${
                   contact.scheduled ? " 공개 예정" : " · 양쪽 동의 후 공개 예약"
@@ -187,6 +189,13 @@ export function AppointmentContact({ view, onCommand, recheckContact }: ContactP
         </div>
         <div className="space-y-4">
           <ContactStatus view={view} />
+          {contact.released && contact.displayEnded && (
+            <p className="border border-border p-5 text-sm leading-7">
+              상대 전화번호는 만남 당일 00:00부터 다음 날 23:59까지만 표시해요. 표시
+              기간이 끝나 더 이상 보여 주지 않습니다. 이미 저장한 번호의 회수는
+              보장하지 않습니다.
+            </p>
+          )}
           {contact.released && contact.peerNumber && (
             <div className="space-y-4 border border-primary/20 bg-primary/5 p-5">
               <p className="text-sm text-primary">서로 연락처를 공유했어요.</p>
