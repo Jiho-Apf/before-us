@@ -53,7 +53,14 @@ function Texture() {
 }
 
 function SectionLabel({ number, ko, children }: { number: string; ko?: string; children: React.ReactNode }) {
-  return <div className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px]"><span className="text-accent">({number})</span>{ko && <span className="font-sans font-semibold text-foreground">{ko}</span>}<span className="text-muted-foreground">—</span><span className="tracking-[0.14em] text-muted-foreground">{children}</span></div>;
+  return (
+    <div className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2">
+      <span className="text-xs font-semibold tabular-nums text-accent">{number}</span>
+      <span aria-hidden="true" className="h-px w-8 bg-accent/40" />
+      {ko && <span className="text-xs font-semibold">{ko}</span>}
+      <span className="text-[10px] tracking-[0.16em] text-muted-foreground">{children}</span>
+    </div>
+  );
 }
 // 1분마다 다시 읽는 현재 시각. 시간대 색과 문구에만 쓴다.
 function useMinuteNow() {
@@ -76,19 +83,15 @@ function NoonClock({ tone = "light" }: { tone?: "light" | "plain" }) {
   const { left, atNoon } = untilNoon(now);
   const pad = (value: number) => String(value).padStart(2, "0");
   const text = `${pad(Math.floor(left / 3600))}:${pad(Math.floor((left % 3600) / 60))}:${pad(left % 60)}`;
-  const ring = 2 * Math.PI * 20, filled = 1 - left / 86400;
+  const filled = Math.round((1 - left / 86400) * 1000) / 10;
   const light = tone === "light";
+  const muted = light ? "text-white/75" : "text-muted-foreground";
   return (
-    <div className={`inline-flex items-center gap-4 rounded-2xl px-5 py-4 ${light ? "bg-white/10 ring-1 ring-white/25 backdrop-blur-sm" : "bg-muted"}`}>
-      <svg viewBox="0 0 48 48" className="size-11 -rotate-90" aria-hidden="true">
-        <circle cx="24" cy="24" r="20" fill="none" strokeWidth="3" className={light ? "stroke-white/20" : "stroke-border"} />
-        <circle cx="24" cy="24" r="20" fill="none" strokeWidth="3" strokeLinecap="round" className={light ? "stroke-white" : "stroke-primary"} strokeDasharray={ring} strokeDashoffset={ring * (1 - filled)} />
-      </svg>
-      <div>
-        <p className={`text-[11px] tracking-[0.12em] ${light ? "text-white/80" : "text-muted-foreground"}`}>{atNoon ? "지금, 정오예요" : "다음 정오까지"}</p>
-        <p className="font-mono text-2xl font-semibold tabular-nums tracking-wider" aria-live="off" role="timer" aria-label={`다음 정오까지 ${text}`}>{text}</p>
-        <p className={`text-[11px] ${light ? "text-white/80" : "text-muted-foreground"}`}>소개는 준비된 날, 정오 12시에 도착해요.</p>
-      </div>
+    <div className="w-full max-w-[17rem]">
+      <p className={`text-xs ${muted}`}>{atNoon ? "지금, 정오예요" : "다음 정오까지"}</p>
+      <p className="mt-1.5 text-[2.5rem] font-extralight leading-none tracking-[-0.02em] tabular-nums" role="timer" aria-label={`다음 정오까지 ${text}`}>{text}</p>
+      <div aria-hidden="true" className={`mt-4 h-px ${light ? "bg-white/25" : "bg-border"}`}><div className={`h-px ${light ? "bg-white" : "bg-primary"}`} style={{ width: `${filled}%` }} /></div>
+      <p className={`mt-3 text-xs leading-5 ${muted}`}>소개는 준비된 날, 정오 12시에 도착해요.</p>
     </div>
   );
 }
@@ -134,7 +137,7 @@ function ServiceCollage() {
 function Hero() {
   const part = DAY_PARTS[dayPart(useMinuteNow())];
   return (
-    <section className="relative isolate -mx-5 overflow-hidden bg-primary text-primary-foreground sm:-mx-8 lg:-mx-12" aria-labelledby="home-title">
+    <section className="relative isolate -mx-5 overflow-clip bg-primary text-primary-foreground sm:-mx-8 lg:-mx-12" aria-labelledby="home-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-20" style={{ backgroundImage: part.tint }} />
       <Texture />
       <p aria-hidden="true" className="pointer-events-none absolute top-1/2 right-4 hidden -translate-y-1/2 text-[11px] tracking-[0.5em] text-white/60 [writing-mode:vertical-rl] xl:block">천천히 알아갑니다</p>
@@ -147,8 +150,8 @@ function Hero() {
             <Button asChild className={`h-12 rounded-full bg-white px-6 text-primary hover:bg-white/90 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={17} /></Link></Button>
             <Button asChild variant="outline" className={`h-12 rounded-full border-white/35 bg-transparent px-5 text-white hover:bg-white/10 hover:text-white dark:bg-transparent ${interaction}`}><Link to="/two-starts">어떻게 알아가나요? <ArrowRight size={15} /></Link></Button>
           </div>
-          <p className="mt-10 text-sm text-white/90" aria-live="polite">{part.phrase}</p>
-          <div className="mt-3"><NoonClock /></div>
+          <p className="mt-12 text-sm text-white/90">{part.phrase}</p>
+          <div className="mt-5"><NoonClock /></div>
           <p className="mt-5 text-[11px] text-white/85 dark:text-white">데모 둘러보기 · 실제 신청이나 결제는 진행되지 않습니다.</p>
         </div>
         <ServiceCollage />
@@ -207,7 +210,7 @@ function FounderLetter() {
 
 function InitialOperation() {
   return (
-    <section className="relative isolate -mx-5 overflow-hidden bg-accent px-5 py-14 text-accent-foreground sm:-mx-8 sm:px-8 sm:py-16 lg:-mx-12 lg:px-12" aria-labelledby="initial-title">
+    <section className="relative isolate -mx-5 overflow-clip bg-accent px-5 py-14 text-accent-foreground sm:-mx-8 sm:px-8 sm:py-16 lg:-mx-12 lg:px-12" aria-labelledby="initial-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
       <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 text-[11px] font-semibold tracking-[0.15em] opacity-85 dark:opacity-100">FOR OUR FIRST MEMBERS</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">첫 교류가 시작될 때까지,<br />추가 소개비 없이.</h2></div><div className="space-y-4 text-sm leading-[1.95]"><p>기다림도 알아가는 과정의 일부라고 생각해요. 첫 교류를 시작하기 전까지는 몇 번을 소개받아도 소개비가 다시 들지 않아요.</p><p className="opacity-85">소개가 없는 날에도 내 상태는 홈페이지에서 언제든 확인할 수 있고, 정오 상태 알림은 원하는 분만 받아요.</p><p className="border-t border-current/20 pt-4 text-xs opacity-85 dark:opacity-100">데모에서는 실제 소개와 상태 알림이 발송되지 않습니다.</p></div></div>
     </section>
@@ -288,40 +291,52 @@ function SceneTrial() {
 function TwoVoices() {
   const [voice, setVoice] = useState<"both" | "left" | "right">("both");
   const show = (side: "left" | "right") => voice === "both" || voice === side;
+  const Name = ({ side }: { side: "left" | "right" }) => (
+    <p className={`mb-3 flex items-center gap-2 text-xs font-semibold ${side === "left" ? "md:justify-end" : ""}`}>
+      {side === "right" && <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />}
+      {STORY_PEOPLE[side]}
+      {side === "left" && <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />}
+    </p>
+  );
+  const voiceClass = (side: "left" | "right") => `${show(side) ? "" : "hidden md:block md:opacity-25"} transition-opacity duration-200 motion-reduce:transition-none`;
   return (
-    <section className="border-t border-border py-16 sm:py-20" aria-labelledby="story-title">
-      <SectionLabel number="04" ko="이야기">A STORY IN TWO VOICES</SectionLabel>
-      <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-        <div>
-          <h2 id="story-title" className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">지어낸 이야기예요.<br />하지만, 이렇게 흘러가요.</h2>
-          <p className="mt-5 max-w-lg text-sm leading-7 text-muted-foreground">정오에 도착한 한 사람과의 3일을, 두 사람의 시점으로 나란히 적었어요. 실제 회원의 기록이 아닌 가상의 이야기예요. 약 3분.</p>
-        </div>
-        <div role="group" aria-label="이야기 시점" className="flex w-fit rounded-full border border-border p-1 text-xs">
+    <section className="border-t border-border py-16 sm:py-24" aria-labelledby="story-title">
+      <div className="mx-auto max-w-2xl text-center">
+        <div className="flex justify-center"><SectionLabel number="04" ko="이야기">A STORY IN TWO VOICES</SectionLabel></div>
+        <h2 id="story-title" className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">지어낸 이야기예요.<br />하지만, 이렇게 흘러가요.</h2>
+        <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-muted-foreground">정오에 도착한 한 사람과의 3일을, 두 사람의 시점으로 나란히 적었어요. 실제 회원의 기록이 아닌 가상의 이야기예요.</p>
+        <div role="group" aria-label="이야기 시점" className="mx-auto mt-8 flex w-fit rounded-full bg-muted p-1 text-xs">
           {([["both", "함께 읽기"], ["left", `${STORY_PEOPLE.left}의 시점`], ["right", `${STORY_PEOPLE.right}의 시점`]] as const).map(([id, label]) => (
-            <button key={id} type="button" aria-pressed={voice === id} onClick={() => setVoice(id)} className={`rounded-full px-4 py-2 ${interaction} ${voice === id ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
+            <button key={id} type="button" aria-pressed={voice === id} onClick={() => setVoice(id)} className={`rounded-full px-4 py-2 ${interaction} ${voice === id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
           ))}
         </div>
+        <p className="mt-4 text-[11px] text-muted-foreground">약 3분</p>
       </div>
-      <div className="mt-12 hidden grid-cols-[1fr_auto_1fr] gap-x-10 border-b border-border pb-4 text-xs md:grid">
-        <span className={`flex items-center gap-2 ${show("left") ? "" : "opacity-30"}`}><span aria-hidden="true" className="size-2 rounded-full bg-primary" />{STORY_PEOPLE.left}</span>
-        <span />
-        <span className={`flex items-center justify-end gap-2 ${show("right") ? "" : "opacity-30"}`}>{STORY_PEOPLE.right}<span aria-hidden="true" className="size-2 rounded-full bg-accent" /></span>
-      </div>
-      <ol className="mt-4">
+      <ol className="relative mx-auto mt-16 max-w-4xl">
+        <span aria-hidden="true" className="absolute top-2 bottom-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-border to-transparent md:block" />
         {STORY.map(chapter => (
-          <li key={chapter.id} className="grid gap-4 border-b border-border py-8 md:grid-cols-[1fr_9rem_1fr] md:gap-x-10">
-            <div className="md:order-2 md:text-center">
-              <p className="font-mono text-[11px] tracking-[0.12em] text-accent">{chapter.label}</p>
-              {chapter.prompt && <p className="mt-2 text-xs leading-5 text-muted-foreground">{chapter.prompt}</p>}
+          <li key={chapter.id} className="relative pb-16 last:pb-4">
+            <div className="relative z-10 mx-auto mb-8 max-w-sm bg-background px-4 text-center">
+              <span className="inline-block rounded-full border border-accent/30 px-3 py-1 text-[10px] font-semibold tracking-[0.14em] text-accent">{chapter.label}</span>
+              {chapter.prompt && <p className="mt-3 text-base font-medium leading-7">{chapter.prompt.endsWith("?") ? `“${chapter.prompt}”` : chapter.prompt}</p>}
             </div>
-            <p className={`text-[15px] leading-[1.95] md:order-1 ${show("left") ? "" : "hidden md:block md:opacity-25"} ${interaction}`}><span className="mr-2 inline-block size-1.5 rounded-full bg-primary align-middle md:hidden" aria-hidden="true" /><span className="sr-only">{STORY_PEOPLE.left}: </span>{chapter.left}</p>
-            <p className={`text-[15px] leading-[1.95] md:order-3 ${show("right") ? "" : "hidden md:block md:opacity-25"} ${interaction}`}><span className="mr-2 inline-block size-1.5 rounded-full bg-accent align-middle md:hidden" aria-hidden="true" /><span className="sr-only">{STORY_PEOPLE.right}: </span>{chapter.right}</p>
+            <div className="grid gap-8 md:grid-cols-2 md:gap-16">
+              <div className={`md:pr-6 md:text-right ${voiceClass("left")}`}>
+                <Name side="left" />
+                <p className="text-[15px] leading-[2] text-foreground/85">{chapter.left}</p>
+              </div>
+              <div className={`md:pl-6 ${voiceClass("right")}`}>
+                <Name side="right" />
+                <p className="text-[15px] leading-[2] text-foreground/85">{chapter.right}</p>
+              </div>
+            </div>
           </li>
         ))}
       </ol>
-      <div className="mt-10 grid gap-6 lg:grid-cols-[7fr_5fr] lg:gap-16">
+      <div className="mx-auto mt-10 max-w-2xl text-center">
+        <div aria-hidden="true" className="mb-8 flex justify-center gap-1.5"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></div>
         <p className="text-lg leading-[1.9]">{STORY_ENDING}</p>
-        <p className="text-xs leading-6 text-muted-foreground lg:pt-2">{STORY_NOTE}</p>
+        <p className="mx-auto mt-6 max-w-md text-xs leading-6 text-muted-foreground">{STORY_NOTE}</p>
       </div>
     </section>
   );
@@ -413,7 +428,7 @@ function Together() {
   const near = reduced ? 1 : progress;
   const offset = Math.round(64 * (1 - near));
   return (
-    <section ref={ref} className="relative isolate -mx-5 overflow-hidden bg-primary px-5 py-20 text-center text-primary-foreground sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12" aria-labelledby="together-title">
+    <section ref={ref} className="relative isolate -mx-5 overflow-clip bg-primary px-5 py-20 text-center text-primary-foreground sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12" aria-labelledby="together-title">
       <Texture />
       <div className="flex items-center justify-center py-6" aria-hidden="true">
         <span className="size-12 rounded-full bg-white sm:size-14" style={{ transform: `translateX(${-offset}px)` }} />
@@ -426,8 +441,8 @@ function Together() {
         <NoonClock />
       </div>
       <div className="mx-auto mt-16 max-w-xl border-t border-white/20 pt-6 text-xs leading-6 text-white/75">
-        <p className="text-sm text-white">끌리는 사람을, 천천히 알아갑니다.</p>
-        <p className="mt-1">Pretendard로 쓰고, 서울에서 천천히 만들었어요. — BEFORE US</p>
+        <p className="text-sm text-white">다음 이야기는, 준비된 날 정오에 시작돼요.</p>
+        <p className="mt-1">— 비포어스 드림</p>
       </div>
     </section>
   );
