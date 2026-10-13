@@ -1,0 +1,18 @@
+export const BEFORE_US = {
+  brand: { name: "비포어스", english: "BEFORE US", message: "끌리는 사람을, 천천히 알아갑니다." },
+  policyVersion: "V6",
+  mode: "demo",
+  operatingDraft: { minimumAge: 19, additionalRequiredConditionsMaximum: 3, defaultIntroductionProduct: "opposite-sex", photos: { recentMonths: 3, differentPhotos: true } },
+  photoFiles: { allowedExtensions: ["jpg", "jpeg", "png", "webp"], maximumBytes: 10 * 1024 * 1024, recommendedShortSide: 800, heicConversionAvailable: false },
+  capabilities: { collection: false, payments: false, sending: false, autoDeploy: false },
+  pricing: { currency: "KRW", introduction: 5000, exchangePerPerson: 24000, firstExchangeTotalPerPerson: 29000, vatIncluded: true, recurring: false, extraIntroductionFeeBeforeFirstStart: 0 },
+  introduction: { timezone: "Asia/Seoul", readyAt: "12:00", responseDeadlineNextDayAt: "11:00", dailyMaximum: 1, activeMaximum: 1, guaranteedDaily: false, stopNewOnMutualSelection: true, countLimitBeforeFirstStart: null, rightsEndAt: "actual-program-start" },
+  exchange: { plans: ["A", "B"], durationDays: 3, meetingDecisionDay: 4, requiresBothPayments: true, requiresSharedPlanAndStartDate: true },
+  unstartedExchange: { preserveIntroductionRights: true, manageExchangePaymentSeparately: true },
+  refund: { version: "V6-refund-01", introductionBeforeView: 5000, exchangeDayPrice: 8000, paymentHours: 24, agreementHours: 48, extensionHours: 24, extensionMaximum: 1, activeWaitingDays: 30 },
+  unresolvedPolicies: { refund: "V6-refund-01 운영 기준 확정 · 실제 약관/법정 권리 검토 필요", retention: null, reuse: null },
+  noonGuidance: { reviewAfterDays: 7, counselingAfterDays: 14, criteriaStatus: "operating-draft", kakaoApproved: false, sendingConnected: false },
+  agreement: { defaultStartTime: "09:00", timezone: "Asia/Seoul", defaultStart: "day-after-both-confirmed", status: "operating-draft" },
+  letters: { opensAt: "09:00", closesAt: "23:59", timezone: "Asia/Seoul", recommendedMinimum: 300, recommendedMaximum: 600, scheduleResetPolicy: null },
+  meeting: { policyVersion: "V6-DAY04-draft-1", timezone: "Asia/Seoul", decisionOpensAt: "09:00", decisionHours: 24, methodHours: 24, proposalHours: 48, replyHours: 24, coordinationTargetHours: 72, status: "operating-draft" },
+} as const;

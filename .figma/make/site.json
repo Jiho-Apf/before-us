@@ -1,0 +1,10 @@
+{
+  "description": "Enables K-pop fans to actively track, record, and share their fandom activities with personalized calendars, diaries, and social summary cards.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
