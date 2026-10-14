@@ -1,3 +1,4 @@
+import { kstDateTime } from "./dates"
 import { DemoDock } from "./DemoDock"
 import { useState } from "react"
 import { Link } from "react-router"
@@ -48,7 +49,7 @@ export function SceneDemo() {
           </Button>
         </div>
         <p className="text-xs">
-          현재 가상 계정 {demo.memberId || "없음"} · {demo.now}
+          현재 가상 계정 {demo.memberId || "없음"} · {kstDateTime(demo.now)}
         </p>
         <div className="flex flex-wrap gap-5 text-sm text-primary">
           {(["today", "us", "exchange"] as const).map((path) => (

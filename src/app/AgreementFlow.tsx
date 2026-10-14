@@ -678,7 +678,7 @@ export function MemberAgreement({
                 ? "두 사람"
                 : "교류"}
           </p>
-          <p>가상 시계 {demo.now} · 서버 동기화·실제 계정·결제·발송 미연결</p>
+          <p>가상 시계 {kstDateTime(demo.now)} · 서버 동기화·실제 계정·결제·발송 미연결</p>
           <div className="mt-2 flex flex-wrap gap-4">
             {[
               ["/today", "오늘"],
@@ -765,7 +765,7 @@ export function AgreementDemo() {
           경우에만 생겨요.
         </p>
         <p className="mt-3 text-xs">
-          가상 시계: {demo.now} · 현재 계정{" "}
+          가상 시계: {kstDateTime(demo.now)} · 현재 계정{" "}
           {demo.memberId === demo.state?.members[1] ? "예시 나" : "예시 가"}
         </p>
         <div className="mt-4 flex flex-wrap gap-2">

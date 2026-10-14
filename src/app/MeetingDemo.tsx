@@ -1,3 +1,4 @@
+import { kstDateTime } from "./dates"
 import { DemoDock } from "./DemoDock"
 import { useState } from "react"
 import { Link } from "react-router"
@@ -80,7 +81,7 @@ export function MeetingDemo() {
           </p>
         </div>
         <p className="text-xs">
-          가상 계정 {demo.memberId || "없음"} · {demo.now}
+          가상 계정 {demo.memberId || "없음"} · {kstDateTime(demo.now)}
         </p>
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" disabled={!demo.appointment} onClick={() => setReminderMessage(performAppointment({ type: "contact-check" },demo.appointment!.revision) || "가상 공개 조건을 점검했어요. 충족한 예약만 공개하며 실제 예약 작업·발송은 없어요.")}>연락처 자정 공개 가상 점검</Button>

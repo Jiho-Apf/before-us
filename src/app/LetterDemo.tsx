@@ -1,3 +1,4 @@
+import { kstDateTime } from "./dates"
 import { DemoDock } from "./DemoDock"
 import { Link } from "react-router"
 import { useState } from "react"
@@ -34,7 +35,7 @@ export function LetterDemo() {
           작성하고 전송해야 해요.
         </p>
         <p className="mt-3 text-xs">
-          가상 시계: {demo.now} · 현재 계정{" "}
+          가상 시계: {kstDateTime(demo.now)} · 현재 계정{" "}
           {demo.memberId === demo.state?.members[1] ? "예시 나" : "예시 가"}
         </p>
         <div className="mt-4 flex flex-wrap gap-2">

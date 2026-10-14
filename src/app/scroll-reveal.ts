@@ -46,7 +46,7 @@ export function useScrollReveal(root: RefObject<HTMLElement | null>) {
         element.style.transform = "translateY(0)"
         timers.push(window.setTimeout(() => clear(element), 1100))
       }
-    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 })
+    }, { rootMargin: "0px 0px 0px 0px", threshold: 0.01 })
     targets.forEach((element) => observer.observe(element))
     return () => {
       observer.disconnect()
