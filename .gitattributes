@@ -144,3 +144,6 @@
 *.stl                filter=lfs diff=lfs merge=lfs -text
 *.nc                 filter=lfs diff=lfs merge=lfs -text
 *.mat                filter=lfs diff=lfs merge=lfs -text
+
+# 배포 사이트가 바로 서빙해야 하는 공개 이미지는 LFS에서 제외
+public/** -filter -diff -merge binary
