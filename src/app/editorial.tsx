@@ -79,12 +79,12 @@ export function Moment({ eyebrow, title, children, action }: { eyebrow: string; 
   }, [])
   return (
     <section role="status" className="relative overflow-hidden border border-border bg-card px-6 py-14 text-center sm:px-10 sm:py-20">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,color-mix(in_oklch,var(--primary)_10%,transparent),transparent)]" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,color-mix(in_oklch,var(--warm)_16%,transparent),transparent)]" />
       <div aria-hidden="true" className="relative mx-auto flex h-6 w-40 items-center justify-center">
         <span className="absolute size-4 rounded-full bg-primary transition-transform duration-[1400ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none" style={{ transform: `translateX(${near ? -9 : -64}px)` }} />
         <span className="absolute size-4 rounded-full bg-accent transition-transform duration-[1400ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none" style={{ transform: `translateX(${near ? 9 : 64}px)` }} />
       </div>
-      <p className="relative mt-8 text-xs font-semibold tracking-[0.2em] text-accent">{eyebrow}</p>
+      <p className="relative mt-8 text-xs font-semibold tracking-[0.2em] text-warm-ink">{eyebrow}</p>
       <h2 className="relative mx-auto mt-4 max-w-lg text-2xl font-semibold leading-[1.5] sm:text-[30px]">{title}</h2>
       {children && <div className="relative mx-auto mt-4 max-w-md text-sm leading-7 text-muted-foreground">{children}</div>}
       {action && <div className="relative mt-8 flex justify-center">{action}</div>}
