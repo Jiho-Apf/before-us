@@ -112,7 +112,7 @@ export function MemberConductSummary({
                   onClick={() =>
                     setMessage(
                       endAfterLateCancellation(item.id, memberId, now) ||
-                        "교류 종료를 기록했어요. 다음 소개비 5,000원 면제가 적용돼요.",
+                        "교류 종료를 기록했어요. 다음 소개비 10,000원 면제가 적용돼요.",
                     )
                   }
                 >
@@ -442,7 +442,7 @@ export function ConductDemo() {
           <div className="space-y-1 rounded-xl bg-muted p-4 text-sm leading-7">
             <p>{NAMES[actor]}의 미제공 DAY 환불 산정: {money(outcome.refundAmount)} · {outcome.refundBasis}</p>
             <p>초기 소개 혜택: {outcome.introductionBenefitEnds ? "실제 시작 후 중단이라 종료" : "아직 실제 시작 전이라 유지"}</p>
-            {reason === "self-change" && <p>상대 {NAMES[partner]}: 중도 이탈 피해 · 미제공 DAY 환불과 다음 소개비 5,000원 면제</p>}
+            {reason === "self-change" && <p>상대 {NAMES[partner]}: 중도 이탈 피해 · 미제공 DAY 환불과 다음 소개비 10,000원 면제</p>}
             {outcome.feeWaiver && <p>{NAMES[actor]}: {outcome.feeWaiver}</p>}
             {outcome.review && <p className="text-primary">{outcome.review}</p>}
           </div>

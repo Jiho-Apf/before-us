@@ -341,7 +341,7 @@ export function reservationIssues(
   for (const member of [members[0], members[1]]) {
     if (member.rights !== "valid")
       issues.push(
-        `${member.id}: 유효한 소개 이용 권리 필요 · 준비 후 5,000원 안내`,
+        `${member.id}: 유효한 소개 이용 권리 필요 · 준비 후 10,000원 안내`,
       )
     if (JSON.stringify(proposal.versions[member.id]) !== versionKey(member))
       issues.push(`${member.id}: 준비 후 변경된 버전 재검토 필요`)

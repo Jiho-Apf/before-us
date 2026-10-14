@@ -137,7 +137,7 @@ export function paymentGate(
   if (session.activity !== "active")
     return "현재 활동 상태에서는 새 결제 요청을 받지 않아요. 기존 권리·환불 여부는 별도 검토해요."
   if (introductionRights(session, now) === "first-program-started")
-    return "이번 신청의 첫 교류가 실제 시작되어 소개 혜택이 종료됐어요. 정상 종료 뒤 새 회차 소개비 5,000원으로 다시 이용할 수 있어요(V6-conduct-01)."
+    return "이번 신청의 첫 교류가 실제 시작되어 소개 혜택이 종료됐어요. 정상 종료 뒤 새 회차 소개비 10,000원으로 다시 이용할 수 있어요(V6-conduct-01)."
   if (kind === "introduction") {
     if (!readyForIntroduction(session, now))
       return "소개 제공 준비·현재 참여 가능·프로필 제공 범위 확인 후 안내해요. 지금은 무료 대기예요."
@@ -328,7 +328,7 @@ export const PAYMENT_SCENARIOS = [
   ["intro-unopened", "소개비 승인 · 첫 프로필 열람 전"],
   ["intro-opened", "소개 제공 개시 · 운영 귀책 검토"],
   ["waiting30", "활성 30일 새 소개 없음 · 선택"],
-  ["day02", "DAY02 실제 콘텐츠 개시 · 8,000원"],
+  ["day02", "DAY02 실제 콘텐츠 개시 · 10,000원"],
   ["day03", "DAY03 실제 콘텐츠 개시 · 미제공분 없음"],
   ["payment-expired", "24시간 상대 미결제 · 전액/권리 복원 대상"],
   ["agreement-expired", "48시간 합의 미완료 · 전액"],

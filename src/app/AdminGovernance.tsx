@@ -336,11 +336,11 @@ export function AdminGovernance({ section }: { section: string }) {
             {[
               ["총 결제액", money(stats.gross)],
               [
-                "소개비 5,000원",
+                "소개비 10,000원",
                 `${stats.introduction.length}건 · ${money(stats.introduction.reduce((sum, item) => sum + item.amount, 0))}`,
               ],
               [
-                "교류비 24,000원",
+                "교류비 29,000원",
                 `${stats.exchange.length}건 · ${money(stats.exchange.reduce((sum, item) => sum + item.amount, 0))}`,
               ],
               ["환불 요청", `${stats.requests.length}건`],

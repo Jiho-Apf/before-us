@@ -764,7 +764,7 @@ export default function AdminDemo({ embedded = false }: { embedded?: boolean }) 
                             {state.members.find((member) => member.id === id)
                               ?.rights === "valid"
                               ? "유효 소개 권리 있음 · 추가 결제 안내 없음"
-                              : "소개 제공 준비 후 첫 이용료 5,000원 안내 대상 (가상 안내만)"}
+                              : "소개 제공 준비 후 첫 이용료 10,000원 안내 대상 (가상 안내만)"}
                             <br />
                             프로필 v{proposal.versions[id].profile} · 선호 v
                             {proposal.versions[id].preference} ·{" "}

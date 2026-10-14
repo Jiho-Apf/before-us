@@ -112,7 +112,7 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
         else { onChange(result.book); saveMemberPayment(memberId, session, now); }
       } : undefined} />}
       {view.profile && needsFirstOpen ? <div className="space-y-4 rounded-xl border border-border p-6">
-        <p className="text-sm leading-7">첫 상대 프로필이 실제 표시된 시점부터 소개 서비스 제공이 시작돼요. 열람 전 취소는 소개비 5,000원 전액 환불 대상이며 요청과 실제 환불 완료는 구분해요.</p>
+        <p className="text-sm leading-7">첫 상대 프로필이 실제 표시된 시점부터 소개 서비스 제공이 시작돼요. 열람 전 취소는 소개비 10,000원 전액 환불 대상이며 요청과 실제 환불 완료는 구분해요.</p>
         <Button onClick={() => setOpened(`${memberId}:${view.id}`)}>첫 소개 확인하기</Button>
       </div> : view.profile ? (
         <PrivateProfile key={`${memberId}-${view.id}`} memberId={memberId} introductionId={view.id!} profileVersion={view.profile.version} onViewed={() => {

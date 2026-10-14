@@ -32,7 +32,7 @@ export function agreementGate(state: AgreementState | null, now: Date) {
     const deadline = refundDeadlines(session).agreementAt;
     return deadline && !session.refundOperations?.agreementCompletedAt && now.getTime() >= Date.parse(deadline);
   })) return "A/B·시작일 합의 기한이 지났어요. 미시작 교류비 전액 환불 요청과 소개 권리 유지 기준을 확인해 주세요.";
-  if (!state.sessions.every(session => canAgreeProgram(session, now) && session.exchange?.amount === BEFORE_US.pricing.exchangePerPerson && session.exchange.programId === session.program?.id)) return "양쪽 상호 선택과 각자 교류비 24,000원 결제 완료 확인이 필요해요.";
+  if (!state.sessions.every(session => canAgreeProgram(session, now) && session.exchange?.amount === BEFORE_US.pricing.exchangePerPerson && session.exchange.programId === session.program?.id)) return "양쪽 상호 선택과 각자 교류비 29,000원 결제 완료 확인이 필요해요.";
   return null;
 }
 export function makeAgreementFixture(now: Date): AgreementState {

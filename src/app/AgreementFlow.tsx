@@ -292,7 +292,7 @@ export function AgreementFlow({
             </span>
             <span className="flex items-center gap-2">
               <Check size={14} className="text-primary" />
-              각자 교류비 24,000원 완료 · 가상 승인 기록
+              각자 교류비 29,000원 완료 · 가상 승인 기록
             </span>
             <span className="text-muted-foreground">
               A/B 동일 가격 · 추가 과금 없음

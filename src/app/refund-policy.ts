@@ -11,7 +11,7 @@ export const REFUND_POLICY = {
   extensionHours: BEFORE_US.refund.extensionHours,
   waitingDays: BEFORE_US.refund.activeWaitingDays,
 } as const;
-export const REFUND_NOTICE = "소개비: 첫 상대 프로필 실제 열람 전 취소 시 5,000원 전액, 제공 개시 후 운영 측 귀책 시 전액. 활성 상태에서 연속 30일 유효한 새 소개가 없으면 계속 이용 또는 전액 환불 종료를 선택. 교류비: 실제 DAY01 개시 전 24,000원, DAY01 후 DAY02 전 16,000원, DAY02 후 DAY03 전 8,000원, DAY03 후 미제공 DAY 환불 없음. 법정 청약철회 권리와 실제 약관 검토에 따른 더 유리한 권리를 제한하지 않아요.";
+export const REFUND_NOTICE = "소개비: 첫 상대 프로필 실제 열람 전 취소 시 10,000원 전액, 제공 개시 후 운영 측 귀책 시 전액. 활성 상태에서 연속 30일 유효한 새 소개가 없으면 계속 이용 또는 전액 환불 종료를 선택. 교류비: 실제 DAY01 개시 전 29,000원, DAY01 후 DAY02 전 20,000원, DAY02 후 DAY03 전 10,000원, DAY03 후 미제공 DAY 환불 없음. 법정 청약철회 권리와 실제 약관 검토에 따른 더 유리한 권리를 제한하지 않아요.";
 export type RefundOperations = {
   policy: typeof REFUND_POLICY;
   introductionOpenedAt: string | null;
@@ -80,7 +80,7 @@ export function refundQuote(session: PaymentSession, kind: "introduction" | "exc
   if (reason === "never-started" && session.firstProgramStartedAt) return result(null, "실제 개시 기록이 있어 미시작 전액 규칙을 적용하지 않아요.");
   if (session.firstProgramStartedAt && !ops.dayOpened[0]) return result(null, "실제 개시와 DAY 제공 기록 불일치 · 운영 확인 필요");
   const count = ops.dayOpened.reduce((latest, item, index) => item && valid(item.at, now) ? index + 1 : latest, 0);
-  return result(ops.policy.exchange - count * ops.policy.dayPrice, `마지막 실제 개시 ${count ? `DAY0${count}` : "DAY01 전"} · 미제공 DAY 기준 ${3 - count}일 × 8,000원`, count === 0);
+  return result(Math.min(ops.policy.exchange, (3 - count) * ops.policy.dayPrice), `마지막 실제 개시 ${count ? `DAY0${count}` : "DAY01 전"} · 미제공 DAY 기준 ${3 - count}일 × ${ops.policy.dayPrice.toLocaleString("ko-KR")}원(교류비 이내)`, count === 0);
 }
 export function recordDayAvailability(session: PaymentSession, day: number, id: string, at: string, available: boolean, now: Date) {
   const ops = session.refundOperations;

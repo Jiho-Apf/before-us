@@ -607,7 +607,7 @@ export function AdminDashboard() {
           {[
             { label: "총 결제액", value: money(totals.gross), filter: "paid" },
             {
-              label: "소개비 5,000원 결제",
+              label: "소개비 10,000원 결제",
               value: `${totals.introduction.length}건`,
               sub: money(
                 totals.introduction.reduce(
@@ -618,7 +618,7 @@ export function AdminDashboard() {
               filter: "introduction",
             },
             {
-              label: "교류비 24,000원 결제",
+              label: "교류비 29,000원 결제",
               value: `${totals.exchange.length}건`,
               sub: money(
                 totals.exchange.reduce(
@@ -1289,7 +1289,7 @@ export function AdminSettings() {
             [
               "소개 / 교류",
               `${money(BEFORE_US.pricing.introduction)} / 각자 ${money(BEFORE_US.pricing.exchangePerPerson)}`,
-              "첫 교류 총 29,000원 · 부가세 포함",
+              "첫 교류 총 39,000원 · 부가세 포함",
             ],
             [
               "소개 시각",
