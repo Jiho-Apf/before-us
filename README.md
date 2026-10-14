@@ -5,6 +5,9 @@
 운영진이 신청서를 직접 읽고 고른 **한 사람**을, 준비된 날 **정오 12시**에 소개하는 일대일 소개 서비스의 웹 데모입니다.
 서로 끌림이 확인되면 두 사람은 **3일 동안** 편지를 나누거나(A) 함께 첫 장면을 고르며(B) 알아가고, 4일째에 각자 만남 의사를 정합니다.
 
+- **배포 링크:** https://before-us-3jr4.vercel.app
+- **발표 자료:** [PDF](docs/presentation/before_us_presentation_v6_summary.pdf) · [PPTX](docs/presentation/before_us_presentation_v6_summary.pptx)
+
 > 이 저장소는 **가상 데이터로 동작하는 데모**입니다. 실제 개인정보 수집, 결제, 메시지 발송, 본인인증은 연결되어 있지 않으며 새로고침하면 입력 내용이 사라집니다.
 
 ## 주요 화면
