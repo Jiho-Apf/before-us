@@ -8,13 +8,13 @@
   --card-foreground: #151515;
   --popover: #ffffff;
   --popover-foreground: #151515;
-  --primary: #5D3DF3;
+  --primary: #614ACE;
   --primary-foreground: #ffffff;
   --secondary: #F5F5FA;
   --secondary-foreground: #151515;
   --muted: #F5F5FA;
   --muted-foreground: #686878;
-  --accent: #244BFF;
+  --accent: #3753D5;
   --accent-foreground: #ffffff;
   --destructive: #C92A39;
   --destructive-foreground: #ffffff;
@@ -24,21 +24,21 @@
   --switch-background: #cbced4;
   --font-weight-medium: 600;
   --font-weight-normal: 400;
-  --ring: #5D3DF3;
-  --chart-1: #5D3DF3;
-  --chart-2: #244BFF;
+  --ring: #614ACE;
+  --chart-1: #614ACE;
+  --chart-2: #3753D5;
   --chart-3: #EC4899;
   --chart-4: #F59E0B;
   --chart-5: #10B981;
   --radius: 0.75rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #151515;
-  --sidebar-primary: #5D3DF3;
+  --sidebar-primary: #614ACE;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #F5F5FA;
   --sidebar-accent-foreground: #151515;
   --sidebar-border: rgba(0, 0, 0, 0.07);
-  --sidebar-ring: #5D3DF3;
+  --sidebar-ring: #614ACE;
 }
 
 .dark {
@@ -182,3 +182,11 @@
     line-height: 1.5;
   }
 }
+
+/* 공개 홈의 색 면(첫 화면·초기 혜택·이용 요금·마무리)을 화면 양쪽 끝까지 채운다.
+   본문 폭 안의 내용 정렬은 그대로 두고, 배경만 뷰포트 너비로 넓힌다. */
+.bleed {
+  margin-inline: calc(50% - var(--page-width, 100vw) / 2);
+  padding-inline: calc(var(--page-width, 100vw) / 2 - 50%);
+}
+html, body { overflow-x: clip; }

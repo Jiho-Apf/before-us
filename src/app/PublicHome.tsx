@@ -1,5 +1,5 @@
-import { useScrollReveal } from "./scroll-reveal";
-import { useEffect, useRef, useState } from "react";
+import { usePageWidth, useScrollReveal } from "./scroll-reveal";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ArrowRight, ArrowUpRight, Check, Clock, Lock, Plus, RotateCcw } from "lucide-react";
 import { Button } from "./components/ui/button";
@@ -8,7 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./
 import { BEFORE_US } from "./config";
 import DirectIntroduction from "./DirectIntroduction";
 import { REFUND_NOTICE } from "./refund-policy";
-import { DAY_PARTS, STORY, STORY_ENDING, STORY_NOTE, STORY_PEOPLE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
+import { DAY_PARTS, STORY, STORY_ENDING, STORY_NOTE, STORY_PEOPLE, STORY_PLAIN, STORY_PLAIN_ENDING, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
 const lift = "transition-transform duration-200 ease-out motion-reduce:transition-none";
@@ -138,10 +138,10 @@ function ServiceCollage() {
 function Hero() {
   const part = DAY_PARTS[dayPart(useMinuteNow())];
   return (
-    <section className="relative isolate -mx-5 overflow-clip bg-primary text-primary-foreground sm:-mx-8 lg:-mx-12" aria-labelledby="home-title">
+    <section className="bleed relative isolate overflow-clip bg-primary text-primary-foreground" aria-labelledby="home-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-20" style={{ backgroundImage: part.tint }} />
       <Texture />
-      <div className="grid gap-12 px-5 pt-14 pb-28 sm:px-8 sm:pt-20 sm:pb-32 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:px-12 lg:pt-20 lg:pb-32">
+      <div className="grid gap-12 pt-14 pb-28 sm:pt-20 sm:pb-32 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:pt-20 lg:pb-32">
         <div className="relative z-10">
           <p className="mb-7 flex items-center gap-2.5 text-sm font-medium"><span aria-hidden="true" className="size-1.5 rounded-full bg-white" />운영진이 직접 고르는 일대일 소개</p>
           <h1 id="home-title" className="text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>
@@ -210,7 +210,7 @@ function FounderLetter() {
 
 function InitialOperation() {
   return (
-    <section className="relative isolate -mx-5 overflow-clip bg-accent px-5 py-14 text-accent-foreground sm:-mx-8 sm:px-8 sm:py-16 lg:-mx-12 lg:px-12" aria-labelledby="initial-title">
+    <section className="bleed relative isolate overflow-clip bg-accent py-14 text-accent-foreground sm:py-16" aria-labelledby="initial-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
       <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 text-[11px] font-semibold tracking-[0.15em] opacity-85 dark:opacity-100">FOR OUR FIRST MEMBERS</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">처음 함께하는 분들께,<br />한 달은 추가 소개비 없이.</h2><p className="mt-5 inline-block border border-current/30 px-3 py-1 text-xs">초기 신청 혜택 · 2026년 12월 31일 결제분까지</p></div><div className="space-y-4 text-sm leading-[1.95]"><p>기다림도 알아가는 과정의 일부라고 생각해요. 서비스 초기에는 소개비를 낸 날부터 30일 동안, 첫 교류를 시작하기 전까지 몇 번을 소개받아도 소개비가 다시 들지 않아요.</p><p className="opacity-85">30일이 지나거나 첫 교류가 시작되면, 먼저 오는 때에 혜택이 끝나요. 그때 진행 중인 소개는 그대로 이어가요. 평생 무제한 소개는 아니에요.</p><p className="opacity-85">2027년 1월 1일부터는 소개비 5,000원으로 하루 최대 1명, 최대 5번 소개받아요.</p><p className="opacity-85">소개가 없는 날에도 내 상태는 홈페이지에서 언제든 확인할 수 있고, 정오 상태 알림은 원하는 분만 받아요.</p><p className="border-t border-current/20 pt-4 text-xs opacity-85 dark:opacity-100">데모에서는 실제 소개와 상태 알림이 발송되지 않아요.</p></div></div>
     </section>
@@ -290,6 +290,9 @@ function SceneTrial() {
 
 function TwoVoices() {
   const [voice, setVoice] = useState<"both" | "left" | "right">("both");
+  const [tone, setTone] = useState<"plain" | "lyrical">("plain");
+  const chapters = tone === "plain" ? STORY_PLAIN : STORY;
+  const ending = tone === "plain" ? STORY_PLAIN_ENDING : STORY_ENDING;
   const show = (side: "left" | "right") => voice === "both" || voice === side;
   const Name = ({ side }: { side: "left" | "right" }) => (
     <p className={`mb-3 flex items-center gap-2 text-xs font-semibold ${side === "left" ? "md:justify-end" : ""}`}>
@@ -305,16 +308,24 @@ function TwoVoices() {
         <div className="flex justify-center"><SectionLabel number="04" ko="이야기">A STORY IN TWO VOICES</SectionLabel></div>
         <h2 id="story-title" className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">한 사람을 알아가는 데 필요한,<br />사흘이라는 시간.</h2>
         <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-muted-foreground">정오에 도착한 한 사람과의 3일을, 두 사람의 시점으로 나란히 적었어요.</p>
-        <div role="group" aria-label="이야기 시점" className="mx-auto mt-8 flex w-fit rounded-full bg-muted p-1 text-xs">
+        <div role="group" aria-label="이야기 문체" className="mx-auto mt-8 flex w-fit items-center gap-1 text-xs">
+          {([["plain", "담백한 버전"], ["lyrical", "서정적인 버전"]] as const).map(([id, label], index) => (
+            <Fragment key={id}>
+              {index > 0 && <span aria-hidden="true" className="text-border">/</span>}
+              <button type="button" aria-pressed={tone === id} onClick={() => setTone(id)} className={`rounded-full px-3 py-1.5 underline-offset-4 ${interaction} ${tone === id ? "font-semibold text-foreground underline decoration-accent/60" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
+            </Fragment>
+          ))}
+        </div>
+        <div role="group" aria-label="이야기 시점" className="mx-auto mt-4 flex w-fit rounded-full bg-muted p-1 text-xs">
           {([["both", "함께 읽기"], ["left", `${STORY_PEOPLE.left}의 시점`], ["right", `${STORY_PEOPLE.right}의 시점`]] as const).map(([id, label]) => (
             <button key={id} type="button" aria-pressed={voice === id} onClick={() => setVoice(id)} className={`rounded-full px-4 py-2 ${interaction} ${voice === id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
           ))}
         </div>
         <p className="mt-4 text-[11px] text-muted-foreground">약 3분</p>
       </div>
-      <ol className="relative mx-auto mt-16 max-w-4xl">
+      <ol key={tone} className="relative mx-auto mt-16 max-w-4xl">
         <span aria-hidden="true" className="absolute top-2 bottom-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-border to-transparent md:block" />
-        {STORY.map(chapter => (
+        {chapters.map(chapter => (
           <li key={chapter.id} className="relative pb-16 last:pb-4">
             <div className="relative z-10 mx-auto mb-8 max-w-sm bg-background px-4 text-center">
               <span className="inline-block rounded-full border border-accent/30 px-3 py-1 text-[10px] font-semibold tracking-[0.14em] text-accent">{chapter.label}</span>
@@ -335,7 +346,7 @@ function TwoVoices() {
       </ol>
       <div className="mx-auto mt-10 max-w-2xl text-center">
         <div aria-hidden="true" className="mb-8 flex justify-center gap-1.5"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></div>
-        <p className="text-lg leading-[1.9]">{STORY_ENDING}</p>
+        <p className="text-lg leading-[1.9]">{ending}</p>
         <p className="mx-auto mt-6 max-w-md text-xs leading-6 text-muted-foreground">{STORY_NOTE}</p>
       </div>
     </section>
@@ -370,20 +381,20 @@ const FAQ = [
   { id: "early-benefit", title: "‘소개 횟수 제한 없음’은 언제까지인가요?", text: "서비스 초기 혜택이에요. 2026년 12월 31일까지 소개비 5,000원을 결제한 분에게만 적용되고, 결제일부터 30일 동안 첫 교류가 시작되기 전까지 소개 횟수 제한이 없어요. 30일이 지나거나 첫 교류가 실제 시작되면 먼저 오는 때에 끝나요. 끝나는 순간 진행 중인 소개나 서로 선택한 교류는 그대로 이어가고, 이후 새 소개를 원하면 소개비를 다시 결제해요. 2027년 1월 1일부터는 소개비 5,000원으로 하루 최대 1명, 최대 5번 소개받아요(소개가 없는 날은 횟수에서 빼지 않아요). 하루 최대 한 명이며 매일 소개를 보장하지는 않아요." },
   { id: "waiting", title: "후보를 기다리는 동안은 어떻게 되나요?", text: "신청·검토·첫 소개 준비 전 대기는 무료예요. 첫 소개를 제공할 준비와 현재 참여 가능성을 확인한 뒤 소개 이용료를 안내해요. 준비된 날 정오 12시에 하루 최대 한 명을 소개하며, 매일 새 소개를 보장하지 않아요. 활성 소개는 회원당 한 건이고, 상호 선택 뒤에는 새 소개를 멈춰요." },
   { id: "three-days", title: "3일 동안 꼭 무언가를 해야 하나요?", text: "3일은 상호 선택·양쪽 결제·같은 방식과 시작일 합의 뒤 교류를 시작한 기간이며, 소개 대기 기간은 별도예요. 그 안에 친밀함·연애를 완성하거나 만남을 강제하지 않아요. 4일째에 두 분이 각자 만남 의사를 선택하고, 양쪽 모두 희망할 때만 시간과 장소를 조율해요." },
-  { id: "not-started", title: "상호 선택 후 교류가 시작되지 못하면요?", text: "상호 선택 후 기본 결제 기한은 24시간이에요. 한쪽만 결제하고 상대가 미결제면 결제자의 교류비 24,000원 전액 환불과 소개 권리 복원 대상이에요. 양쪽 결제 뒤 A/B·시작일 합의는 기본 48시간, 양쪽 동의 시 24시간 한 번 연장할 수 있어요. 끝내 실제 교류가 시작되지 않으면 교류비 전액 환불과 소개 권리 유지예요. 기한 도래·요청 클릭이 실제 환불 완료를 뜻하지 않으며 현재 실제 PG는 미연결이에요." },
+  { id: "not-started", title: "상호 선택 후 교류가 시작되지 못하면요?", text: "상호 선택 후 기본 결제 기한은 24시간이에요. 한쪽만 결제하고 상대가 결제하지 않으면, 낸 사람의 교류비는 전액 환불되고 소개 권리도 돌아와요. 양쪽 결제 뒤 A/B·시작일 합의는 기본 48시간, 양쪽 동의 시 24시간 한 번 연장할 수 있어요. 끝내 실제 교류가 시작되지 않으면 교류비 전액 환불과 소개 권리 유지예요. 기한 도래·요청 클릭이 실제 환불 완료를 뜻하지 않으며 현재 실제 PG는 미연결이에요." },
   { id: "cancellation", title: "신청이나 교류를 취소할 수 있나요?", text: "결제 후 첫 상대 프로필을 실제로 열람하기 전 취소는 소개비 전액 환불이에요. 교류비는 해당 날짜 콘텐츠가 실제 이용 가능하게 열린 DAY별로 미제공분을 산정해요. 취소·환불 요청과 검토·실제 환불 완료를 구분하며 실제 PG와 접수·발송은 미연결인 가상 자료 데모예요." },
-  { id: "refund", title: "환불과 보유기간, 재이용 기준은 무엇인가요?", text: `${REFUND_NOTICE} 정상 교류를 마친 뒤 새 소개를 원하면 새 회차 소개비 5,000원, 새 상대와 상호 선택 시 교류비 24,000원이에요. 교류 중단·약속 취소·노쇼 기준과 자료 보유·삭제 기간은 내 정보에서 확인할 수 있으며, 실제 약관의 법률 검토 완료를 의미하지 않아요. 현재는 가상 정책 산정·요청 데모이고 실제 환불은 하지 않아요.` },
+  { id: "refund", title: "환불과 보유기간, 재이용 기준은 무엇인가요?", text: `소개비는 첫 상대 프로필을 실제로 열람하기 전에 취소하면 5,000원 전액 환불이에요. 교류비는 아직 열리지 않은 DAY만큼 환불하고, 날짜별 금액은 결제 전에 안내해요. 법정 청약철회 권리와 실제 약관에 따른 더 유리한 권리를 제한하지 않아요. 정상 교류를 마친 뒤 새 소개를 원하면 새 회차 소개비 5,000원부터 다시 시작해요. 교류 중단·약속 취소·노쇼 기준과 자료 보유·삭제 기간은 내 정보에서 확인할 수 있으며, 실제 약관의 법률 검토 완료를 의미하지 않아요. 현재는 가상 정책 산정·요청 데모이고 실제 환불은 하지 않아요.` },
   { id: "visibility", title: "어떤 정보가 상대에게 공개되나요?", text: "신청서 마지막 단계에서 상대에게 보일 항목을 직접 고르고, 특정 상대에게 제공하기 전에 한 번 더 동의를 받아요. 상대 프로필은 소개된 날 정오부터 다음 날 11:00 응답 마감까지 볼 수 있고, 서로 알아가기로 하면 교류와 약속이 끝날 때까지 이어져요. 끝난 소개를 다시 보는 보관함은 없어요. 화면에 등장하는 편지와 공동 선택은 서비스 화면 예시이며, 이 데모에서는 실제 개인정보를 수집하지 않아요." },
   { id: "contact", title: "문의는 어디에서 할 수 있나요?", text: "페이지 맨 아래의 ‘문의하기’에서 남길 수 있어요. 회원이라면 내 정보의 ‘문의·신고’에서 진행 중인 소개와 연결해 남기면 더 빨리 확인할 수 있어요. 데모에서는 실제로 메일이 발송되지 않아요." },
 ];
 
 function Pricing() {
   return (
-    <section id="pricing" className="-mx-5 bg-muted px-5 py-16 sm:-mx-8 sm:px-8 sm:py-20 lg:-mx-12 lg:px-12" aria-labelledby="pricing-title">
+    <section id="pricing" className="bleed bg-muted py-16 sm:py-20" aria-labelledby="pricing-title">
       <SectionLabel number="06" ko="이용 요금">CLEAR FROM THE BEGINNING</SectionLabel>
       <div className="grid gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16"><div><h2 id="pricing-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">시작하기 전에,<br />분명하게 안내해요.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청·검토·첫 소개 준비 전 대기는 무료.<br />첫 소개 준비와 현재 참여 가능성 확인 후 안내해요.</p></div><div>
-        <div className="flex flex-wrap items-center gap-5 border-b border-border pb-7"><div><p className="mb-3 text-xs text-muted-foreground">소개 이용료</p><span className="text-3xl font-semibold">{money(BEFORE_US.pricing.introduction)}</span></div><Plus size={18} className="text-muted-foreground" /><div><p className="mb-3 text-xs text-muted-foreground">상호 선택 후 교류비 · 각자</p><span className="text-3xl font-semibold">{money(BEFORE_US.pricing.exchangePerPerson)}</span></div></div>
-        <div className="flex flex-wrap items-end justify-between gap-4 pt-6"><p className="text-sm">첫 교류까지 1인 총액 <span className="mt-2 block text-xs text-muted-foreground">부가세 포함 · 현장 비용 별도</span></p><strong className="text-4xl font-semibold text-primary sm:text-5xl">{money(BEFORE_US.pricing.firstExchangeTotalPerPerson)}</strong></div>
+        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-7"><div><p className="mb-3 text-xs text-muted-foreground">소개 이용료 · 1인</p><strong className="text-5xl font-semibold tabular-nums text-primary">{money(BEFORE_US.pricing.introduction)}</strong></div><p className="text-xs text-muted-foreground">부가세 포함 · 자동 갱신 없음</p></div>
+        <p className="pt-6 text-sm leading-7 text-muted-foreground">서로 더 알아가기로 한 뒤의 교류비는, 결제하기 전에 화면에서 먼저 확인할 수 있어요. 두 사람 모두 확인해야 3일이 시작돼요.</p>
         <div className="mt-8 border-t border-border pt-6"><p className="mb-4 text-sm font-semibold">분명히 해 두고 싶은 것들</p><ul className="space-y-3">{PROMISES.map(item => <li key={item} className="flex gap-3 text-sm leading-7"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-primary" />{item}</li>)}</ul></div>
         <div className="mt-7 flex flex-wrap items-center gap-3"><Button asChild className={`h-12 rounded-full px-6 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={16} /></Link></Button><Button asChild variant="link" className={`h-12 px-0 text-foreground hover:text-primary ${interaction}`}><a href="#faq">대기·미시작·취소·환불·공개 범위·문의 FAQ <ArrowRight size={14} /></a></Button></div><p className="mt-3 text-[11px] text-muted-foreground">데모에서는 실제 신청이나 결제가 진행되지 않아요.</p>
       </div></div>
@@ -430,7 +441,7 @@ function Together() {
   const near = reduced ? 1 : progress;
   const offset = Math.round(64 * (1 - near));
   return (
-    <section ref={ref} className="relative isolate -mx-5 overflow-clip bg-primary px-5 py-20 text-center text-primary-foreground sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12" aria-labelledby="together-title">
+    <section ref={ref} className="bleed relative isolate overflow-clip bg-primary py-20 text-center text-primary-foreground" aria-labelledby="together-title">
       <Texture />
       <div className="flex items-center justify-center py-6" aria-hidden="true">
         <span className="size-12 rounded-full bg-white sm:size-14" style={{ transform: `translateX(${-offset}px)` }} />
@@ -451,6 +462,7 @@ function Together() {
 }
 
 export function PublicInformation({ section }: { section: "introduction" | "exchange" | "pricing" }) {
+  usePageWidth();
   const title = { introduction: "진행 방식", exchange: "두 가지 시작", pricing: "이용 요금" }[section];
   return <div className="break-keep [overflow-wrap:anywhere]"><h1 className="sr-only">{title}</h1>{section === "introduction" && <><Introduction /><FounderLetter /><InitialOperation /></>}{section === "exchange" && <><TwoVoices /><Exchange /></>}{section === "pricing" && <><Pricing /><Faq /></>}</div>;
 }
@@ -458,5 +470,6 @@ export function PublicInformation({ section }: { section: "introduction" | "exch
 export default function PublicHome() {
   const root = useRef<HTMLDivElement>(null);
   useScrollReveal(root);
+  usePageWidth();
   return <div ref={root} className="break-keep [overflow-wrap:anywhere]"><ScrollDots /><Hero /><Philosophy /><Introduction /><FounderLetter /><TwoVoices /><InitialOperation /><Exchange /><Pricing /><Faq /><Together /></div>;
 }

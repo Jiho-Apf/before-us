@@ -55,3 +55,15 @@ export function useScrollReveal(root: RefObject<HTMLElement | null>) {
     }
   }, [root])
 }
+
+// 스크롤바를 뺀 실제 페이지 폭. 홈의 색 면(.bleed)이 양쪽 끝에 정확히 맞도록 쓴다.
+export function usePageWidth() {
+  useEffect(() => {
+    const root = document.documentElement
+    const update = () => root.style.setProperty("--page-width", `${root.clientWidth}px`)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(root)
+    return () => observer.disconnect()
+  }, [])
+}
