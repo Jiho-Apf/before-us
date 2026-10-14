@@ -14,7 +14,7 @@ export const BEFORE_US = {
   unresolvedPolicies: { refund: "V6-refund-01 운영 기준 확정 · 실제 약관/법정 권리 검토 필요", retention: "V6-privacy-01 보유 초안 · 법률 검토 전", reuse: "V6-conduct-01 운영 기준 · 실제 약관 검토 필요", provisionPeriod: "V6-provision-01 · 소개 공개(정오)부터 다음 날 11:00 응답 마감까지 · 상호 선택 시 교류·약속이 끝날 때까지(최대 약속일 다음 날 23:59) · 종료·중단·차단·탈퇴 즉시 열람 종료" },
   privacy: { version: "V6-privacy-01-draft", activeDeleteDays: 7, backupMaxDays: 30, letterDaysAfterExchangeEnd: 30, appointmentDetailDaysAfterMeeting: 90, auditLogDays: 365, legal: { contractYears: 5, complaintYears: 3, advertisingMonths: 6, safetyEvidenceYearsAfterClose: 3 } },
   provision: { version: "V6-provision-01", introductionView: "until-response-deadline", mutualView: "until-program-end", maxAfterMeetingDay: "next-day-23:59", snapshotDeleteDaysAfterEnd: 30, reopenArchive: false },
-  operations: { version: "V6-ops-01", reviewersOnDuty: 1, newReviewsPerReviewerPerDay: 20, pairsPerReviewerPerDay: 10, firstCohortPerGender: 40, betaPerGender: 10 },
+  operations: { version: "V6-ops-01", reviewersOnDuty: 1, newReviewsPerReviewerPerDay: 20, pairsPerReviewerPerDay: 10, activeMembersPerGender: 40, betaPerGender: 10 },
   conduct: { version: "V6-conduct-01", lateCancelHours: 24, noShowGraceMinutes: 30, noShowSuspensionDays: 14, repeatReviewMinimumDays: 30, nextIntroductionFee: 10000, exchangeFee: 29000, reverifyAfterDays: 90, reverifyFields: ["사진", "지역", "직업", "관계상태", "선호"] },
   noonGuidance: { reviewAfterDays: 7, counselingAfterDays: 14, criteriaStatus: "operating-draft", kakaoApproved: false, sendingConnected: false },
   agreement: { defaultStartTime: "09:00", timezone: "Asia/Seoul", defaultStart: "day-after-both-confirmed", status: "operating-draft" },

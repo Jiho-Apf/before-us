@@ -35,6 +35,8 @@ const MeetingDemo = later(() => import("./MeetingDemo"), "MeetingDemo");
 const ConductDemo = later(() => import("./ConductPolicy"), "ConductDemo");
 const PrivacyDemo = later(() => import("./PrivacyPanels"), "PrivacyDemo");
 const InquiryPage = later(() => import("./InquiryPage"), "default");
+const TermsPage = later(() => import("./LegalPages"), "TermsPage");
+const PrivacyPage = later(() => import("./LegalPages"), "PrivacyPage");
 
 function RouteFallback() {
   return <div role="status" aria-live="polite" className="flex flex-1 items-center justify-center py-24"><span className="sr-only">화면을 불러오는 중</span><span aria-hidden="true" className="flex gap-1.5"><span className="size-2 animate-pulse rounded-full bg-primary" /><span className="size-2 animate-pulse rounded-full bg-accent [animation-delay:150ms]" /></span></div>;
@@ -45,7 +47,8 @@ const PUBLIC_NAV = [
   { to: "/how-it-works", label: "진행 방식", number: "01" },
   { to: "/two-starts", label: "두 가지 시작", number: "02" },
   { to: "/pricing", label: "이용 요금", number: "03" },
-  { to: "/contact", label: "문의하기", number: "04" },
+  { to: "/faq", label: "자주 묻는 질문", number: "04" },
+  { to: "/contact", label: "문의하기", number: "05" },
 ];
 
 const MEMBER_NAV = [
@@ -84,6 +87,8 @@ function ShellThemeToggle({ isDark, toggle }: { isDark: boolean; toggle: () => v
 function PageTransition() {
   const location = useLocation();
   const reduceMotion = useReducedMotion();
+  // 다른 페이지로 옮기면 맨 위에서 시작한다. 해시(#faq-…)로 가는 경우는 그 화면이 직접 스크롤한다.
+  useEffect(() => { if (!location.hash) window.scrollTo(0, 0); }, [location.pathname]);
   return <motion.div key={location.pathname} initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: reduceMotion ? 0 : 0.24 }} className="flex flex-1 flex-col"><Suspense fallback={<RouteFallback />}><Outlet /></Suspense></motion.div>;
 }
 
@@ -118,10 +123,18 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
         <PageTransition />
       </main>
       <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-5 px-5 py-7 text-xs sm:flex-row sm:items-center sm:px-8 lg:px-12">
-          <span className="font-semibold tracking-[0.12em]">{BEFORE_US.brand.english}</span>
-          <span className="text-muted-foreground">{BEFORE_US.brand.message}</span>
-          <span className="flex items-center gap-4 text-muted-foreground"><Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link><span>성인 대상 일대일 소개</span></span>
+        <div className="mx-auto max-w-7xl break-keep px-5 py-8 text-xs sm:px-8 lg:px-12">
+          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+            <span className="font-semibold tracking-[0.12em]">{BEFORE_US.brand.english}</span>
+            <span className="text-muted-foreground">{BEFORE_US.brand.message}</span>
+            <nav aria-label="정책과 문의" className="flex flex-wrap items-center gap-x-4 gap-y-2 text-muted-foreground">
+              <Link to="/terms" className="underline-offset-4 hover:text-primary hover:underline">이용약관</Link>
+              <Link to="/privacy" className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">개인정보처리방침</Link>
+              <Link to="/faq" className="underline-offset-4 hover:text-primary hover:underline">자주 묻는 질문</Link>
+              <Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
+            </nav>
+          </div>
+          <div className="mt-6 space-y-1 border-t border-border pt-5 leading-6 text-muted-foreground"><p>상호 · 대표자 · 사업자등록번호 · 통신판매업 신고번호 · 준비 중</p><p>만 19세 이상 대상 일대일 소개</p></div>
         </div>
       </footer>
     </div>
@@ -201,7 +214,7 @@ function BeforeUsRoot() {
   const location = useLocation();
   const isMember = ["/payments","/support","/meeting/contact"].includes(location.pathname) || MEMBER_NAV.some(item => item.to === location.pathname);
   useEffect(() => {
-    const label = [...PUBLIC_NAV, ...MEMBER_NAV, { to: "/login", label: "로그인" }, { to: "/apply", label: "소개 신청하기" }].find(item => item.to === location.pathname)?.label;
+    const label = [...PUBLIC_NAV, ...MEMBER_NAV, { to: "/login", label: "로그인" }, { to: "/apply", label: "소개 신청하기" }, { to: "/terms", label: "이용약관" }, { to: "/privacy", label: "개인정보처리방침" }].find(item => item.to === location.pathname)?.label;
     document.title = label ? `${label} · ${BEFORE_US.brand.name}` : `${BEFORE_US.brand.name} · ${BEFORE_US.brand.english}`;
   }, [location.pathname]);
   return (
@@ -227,6 +240,9 @@ const beforeUsRouter = createBrowserRouter([
     { path: "/how-it-works", element: <PublicInformation section="introduction" /> },
     { path: "/two-starts", element: <PublicInformation section="exchange" /> },
     { path: "/pricing", element: <PublicInformation section="pricing" /> },
+    { path: "/faq", element: <PublicInformation section="faq" /> },
+    { path: "/terms", element: <TermsPage /> },
+    { path: "/privacy", element: <PrivacyPage /> },
     { path: "/contact", element: <InquiryPage /> },
     { path: "/today", element: <MemberToday /> },
     { path: "/payments", element: <MemberPayments /> },

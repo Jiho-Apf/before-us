@@ -16,9 +16,6 @@ export default function DirectIntroduction() {
         보조 도구로 후보를 좁힐 수 있어요. 사진이나 외모로 판단하지 않으며,
         누구를 소개할지는 운영진이 직접 정해요.
       </p>
-      <p className="mt-4 text-sm font-semibold text-primary">
-        끌리는 사람을, 천천히 알아갑니다.
-      </p>
     </div>
   );
 }

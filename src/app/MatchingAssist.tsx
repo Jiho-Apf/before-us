@@ -310,7 +310,7 @@ export function OperationsCapacityPanel({ state, today }: { state: AdminState; t
       </div>
       {days > 3 && <p className="text-xs leading-6 text-accent">검토 대기가 3일치를 넘었어요. 근무 인원을 늘리거나 새 모집을 잠시 늦추는 것을 검토해 주세요.</p>}
       <p className="text-xs leading-6 text-muted-foreground">
-        신청서 1건 약 10분, 한 쌍 고르기 약 15~20분(추천 보조 포함)으로 잡은 운영 초안이에요. 1기는 성별당 {ops.firstCohortPerGender}명, 베타는 성별당 {ops.betaPerGender}명으로 시작해요. 회원 화면에는 예상 날짜나 인원을 보여 주지 않아요.
+        신청서 1건 약 10분, 한 쌍 고르기 약 15~20분(추천 보조 포함)으로 잡은 운영 초안이에요. 운영자 1명이 함께 챙길 수 있는 활동 회원은 성별당 {ops.activeMembersPerGender}명 정도로 보고, 베타 테스트는 성별당 {ops.betaPerGender}명으로 시작해요. 회원 화면에는 예상 날짜나 인원을 보여 주지 않아요.
       </p>
     </section>
   )

@@ -1,13 +1,12 @@
 import { usePageWidth, useScrollReveal } from "./scroll-reveal";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { ArrowRight, ArrowUpRight, Check, Clock, Lock, Plus, RotateCcw } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./components/ui/accordion";
 import { BEFORE_US } from "./config";
 import DirectIntroduction from "./DirectIntroduction";
-import { REFUND_NOTICE } from "./refund-policy";
 import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -144,7 +143,7 @@ function Hero() {
       <div className="grid gap-12 pt-14 pb-28 sm:pt-20 sm:pb-32 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:pt-20 lg:pb-32">
         <div className="relative z-10">
           <p className="mb-7 flex items-center gap-2.5 text-sm font-medium"><span aria-hidden="true" className="size-1.5 rounded-full bg-white" />운영진이 직접 고르는 일대일 소개</p>
-          <h1 id="home-title" className="text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>
+          <h1 id="home-title" className="text-[clamp(2.25rem,4.4vw,3.75rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>
           <p className="mt-7 max-w-lg text-sm leading-[1.95] text-white/85 dark:text-white sm:text-[15px]">하루에 한 사람만. 운영진이 당신의 이야기를 끝까지 읽고 고른 한 분을, 준비된 날 정오에 소개해요. 서로의 끌림이 확인되면, 두 사람만의 3일이 시작돼요.</p>
           <div className="mt-9 flex flex-wrap gap-3">
             <Button asChild className={`h-12 rounded-full bg-white px-6 text-primary hover:bg-white/90 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={17} /></Link></Button>
@@ -236,11 +235,11 @@ function FounderLetter() {
   );
 }
 
-function InitialOperation() {
+function InitialOperation({ detailsTo = "#faq-early-benefit" }: { detailsTo?: string }) {
   return (
     <section className="bleed relative isolate overflow-clip bg-accent py-14 text-accent-foreground sm:py-16" aria-labelledby="initial-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
-      <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 text-[11px] font-semibold tracking-[0.15em] opacity-85 dark:opacity-100">FOR OUR FIRST MEMBERS</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">처음 함께하는 분들께,<br />한 달은 추가 소개비 없이.</h2><p className="mt-5 inline-block border border-current/30 px-3 py-1 text-xs">초기 신청 혜택 · 2026년 12월 31일 결제분까지</p></div><div className="space-y-4 text-sm leading-[1.95]"><p>기다림도 알아가는 과정의 일부라고 생각해요. 서비스 초기에는 소개비를 낸 날부터 30일 동안, 첫 교류를 시작하기 전까지 몇 번을 소개받아도 소개비가 다시 들지 않아요.</p><p className="opacity-85">30일이 지나거나 첫 교류가 시작되면, 먼저 오는 때에 혜택이 끝나요. 그때 진행 중인 소개는 그대로 이어가요. 평생 무제한 소개는 아니에요.</p><p className="opacity-85">2027년 1월 1일부터는 소개비 10,000원으로 하루 최대 1명, 최대 5번 소개받아요.</p><p className="opacity-85">소개가 없는 날에도 내 상태는 홈페이지에서 언제든 확인할 수 있고, 정오 상태 알림은 원하는 분만 받아요.</p><p className="border-t border-current/20 pt-4 text-xs opacity-85 dark:opacity-100">데모에서는 실제 소개와 상태 알림이 발송되지 않아요.</p></div></div>
+      <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 text-[11px] font-semibold tracking-[0.15em] opacity-85 dark:opacity-100">FOR OUR FIRST MEMBERS</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">처음 함께하는 분들께,<br />한 달은 추가 소개비 없이.</h2><p className="mt-5 inline-block border border-current/30 px-3 py-1 text-xs">초기 신청 혜택 · 2026년 12월 31일 결제분까지</p></div><div className="space-y-4 text-sm leading-[1.95]"><p>기다림도 알아가는 과정의 일부라고 생각해요. 서비스 초기에는 소개비를 낸 날부터 30일 동안, 첫 교류를 시작하기 전까지 몇 번을 소개받아도 소개비가 다시 들지 않아요.</p><p className="opacity-85">30일이 지나거나 첫 교류가 시작되면, 먼저 오는 때에 혜택이 끝나요. 평생 무제한 소개는 아니에요.</p><p className="border-t border-current/20 pt-4 text-xs"><Link to={detailsTo} className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline">2027년부터의 기준까지 자세히 <ArrowRight size={13} /></Link></p></div></div>
     </section>
   );
 }
@@ -336,13 +335,13 @@ function TwoVoices() {
         <div className="flex justify-center"><SectionLabel number="04" ko="이야기">A STORY IN TWO VOICES</SectionLabel></div>
         <h2 id="story-title" className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">한 사람을 알아가는 데 필요한,<br />사흘이라는 시간.</h2>
         <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-muted-foreground">정오에 도착한 한 사람과의 3일을, 두 사람의 시점으로 나란히 적었어요.</p>
-        <div role="group" aria-label="이야기 고르기" className="mx-auto mt-8 flex w-fit items-end gap-7">
+        <div role="group" aria-label="이야기 고르기" className="mx-auto mt-8 flex w-fit items-end gap-5">
           {STORIES.map(item => {
             const active = storyId === item.id;
             return (
               <button key={item.id} type="button" aria-pressed={active} aria-label={`이야기 ${item.number} · ${item.people.left}과 ${item.people.right}`} title={`${item.people.left}과 ${item.people.right}`} onClick={() => { setStoryId(item.id); setVoice("both"); }} className="group flex flex-col items-center rounded-sm px-2 outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <span className={`text-[3.25rem] font-light leading-none tabular-nums tracking-[-0.04em] transition-[color,-webkit-text-stroke-color] duration-300 motion-reduce:transition-none ${active ? "bg-gradient-to-br from-primary via-primary to-accent bg-clip-text text-transparent" : "text-transparent [-webkit-text-stroke:1px_var(--muted-foreground)] group-hover:[-webkit-text-stroke-color:var(--accent)]"}`}>{item.number}</span>
-                <span aria-hidden="true" className={`mt-3 h-px transition-all duration-300 motion-reduce:transition-none ${active ? "w-8 bg-gradient-to-r from-primary to-accent" : "w-0 bg-transparent"}`} />
+                <span className={`text-[1.75rem] font-light leading-none tabular-nums transition-colors duration-300 motion-reduce:transition-none ${active ? "bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent" : "text-muted-foreground group-hover:text-foreground"}`}>{item.number}</span>
+                <span aria-hidden="true" className={`mt-2 h-px transition-all duration-300 motion-reduce:transition-none ${active ? "w-5 bg-gradient-to-r from-primary to-accent" : "w-0 bg-transparent"}`} />
               </button>
             );
           })}
@@ -398,46 +397,76 @@ function Exchange() {
   );
 }
 
-// 첫 화면과 각 섹션에서 옮겨 온 운영 규칙. 지우지 않고 한곳에 모은다.
-const PROMISES = [
-  "소개는 준비된 날 정오 12시에 하루 최대 한 명이에요. 매일 새 소개를 보장하지는 않아요.",
-  "후보와 참여 시점이 맞기까지 기다림이 생길 수 있어요. 신청·검토·첫 소개 준비 전 대기는 무료예요.",
-  "3일 교류는 상호 선택, 양쪽 결제, 같은 방식과 시작일 합의 뒤에 시작돼요. 소개를 기다린 기간과는 별개예요.",
-  "3일 안에 친밀함이나 연애를 완성하라고, 만나라고 강요하지 않아요. 4일째에 각자 만남 의사를 선택해요.",
-  "2026년 12월 31일까지 소개비를 낸 분은 결제일부터 30일 동안, 첫 교류 전까지 소개 횟수 제한이 없어요. 30일이 지나거나 첫 교류가 시작되면 끝나요.",
-  "2027년 1월 1일부터는 소개비 10,000원으로 하루 최대 1명, 최대 5번 소개받아요. 자동 갱신은 없어요.",
-  "평생 무제한 소개, 매일 소개, 연애 성공, 약속 예약을 보장하지는 않아요.",
+// 안심하고 시작하도록: 이미 있는 보호 장치와 신청할 수 있는 분. FAQ와 같은 두 칸 구성(왼쪽 제목, 오른쪽 줄 목록)을 그대로 쓴다.
+const SAFEGUARDS = [
+  { title: "본인 인증을 마친 분만 소개해요", body: "본인 인증을 마친 만 19세 이상만 소개해요. 기혼·사실혼이거나 교제 중인 사실이 확인되면 이용이 끝나요." },
+  { title: "사람이 직접 읽어요", body: "신청서와 최근 사진을 운영진이 한 장씩 확인하고, 기준에 맞지 않으면 보완을 요청드려요." },
+  { title: "연락처는 마지막에 열려요", body: "두 분이 각자 동의했을 때만, 만나는 날 자정에 연락처가 열려요. 그전까지는 비포어스 안에서만 이야기해요." },
+  { title: "언제든 멈출 수 있어요", body: "불편하면 신고·차단·중단을 바로 할 수 있어요. 첫 만남 전에는 공공장소·낮 시간 같은 안전 안내를 드리고, 만남 뒤 소감은 운영진만 봐요." },
 ];
+const ELIGIBILITY = ["만 19세 이상, 본인 인증이 가능한 분", "지금 혼인·사실혼 관계가 없고, 교제 중인 사람도 없는 분", "직접 만날 수 있는 지역에서 활동하는 분"];
+function Safety() {
+  return (
+    <section id="safety" className="grid gap-8 border-t border-border py-16 sm:py-20 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="safety-title">
+      <div><SectionLabel number="06" ko="안전과 신뢰">WITH CARE</SectionLabel><h2 id="safety-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">처음 만나는 사람이라서,<br />더 꼼꼼하게.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">마음을 여는 일만 남도록,<br />확인하고 지키는 일은 저희가 먼저 해요.</p></div>
+      <div className="border-t border-border">
+        {SAFEGUARDS.map(item => <div key={item.title} className="border-b border-border py-6"><p className="text-[15px] font-medium">{item.title}</p><p className="mt-2 text-sm leading-7 text-muted-foreground">{item.body}</p></div>)}
+        <div className="py-6">
+          <p className="text-[15px] font-medium">이런 분이 신청할 수 있어요</p>
+          <ul className="mt-3 space-y-2">{ELIGIBILITY.map(item => <li key={item} className="flex gap-3 text-sm leading-7 text-muted-foreground"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-primary" />{item}</li>)}</ul>
+          <p className="mt-4 text-xs leading-6 text-muted-foreground">신청이 한쪽 성별로 몰리면 성비를 맞추기 위해 순서대로 검토해요. 기다리는 동안의 상태는 홈페이지에서 확인할 수 있어요.</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// 첫 화면과 각 섹션에서 옮겨 온 운영 규칙. 자세한 기준은 FAQ에 두고 여기선 핵심만.
+const PROMISES = [
+  "소개는 준비된 날 정오 12시에, 하루 최대 한 명이에요. 매일 새 소개를 보장하지는 않아요.",
+  "후보와 참여 시점이 맞기까지 기다림이 생길 수 있어요. 기다리는 동안에는 비용이 들지 않아요.",
+  "3일 교류는 상호 선택, 양쪽 결제, 같은 방식과 시작일 합의 뒤에 시작돼요. 만남을 강요하지 않아요.",
+  "소개 횟수 기준은 결제 시점에 따라 달라요. 평생 무제한 소개나 연애 성공을 약속하지는 않아요.",
+]
 const FAQ = [
   { id: "early-benefit", title: "‘소개 횟수 제한 없음’은 언제까지인가요?", text: "서비스 초기 혜택이에요. 2026년 12월 31일까지 소개비 10,000원을 결제한 분에게만 적용되고, 결제일부터 30일 동안 첫 교류가 시작되기 전까지 소개 횟수 제한이 없어요. 30일이 지나거나 첫 교류가 실제 시작되면 먼저 오는 때에 끝나요. 끝나는 순간 진행 중인 소개나 서로 선택한 교류는 그대로 이어가고, 이후 새 소개를 원하면 소개비를 다시 결제해요. 2027년 1월 1일부터는 소개비 10,000원으로 하루 최대 1명, 최대 5번 소개받아요(소개가 없는 날은 횟수에서 빼지 않아요). 하루 최대 한 명이며 매일 소개를 보장하지는 않아요." },
   { id: "waiting", title: "후보를 기다리는 동안은 어떻게 되나요?", text: "신청·검토·첫 소개 준비 전 대기는 무료예요. 첫 소개를 제공할 준비와 현재 참여 가능성을 확인한 뒤 소개 이용료를 안내해요. 준비된 날 정오 12시에 하루 최대 한 명을 소개하며, 매일 새 소개를 보장하지 않아요. 활성 소개는 회원당 한 건이고, 상호 선택 뒤에는 새 소개를 멈춰요." },
   { id: "three-days", title: "3일 동안 꼭 무언가를 해야 하나요?", text: "3일은 상호 선택·양쪽 결제·같은 방식과 시작일 합의 뒤 교류를 시작한 기간이며, 소개 대기 기간은 별도예요. 그 안에 친밀함·연애를 완성하거나 만남을 강제하지 않아요. 4일째에 두 분이 각자 만남 의사를 선택하고, 양쪽 모두 희망할 때만 시간과 장소를 조율해요." },
-  { id: "not-started", title: "상호 선택 후 교류가 시작되지 못하면요?", text: "상호 선택 후 기본 결제 기한은 24시간이에요. 한쪽만 결제하고 상대가 결제하지 않으면, 낸 사람의 교류비는 전액 환불되고 소개 권리도 돌아와요. 양쪽 결제 뒤 A/B·시작일 합의는 기본 48시간, 양쪽 동의 시 24시간 한 번 연장할 수 있어요. 끝내 실제 교류가 시작되지 않으면 교류비 전액 환불과 소개 권리 유지예요. 기한 도래·요청 클릭이 실제 환불 완료를 뜻하지 않으며 현재 실제 PG는 미연결이에요." },
-  { id: "cancellation", title: "신청이나 교류를 취소할 수 있나요?", text: "결제 후 첫 상대 프로필을 실제로 열람하기 전 취소는 소개비 전액 환불이에요. 교류비는 해당 날짜 콘텐츠가 실제 이용 가능하게 열린 DAY별로 미제공분을 산정해요. 취소·환불 요청과 검토·실제 환불 완료를 구분하며 실제 PG와 접수·발송은 미연결인 가상 자료 데모예요." },
-  { id: "refund", title: "환불과 보유기간, 재이용 기준은 무엇인가요?", text: `소개비는 첫 상대 프로필을 실제로 열람하기 전에 취소하면 10,000원 전액 환불이에요. 교류비는 아직 열리지 않은 DAY만큼 환불하고, 날짜별 금액은 결제 전에 안내해요. 법정 청약철회 권리와 실제 약관에 따른 더 유리한 권리를 제한하지 않아요. 정상 교류를 마친 뒤 새 소개를 원하면 새 회차 소개비 10,000원부터 다시 시작해요. 교류 중단·약속 취소·노쇼 기준과 자료 보유·삭제 기간은 내 정보에서 확인할 수 있으며, 실제 약관의 법률 검토 완료를 의미하지 않아요. 현재는 가상 정책 산정·요청 데모이고 실제 환불은 하지 않아요.` },
-  { id: "visibility", title: "어떤 정보가 상대에게 공개되나요?", text: "신청서 마지막 단계에서 상대에게 보일 항목을 직접 고르고, 특정 상대에게 제공하기 전에 한 번 더 동의를 받아요. 상대 프로필은 소개된 날 정오부터 다음 날 11:00 응답 마감까지 볼 수 있고, 서로 알아가기로 하면 교류와 약속이 끝날 때까지 이어져요. 끝난 소개를 다시 보는 보관함은 없어요. 화면에 등장하는 편지와 공동 선택은 서비스 화면 예시이며, 이 데모에서는 실제 개인정보를 수집하지 않아요." },
-  { id: "contact", title: "문의는 어디에서 할 수 있나요?", text: "페이지 맨 아래의 ‘문의하기’에서 남길 수 있어요. 회원이라면 내 정보의 ‘문의·신고’에서 진행 중인 소개와 연결해 남기면 더 빨리 확인할 수 있어요. 데모에서는 실제로 메일이 발송되지 않아요." },
+  { id: "not-started", title: "상호 선택 후 교류가 시작되지 못하면요?", text: "상호 선택 후 기본 결제 기한은 24시간이에요. 한쪽만 결제하고 상대가 결제하지 않으면, 낸 사람의 교류비는 전액 환불되고 소개 권리도 돌아와요. 양쪽 결제 뒤 A/B·시작일 합의는 기본 48시간, 양쪽 동의 시 24시간 한 번 연장할 수 있어요. 끝내 교류가 시작되지 않으면 교류비는 전액 환불되고 소개 권리는 그대로 남아요." },
+  { id: "cancellation", title: "신청이나 교류를 취소할 수 있나요?", text: "결제 후 첫 상대 프로필을 실제로 열람하기 전 취소는 소개비 전액 환불이에요. 교류비는 아직 열리지 않은 날만큼 돌려드려요. 요청을 받으면 운영진이 확인한 뒤 환불을 진행해요." },
+  { id: "refund", title: "환불과 보유기간, 재이용 기준은 무엇인가요?", text: `소개비는 첫 상대 프로필을 실제로 열람하기 전에 취소하면 10,000원 전액 환불이에요. 교류비는 아직 열리지 않은 날만큼 환불하고, 날짜별 금액은 결제 전에 안내해요. 법정 청약철회 권리와 약관에 따른 더 유리한 권리를 제한하지 않아요. 정상 교류를 마친 뒤 새 소개를 원하면 새 회차 소개비 10,000원부터 다시 시작해요. 교류 중단·약속 취소·노쇼 기준과 자료 보유·삭제 기간은 내 정보에서 확인할 수 있어요.` },
+  { id: "visibility", title: "어떤 정보가 상대에게 공개되나요?", text: "신청서 마지막 단계에서 상대에게 보일 항목을 직접 고르고, 특정 상대에게 제공하기 전에 한 번 더 동의를 받아요. 상대 프로필은 소개된 날 정오부터 다음 날 11:00 응답 마감까지 볼 수 있고, 서로 알아가기로 하면 교류와 약속이 끝날 때까지 이어져요. 끝난 소개를 다시 보는 보관함은 없어요." },
+  { id: "contact", title: "문의는 어디에서 할 수 있나요?", text: "페이지 맨 아래의 ‘문의하기’에서 남길 수 있어요. 회원이라면 내 정보의 ‘문의·신고’에서 진행 중인 소개와 연결해 남기면 더 빨리 확인할 수 있어요." },
 ];
 
 function Pricing() {
   return (
     <section id="pricing" className="bleed bg-muted py-16 sm:py-20" aria-labelledby="pricing-title">
-      <SectionLabel number="06" ko="이용 요금">CLEAR FROM THE BEGINNING</SectionLabel>
+      <SectionLabel number="07" ko="이용 요금">CLEAR FROM THE BEGINNING</SectionLabel>
       <div className="grid gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16"><div><h2 id="pricing-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">시작하기 전에,<br />분명하게 안내해요.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청·검토·첫 소개 준비 전 대기는 무료.<br />첫 소개 준비와 현재 참여 가능성 확인 후 안내해요.</p></div><div>
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-7"><div><p className="mb-3 text-xs text-muted-foreground">소개 이용료 · 1인</p><strong className="text-5xl font-semibold tabular-nums text-primary">{money(BEFORE_US.pricing.introduction)}</strong></div><p className="text-xs text-muted-foreground">부가세 포함 · 자동 갱신 없음</p></div>
         <p className="pt-6 text-sm leading-7 text-muted-foreground">서로 더 알아가기로 한 뒤의 교류비는, 결제하기 전에 화면에서 먼저 확인할 수 있어요. 두 사람 모두 확인해야 3일이 시작돼요.</p>
         <div className="mt-8 border-t border-border pt-6"><p className="mb-4 text-sm font-semibold">분명히 해 두고 싶은 것들</p><ul className="space-y-3">{PROMISES.map(item => <li key={item} className="flex gap-3 text-sm leading-7"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-primary" />{item}</li>)}</ul></div>
-        <div className="mt-7 flex flex-wrap items-center gap-3"><Button asChild className={`h-12 rounded-full px-6 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={16} /></Link></Button><Button asChild variant="link" className={`h-12 px-0 text-foreground hover:text-primary ${interaction}`}><a href="#faq">대기·미시작·취소·환불·공개 범위·문의 FAQ <ArrowRight size={14} /></a></Button></div><p className="mt-3 text-[11px] text-muted-foreground">데모에서는 실제 신청이나 결제가 진행되지 않아요.</p>
+        <div className="mt-7 flex flex-wrap items-center gap-3"><Button asChild className={`h-12 rounded-full px-6 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={16} /></Link></Button><Button asChild variant="link" className={`h-12 px-0 text-foreground hover:text-primary ${interaction}`}><a href="#faq">자주 묻는 질문 보기 <ArrowRight size={14} /></a></Button></div>
       </div></div>
     </section>
   );
 }
 
 function Faq() {
+  const location = useLocation();
+  const [open, setOpen] = useState("");
+  useEffect(() => {
+    const id = location.hash.startsWith("#faq-") ? location.hash.slice(5) : "";
+    if (!id || !FAQ.some(item => item.id === id)) return;
+    setOpen(id);
+    const frame = requestAnimationFrame(() => document.getElementById(`faq-${id}`)?.scrollIntoView({ block: "center" }));
+    return () => cancelAnimationFrame(frame);
+  }, [location.hash, location.key]);
   return (
     <section id="faq" className="grid gap-8 py-16 sm:py-20 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="faq-title">
-      <div><SectionLabel number="07" ko="자주 묻는 질문">BEFORE YOU BEGIN</SectionLabel><h2 id="faq-title" className="text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">확정된 운영 기준과<br />아직 정해지지 않은 정책을 구분해 안내해요.</p></div>
-      <Accordion type="single" collapsible className="border-t border-border [&_[data-slot=accordion-content]]:motion-reduce:animate-none [&_svg]:motion-reduce:transition-none">
+      <div><SectionLabel number="08" ko="자주 묻는 질문">BEFORE YOU BEGIN</SectionLabel><h2 id="faq-title" className="text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청하기 전에 많이 묻는 것들을 모았어요.<br />더 궁금한 건 <Link to="/contact" className="text-foreground underline underline-offset-4 hover:text-primary">문의하기</Link>로 남겨 주세요.</p></div>
+      <Accordion type="single" collapsible value={open} onValueChange={setOpen} className="border-t border-border [&_[data-slot=accordion-content]]:motion-reduce:animate-none [&_svg]:motion-reduce:transition-none">
         {FAQ.map(item => <AccordionItem key={item.id} value={item.id} id={`faq-${item.id}`}><AccordionTrigger className={`py-6 text-[15px] hover:no-underline hover:text-primary ${interaction}`}>{item.title}</AccordionTrigger><AccordionContent className="pb-6 text-sm leading-7 text-muted-foreground">{item.text}</AccordionContent></AccordionItem>)}
       </Accordion>
     </section>
@@ -492,15 +521,15 @@ function Together() {
   );
 }
 
-export function PublicInformation({ section }: { section: "introduction" | "exchange" | "pricing" }) {
+export function PublicInformation({ section }: { section: "introduction" | "exchange" | "pricing" | "faq" }) {
   usePageWidth();
-  const title = { introduction: "진행 방식", exchange: "두 가지 시작", pricing: "이용 요금" }[section];
-  return <div className="break-keep [overflow-wrap:anywhere]"><h1 className="sr-only">{title}</h1>{section === "introduction" && <><Introduction /><FounderLetter /><InitialOperation /></>}{section === "exchange" && <><TwoVoices /><Exchange /></>}{section === "pricing" && <><Pricing /><Faq /></>}</div>;
+  const title = { introduction: "진행 방식", exchange: "두 가지 시작", pricing: "이용 요금", faq: "자주 묻는 질문" }[section];
+  return <div className="break-keep [overflow-wrap:anywhere]"><h1 className="sr-only">{title}</h1>{section === "introduction" && <><Introduction /><FounderLetter /><InitialOperation detailsTo="/faq#faq-early-benefit" /></>}{section === "exchange" && <><TwoVoices /><Exchange /></>}{section === "pricing" && <><Pricing /><Faq /></>}{section === "faq" && <Faq />}</div>;
 }
 
 export default function PublicHome() {
   const root = useRef<HTMLDivElement>(null);
   useScrollReveal(root);
   usePageWidth();
-  return <div ref={root} className="break-keep [overflow-wrap:anywhere]"><ScrollDots /><Hero /><Journey /><Philosophy /><Introduction /><FounderLetter /><TwoVoices /><InitialOperation /><Exchange /><Pricing /><Faq /><Together /></div>;
+  return <div ref={root} className="break-keep [overflow-wrap:anywhere]"><ScrollDots /><Hero /><Journey /><Philosophy /><Introduction /><FounderLetter /><TwoVoices /><InitialOperation /><Exchange /><Safety /><Pricing /><Faq /><Together /></div>;
 }
