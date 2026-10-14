@@ -112,23 +112,6 @@ function ScrollDots() {
   );
 }
 
-// 첫 화면 장식: 정오를 향해 가는 가는 호. 점은 지금 시각만큼 12:00 쪽으로 다가간다(옆의 ‘다음 정오까지’ 시계와 같은 시간).
-function NoonArc() {
-  const { left } = untilNoon(useMinuteNow());
-  const progress = Math.min(1, Math.max(0, 1 - left / 86400));
-  const angle = Math.PI * (1 - progress);
-  const x = 60 + 50 * Math.cos(angle), y = 58 - 50 * Math.sin(angle);
-  return (
-    <svg viewBox="0 0 120 72" className="w-full overflow-visible text-white" aria-hidden="true">
-      <line x1="2" x2="118" y1="58" y2="58" stroke="currentColor" strokeOpacity="0.2" strokeWidth="1" />
-      <path d="M10 58 A50 50 0 0 1 110 58" fill="none" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="1.5 4" strokeLinecap="round" />
-      <path d={`M10 58 A50 50 0 0 1 ${x.toFixed(2)} ${y.toFixed(2)}`} fill="none" stroke="currentColor" strokeOpacity="0.85" strokeWidth="1.2" strokeLinecap="round" />
-      <circle cx={x} cy={y} r="4.5" fill="var(--warm)" stroke="white" strokeWidth="1.5" />
-      <text x="110" y="70" textAnchor="middle" fontSize="7" fill="currentColor" fillOpacity="0.95" letterSpacing="0.6">12:00</text>
-    </svg>
-  );
-}
-
 function ServiceCollage() {
   return (
     <div className="relative mx-auto w-full max-w-lg pb-8 lg:pb-0" aria-label="서비스 화면 예시: 편지 나누기와 첫 장면 만들기">
@@ -144,7 +127,6 @@ function ServiceCollage() {
           <div className="px-5 py-6"><p className="text-[15px] font-semibold leading-6">함께 고르는<br />우리의 첫 장면.</p><div className="mt-5 space-y-2"><div className="flex items-center justify-between rounded-xl border border-accent bg-accent/5 px-3 py-3 text-[11px]"><span>조용한 동네를 함께 걷기</span><Check size={13} className="text-accent" /></div><div className="rounded-xl border border-black/10 px-3 py-3 text-[11px] text-black/55">좋아하는 음악을 함께 듣기</div></div></div>
           <div className="bg-accent px-5 py-3 text-[11px] text-white">두 사람이 함께 선택해요.</div>
         </div>
-        <div className="absolute bottom-2 left-0 w-[30%]"><NoonArc /></div>
       </div>
     </div>
   );
@@ -194,7 +176,7 @@ function Introduction() {
           <div className="group/pair flex items-center justify-center gap-5 py-7" aria-hidden="true"><span className={`size-20 rounded-full bg-primary sm:size-24 group-hover/pair:translate-x-2 ${lift}`} /><span className={`size-20 rounded-full bg-accent sm:size-24 group-hover/pair:-translate-x-2 ${lift}`} /></div>
           <div className="flex items-baseline justify-between"><span className="text-sm font-semibold">한 사람을 향한 집중</span><span className="text-5xl font-light text-primary">02</span></div>
         </div>
-        <div className="flex flex-col justify-center"><SectionLabel number="02" ko="소개">THE INTRODUCTION</SectionLabel><h2 id="introduction-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">많이 보여드리기보다,<br />한 사람을 신중하게.</h2><p className="mt-6 text-[15px] leading-[2] text-muted-foreground">사진 너머의 취향, 관계를 대하는 태도, 쉬는 날의 모습까지. 운영진이 두 사람의 이야기를 나란히 놓고 오래 들여다본 뒤에야 한 쌍을 제안해요.</p><div className="mt-7 flex items-start gap-3 border-t border-border pt-5"><Clock size={17} className="mt-1 shrink-0 text-warm-ink" /><p className="text-sm leading-7">준비된 날, 정오 12시.<br /><span className="text-muted-foreground">두 사람에게 같은 순간에 도착해요.</span></p></div></div>
+        <div className="flex flex-col justify-center"><SectionLabel number="02" ko="소개">THE INTRODUCTION</SectionLabel><h2 id="introduction-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">많이 보여드리기보다,<br />한 사람을 신중하게.</h2><p className="mt-6 text-[15px] leading-[2] text-muted-foreground">사진 너머의 취향, 관계를 대하는 태도, 쉬는 날의 모습까지. 운영진이 두 사람의 이야기를 나란히 놓고 오래 들여다본 뒤에야 한 쌍을 제안해요.</p><div className="mt-7 flex items-start gap-3 border-t border-border pt-5"><Clock size={17} className="mt-1 shrink-0 text-accent" /><p className="text-sm leading-7">준비된 날, 정오 12시.<br /><span className="text-muted-foreground">두 사람에게 같은 순간에 도착해요.</span></p></div></div>
       </div>
     </section>
   );
@@ -207,7 +189,7 @@ function FounderLetter() {
         <SectionLabel number="03" ko="운영진의 편지">A LETTER FROM US</SectionLabel>
         <h2 id="letter-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">왜 하루에,<br />한 사람일까요?</h2>
       </div>
-      <article className={`relative border border-border bg-paper p-7 shadow-[0_1px_0_var(--border)] sm:p-10 hover:-translate-y-1 ${lift}`}>
+      <article className={`relative border border-border bg-card p-7 shadow-[0_1px_0_var(--border)] sm:p-10 hover:-translate-y-1 ${lift}`}>
         <div className="mb-7 flex gap-1.5" aria-hidden="true"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></div>
         <div className="space-y-5 text-[15px] leading-[2]">
           <p>안녕하세요, 비포어스를 만든 사람이에요.</p>
@@ -318,7 +300,7 @@ function TwoVoices() {
   );
   const voiceClass = (side: "left" | "right") => `${show(side) ? "" : "hidden md:block md:opacity-25"} transition-opacity duration-200 motion-reduce:transition-none`;
   return (
-    <section className="bleed bg-paper py-16 sm:py-24" aria-labelledby="story-title">
+    <section className="border-t border-border py-16 sm:py-24" aria-labelledby="story-title">
       <div className="mx-auto max-w-2xl text-center">
         <div className="flex justify-center"><SectionLabel number="04" ko="이야기">A STORY IN TWO VOICES</SectionLabel></div>
         <h2 id="story-title" className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">한 사람을 알아가는 데 필요한,<br />사흘이라는 시간.</h2>
@@ -334,9 +316,9 @@ function TwoVoices() {
             );
           })}
         </div>
-        <div role="group" aria-label="이야기 시점" className="mx-auto mt-4 flex w-fit rounded-full border border-border bg-background p-1 text-xs">
+        <div role="group" aria-label="이야기 시점" className="mx-auto mt-4 flex w-fit rounded-full bg-muted p-1 text-xs">
           {([["both", "함께 읽기"], ["left", `${people.left}의 시점`], ["right", `${people.right}의 시점`]] as const).map(([id, label]) => (
-            <button key={id} type="button" aria-pressed={voice === id} onClick={() => setVoice(id)} className={`rounded-full px-4 py-2 ${interaction} ${voice === id ? "bg-paper text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
+            <button key={id} type="button" aria-pressed={voice === id} onClick={() => setVoice(id)} className={`rounded-full px-4 py-2 ${interaction} ${voice === id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
           ))}
         </div>
         <p className="mt-4 text-[11px] text-muted-foreground">약 3분</p>
@@ -345,8 +327,8 @@ function TwoVoices() {
         <span aria-hidden="true" className="absolute top-2 bottom-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-border to-transparent md:block" />
         {chapters.map(chapter => (
           <li key={chapter.id} className="relative pb-16 last:pb-4">
-            <div className="relative z-10 mx-auto mb-8 max-w-sm bg-paper px-4 text-center">
-              <span className={`inline-block rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.14em] ${chapter.id === "noon" || chapter.id === "day4" ? "border-warm/50 text-warm-ink" : "border-accent/30 text-accent"}`}>{chapter.label}</span>
+            <div className="relative z-10 mx-auto mb-8 max-w-sm bg-background px-4 text-center">
+              <span className="inline-block rounded-full border border-accent/30 px-3 py-1 text-[10px] font-semibold tracking-[0.14em] text-accent">{chapter.label}</span>
               {chapter.prompt && <p className="mt-3 text-base font-medium leading-7">{chapter.prompt.endsWith("?") ? `“${chapter.prompt}”` : chapter.prompt}</p>}
             </div>
             <div className="grid gap-8 md:grid-cols-2 md:gap-16">
@@ -377,10 +359,10 @@ function Exchange() {
       <SectionLabel number="05" ko="두 가지 시작">TWO WAYS TO BEGIN</SectionLabel>
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end"><h2 id="exchange-title" className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">마주하기 전,<br />우리만의 3일.</h2><p className="max-w-sm text-sm leading-7 text-muted-foreground">얼굴을 마주하기 전에, 서로의 생각과 취향을 먼저 만나요. 두 사람이 함께 고른 방식으로.</p></div>
       <div className="mt-10 grid border border-border md:grid-cols-2">
-        <article className="flex flex-col border-b border-border bg-paper p-7 sm:p-10 md:border-r md:border-b-0"><div className="mb-8 flex items-start justify-between"><span className="text-6xl font-light leading-none text-primary">A</span><span className="pt-2 text-[10px] tracking-[0.12em] text-muted-foreground">ONE LETTER A DAY</span></div><h3 className="text-2xl font-semibold">편지 나누기</h3><p className="mt-4 min-h-14 text-sm leading-7 text-muted-foreground">각자 하루 한 통의 편지.<br />서로의 생각과 일상을 천천히 나눠요.</p><LetterTrial /></article>
+        <article className="flex flex-col border-b border-border bg-muted p-7 sm:p-10 md:border-r md:border-b-0"><div className="mb-8 flex items-start justify-between"><span className="text-6xl font-light leading-none text-primary">A</span><span className="pt-2 text-[10px] tracking-[0.12em] text-muted-foreground">ONE LETTER A DAY</span></div><h3 className="text-2xl font-semibold">편지 나누기</h3><p className="mt-4 min-h-14 text-sm leading-7 text-muted-foreground">각자 하루 한 통의 편지.<br />서로의 생각과 일상을 천천히 나눠요.</p><LetterTrial /></article>
         <article className="flex flex-col bg-background p-7 sm:p-10"><div className="mb-8 flex items-start justify-between"><span className="text-6xl font-light leading-none text-accent">B</span><span className="pt-2 text-[10px] tracking-[0.12em] text-muted-foreground">CHOOSE A SCENE TOGETHER</span></div><h3 className="text-2xl font-semibold">첫 장면 만들기</h3><p className="mt-4 min-h-14 text-sm leading-7 text-muted-foreground">함께 고르며 서로를 알아가요.<br />같은 장면을 고른 순간, 대화가 시작돼요.</p><SceneTrial /></article>
       </div>
-      <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4 border-t border-border pt-6 text-xs"><span className="font-semibold text-accent">DAY 01—03 <span className="ml-2 font-normal text-foreground">교류</span></span><ArrowRight size={14} className="text-muted-foreground" /><span className="font-semibold text-warm-ink">DAY 04 <span className="ml-2 font-normal text-foreground">각자 만남 의사 확인</span></span><span className="text-muted-foreground">양쪽이 희망하면 시간·장소 조율</span></div>
+      <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4 border-t border-border pt-6 text-xs"><span className="font-semibold text-accent">DAY 01—03 <span className="ml-2 font-normal text-foreground">교류</span></span><ArrowRight size={14} className="text-muted-foreground" /><span className="font-semibold text-accent">DAY 04 <span className="ml-2 font-normal text-foreground">각자 만남 의사 확인</span></span><span className="text-muted-foreground">양쪽이 희망하면 시간·장소 조율</span></div>
     </section>
   );
 }

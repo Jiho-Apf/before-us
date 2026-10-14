@@ -16,9 +16,6 @@
   --muted-foreground: #686878;
   --accent: #3A54CA;
   --accent-foreground: #ffffff;
-  --paper: #FAF7F2;
-  --warm: #E9876B;
-  --warm-ink: #AD4F2D;
   --destructive: #C92A39;
   --destructive-foreground: #ffffff;
   --border: rgba(0, 0, 0, 0.07);
@@ -59,9 +56,6 @@
   --muted-foreground: #A8B0C2;
   --accent: #7895FF;
   --accent-foreground: #151515;
-  --paper: #171E2D;
-  --warm: #F2A58C;
-  --warm-ink: #F2A58C;
   --destructive: #F87171;
   --destructive-foreground: var(--background);
   --border: rgba(255, 255, 255, 0.08);
@@ -102,9 +96,6 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-paper: var(--paper);
-  --color-warm: var(--warm);
-  --color-warm-ink: var(--warm-ink);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
