@@ -477,7 +477,7 @@ export function loadConsoleFixtures(now = new Date()): ConsoleData {
     member.rights = "valid"
     if (index < 4) {
       member.disposition = "waiting"
-      member.draft.review.receivedAt = ago([6, 9, 15, 22][index])
+      member.draft.review.receivedAt = ago([6, 9, 15, 36][index])
       member.rights = index === 2 ? "none" : "valid"
     }
     if (index === 4) {
@@ -543,7 +543,7 @@ export function loadConsoleFixtures(now = new Date()): ConsoleData {
         memberId: member.id,
         kind: "introduction",
         amount: BEFORE_US.pricing.introduction,
-        paidAt: ago(index < 4 ? [4, 7, 13, 20][index] : 3),
+        paidAt: ago(index < 4 ? [4, 7, 13, 34][index] : 3),
         refundRequestedAt: index === 3 ? ago(0) : null,
         refundedAt: index === 2 ? ago(0) : null,
         refundAmount: index === 2 ? BEFORE_US.pricing.introduction : 0,

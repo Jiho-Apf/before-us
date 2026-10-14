@@ -20,6 +20,7 @@ import {
   periodRange,
   replaceConsoleData,
   useConsoleData,
+  type ConsoleData,
 } from "./admin-console-data"
 import {
   INTRO_STAGES,
@@ -34,6 +35,8 @@ import {
   protectedSupply,
   requestExchangeContent,
   type IntroductionRecord,
+  BENEFIT_LABELS,
+  type BenefitKey,
 } from "./admin-operations-model"
 
 const time = (at: string | null) =>
@@ -331,6 +334,7 @@ export function AdminOperations({
       )}
       {section === "applicants" || section === "members" ? (
         <>
+          {section === "members" && <BenefitSummary data={data} now={now} active={params.get("benefit") || ""} onPick={(value) => update("benefit", value)} />}
           <section className="rounded-lg border border-border bg-card p-5">
             <div className="mb-5 flex flex-wrap gap-2">
               {(section === "members"
@@ -449,6 +453,12 @@ export function AdminOperations({
                 onChange={(value) => update("photo", value)}
               />
               <FilterSelect
+                label="소개 혜택"
+                value={params.get("benefit") || ""}
+                options={(Object.keys(BENEFIT_LABELS) as BenefitKey[]).map((id) => ({ id, label: BENEFIT_LABELS[id] }))}
+                onChange={(value) => update("benefit", value)}
+              />
+              <FilterSelect
                 label="본인·성인 확인"
                 value={params.get("identity") || ""}
                 options={[
@@ -516,6 +526,7 @@ export function AdminOperations({
                       "최근 소개일",
                       "대기일",
                       "누적 소개",
+                      "소개 혜택",
                       "운영자 직접 검토",
                     ]
               }
@@ -598,6 +609,10 @@ export function AdminOperations({
                         {row.introductionCount === null
                           ? "기록 확인 필요"
                           : `${row.introductionCount}회`}
+                      </td>
+                      <td className="px-3 py-4">
+                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] ${row.benefit.key === "early" ? "border-accent/40 bg-accent/10 text-accent" : row.benefit.key === "standard" ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>{row.benefit.label}</span>
+                        <span className="mt-1 block text-[11px] text-muted-foreground">{row.benefit.detail}</span>
                       </td>
                       <td className="px-3 py-4">{time(row.lastReviewedAt)}</td>
                     </>
@@ -1055,6 +1070,34 @@ export function AdminMemberHistory({ memberId }: { memberId: string }) {
               </p>
             </article>
           ))}
+      </div>
+    </section>
+  )
+}
+
+function BenefitSummary({ data, now, active, onPick }: { data: ConsoleData; now: Date; active: string; onPick: (value: string) => void }) {
+  const rows = applicantRows(data, now)
+  const keys: BenefitKey[] = ["early", "early-ended", "standard", "standard-ended", "started", "none"]
+  const soon = rows.filter((row) => row.benefit.key === "early" && row.benefit.endsAt && Date.parse(row.benefit.endsAt) - now.getTime() < 7 * 86400000).length
+  return (
+    <section className="rounded-lg border border-border bg-card p-5" aria-labelledby="benefit-summary-title">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 id="benefit-summary-title" className="text-sm font-semibold">소개 혜택 구분</h2>
+          <p className="mt-1 text-xs text-muted-foreground">2026. 12. 31.까지 결제분은 30일 초기 혜택, 이후는 기본 소개 5번. 숫자를 누르면 아래 목록이 걸러져요.</p>
+        </div>
+        {soon > 0 && <p className="text-xs font-medium text-accent">7일 안에 초기 혜택이 끝나는 회원 {soon}명</p>}
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        {keys.map((key) => {
+          const count = rows.filter((row) => row.benefit.key === key).length
+          return (
+            <button key={key} type="button" aria-pressed={active === key} onClick={() => onPick(active === key ? "" : key)} className={`rounded-lg border p-3 text-left transition-colors ${active === key ? "border-primary bg-primary/5" : "border-border hover:bg-secondary"}`}>
+              <span className="block text-[11px] text-muted-foreground">{BENEFIT_LABELS[key]}</span>
+              <span className="mt-1 block text-2xl font-light tabular-nums">{count}</span>
+            </button>
+          )
+        })}
       </div>
     </section>
   )
