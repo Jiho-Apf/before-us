@@ -44,11 +44,10 @@ function RouteFallback() {
 
 
 const PUBLIC_NAV = [
-  { to: "/how-it-works", label: "진행 방식", number: "01" },
-  { to: "/two-starts", label: "두 가지 시작", number: "02" },
-  { to: "/pricing", label: "이용 요금", number: "03" },
-  { to: "/faq", label: "자주 묻는 질문", number: "04" },
-  { to: "/contact", label: "문의하기", number: "05" },
+  { to: "/two-starts", label: "두 가지 시작", number: "01" },
+  { to: "/pricing", label: "이용 요금", number: "02" },
+  { to: "/faq", label: "자주 묻는 질문", number: "03" },
+  { to: "/contact", label: "문의하기", number: "04" },
 ];
 
 const MEMBER_NAV = [
@@ -214,7 +213,7 @@ function BeforeUsRoot() {
   const location = useLocation();
   const isMember = ["/payments","/support","/meeting/contact"].includes(location.pathname) || MEMBER_NAV.some(item => item.to === location.pathname);
   useEffect(() => {
-    const label = [...PUBLIC_NAV, ...MEMBER_NAV, { to: "/login", label: "로그인" }, { to: "/apply", label: "소개 신청하기" }, { to: "/terms", label: "이용약관" }, { to: "/privacy", label: "개인정보처리방침" }].find(item => item.to === location.pathname)?.label;
+    const label = [...PUBLIC_NAV, ...MEMBER_NAV, { to: "/login", label: "로그인" }, { to: "/apply", label: "소개 신청하기" }, { to: "/terms", label: "이용약관" }, { to: "/privacy", label: "개인정보처리방침" }, { to: "/how-it-works", label: "진행 방식" }].find(item => item.to === location.pathname)?.label;
     document.title = label ? `${label} · ${BEFORE_US.brand.name}` : `${BEFORE_US.brand.name} · ${BEFORE_US.brand.english}`;
   }, [location.pathname]);
   return (

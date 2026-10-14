@@ -115,7 +115,7 @@ function ScrollDots() {
 function ServiceCollage() {
   return (
     <div className="relative mx-auto w-full max-w-lg pb-8 lg:pb-0" aria-label="서비스 화면 예시: 편지 나누기와 첫 장면 만들기">
-      <div className="mb-6 flex items-center justify-between text-xs text-white/95 dark:text-white"><span className="border border-white/30 px-3 py-1.5">서비스 화면 예시</span><span className="tracking-[0.15em]">DAY 01—03</span></div>
+      <div className="mb-6 flex items-center justify-end text-xs text-white/95 dark:text-white"><span className="tracking-[0.15em]">DAY 01—03</span></div>
       <div className="group/collage relative min-h-[510px] sm:min-h-[555px]">
         <div className={`absolute top-0 left-0 w-[78%] -rotate-3 border border-white/40 bg-white text-[#151515] shadow-xl hover:-translate-y-1.5 hover:-rotate-2 ${lift}`}>
           <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 text-[10px] font-semibold tracking-[0.15em]"><span>A · 편지 나누기</span><span>DAY 01</span></div>
@@ -129,7 +129,6 @@ function ServiceCollage() {
         </div>
         <span className="absolute bottom-6 left-0 w-[30%] text-[10px] leading-5 tracking-[0.12em] text-white/95 dark:text-white">TWO PEOPLE.<br />THEIR OWN PACE.</span>
       </div>
-      <p className="mt-3 text-xs leading-5 text-white/95 dark:text-white">실제 회원의 편지나 프로필이 아닌 서비스 화면 예시예요.</p>
     </div>
   );
 }
@@ -369,30 +368,6 @@ function Exchange() {
   );
 }
 
-// 안심하고 시작하도록: 이미 있는 보호 장치와 신청할 수 있는 분. FAQ와 같은 두 칸 구성(왼쪽 제목, 오른쪽 줄 목록)을 그대로 쓴다.
-const SAFEGUARDS = [
-  { title: "본인 인증을 마친 분만 소개해요", body: "본인 인증을 마친 만 19세 이상만 소개해요. 기혼·사실혼이거나 교제 중인 사실이 확인되면 이용이 끝나요." },
-  { title: "사람이 직접 읽어요", body: "신청서와 최근 사진을 운영진이 한 장씩 확인하고, 기준에 맞지 않으면 보완을 요청드려요." },
-  { title: "연락처는 마지막에 열려요", body: "두 분이 각자 동의했을 때만, 만나는 날 자정에 연락처가 열려요. 그전까지는 비포어스 안에서만 이야기해요." },
-  { title: "언제든 멈출 수 있어요", body: "불편하면 신고·차단·중단을 바로 할 수 있어요. 첫 만남 전에는 공공장소·낮 시간 같은 안전 안내를 드리고, 만남 뒤 소감은 운영진만 봐요." },
-];
-const ELIGIBILITY = ["만 19세 이상, 본인 인증이 가능한 분", "지금 혼인·사실혼 관계가 없고, 교제 중인 사람도 없는 분", "직접 만날 수 있는 지역에서 활동하는 분"];
-function Safety({ number = "04" }: { number?: string }) {
-  return (
-    <section id="safety" className="grid gap-8 border-t border-border py-16 sm:py-20 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="safety-title">
-      <div><SectionLabel number={number} ko="안전과 신뢰">WITH CARE</SectionLabel><h2 id="safety-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">처음 만나는 사람이라서,<br />더 꼼꼼하게.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">마음을 여는 일만 남도록,<br />확인하고 지키는 일은 저희가 먼저 해요.</p></div>
-      <div className="border-t border-border">
-        {SAFEGUARDS.map(item => <div key={item.title} className="border-b border-border py-6"><p className="text-[15px] font-medium">{item.title}</p><p className="mt-2 text-sm leading-7 text-muted-foreground">{item.body}</p></div>)}
-        <div className="py-6">
-          <p className="text-[15px] font-medium">이런 분이 신청할 수 있어요</p>
-          <ul className="mt-3 space-y-2">{ELIGIBILITY.map(item => <li key={item} className="flex gap-3 text-sm leading-7 text-muted-foreground"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-primary" />{item}</li>)}</ul>
-          <p className="mt-4 text-xs leading-6 text-muted-foreground">신청이 한쪽 성별로 몰리면 성비를 맞추기 위해 순서대로 검토해요. 기다리는 동안의 상태는 홈페이지에서 확인할 수 있어요.</p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 // 첫 화면과 각 섹션에서 옮겨 온 운영 규칙. 자세한 기준은 FAQ에 두고 여기선 핵심만.
 const PROMISES = [
   "소개는 준비된 날 정오 12시에, 하루 최대 한 명이에요. 매일 새 소개를 보장하지는 않아요.",
@@ -496,7 +471,7 @@ function Together() {
 export function PublicInformation({ section }: { section: "introduction" | "exchange" | "pricing" | "faq" }) {
   usePageWidth();
   const title = { introduction: "진행 방식", exchange: "두 가지 시작", pricing: "이용 요금", faq: "자주 묻는 질문" }[section];
-  return <div className="break-keep [overflow-wrap:anywhere]"><h1 className="sr-only">{title}</h1>{section === "introduction" && <><Introduction /><FounderLetter /><Safety /><InitialOperation detailsTo="/faq#faq-early-benefit" /></>}{section === "exchange" && <><TwoVoices /><Exchange /></>}{section === "pricing" && <><Pricing /><Faq /></>}{section === "faq" && <Faq />}</div>;
+  return <div className="break-keep [overflow-wrap:anywhere]"><h1 className="sr-only">{title}</h1>{section === "introduction" && <><Introduction /><FounderLetter /><InitialOperation detailsTo="/faq#faq-early-benefit" /></>}{section === "exchange" && <><TwoVoices /><Exchange /></>}{section === "pricing" && <><Pricing /><Faq /></>}{section === "faq" && <Faq />}</div>;
 }
 
 export default function PublicHome() {
