@@ -309,7 +309,7 @@ function TwoVoices() {
             <button key={id} type="button" aria-pressed={voice === id} onClick={() => setVoice(id)} className={`rounded-full px-4 py-2 ${interaction} ${voice === id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
           ))}
         </div>
-        <p className="mt-4 text-[11px] text-muted-foreground">약 3분 · 예시 이야기</p>
+        <p className="mt-4 text-[11px] text-muted-foreground">약 3분</p>
       </div>
       <ol className="relative mx-auto mt-16 max-w-4xl">
         <span aria-hidden="true" className="absolute top-2 bottom-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-border to-transparent md:block" />

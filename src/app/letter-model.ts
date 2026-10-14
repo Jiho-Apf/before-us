@@ -11,8 +11,9 @@ export const LETTER_DAYS = [
 type Submission = { body: string; at: string };
 // replies: 그날 함께 열린 상대 편지에 보내는 답장. 키는 답장을 쓴 사람.
 type LetterDay = { date: string; drafts: Record<string, string>; submissions: Record<string, Submission>; publishedAt: string | null; replies?: Record<string, Submission> };
-// 답장은 하루 한 번, 보내는 즉시 상대가 읽을 수 있다. 답장에 대한 답장은 없다. 다음 날 편지가 열리는 09:00까지 쓸 수 있다.
-export const LETTER_REPLY = { maxLength: 600, closesAt: "09:00" } as const;
+// 답장: 그날 함께 열린 상대 편지에 각자 한 번. 편지처럼 두 사람 모두 보내야 함께 열린다.
+// 답장에 대한 답장은 없다. 당일 23:59까지 쓸 수 있고, 18:00까지 쓰지 않은 사람에게 알림을 한 번 보낸다.
+export const LETTER_REPLY = { maxLength: 600, reminderAt: "18:00" } as const;
 export type LetterBook = {
   programId: string;
   revision: number;
@@ -53,14 +54,18 @@ function rowGate(book: LetterBook, agreement: AgreementState, memberId: string, 
   if (index === 1 && !published(book.days[0], agreement.members, now)) return "어제 실제로 공개된 편지가 없습니다. 없는 편지에 답장을 요청하지 않습니다. 교류 지연 상담이 필요합니다.";
   return null;
 }
-const replyClosesAt = (row: LetterDay) => `${shiftDay(row.date, 1)}T${LETTER_REPLY.closesAt}:00+09:00`;
+const replyClosesAt = (row: LetterDay) => `${shiftDay(row.date, 1)}T00:00:00+09:00`;
+const replyReminderAt = (row: LetterDay) => `${row.date}T${LETTER_REPLY.reminderAt}:00+09:00`;
+// 두 사람의 답장이 모두 마감 전에 도착했을 때만 함께 연다.
+const repliesOpen = (row: LetterDay, members: string[], now: Date) =>
+  members.every(id => { const reply = row.replies?.[id]; return !!reply && Number.isFinite(Date.parse(reply.at)) && Date.parse(reply.at) < Date.parse(replyClosesAt(row)) && Date.parse(reply.at) <= now.getTime(); });
 function replyGate(book: LetterBook, agreement: AgreementState, memberId: string, index: number, now: Date) {
   if (agreementGate(agreement, now) || agreement.status !== "started" || book.status !== "active" || !book.access[memberId]) return "교류가 중단되었거나 이용 확인이 필요합니다. 문의해 주세요.";
   const row = book.days[index];
   if (!row) return "유효한 DAY를 확인해 주세요.";
   if (!published(row, agreement.members, now)) return "그날의 편지가 두 사람 모두에게 열린 뒤에 답장할 수 있어요.";
   if (row.replies?.[memberId]) return "답장은 하루에 한 번만 보낼 수 있어요.";
-  if (now.getTime() >= Date.parse(replyClosesAt(row))) return "답장은 다음 편지가 열리는 09:00까지 쓸 수 있어요.";
+  if (now.getTime() >= Date.parse(replyClosesAt(row))) return "답장 시간이 지났어요. 답장은 편지를 받은 날 23:59까지 쓸 수 있어요.";
   return null;
 }
 export function letterAction(book: LetterBook, agreement: AgreementState, memberId: string, command: LetterCommand, expectedRevision: number, now: Date) {
@@ -122,11 +127,14 @@ export function letterView(book: LetterBook | null, agreement: AgreementState | 
       exchange: released ? {
         own: row.submissions[memberId].body,
         peer: row.submissions[peer].body,
-        // 내가 상대 편지에 쓴 답장과, 상대가 내 편지에 쓴 답장. 상대 답장은 보내진 즉시 보인다.
+        // 내 답장은 나에게 늘 보이고, 상대 답장은 두 사람 모두 답장했을 때만 내려 준다.
         ownReply: row.replies?.[memberId] || null,
-        peerReply: row.replies?.[peer] || null,
+        peerReply: repliesOpen(row, agreement.members, now) ? row.replies![peer] : null,
         canReply: !replyGate(book, agreement, memberId, index, now),
         replyClosesAt: replyClosesAt(row),
+        replyStatus: repliesOpen(row, agreement.members, now) ? "open" as const
+          : now.getTime() >= Date.parse(replyClosesAt(row)) ? (row.replies?.[memberId] ? "closed-peer-missing" as const : "closed-own-missing" as const)
+          : row.replies?.[memberId] ? "waiting-peer" as const : "writable" as const,
       } : null,
     };
   });
@@ -136,6 +144,28 @@ export function letterView(book: LetterBook | null, agreement: AgreementState | 
   return { revision: book.revision, programId: book.programId, scheduleVersion: book.scheduleVersion, rows, status, readAccess: permitted, delayed: book.status !== "blocked" && book.days.some(row => row.date < seoulDay(now) && !published(row, agreement.members, now)), complete, decisionAt, meetingOpen: canOpenMeeting(complete, permitted, book.status === "active" && agreement.status === "started" && !agreementGate(agreement, now), decisionAt, now), ...meeting, todayIndex: book.days.findIndex(row => row.date === seoulDay(now)) };
 }
 export type LetterView = NonNullable<ReturnType<typeof letterView>>;
+
+// 18:00 답장 알림: 그날 편지가 함께 열렸고 아직 답장하지 않은 사람에게 하루 한 번.
+// 실제 알림톡은 미연결이며, 같은 회원·날짜에는 한 번만 기록한다.
+export function replyReminderTargets(book: LetterBook, agreement: AgreementState, now: Date) {
+  if (book.status !== "active" || agreement.status !== "started") return [] as { day: number; memberId: string }[];
+  return book.days.flatMap((row, index) => {
+    if (!published(row, agreement.members, now) || now.getTime() < Date.parse(replyReminderAt(row)) || now.getTime() >= Date.parse(replyClosesAt(row))) return [];
+    return agreement.members
+      .filter(id => book.access[id] && !row.replies?.[id] && !book.events.some(event => event.type === "reply-reminder" && event.actor === id && event.day === index))
+      .map(memberId => ({ day: index, memberId }));
+  });
+}
+export function recordReplyReminders(book: LetterBook, agreement: AgreementState, now: Date) {
+  const targets = replyReminderTargets(book, agreement, now);
+  if (!targets.length) return { book, sent: [] as { day: number; memberId: string }[] };
+  const next = structuredClone(book);
+  for (const target of targets) {
+    next.revision += 1;
+    next.events.push({ type: "reply-reminder", actor: target.memberId, at: now.toISOString(), revision: next.revision, day: target.day });
+  }
+  return { book: next, sent: targets };
+}
 
 export type ScheduleResetProof = {
   policyVersion: string;

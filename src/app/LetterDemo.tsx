@@ -10,10 +10,12 @@ import {
   performLetter,
   setLetterDemoClock,
   switchLetterDemoAccount,
+  runReplyReminderDemo,
   useAgreementDemo,
 } from "./AgreementFlow"
 
 export function LetterDemo() {
+  const [reminderMessage, setReminderMessage] = useState("")
   const demo = useAgreementDemo()
   const [clock, setClock] = useState("2026-10-08T09:00")
   const view = letterView(
@@ -61,7 +63,15 @@ export function LetterDemo() {
           >
             가상 시계 하루 이동
           </Button>
+          <Button
+            variant="outline"
+            disabled={!demo.state}
+            onClick={() => setReminderMessage(runReplyReminderDemo())}
+          >
+            18:00 답장 알림 점검
+          </Button>
         </div>
+        {reminderMessage && <p role="status" className="mt-3 text-xs text-primary">{reminderMessage}</p>}
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <Label className="block w-full min-w-0 text-xs sm:w-auto">
             가상 시각 입력 · Asia/Seoul

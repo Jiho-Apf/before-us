@@ -33,6 +33,7 @@ import {
   letterView,
   type LetterBook,
   type LetterCommand,
+  recordReplyReminders,
 } from "./letter-model"
 import {
   agreementAction,
@@ -159,6 +160,15 @@ export function performLetter(command: LetterCommand, revision: number) {
   if (!result.error && ["report","contact","interrupt","block"].includes(command.type)) recordExchangeRequest(command.type as "report" | "contact" | "interrupt" | "block")
   updateStore({ ...store, state: agreement, letters: result.book })
   return result.error
+}
+// 개발용: 18:00 답장 알림 대상 점검. 실제 알림톡은 보내지 않고 회원·날짜별 한 번만 기록한다.
+export function runReplyReminderDemo() {
+  if (!store.state || !store.letters) return "확인된 A 교류가 없습니다."
+  const result = recordReplyReminders(store.letters, store.state, new Date(store.now))
+  if (!result.sent.length) return "지금 알림을 보낼 대상이 없어요. (그날 편지가 함께 열렸고, 18:00~23:59 사이에 아직 답장하지 않은 회원만 대상이에요)"
+  updateStore({ ...store, letters: result.book })
+  const label = (id: string) => (id === store.state!.members[1] ? "예시 나" : "예시 가")
+  return `답장 알림 기록 · ${result.sent.map((item) => `DAY 0${item.day + 1} ${label(item.memberId)}`).join(", ")} · 실제 알림톡은 미연결`
 }
 export function switchLetterDemoAccount() {
   if (store.state)

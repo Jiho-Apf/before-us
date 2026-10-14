@@ -21,7 +21,7 @@ type LetterFlowProps = {
   nowLabel: string
   onCommand?: (command: LetterCommand, revision: number) => string | null
 }
-function ReplyBox({ closesAt, onSend }: { closesAt: string; onSend: (body: string, confirmed: boolean) => void }) {
+function ReplyBox({ onSend }: { onSend: (body: string, confirmed: boolean) => void }) {
   const [body, setBody] = useState("")
   const [ok, setOk] = useState(false)
   return (
@@ -37,11 +37,11 @@ function ReplyBox({ closesAt, onSend }: { closesAt: string; onSend: (body: strin
       />
       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
         <span>{body.length}/{LETTER_REPLY.maxLength}</span>
-        <span>{formatTime(closesAt)}까지 · 보내면 상대가 바로 읽을 수 있어요</span>
+        <span>오늘 23:59까지 · 두 분 모두 답장하면 함께 열려요</span>
       </div>
       <label className="flex items-start gap-3 text-xs leading-6">
         <Checkbox checked={ok} onCheckedChange={(value) => setOk(value === true)} />
-        답장은 한 번만 보낼 수 있고, 보낸 뒤에는 고칠 수 없어요. 상대는 이 답장에 다시 답장할 수 없어요.
+        답장은 한 번만 보낼 수 있고, 보낸 뒤에는 고칠 수 없어요. 답장에 다시 답장할 수는 없고, 23:59까지 답장하지 않으면 이 편지에는 답장을 남길 수 없어요.
       </label>
       <Button size="sm" disabled={!body.trim() || !ok} onClick={() => onSend(body, ok)}>
         답장 보내기
@@ -83,7 +83,7 @@ export function LetterFlow({ view, nowLabel, onCommand }: LetterFlowProps) {
           : command.type === "submit"
             ? "오늘의 편지를 보냈어요. 양쪽 제출이 확인되면 함께 공개합니다. 실제 발송·저장은 연결되지 않았습니다."
             : command.type === "reply"
-              ? "답장을 보냈어요. 상대가 바로 읽을 수 있어요."
+              ? "답장을 보냈어요. 두 분 모두 답장하면 함께 열려요."
             : command.type === "meeting-choice"
               ? "만남 의사를 전달했어요. 상대의 응답을 임의로 만들지 않습니다."
               : command.type === "block"
@@ -242,7 +242,12 @@ export function LetterFlow({ view, nowLabel, onCommand }: LetterFlowProps) {
                       {row.exchange.ownReply ? (
                         <div className="mt-6 border-l-2 border-primary/40 pl-4">
                           <p className="text-xs text-muted-foreground">
-                            내 답장 · {formatTime(row.exchange.ownReply.at)} · 상대가 바로 읽을 수 있어요
+                            내 답장 · {formatTime(row.exchange.ownReply.at)} ·{" "}
+                            {row.exchange.replyStatus === "open"
+                              ? "함께 열렸어요"
+                              : row.exchange.replyStatus === "closed-peer-missing"
+                                ? "상대가 답장을 남기지 않아 열리지 않았어요"
+                                : "상대도 답장하면 함께 열려요"}
                           </p>
                           <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-7">
                             {row.exchange.ownReply.body}
@@ -251,9 +256,12 @@ export function LetterFlow({ view, nowLabel, onCommand }: LetterFlowProps) {
                       ) : row.exchange.canReply ? (
                         <ReplyBox
                           key={`${row.index}-${view.revision}`}
-                          closesAt={row.exchange.replyClosesAt}
                           onSend={(body, ok) => send({ type: "reply", day: row.index, body, confirmed: ok })}
                         />
+                      ) : row.exchange.replyStatus === "closed-own-missing" ? (
+                        <p className="mt-6 rounded-xl bg-muted p-4 text-xs leading-6 text-muted-foreground">
+                          답장 시간(23:59)이 지나 이 편지에는 더 이상 답장할 수 없어요. 상대의 답장은 두 분 모두 답장했을 때만 열려요.
+                        </p>
                       ) : null}
                     </section>
                     <section
@@ -267,7 +275,7 @@ export function LetterFlow({ view, nowLabel, onCommand }: LetterFlowProps) {
                       {row.exchange.peerReply ? (
                         <div className="mt-6 rounded-xl bg-primary/5 p-4">
                           <p className="text-xs font-semibold text-primary">
-                            상대의 답장이 도착했어요 · {formatTime(row.exchange.peerReply.at)}
+                            상대의 답장 · 두 분의 답장이 함께 열렸어요
                           </p>
                           <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-7">
                             {row.exchange.peerReply.body}
