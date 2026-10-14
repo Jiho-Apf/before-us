@@ -127,7 +127,6 @@ function ServiceCollage() {
           <div className="px-5 py-6"><p className="text-[15px] font-semibold leading-6">함께 고르는<br />우리의 첫 장면.</p><div className="mt-5 space-y-2"><div className="flex items-center justify-between rounded-xl border border-accent bg-accent/5 px-3 py-3 text-[11px]"><span>조용한 동네를 함께 걷기</span><Check size={13} className="text-accent" /></div><div className="rounded-xl border border-black/10 px-3 py-3 text-[11px] text-black/55">좋아하는 음악을 함께 듣기</div></div></div>
           <div className="bg-accent px-5 py-3 text-[11px] text-white">두 사람이 함께 선택해요.</div>
         </div>
-        <span className="absolute bottom-6 left-0 w-[30%] text-[10px] leading-5 tracking-[0.12em] text-white/95 dark:text-white">TWO PEOPLE.<br />THEIR OWN PACE.</span>
       </div>
     </div>
   );
@@ -311,7 +310,7 @@ function TwoVoices() {
             const active = storyId === item.id;
             return (
               <button key={item.id} type="button" aria-pressed={active} aria-label={`이야기 ${item.number} · ${item.people.left}과 ${item.people.right}`} title={`${item.people.left}과 ${item.people.right}`} onClick={() => { setStoryId(item.id); setVoice("both"); }} className="group flex min-h-9 min-w-9 flex-col items-center justify-end rounded-sm px-2 outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <span className={`text-lg font-light leading-none tabular-nums transition-colors duration-300 motion-reduce:transition-none ${active ? "bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent" : "text-muted-foreground group-hover:text-foreground"}`}>{item.number}</span>
+                <span className={`text-lg font-[500] leading-none tabular-nums transition-colors duration-300 motion-reduce:transition-none ${active ? "bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent" : "text-muted-foreground group-hover:text-foreground"}`}>{item.number}</span>
                 <span aria-hidden="true" className={`mt-2 h-px transition-all duration-300 motion-reduce:transition-none ${active ? "w-3.5 bg-gradient-to-r from-primary to-accent" : "w-0 bg-transparent"}`} />
               </button>
             );
