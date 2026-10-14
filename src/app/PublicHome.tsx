@@ -1,3 +1,4 @@
+import { useScrollReveal } from "./scroll-reveal";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ArrowRight, ArrowUpRight, Check, Clock, Lock, Plus, RotateCcw } from "lucide-react";
@@ -455,5 +456,7 @@ export function PublicInformation({ section }: { section: "introduction" | "exch
 }
 
 export default function PublicHome() {
-  return <div className="break-keep [overflow-wrap:anywhere]"><ScrollDots /><Hero /><Philosophy /><Introduction /><FounderLetter /><TwoVoices /><InitialOperation /><Exchange /><Pricing /><Faq /><Together /></div>;
+  const root = useRef<HTMLDivElement>(null);
+  useScrollReveal(root);
+  return <div ref={root} className="break-keep [overflow-wrap:anywhere]"><ScrollDots /><Hero /><Philosophy /><Introduction /><FounderLetter /><TwoVoices /><InitialOperation /><Exchange /><Pricing /><Faq /><Together /></div>;
 }
