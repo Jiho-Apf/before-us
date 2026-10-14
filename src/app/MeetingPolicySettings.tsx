@@ -26,9 +26,9 @@ export function MeetingPolicySettings() {
     <section className="space-y-4 rounded-xl border border-border bg-background p-6">
       <h2 className="text-lg font-semibold">DAY04 · 약속 기한 설정</h2>
       <p className="text-xs leading-6 text-muted-foreground">
-        Owner 1명 가상 설정입니다. 새 가상 교류에만 적용하며 기존 교류의 정책
-        스냅샷과 기한은 바꾸지 않습니다. 서버 관리자 권한·저장·감사로그는 별도
-        구현이 필요합니다.
+        Owner 1명 가상 설정이에요. 새 가상 교류에만 적용하며 기존 교류의 정책
+        스냅샷과 기한은 바꾸지 않아요. 서버 관리자 권한·저장·감사로그는 별도
+        구현이 필요해요.
       </p>
       <label className="block space-y-2 text-xs">
         새 정책 버전
@@ -58,7 +58,7 @@ export function MeetingPolicySettings() {
           const error = saveMeetingPolicy(draft)
           setMessage(
             error ||
-              "새 가상 교류의 기본값을 변경했습니다. 기존 건은 변경하지 않았습니다.",
+              "새 가상 교류의 기본값을 변경했어요. 기존 건은 변경하지 않았어요.",
           )
         }}
       >

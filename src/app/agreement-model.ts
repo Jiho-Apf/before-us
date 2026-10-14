@@ -24,15 +24,15 @@ export function defaultStart(now: Date) {
   return `${shiftDay(day(now), 1)}T${BEFORE_US.agreement.defaultStartTime}:00+09:00`;
 }
 export function agreementGate(state: AgreementState | null, now: Date) {
-  if (!state || !Number.isFinite(now.getTime())) return "확인된 양쪽 결제·상호 선택 기록이 없습니다.";
-  if (state.members[0] === state.members[1] || state.sessions[0].applicationId === state.sessions[1].applicationId || !state.sessions[0].program?.id || state.sessions[0].program.id !== state.sessions[1].program?.id) return "같은 소개 건의 서로 다른 두 계정 확인이 필요합니다.";
-  if (!state.members.every((id, index) => state.sessions[index].applicationId === id) || state.sessions[0].exchange?.id === state.sessions[1].exchange?.id || state.sessions[0].introduction?.id === state.sessions[1].introduction?.id) return "양쪽 계정별 독립된 결제 기록 확인이 필요합니다.";
-  if (!state.startedAt && state.sessions.some(session => session.firstProgramStartedAt)) return "이미 실제 시작한 소개 회차를 새 합의로 재사용할 수 없습니다.";
+  if (!state || !Number.isFinite(now.getTime())) return "확인된 양쪽 결제·상호 선택 기록이 없어요.";
+  if (state.members[0] === state.members[1] || state.sessions[0].applicationId === state.sessions[1].applicationId || !state.sessions[0].program?.id || state.sessions[0].program.id !== state.sessions[1].program?.id) return "같은 소개 건의 서로 다른 두 계정 확인이 필요해요.";
+  if (!state.members.every((id, index) => state.sessions[index].applicationId === id) || state.sessions[0].exchange?.id === state.sessions[1].exchange?.id || state.sessions[0].introduction?.id === state.sessions[1].introduction?.id) return "양쪽 계정별 독립된 결제 기록 확인이 필요해요.";
+  if (!state.startedAt && state.sessions.some(session => session.firstProgramStartedAt)) return "이미 실제 시작한 소개 회차를 새 합의로 재사용할 수 없어요.";
   if (!state.startedAt && state.sessions.some(session => {
     const deadline = refundDeadlines(session).agreementAt;
     return deadline && !session.refundOperations?.agreementCompletedAt && now.getTime() >= Date.parse(deadline);
-  })) return "A/B·시작일 합의 기한이 지났습니다. 미시작 교류비 전액 환불 요청과 소개 권리 유지 기준을 확인해 주세요.";
-  if (!state.sessions.every(session => canAgreeProgram(session, now) && session.exchange?.amount === BEFORE_US.pricing.exchangePerPerson && session.exchange.programId === session.program?.id)) return "양쪽 상호 선택과 각자 교류비 24,000원 결제 완료 확인이 필요합니다.";
+  })) return "A/B·시작일 합의 기한이 지났어요. 미시작 교류비 전액 환불 요청과 소개 권리 유지 기준을 확인해 주세요.";
+  if (!state.sessions.every(session => canAgreeProgram(session, now) && session.exchange?.amount === BEFORE_US.pricing.exchangePerPerson && session.exchange.programId === session.program?.id)) return "양쪽 상호 선택과 각자 교류비 24,000원 결제 완료 확인이 필요해요.";
   return null;
 }
 export function makeAgreementFixture(now: Date): AgreementState {
@@ -69,14 +69,14 @@ export function agreementAction(state: AgreementState, memberId: string, command
   }
   const gate = agreementGate(state, now);
   if (gate) return reject(gate);
-  if (["started", "interrupted", "withdrawn"].includes(state.status)) return reject("시작 이후 방식 변경 또는 종료 상태 변경은 할 수 없습니다. 중단·문의로 연결해 주세요.");
+  if (["started", "interrupted", "withdrawn"].includes(state.status)) return reject("시작 이후 방식 변경 또는 종료 상태 변경은 할 수 없어요. 중단·문의로 연결해 주세요.");
   const next = structuredClone(state);
   if (command.type === "extension-request" || command.type === "extension-consent") {
     const ops = next.sessions[0].refundOperations;
     if (!ops || !next.sessions[1].refundOperations || ops.extension.used || next.status !== "choosing")
-      return reject("합의 전·현재 정책·미사용 1회 연장만 요청할 수 있습니다.");
+      return reject("합의 전·현재 정책·미사용 1회 연장만 요청할 수 있어요.");
     if (command.type === "extension-request") {
-      if (ops.extension.requestedBy) return reject("이미 연장 요청이 있습니다. 상대가 직접 동의해야 합니다.");
+      if (ops.extension.requestedBy) return reject("이미 연장 요청이 있어요. 상대가 직접 동의해야 해요.");
       ops.extension.requestedBy = memberId; ops.extension.consents = [memberId];
     } else {
       if (!ops.extension.requestedBy || ops.extension.consents.includes(memberId)) return reject("현재 연장 요청에 상대가 직접 동의해 주세요.");
@@ -85,7 +85,7 @@ export function agreementAction(state: AgreementState, memberId: string, command
     }
     next.sessions[1].refundOperations!.extension = structuredClone(ops.extension);
   } else if (command.type === "draft") {
-    if (!["A", "B"].includes(command.plan)) return reject("A 또는 B만 선택할 수 있습니다.");
+    if (!["A", "B"].includes(command.plan)) return reject("A 또는 B만 선택할 수 있어요.");
     next.drafts[memberId] = command.plan;
   } else if (command.type === "share") {
     const plan = next.drafts[memberId];
@@ -95,12 +95,12 @@ export function agreementAction(state: AgreementState, memberId: string, command
       next.startAt = matched(next) ? defaultStart(now) : null; next.dateMode = "default";
     }
   } else if (command.type === "date") {
-    if (!matched(next)) return reject("양쪽이 같은 방식을 공유한 뒤 일정을 제안할 수 있습니다.");
+    if (!matched(next)) return reject("양쪽이 같은 방식을 공유한 뒤 일정을 제안할 수 있어요.");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(command.date) || !Number.isFinite(Date.parse(`${command.date}T09:00:00+09:00`)) || day(new Date(`${command.date}T09:00:00+09:00`)) !== command.date || command.date < shiftDay(day(now), 1)) return reject("다음 날 이후의 유효한 날짜를 골라 주세요.");
     const startAt = `${command.date}T${BEFORE_US.agreement.defaultStartTime}:00+09:00`;
     if (startAt !== next.startAt) { next.startAt = startAt; next.dateMode = "proposed"; resetConfirmations(next); }
   } else if (command.type === "confirm") {
-    if (!matched(next) || !next.startAt) return reject("같은 방식 공유와 시작 일정이 먼저 필요합니다.");
+    if (!matched(next) || !next.startAt) return reject("같은 방식 공유와 시작 일정이 먼저 필요해요.");
     if (Date.parse(next.startAt) <= now.getTime() || (next.dateMode === "default" && next.startAt !== defaultStart(now))) {
       next.startAt = defaultStart(now); resetConfirmations(next); log(next, "새 날짜 제안 · 양쪽 재확인 필요", memberId, now);
       return { state: next, error: "시작 날짜를 새로 제안했어요. 두 사람 모두 다시 확인해 주세요." };
@@ -113,8 +113,8 @@ export function agreementAction(state: AgreementState, memberId: string, command
   } else if (command.type === "withdraw") {
     next.status = "withdrawn"; next.confirmed = {};
   } else if (command.type === "request-confirmation") {
-    if (!next.shared[memberId]) return reject("선택을 공유한 뒤 확인을 요청할 수 있습니다.");
-  } else return reject("지원하지 않는 변경입니다.");
+    if (!next.shared[memberId]) return reject("선택을 공유한 뒤 확인을 요청할 수 있어요.");
+  } else return reject("지원하지 않는 변경이에요.");
   log(next, command.type, memberId, now);
   return { state: next, error: null };
 }
@@ -124,7 +124,7 @@ export function refreshAgreementDate(state: AgreementState, now: Date) {
 }
 export function startAgreementDemo(state: AgreementState, now: Date, usable: boolean) {
   const gate = agreementGate(state, now);
-  if (gate || state.status !== "scheduled" || !matched(state) || !state.startAt || !state.members.every(id => state.confirmed[id] && Number.isFinite(Date.parse(state.confirmed[id]!)) && Date.parse(state.confirmed[id]!) <= now.getTime()) || now.getTime() < Date.parse(state.startAt) || day(now) !== day(new Date(state.startAt)) || !usable) return { state, error: gate || "양쪽 동의·합의 시각·실제 이용 가능한 개시 이벤트가 필요합니다. 아직 시작하지 않았습니다." };
+  if (gate || state.status !== "scheduled" || !matched(state) || !state.startAt || !state.members.every(id => state.confirmed[id] && Number.isFinite(Date.parse(state.confirmed[id]!)) && Date.parse(state.confirmed[id]!) <= now.getTime()) || now.getTime() < Date.parse(state.startAt) || day(now) !== day(new Date(state.startAt)) || !usable) return { state, error: gate || "양쪽 동의·합의 시각·실제 이용 가능한 개시 이벤트가 필요해요. 아직 시작하지 않았어요." };
   const next = structuredClone(state);
   const results = next.sessions.map((session, index) => {
     session.program!.ownPlan = next.shared[next.members[index]];
@@ -134,7 +134,7 @@ export function startAgreementDemo(state: AgreementState, now: Date, usable: boo
     session.program!.usable = usable;
     return recordActualDemoStart(session, { id: `virtual-start-${next.revision}`, startedAt: now.toISOString(), usable }, now);
   });
-  if (results.some(result => result.error)) return { state, error: "실제 개시 검증을 통과하지 못했습니다. 소개 권리는 유지됩니다." };
+  if (results.some(result => result.error)) return { state, error: "실제 개시 검증을 통과하지 못했어요. 소개 권리는 유지돼요." };
   next.sessions = [results[0].session, results[1].session]; next.startedAt = now.toISOString(); next.status = "started";
   log(next, "양쪽 실제 개시 이벤트 · 가상", null, now); return { state: next, error: null };
 }

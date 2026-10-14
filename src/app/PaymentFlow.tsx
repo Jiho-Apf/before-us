@@ -1,3 +1,4 @@
+import { kstDateTime } from "./dates"
 import { PLAN_NOTICE, planFor, planIfPaidNow } from "./introduction-plan"
 import { DemoDock } from "./DemoDock"
 import { useState } from "react"
@@ -31,7 +32,7 @@ function OwnPaymentRecord({ receipt }: { receipt: OwnReceipt | null }) {
   if (!receipt)
     return (
       <p className="text-sm text-muted-foreground">
-        아직 결제 기록이 없습니다.
+        아직 결제 기록이 없어요.
       </p>
     )
   return (
@@ -52,9 +53,7 @@ function OwnPaymentRecord({ receipt }: { receipt: OwnReceipt | null }) {
         <div>
           <dt className="text-muted-foreground">가상 승인 기록 시각</dt>
           <dd>
-            {new Date(receipt.confirmedAt).toLocaleString("ko-KR", {
-              timeZone: "Asia/Seoul",
-            })}
+            {kstDateTime(receipt.confirmedAt)}
           </dd>
         </div>
       )}
@@ -62,9 +61,7 @@ function OwnPaymentRecord({ receipt }: { receipt: OwnReceipt | null }) {
         <div>
           <dt className="text-muted-foreground">가상 환불 기록 시각</dt>
           <dd>
-            {new Date(receipt.refundedAt).toLocaleString("ko-KR", {
-              timeZone: "Asia/Seoul",
-            })}
+            {kstDateTime(receipt.refundedAt)}
           </dd>
         </div>
       )}
@@ -98,8 +95,8 @@ export function PaymentFlow({
     onSessionChange?.(result.session)
     setMessage(
       result.session[kind]?.status === "cancellation-requested"
-        ? "가상 취소 요청만 기록했습니다. 실제 취소·환불·권리 소멸은 처리하지 않았습니다."
-        : "가상 요청만 기록했습니다. 실제 승인·청구는 없으며 승인 완료로 표시하지 않습니다.",
+        ? "가상 취소 요청만 기록했어요. 실제 취소·환불·권리 소멸은 처리하지 않았어요."
+        : "가상 요청만 기록했어요. 실제 승인·청구는 없으며 승인 완료로 표시하지 않아요.",
     )
   }
   const mutual = hasMutualSelection(session, now)
@@ -128,7 +125,7 @@ export function PaymentFlow({
         <p className="mt-2 text-sm leading-7 text-muted-foreground">
           {kind === "introduction"
             ? "준비된 한 사람을 소개하기 전에, 제공 범위를 확인해 주세요."
-            : "서로 알아가기로 선택한 뒤, 각자의 교류비를 확인합니다."}
+            : "서로 알아가기로 선택한 뒤, 각자의 교류비를 확인해요."}
         </p>
       </div>
       {kind === "introduction" ? (
@@ -142,8 +139,8 @@ export function PaymentFlow({
             {introPlan.label} · {introPlan.summary}
           </p>
           <p className="mt-2 text-xs leading-6 text-muted-foreground">
-            신청·검토·첫 소개 준비 전 대기는 무료입니다. 실제 준비와 현재 참여
-            가능 상태를 확인한 뒤 안내합니다.
+            신청·검토·첫 소개 준비 전 대기는 무료예요. 실제 준비와 현재 참여
+            가능 상태를 확인한 뒤 안내해요.
           </p>
         </div>
       ) : mutual ? (
@@ -194,7 +191,7 @@ export function PaymentFlow({
                 : "미확인 · 대기"}
             </p>
             <p className="mt-3 text-xs leading-6 text-muted-foreground">
-              상대의 카드·결제ID·거래 상세는 제공하지 않습니다.
+              상대의 카드·결제ID·거래 상세는 제공하지 않아요.
             </p>
           </div>
         </div>
@@ -206,27 +203,27 @@ export function PaymentFlow({
         <h3 className="font-semibold">결제 전 꼭 확인해 주세요</h3>
         <ul className="divide-y divide-border border-y border-border text-muted-foreground [&>li]:py-3">
           <li>
-            준비된 날 정오 12시, Asia/Seoul에 하루 최대 한 명을 소개합니다. 매일
-            새 소개를 보장하지 않습니다.
+            준비된 날 정오 12시, Asia/Seoul에 하루 최대 한 명을 소개해요. 매일
+            새 소개를 보장하지 않아요.
           </li>
           <li>
-            {PLAN_NOTICE.early} {PLAN_NOTICE.standard} {PLAN_NOTICE.carryOver} 평생 재소개나 모든 데이트·프로그램 제공이 아닙니다.
+            {PLAN_NOTICE.early} {PLAN_NOTICE.standard} {PLAN_NOTICE.carryOver} 평생 재소개나 모든 데이트·프로그램 제공이 아니에요.
           </li>
           <li>
-            상호 선택 뒤 새 소개는 잠시 멈춥니다. 상호 선택·결제·A/B 합의만으로
-            소개 이용 권리가 종료되지는 않습니다.
+            상호 선택 뒤 새 소개는 잠시 멈춰요. 상호 선택·결제·A/B 합의만으로
+            소개 이용 권리가 종료되지는 않아요.
           </li>
           <li>
             상대 미결제·철회 또는 방식·시작일 미합의로 시작하지 못하면 소개
-            권리를 유지하고, 기납 교류비의 반환·재개는 별도 정책으로 처리합니다.
+            권리를 유지하고, 기납 교류비의 반환·재개는 별도 정책으로 처리해요.
           </li>
           <li>
             상대 변경 시 이전 교류비를 동의 없이 이전하거나 같은 금액을 중복
-            청구하지 않습니다.
+            청구하지 않아요.
           </li>
         </ul>
       </div>
-      <RefundPolicyPanel session={session} kind={kind} now={now} onChange={value => { setSession(value); onSessionChange?.(value); setMessage("정책에 따른 가상 요청·선택만 기록했습니다. 실제 환불 완료·PG 처리는 하지 않았습니다."); }} />
+      <RefundPolicyPanel session={session} kind={kind} now={now} onChange={value => { setSession(value); onSessionChange?.(value); setMessage("정책에 따른 가상 요청·선택만 기록했어요. 실제 환불 완료·PG 처리는 하지 않았어요."); }} />
       <Label
         htmlFor={`payment-notice-${kind}`}
         className="items-start leading-6"
@@ -286,9 +283,9 @@ export function PaymentFlow({
           </p>
           <p className="mt-2 text-xs leading-6 text-muted-foreground">
             결제 확인 후 기존 A/B 선택 화면에서 두 사람이 같은 방식·시작 시각에
-            동의합니다. 합의한 시각에 프로그램이 실제 개시되고 이용 가능함이
-            확인돼야 이번 소개 혜택이 종료됩니다. 스케줄러 오류·미제출·운영
-            미이행·중단은 정상 완료 보장이 아닙니다.
+            동의해요. 합의한 시각에 프로그램이 실제 개시되고 이용 가능함이
+            확인돼야 이번 소개 혜택이 종료돼요. 스케줄러 오류·미제출·운영
+            미이행·중단은 정상 완료 보장이 아니에요.
           </p>
           {canAgreeProgram(session, now) && !session.firstProgramStartedAt && (
             <Button asChild variant="outline" className="mt-4 rounded-xl">
@@ -307,12 +304,6 @@ export function PaymentFlow({
             ? "유지 · 첫 교류 미시작 (가상)"
             : "기납 승인 기록 확인 전"}{" "}
         · 회원별 적용 정책 {session.policy.version}
-      </p>
-      <p className="flex gap-2 text-xs leading-6 text-muted-foreground">
-        <Info size={14} className="mt-1 shrink-0" />
-        모든 금액·기록은 데모입니다. 실제 PG·자동 결제·추가 과금·승인·환불은
-        연결하지 않습니다. 가상 요청·취소는 화면 메모리에만 남으며 새로고침 시
-        지워집니다.
       </p>
     </div>
   )
@@ -340,8 +331,8 @@ export function PaymentDemo() {
       <DemoDock title="결제 상태 미리보기" defaultOpen>
         <p className="text-xs leading-6 text-muted-foreground">
           상태 선택은 가상 사례를 불러올 뿐 실제 결제·회원·관리자 원장을
-          변경하지 않습니다. 완료 상태는 가상 기록 예시이며 버튼으로 실제
-          승인·환불하지 않습니다.
+          변경하지 않아요. 완료 상태는 가상 기록 예시이며 버튼으로 실제
+          승인·환불하지 않아요.
         </p>
         <label className="mt-4 block text-xs">
           가상 상태
@@ -358,7 +349,7 @@ export function PaymentDemo() {
           </select>
         </label>
         <Button variant="outline" onClick={()=>{saveMemberPayment("current-member",makePaymentFixture(scenario));setLinked(true);}}>선택한 가상 결제 기록을 내 정보에 연결</Button>
-        {linked && <p className="text-xs text-primary">가상 기록만 연결했습니다. 실제 거래·PG·개인정보는 생성하지 않았습니다.</p>}
+        {linked && <p className="text-xs text-primary">가상 기록만 연결했어요. 실제 거래·PG·개인정보는 생성하지 않았어요.</p>}
       </DemoDock>
       <PaymentFlow
         key={scenario}

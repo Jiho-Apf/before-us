@@ -1,3 +1,4 @@
+import { kstDateTime } from "./dates"
 import { useState } from "react"
 import { Link } from "react-router"
 import { BadgeCheck, CheckCircle2, Circle, CircleDot, CircleAlert, Lightbulb, ShieldCheck, HeartHandshake } from "lucide-react"
@@ -30,7 +31,7 @@ import {
 import { submitMemberRequest } from "./member-operations-model"
 
 const time = (at: string | null) =>
-  at ? new Date(at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false }) : null
+  at ? kstDateTime(at) : null
 
 export function IdentityPanel({ memberId = "current-member" }: { memberId?: string }) {
   const identity = useIdentity(memberId)
@@ -58,7 +59,7 @@ export function IdentityPanel({ memberId = "current-member" }: { memberId?: stri
             같은 사람이 여러 계정을 만들거나 이용이 제한된 분이 다시 가입하는 것을 막는 데도 쓰여요.
           </p>
           <p className="rounded-lg bg-accent/5 p-3 text-xs leading-6 text-accent">
-            개발용 가상 인증입니다. 실제 인증 업체는 연결되어 있지 않아요. 결과를 골라 시연해 주세요.
+            개발용 가상 인증이에요. 실제 인증 업체는 연결되어 있지 않아요. 결과를 골라 시연해 주세요.
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_8rem]">
             <Select value={scenario} onValueChange={(value) => setScenario(value as IdentityScenario)}>

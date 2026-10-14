@@ -1,3 +1,4 @@
+import { kstDateTime } from "./dates"
 import { DemoDock } from "./DemoDock"
 import { useEffect, useState, useSyncExternalStore } from "react"
 import { MeetingAftercare } from "./MemberTrust";
@@ -64,15 +65,7 @@ const plans = {
 }
 const motion = "transition-colors duration-200 motion-reduce:transition-none"
 const format = (value: string) =>
-  new Date(value).toLocaleString("ko-KR", {
-    timeZone: "Asia/Seoul",
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
+  kstDateTime(value)
 type DemoStore = {
   generation: number
   state: AgreementState | null
@@ -139,7 +132,7 @@ export const useAgreementDemo = () =>
   )
 
 export function performLetter(command: LetterCommand, revision: number) {
-  if (!store.state || !store.letters) return "확인된 A 교류가 없습니다."
+  if (!store.state || !store.letters) return "확인된 A 교류가 없어요."
   const result = letterAction(
     store.letters,
     store.state,
@@ -166,7 +159,7 @@ export function performLetter(command: LetterCommand, revision: number) {
 }
 // 개발용: 지금 시각에 보낼 편지 알림 점검. 실제 알림톡은 보내지 않고 회원·날짜·종류별 한 번만 기록한다.
 export function runLetterNoticeDemo() {
-  if (!store.state || !store.letters) return "확인된 A 교류가 없습니다."
+  if (!store.state || !store.letters) return "확인된 A 교류가 없어요."
   const result = recordLetterNotices(store.letters, store.state, new Date(store.now))
   if (!result.sent.length) return "지금 보낼 알림이 없어요. 제때 편지·답장을 한 분에게는 알림을 보내지 않아요."
   updateStore({ ...store, letters: result.book })
@@ -253,18 +246,18 @@ export function AgreementFlow({
     setMessage(
       error ||
         (command.type === "share"
-          ? "선택을 공유했어요. 초안과 공유한 선택은 따로 관리합니다."
+          ? "선택을 공유했어요. 초안과 공유한 선택은 따로 관리해요."
           : command.type === "confirm"
             ? "이 방식과 일정에 대한 내 확인을 기록했어요."
             : command.type === "request-confirmation"
-              ? "확인 요청을 가상 이력에 남겼어요. 실제 알림은 발송하지 않았습니다."
+              ? "확인 요청을 가상 이력에 남겼어요. 실제 알림은 발송하지 않았어요."
               : command.type === "withdraw"
-                ? "시작 전 철회 요청을 기록했어요. 소개 재개·기납 교류비 처리는 정책 확인과 상담이 필요합니다."
+                ? "시작 전 철회 요청을 기록했어요. 소개 재개·기납 교류비 처리는 정책 확인과 상담이 필요해요."
                 : command.type === "interrupt"
-                  ? "중단 요청을 기록했어요. 자동 환불·정상 완료로 처리하지 않습니다."
+                  ? "중단 요청을 기록했어요. 자동 환불·정상 완료로 처리하지 않아요."
                   : command.type === "date"
                     ? "일정을 새로 제안했어요. 두 사람 모두 다시 확인해 주세요."
-                    : "초안만 바뀌었어요. 공유하기 전에는 상대에게 전달되지 않습니다."),
+                    : "초안만 바뀌었어요. 공유하기 전에는 상대에게 전달되지 않아요."),
     )
   }
   const terminal =
@@ -278,19 +271,18 @@ export function AgreementFlow({
         titleId="agreement-title"
         title={<>우리, 어떤 방식으로<br />시작할까요?</>}
         lead="마음을 서두르지 않고 알아갈 수 있도록, 두 사람이 편한 방식을 함께 골라요."
-        aside={<span className="rounded-full border border-border px-3 py-1 text-[11px] text-muted-foreground">서버 시간·두 계정 동기화 미연결 · 데모</span>}
       />
       {state?.members.includes(memberId) && <div className="mt-6">
-        <RefundPolicyPanel session={state.sessions[state.members.indexOf(memberId)]} kind="exchange" now={now} onChange={value => { const error = saveCurrentMemberPayment(value); setMessage(error || "환불 계산·요청만 기록했습니다. 실제 환불 완료가 아닙니다."); }} />
+        <RefundPolicyPanel session={state.sessions[state.members.indexOf(memberId)]} kind="exchange" now={now} onChange={value => { const error = saveCurrentMemberPayment(value); setMessage(error || "환불 계산·요청만 기록했어요. 실제 환불 완료가 아니에요."); }} />
         {view?.canExtend && <div className="mt-4 flex flex-wrap items-center gap-3">
-          <p className="text-xs">양쪽 동의 시 합의 기한 24시간을 한 번 연장합니다. 내 선택만으로 연장하지 않습니다.</p>
+          <p className="text-xs">양쪽 동의 시 합의 기한 24시간을 한 번 연장해요. 내 선택만으로 연장하지 않아요.</p>
           {!view.extensionRequested ? <Button variant="outline" disabled={!onCommand} onClick={() => run({ type: "extension-request" })}>합의 기한 24시간 연장 요청</Button>
             : !view.ownExtensionConsent ? <Button variant="outline" disabled={!onCommand} onClick={() => run({ type: "extension-consent" })}>24시간 1회 연장에 동의</Button>
             : <p className="text-xs text-primary">내 연장 동의 기록 · 상대의 별도 동의 대기</p>}
         </div>}
       </div>}
       {!view ? (
-        <ExchangePreview gate={agreementGate(state, now) || "당사자 확인이 필요합니다."} />
+        <ExchangePreview gate={agreementGate(state, now) || "당사자 확인이 필요해요."} />
       ) : (
         <>
           <div className="mt-7 flex flex-wrap gap-3 border-y border-border py-4 text-xs">
@@ -405,7 +397,7 @@ export function AgreementFlow({
               선택 공유하기 <ArrowRight size={16} />
             </Button>
             <p className="text-xs leading-6 text-muted-foreground">
-              초안은 나만 확인합니다. 공유한 뒤에만 상대에게 전달합니다.
+              초안은 나만 확인해요. 공유한 뒤에만 상대에게 전달해요.
             </p>
           </div>
           <div className="mt-6 grid gap-5 lg:grid-cols-[8fr_4fr]">
@@ -433,7 +425,7 @@ export function AgreementFlow({
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">
                     내 선택 변경은 위 카드에서 초안을 고른 뒤 다시 공유해
-                    주세요. 선착순·다수결·운영자 배정은 하지 않습니다.
+                    주세요. 선착순·다수결·운영자 배정은 하지 않아요.
                   </p>
                 </div>
               )}
@@ -445,8 +437,8 @@ export function AgreementFlow({
                     {terminal ? "기록" : "제안"}
                   </p>
                   <p className="text-xs leading-6 text-muted-foreground">
-                    기본안은 양쪽 확인이 완료된 다음 날 오전 09:00입니다.
-                    방식이나 일정 변경 시 양쪽 확인을 해제하고 다시 합의합니다.
+                    기본안은 양쪽 확인이 완료된 다음 날 오전 09:00이에요.
+                    방식이나 일정 변경 시 양쪽 확인을 해제하고 다시 합의해요.
                   </p>
                   <ol className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {view.dates.map((date, index) => (
@@ -490,7 +482,7 @@ export function AgreementFlow({
                       {view.staleDate ? (
                         <div className="bg-muted p-4 text-xs leading-6">
                           <p>
-                            제안일이 지났습니다. 새 날짜로 두 사람이 다시
+                            제안일이 지났어요. 새 날짜로 두 사람이 다시
                             확인해야 해요.
                           </p>
                           <Button
@@ -537,7 +529,7 @@ export function AgreementFlow({
                   variant="outline"
                   onClick={() =>
                     setMessage(
-                      "운영자 문의 경로는 데모입니다. 미시작·중단·교류비 처리 정책 확인이 필요하며 실제 접수는 연결되지 않았습니다.",
+                      "운영자 문의 경로는 데모예요. 미시작·중단·교류비 처리 정책 확인이 필요하며 실제 접수는 연결되지 않았어요.",
                     )
                   }
                 >
@@ -613,15 +605,15 @@ export function AgreementFlow({
                 </div>
               </dl>
               <p className="mt-6 border-t border-border pt-4 text-xs leading-6">
-                새 소개는 중지된 상태입니다. 시작 전 미합의·철회는 소개 재개와
+                새 소개는 중지된 상태예요. 시작 전 미합의·철회는 소개 재개와
                 교류비 미시작 처리를 별도로 검토하며 자동 환불·재구매로 처리하지
-                않습니다.
+                않아요.
               </p>
             </aside>
           </div>
           <p className="mt-5 text-sm leading-7">
             3일 안에 마음을 증명할 필요는 없어요. 서로를 더 알아가는 첫
-            시간입니다.
+            시간이에요.
           </p>
           <div className="mt-4 flex flex-wrap gap-4 text-xs">
             <Link
@@ -654,7 +646,7 @@ export function AgreementFlow({
 }
 
 function perform(command: AgreementCommand | ExtensionCommand, revision: number) {
-  if (!store.state) return "연결된 가상 소개 건이 없습니다."
+  if (!store.state) return "연결된 가상 소개 건이 없어요."
   const result = agreementAction(
     store.state,
     store.memberId,
@@ -768,9 +760,9 @@ export function AgreementDemo() {
     <main className="mx-auto max-w-6xl px-5 py-8">
       <DemoDock title="A/B 합의 · 두 가상 계정" defaultOpen={!demo.state}>
         <p className="text-xs leading-6">
-          실제 결제 승인·서버 시간·두 계정 동기화는 없습니다. 제어 버튼은 회원
-          화면과 분리됩니다. 상대 선택은 아래에서 계정을 직접 전환해 공유한
-          경우에만 생깁니다.
+          실제 결제 승인·서버 시간·두 계정 동기화는 없어요. 제어 버튼은 회원
+          화면과 분리돼요. 상대 선택은 아래에서 계정을 직접 전환해 공유한
+          경우에만 생겨요.
         </p>
         <p className="mt-3 text-xs">
           가상 시계: {demo.now} · 현재 계정{" "}
@@ -846,7 +838,7 @@ export function AgreementDemo() {
             updateStore({ ...demo, state: result.state })
             setError(
               result.error ||
-                "가상 개시 이벤트를 양쪽에 기록했습니다. 실제 서버 프로그램은 시작하지 않았습니다.",
+                "가상 개시 이벤트를 양쪽에 기록했어요. 실제 서버 프로그램은 시작하지 않았어요.",
             )
           }}
         >
@@ -889,7 +881,7 @@ export function AgreementDemo() {
 }
 
 export function performScene(command: SceneCommand, revision: number) {
-  if (!store.scene || !store.state) return "확인된 B 교류가 없습니다."
+  if (!store.scene || !store.state) return "확인된 B 교류가 없어요."
   const result = sceneAction(store.scene, store.state, store.memberId, command, revision, new Date(store.now))
   const state = !result.error && ["interrupt", "block"].includes(command.type) && store.state.status === "started" ? agreementAction(store.state, store.memberId, { type: "interrupt" }, store.state.revision, new Date(store.now)).state : store.state
   if (!result.error && ["report","contact","interrupt","block"].includes(command.type)) recordExchangeRequest(command.type as "report" | "contact" | "interrupt" | "block")
@@ -917,16 +909,16 @@ export function useMemberServiceContext(enabled: boolean) {
 export function protectCurrentExchange(kind: "block" | "interrupt") {
   if (store.scene) return performScene({type:kind},store.scene.revision);
   if (store.letters) return performLetter({type:kind},store.letters.revision);
-  return "연결된 실제 가상 교류가 없습니다. 문의·신고를 통해 진행 확인을 요청해 주세요.";
+  return "연결된 실제 가상 교류가 없어요. 문의·신고를 통해 진행 확인을 요청해 주세요.";
 }
 export function saveCurrentMemberPayment(payment: PaymentSession) {
-  if(!store.state) return "가상 계정이 없습니다.";
+  if(!store.state) return "가상 계정이 없어요.";
   const index=store.state.members.indexOf(store.memberId), own=store.state.sessions[index];
   if(!own || own.applicationId!==payment.applicationId || JSON.stringify(own.policy)!==JSON.stringify(payment.policy)) return "당사자 결제·적용 정책을 확인해 주세요.";
   const state=structuredClone(store.state);state.sessions[index]=structuredClone(payment);updateStore({...store,state});return null;
 }
 export function requestCurrentMemberRefund(kind: "introduction" | "exchange") {
-  if(!store.state)return "가상 계정이 없습니다.";
+  if(!store.state)return "가상 계정이 없어요.";
   const own=store.state.sessions[store.state.members.indexOf(store.memberId)];
   if(!own)return "당사자 결제를 확인해 주세요.";
   const result=requestPaymentCancellation(own,kind,new Date(store.now));
@@ -945,7 +937,7 @@ export function performAppointment(command: AppointmentCommand, revision: number
   return result.error
 }
 export function setContactSafetyDemo(safety: ContactSharing["safety"]) {
-  if (!store.appointment) return "가상 약속이 없습니다.";
+  if (!store.appointment) return "가상 약속이 없어요.";
   const source = exchangeSnapshot(store);
   const result = appointmentSafetyDemo(store.appointment,safety,store.appointment.revision,new Date(store.now),!!source?.meetingOpen && source.mutualMeetingWish);
   if (!result.error) updateStore({ ...store, appointment: result.state });
@@ -965,7 +957,7 @@ export function Day04Panel({ contactOnly = false }: { contactOnly?: boolean }) {
     opened(); document.addEventListener("visibilitychange",opened)
     return () => document.removeEventListener("visibilitychange",opened)
   },[location.pathname,demo.memberId,demo.now,demo.appointment?.revision,source?.readAccess,source?.mutualMeetingWish])
-  if (!source?.readAccess || !source.complete || new Date(demo.now).getTime() < Date.parse(source.decisionAt)) return <section className="py-8"><h1 className="text-3xl">DAY 04 만남 선택을 기다리고 있어요.</h1><p className="mt-5 text-sm leading-7 text-muted-foreground">정상 3일 교류 완료와 4일째 09:00 이후 당사자에게 열립니다. 아직 확인된 만남 의사나 약속은 없습니다.</p></section>
+  if (!source?.readAccess || !source.complete || new Date(demo.now).getTime() < Date.parse(source.decisionAt)) return <section className="py-8"><h1 className="text-3xl">DAY 04 만남 선택을 기다리고 있어요.</h1><p className="mt-5 text-sm leading-7 text-muted-foreground">정상 3일 교류 완료와 4일째 09:00 이후 당사자에게 열려요. 아직 확인된 만남 의사나 약속은 없어요.</p></section>
   const appointment = appointmentView(demo.appointment, demo.memberId, new Date(demo.now), source.meetingOpen && source.mutualMeetingWish)
   if (contactOnly) return appointment ? <AppointmentContact key={`${demo.generation}-${demo.memberId}`} view={appointment} onCommand={performAppointment} recheckContact={() => {
     if (store.memberId !== demo.memberId || store.generation !== demo.generation || store.appointment?.revision !== appointment.revision) return null;
@@ -973,9 +965,9 @@ export function Day04Panel({ contactOnly = false }: { contactOnly?: boolean }) {
     if (!current?.readAccess || !current.complete || !current.meetingOpen || !current.mutualMeetingWish) return null;
     const checked = appointmentView(store.appointment, store.memberId, new Date(store.now), true);
     return checked?.contact.released && !checked.contact.blocked ? checked.contact.peerNumber || null : null;
-  }} /> : <p className="py-8 text-sm">최종 합의와 당사자 권한 확인 전에는 연락처 공개 동의를 진행하지 않습니다.</p>
+  }} /> : <p className="py-8 text-sm">최종 합의와 당사자 권한 확인 전에는 연락처 공개 동의를 진행하지 않아요.</p>
   if (appointment) return <><AppointmentFlow key={`${demo.generation}-${demo.memberId}`} view={appointment} onCommand={performAppointment} />{appointment.final?.when && Number.isFinite(Date.parse(appointment.final.when)) && <MeetingAftercare key={`aftercare-${demo.memberId}`} memberId={demo.memberId} partnerId={demo.state?.members.find(id => id !== demo.memberId) || null} programId={source.programId} meetingAt={appointment.final.when} now={new Date(demo.now)} />}</>
-  return <section className="space-y-5 py-8"><p className="text-xs text-accent">DAY 04 · 가상 만남 의사 선택</p><MeetingChoice view={source} onSend={command => { const error = demo.scene ? performScene(command, source.revision) : performLetter(command, source.revision); if (error) window.alert(error) }} /><p className="text-xs text-muted-foreground">미응답은 YES나 NO가 아닙니다. 시간·두 계정 동기화·실제 발송은 미연결인 데모입니다.</p><Button asChild variant="outline"><Link to="/exchange?demo=agreement">지난 교류 확인</Link></Button><Button variant="outline" onClick={() => { const error = demo.scene ? performScene({ type: "contact" }, source.revision) : performLetter({ type: "contact" }, source.revision); window.alert(error || "가상 문의 요청을 기록했습니다. 실제 접수는 미연결입니다.") }}>운영자 문의</Button></section>
+  return <section className="space-y-5 py-8"><p className="text-xs text-accent">DAY 04 · 가상 만남 의사 선택</p><MeetingChoice view={source} onSend={command => { const error = demo.scene ? performScene(command, source.revision) : performLetter(command, source.revision); if (error) window.alert(error) }} /><p className="text-xs text-muted-foreground">응답하지 않은 것은 ‘만나고 싶어요’도 ‘여기까지’도 아니에요.</p><Button asChild variant="outline"><Link to="/exchange?demo=agreement">지난 교류 확인</Link></Button><Button variant="outline" onClick={() => { const error = demo.scene ? performScene({ type: "contact" }, source.revision) : performLetter({ type: "contact" }, source.revision); window.alert(error || "가상 문의 요청을 기록했어요. 실제 접수는 미연결이에요.") }}>운영자 문의</Button></section>
 }
 export function MemberMeeting({ contactOnly = false }: { contactOnly?: boolean }) {
   const [params] = useSearchParams()

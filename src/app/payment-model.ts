@@ -135,40 +135,40 @@ export function paymentGate(
   now = new Date(),
 ) {
   if (session.activity !== "active")
-    return "현재 활동 상태에서는 새 결제 요청을 받지 않습니다. 기존 권리·환불 여부는 별도 검토합니다."
+    return "현재 활동 상태에서는 새 결제 요청을 받지 않아요. 기존 권리·환불 여부는 별도 검토해요."
   if (introductionRights(session, now) === "first-program-started")
-    return "이번 신청의 첫 교류가 실제 시작되어 소개 혜택이 종료됐습니다. 정상 종료 뒤 새 회차 소개비 5,000원으로 다시 이용할 수 있어요(V6-conduct-01)."
+    return "이번 신청의 첫 교류가 실제 시작되어 소개 혜택이 종료됐어요. 정상 종료 뒤 새 회차 소개비 5,000원으로 다시 이용할 수 있어요(V6-conduct-01)."
   if (kind === "introduction") {
     if (!readyForIntroduction(session, now))
-      return "소개 제공 준비·현재 참여 가능·프로필 제공 범위 확인 후 안내합니다. 지금은 무료 대기입니다."
+      return "소개 제공 준비·현재 참여 가능·프로필 제공 범위 확인 후 안내해요. 지금은 무료 대기예요."
     if (validOwnPayment(session.introduction, now))
-      return "이미 낸 소개비가 있습니다. 첫 교류 전 추가 소개비는 없습니다."
+      return "이미 낸 소개비가 있어요. 첫 교류 전 추가 소개비는 없어요."
     if (session.introduction?.status === "confirmed")
-      return "기존 소개비 승인 기록을 확인해야 합니다. 다시 청구하지 않습니다."
+      return "기존 소개비 승인 기록을 확인해야 해요. 다시 청구하지 않아요."
     if (
       session.introduction &&
       ["cancellation-requested", "refund-review"].includes(
         session.introduction.status,
       )
     )
-      return "기존 취소·환불 문의를 먼저 확인합니다. 새 청구나 자동 권리 소멸은 하지 않습니다."
+      return "기존 취소·환불 문의를 먼저 확인해요. 새 청구나 자동 권리 소멸은 하지 않아요."
     if (session.introduction?.status === "refunded")
-      return "기존 환불 기록을 확인해야 합니다. 재이용은 내 정보의 새 회차 안내에서 확인해 주세요."
+      return "기존 환불 기록을 확인해야 해요. 재이용은 내 정보의 새 회차 안내에서 확인해 주세요."
   } else {
     const program = session.program
     if (!program || !hasMutualSelection(session, now))
-      return "양쪽의 상호 선택이 확인된 후에만 교류비를 안내합니다. 나의 좋아요나 상대 미응답만으로는 열리지 않습니다."
+      return "양쪽의 상호 선택이 확인된 후에만 교류비를 안내해요. 나의 좋아요나 상대 미응답만으로는 열리지 않아요."
     const deadline = refundDeadlines(session).paymentAt
     if (deadline && now.getTime() >= Date.parse(deadline) && !validOwnPayment(session.exchange, now))
-      return "상호 선택 후 기본 결제 기한 24시간이 지났습니다. 운영 확인·미결제 상대 처리와 환불 요청을 확인해 주세요."
+      return "상호 선택 후 기본 결제 기한 24시간이 지났어요. 운영 확인·미결제 상대 처리와 환불 요청을 확인해 주세요."
     if (program.withdrawn)
-      return "상대 철회로 시작 준비가 보류됐습니다. 소개 권리는 유지하고 교류비 미시작 처리는 별도 검토합니다."
+      return "상대 철회로 시작 준비가 보류됐어요. 소개 권리는 유지하고 교류비 미시작 처리는 별도 검토해요."
     if (introductionRights(session, now) !== "valid")
-      return "유효한 소개 이용 권리와 기납 소개비 확인이 필요합니다."
+      return "유효한 소개 이용 권리와 기납 소개비 확인이 필요해요."
     if (session.introduction?.status !== "confirmed")
-      return "소개비 취소·환불 요청을 먼저 검토해야 합니다. 권리를 자동 소멸시키지는 않습니다."
+      return "소개비 취소·환불 요청을 먼저 검토해야 해요. 권리를 자동 소멸시키지는 않아요."
     if (session.exchange && session.exchange.programId !== program.id)
-      return "이전 교류비는 다른 상대에게 자동 이전하거나 다시 청구하지 않습니다. 미시작 처리와 별도 동의가 필요합니다."
+      return "이전 교류비는 다른 상대에게 자동 이전하거나 다시 청구하지 않아요. 미시작 처리와 별도 동의가 필요해요."
     if (
       session.exchange &&
       [
@@ -178,7 +178,7 @@ export function paymentGate(
         "refunded",
       ].includes(session.exchange.status)
     )
-      return "이미 있는 교류비 기록을 확인합니다. 중복 청구하지 않습니다."
+      return "이미 있는 교류비 기록을 확인해요. 중복 청구하지 않아요."
   }
   return null
 }
@@ -219,7 +219,7 @@ export function requestDemoPayment(
   if (previous?.status === "requested")
     return {
       session,
-      error: "같은 요청이 대기 중입니다. 중복 요청·청구하지 않습니다.",
+      error: "같은 요청이 대기 중이에요. 중복 요청·청구하지 않아요.",
     }
   const next = structuredClone(session)
   const programId = kind === "exchange" ? session.program!.id : null
@@ -253,7 +253,7 @@ export function requestPaymentCancellation(
     return {
       session,
       error:
-        "새 취소 요청을 받을 수 있는 결제 기록이 없습니다. 기존 문의 상태를 확인해 주세요.",
+        "새 취소 요청을 받을 수 있는 결제 기록이 없어요. 기존 문의 상태를 확인해 주세요.",
     }
   const next = structuredClone(session)
   const quote = refundQuote(session, kind, now, reason)
@@ -294,7 +294,7 @@ export function recordActualDemoStart(
   if (session.firstProgramStartedAt)
     return {
       session,
-      error: "첫 실제 시작 기록은 이미 존재하며 다시 소멸·갱신하지 않습니다.",
+      error: "첫 실제 시작 기록은 이미 존재하며 다시 소멸·갱신하지 않아요.",
     }
   if (
     !event.id ||
@@ -315,7 +315,7 @@ export function recordActualDemoStart(
     return {
       session,
       error:
-        "양쪽 결제·동일 방식/시작 시각 동의·실제 이용 가능·실제 개시 확인이 모두 필요합니다.",
+        "양쪽 결제·동일 방식/시작 시각 동의·실제 이용 가능·실제 개시 확인이 모두 필요해요.",
     }
   const next = structuredClone(session)
   next.program!.actualStartedAt = event.startedAt

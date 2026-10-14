@@ -98,7 +98,7 @@ export function releaseForecast(state: AdminState, memberId: string, today: stri
 }
 export function releaseFromWaitlist(state: AdminState, memberId: string, note: string, today: string, now = new Date()) {
   const forecast = releaseForecast(state, memberId, today)
-  if (!forecast) return "대기 중인 신청이 아닙니다."
+  if (!forecast) return "대기 중인 신청이 아니에요."
   if (!forecast.withinLimit && !note.trim()) return "검토를 시작하면 성비가 70%를 넘어요. 그래도 시작하려면 사유를 남겨 주세요."
   commit(entries.map((item) => item.memberId === memberId && item.status === "waiting" ? { ...item, status: "released", releasedAt: now.toISOString(), releaseNote: note.trim() || "성비 기준 이내 · 순서대로 검토 시작" } : item))
   return null

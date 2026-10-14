@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 
 // 편지 화면에서 시작한 조용한 편집 톤을 회원 화면 전체에 맞추기 위한 공통 조각.
 // 진한 색 면 대신 얇은 선·여백·큰 숫자로 무게를 준다.
@@ -66,4 +66,28 @@ export function Timeline({ items, current }: { items: { title: string; body: Rea
 
 export function QuietNote({ children }: { children: ReactNode }) {
   return <p className="flex items-center gap-3 border-t border-border pt-5 text-xs leading-6 text-muted-foreground"><TwoDots />{children}</p>
+}
+
+// 기억에 남을 장면(서로 선택했을 때, 두 사람 모두 만나고 싶다고 했을 때).
+// 떨어져 있던 두 점이 천천히 가까워진다. ‘동작 줄이기’ 설정이면 처음부터 가까이 둔다.
+export function Moment({ eyebrow, title, children, action }: { eyebrow: string; title: ReactNode; children?: ReactNode; action?: ReactNode }) {
+  const [near, setNear] = useState(false)
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setNear(true); return }
+    const timer = window.setTimeout(() => setNear(true), 250)
+    return () => window.clearTimeout(timer)
+  }, [])
+  return (
+    <section role="status" className="relative overflow-hidden border border-border bg-card px-6 py-14 text-center sm:px-10 sm:py-20">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,color-mix(in_oklch,var(--primary)_10%,transparent),transparent)]" />
+      <div aria-hidden="true" className="relative mx-auto flex h-6 w-40 items-center justify-center">
+        <span className="absolute size-4 rounded-full bg-primary transition-transform duration-[1400ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none" style={{ transform: `translateX(${near ? -9 : -64}px)` }} />
+        <span className="absolute size-4 rounded-full bg-accent transition-transform duration-[1400ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none" style={{ transform: `translateX(${near ? 9 : 64}px)` }} />
+      </div>
+      <p className="relative mt-8 text-xs font-semibold tracking-[0.2em] text-accent">{eyebrow}</p>
+      <h2 className="relative mx-auto mt-4 max-w-lg text-2xl font-semibold leading-[1.5] sm:text-[30px]">{title}</h2>
+      {children && <div className="relative mx-auto mt-4 max-w-md text-sm leading-7 text-muted-foreground">{children}</div>}
+      {action && <div className="relative mt-8 flex justify-center">{action}</div>}
+    </section>
+  )
 }

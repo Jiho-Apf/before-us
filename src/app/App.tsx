@@ -104,8 +104,8 @@ const COMMUNITY_ROOMS = [
 
 const COMMUNITY_POSTS = [
   { id: 1, roomId: "hades", user: "뮤지컬러버", avatar: "🎭", title: "2층 E열 시야 사진 공유해요", body: "생각보다 무대 전체가 잘 보였어요. 오케스트라 피트도 보이고 음향 최고!", tags: ["시야후기"], likes: 47, comments: 12, time: "2시간 전", hasRecord: false },
-  { id: 2, roomId: "svt",   user: "캐럿별빛",  avatar: "💜", title: "어제 공연 잊을 수가 없어요", body: "Going Seventeen 파트에서 눈물 터짐... 다음 날도 연속 봤습니다. 관람 기록 공개했어요!", tags: ["스포주의"], likes: 128, comments: 34, time: "5시간 전", hasRecord: true },
-  { id: 3, roomId: "hades", user: "하데스덕",  avatar: "⚡", title: "7/22 에우리디케 캐스팅 확인했어요", body: "박지연 배우 나와요! 맑은 음색 좋아하시는 분들께 추천합니다.", tags: ["캐스팅잡담"], likes: 89, comments: 22, time: "어제", hasRecord: false },
+  { id: 2, roomId: "svt",   user: "캐럿별빛",  avatar: "💜", title: "어제 공연 잊을 수가 없어요", body: "Going Seventeen 파트에서 눈물 터짐... 다음 날도 연속 봤어요. 관람 기록 공개했어요!", tags: ["스포주의"], likes: 128, comments: 34, time: "5시간 전", hasRecord: true },
+  { id: 3, roomId: "hades", user: "하데스덕",  avatar: "⚡", title: "7/22 에우리디케 캐스팅 확인했어요", body: "박지연 배우 나와요! 맑은 음색 좋아하시는 분들께 추천해요.", tags: ["캐스팅잡담"], likes: 89, comments: 22, time: "어제", hasRecord: false },
   { id: 4, roomId: "ive",   user: "아이브세계", avatar: "🍀", title: "8/1 동행 구해요 (여성 1명)", body: "1층 A구역 S석 여분 있어요. 조용히 즐기실 분!", tags: ["동행"], likes: 12, comments: 8, time: "어제", hasRecord: false },
   { id: 5, roomId: "wicked",user: "오즈의마법사", avatar: "✨", title: "엘파바 교체 캐스팅 후기", body: "아이비 배우에서 허혜진 배우로 교체 회차 봤는데 또 다른 매력이 있네요.", tags: ["캐스팅잡담"], likes: 63, comments: 19, time: "2일 전", hasRecord: true },
 ];
@@ -130,7 +130,7 @@ const TIMELINE = [
 function ArtCover({ artistId, size = "md", className = "" }: { artistId: ArtistId; size?: "xs"|"sm"|"md"|"lg"; className?: string }) {
   const a = ARTISTS.find(x => x.id === artistId)!;
   const sMap = { xs:"w-8 h-8", sm:"w-12 h-12", md:"w-14 h-14", lg:"w-20 h-20" };
-  const tMap = { xs:"text-[9px]", sm: a.short.length > 4 ? "text-[9px]" : "text-xs", md: a.short.length > 4 ? "text-[10px]" : "text-sm", lg: a.short.length > 4 ? "text-xs" : "text-lg" };
+  const tMap = { xs:"text-xs", sm: a.short.length > 4 ? "text-xs" : "text-xs", md: a.short.length > 4 ? "text-xs" : "text-sm", lg: a.short.length > 4 ? "text-xs" : "text-lg" };
   return (
     <div className={`${sMap[size]} rounded-xl flex items-center justify-center font-black text-white select-none flex-shrink-0 ${tMap[size]} ${className}`}
       style={{ background: `linear-gradient(145deg,${a.from},${a.to})` }}>
@@ -149,7 +149,7 @@ function CatBadge({ category }: { category: Category }) {
     팬미팅: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
     "K-pop": "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
   };
-  return <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${m[category] ?? "bg-muted text-muted-foreground"}`}>{category}</span>;
+  return <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-md ${m[category] ?? "bg-muted text-muted-foreground"}`}>{category}</span>;
 }
 
 function DarkToggle({ isDark, toggle }: { isDark: boolean; toggle: () => void }) {
@@ -190,7 +190,7 @@ function LiveCalPreview({ theme, density, startDay }: { theme: CalThemeId; densi
       </div>
       <div className="grid grid-cols-7 gap-y-1">
         {DAYS_KR.map((d,i) => (
-          <div key={d} className={`text-center text-[9px] font-bold py-0.5 ${startDay==="sun" ? (i===0?"text-red-400":i===6?"text-blue-400":"text-muted-foreground") : (i===5?"text-blue-400":i===6?"text-red-400":"text-muted-foreground")}`}>{d}</div>
+          <div key={d} className={`text-center text-xs font-bold py-0.5 ${startDay==="sun" ? (i===0?"text-red-400":i===6?"text-blue-400":"text-muted-foreground") : (i===5?"text-blue-400":i===6?"text-red-400":"text-muted-foreground")}`}>{d}</div>
         ))}
         {Array.from({ length: first }).map((_,i) => <div key={`e${i}`} />)}
         {Array.from({ length: 31 }).map((_,i) => {
@@ -201,7 +201,7 @@ function LiveCalPreview({ theme, density, startDay }: { theme: CalThemeId; densi
           const dotColor = t.dot ?? (ev ? ARTISTS.find(a => a.id === ev)?.dot ?? "#6C4CE0" : null);
           return (
             <div key={d} className={`flex flex-col items-center py-0.5 rounded-lg ${isSel ? "bg-primary/10" : ""}`}>
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${isToday ? "text-white" : "text-foreground"}`}
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${isToday ? "text-white" : "text-foreground"}`}
                 style={isToday ? { background: t.todayGrad } : {}}>
                 {d}
               </span>
@@ -270,7 +270,7 @@ function OnboardingPage({ onComplete, isDark, toggleDark }: { onComplete: () => 
         <div className="max-w-3xl mx-auto px-6 h-14 flex items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background:"linear-gradient(135deg,#6C4CE0,#3B82F6)" }}>
-              <span className="text-white text-[10px] font-black">O</span>
+              <span className="text-white text-xs font-black">O</span>
             </div>
             <span className="font-black text-sm text-foreground">오늘핀</span>
           </div>
@@ -296,7 +296,7 @@ function OnboardingPage({ onComplete, isDark, toggleDark }: { onComplete: () => 
                 </p>
                 <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/8 text-primary text-xs font-semibold">
                   <Sparkles size={12} />
-                  관심 대상은 무제한으로 등록할 수 있어요 — 타 서비스와 다릅니다
+                  관심 대상은 무제한으로 등록할 수 있어요 — 타 서비스와 달라요
                 </div>
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
@@ -339,8 +339,8 @@ function OnboardingPage({ onComplete, isDark, toggleDark }: { onComplete: () => 
                         </div>
                       )}
                     </div>
-                    <span className="text-[11px] font-semibold text-foreground text-center leading-tight">{art.name}</span>
-                    <span className="text-[9px] text-muted-foreground">{art.category}</span>
+                    <span className="text-xs font-semibold text-foreground text-center leading-tight">{art.name}</span>
+                    <span className="text-xs text-muted-foreground">{art.category}</span>
                   </button>
                 ))}
               </div>
@@ -368,7 +368,7 @@ function OnboardingPage({ onComplete, isDark, toggleDark }: { onComplete: () => 
                           <button key={tid} onClick={() => setCalTheme(tid)}
                             className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1.5 transition-all ${calTheme === tid ? "border-primary bg-primary/8" : "border-border bg-card hover:border-primary/30"}`}>
                             <div className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: th.preview }} />
-                            <span className="text-[9px] font-bold text-foreground text-center">{th.name}</span>
+                            <span className="text-xs font-bold text-foreground text-center">{th.name}</span>
                           </button>
                         );
                       })}
@@ -432,7 +432,7 @@ function OnboardingPage({ onComplete, isDark, toggleDark }: { onComplete: () => 
                         <ArtCover artistId={id} size="sm" />
                         <div>
                           <div className="font-bold text-sm text-foreground">{art.name}</div>
-                          <div className="text-[10px] text-muted-foreground">{art.category}</div>
+                          <div className="text-xs text-muted-foreground">{art.category}</div>
                         </div>
                         <button
                           onClick={() => toggleNotif(id)}
@@ -444,8 +444,8 @@ function OnboardingPage({ onComplete, isDark, toggleDark }: { onComplete: () => 
                         <div className="grid grid-cols-3 gap-2">
                           {[["티켓팅 오픈","2시간 전"],["공연 당일","24시간 전"],["생일·기념일","당일 오전"]].map(([type, timing]) => (
                             <div key={type} className="p-2.5 rounded-xl bg-muted/60 text-center">
-                              <div className="text-[10px] font-bold text-foreground mb-0.5">{type}</div>
-                              <div className="text-[9px] text-primary font-semibold">{timing}</div>
+                              <div className="text-xs font-bold text-foreground mb-0.5">{type}</div>
+                              <div className="text-xs text-primary font-semibold">{timing}</div>
                             </div>
                           ))}
                         </div>
@@ -550,16 +550,16 @@ function LandingPage({ onStart, onLogin, isDark, toggleDark }: { onStart:()=>voi
             style={{ background:"linear-gradient(145deg,#2D1B69,#7C3AED)" }}>
             <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage:"radial-gradient(circle, white 1px, transparent 1px)", backgroundSize:"20px 20px" }} />
             <div className="relative">
-              <div className="text-[9px] font-semibold opacity-60 uppercase tracking-widest mb-1">뮤지컬</div>
+              <div className="text-[11px] font-semibold opacity-60 uppercase tracking-widest mb-1">뮤지컬</div>
               <div className="text-3xl font-black leading-tight">HADES</div>
             </div>
             <div className="relative">
-              <div className="text-[10px] opacity-60 mb-0.5">다음 관람까지</div>
+              <div className="text-xs opacity-60 mb-0.5">다음 관람까지</div>
               <div className="text-3xl font-black">D-14</div>
             </div>
           </div>
-          <div className="rounded-2xl bg-muted p-4"><div className="text-[10px] font-semibold text-muted-foreground">이번 달 지출</div><div className="text-xl font-black text-foreground mt-1">₩382,000</div></div>
-          <div className="rounded-2xl border border-border bg-card p-4"><div className="text-[10px] font-semibold text-muted-foreground">누적 관람</div><div className="flex gap-3 mt-1"><div><div className="text-xl font-black text-foreground">8</div><div className="text-[9px] text-muted-foreground">공연</div></div><div><div className="text-xl font-black text-foreground">3</div><div className="text-[9px] text-muted-foreground">뮤지컬</div></div></div></div>
+          <div className="rounded-2xl bg-muted p-4"><div className="text-xs font-semibold text-muted-foreground">이번 달 지출</div><div className="text-xl font-black text-foreground mt-1">₩382,000</div></div>
+          <div className="rounded-2xl border border-border bg-card p-4"><div className="text-xs font-semibold text-muted-foreground">누적 관람</div><div className="flex gap-3 mt-1"><div><div className="text-xl font-black text-foreground">8</div><div className="text-xs text-muted-foreground">공연</div></div><div><div className="text-xl font-black text-foreground">3</div><div className="text-xs text-muted-foreground">뮤지컬</div></div></div></div>
         </motion.div>
       </section>
 
@@ -591,9 +591,9 @@ function LandingPage({ onStart, onLogin, isDark, toggleDark }: { onStart:()=>voi
             {TICKETING_SOON.map((t,i) => { const art = ARTISTS.find(a=>a.id===t.artistId)!; return (
               <motion.div key={i} initial={{ opacity:0, y:16 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} transition={{ delay:i*0.07 }}
                 className="flex items-center gap-3 p-4 rounded-2xl border border-border bg-card hover:border-primary/25 hover:-translate-y-0.5 transition-all cursor-pointer group">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-[9px] font-black" style={{ background:`linear-gradient(135deg,${art.from},${art.to})` }}>{art.short.length>4?<span className="text-[7px]">{art.short}</span>:art.short}</div>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-black" style={{ background:`linear-gradient(135deg,${art.from},${art.to})` }}>{art.short.length>4?<span className="text-[7px]">{art.short}</span>:art.short}</div>
                 <div className="flex-1 min-w-0"><div className="text-sm font-semibold text-foreground truncate">{t.title}</div><div className="text-[11px] text-muted-foreground">{t.site}</div></div>
-                <div className="text-right flex-shrink-0"><div className="text-xs font-black text-primary">{t.date}</div><div className="flex items-center gap-0.5 text-[10px] text-muted-foreground group-hover:text-primary transition-colors justify-end mt-0.5">예매 <ExternalLink size={9}/></div></div>
+                <div className="text-right flex-shrink-0"><div className="text-xs font-black text-primary">{t.date}</div><div className="flex items-center gap-0.5 text-xs text-muted-foreground group-hover:text-primary transition-colors justify-end mt-0.5">예매 <ExternalLink size={9}/></div></div>
               </motion.div>
             );})}
           </div>
@@ -643,7 +643,7 @@ function CalendarWidget({ onEdit, calTheme, density }: { onEdit: () => void; cal
         </div>
       </div>
       <div className="grid grid-cols-7 mb-1">
-        {DAYS.map((d,i) => <div key={d} className={`text-center text-[10px] font-bold py-1 ${i===0?"text-red-400":i===6?"text-blue-400":"text-muted-foreground"}`}>{d}</div>)}
+        {DAYS.map((d,i) => <div key={d} className={`text-center text-xs font-bold py-1 ${i===0?"text-red-400":i===6?"text-blue-400":"text-muted-foreground"}`}>{d}</div>)}
       </div>
       <div className="grid grid-cols-7 gap-y-0.5">
         {Array.from({ length: first }).map((_,i) => <div key={`e${i}`} className="aspect-square" />)}
@@ -656,7 +656,7 @@ function CalendarWidget({ onEdit, calTheme, density }: { onEdit: () => void; cal
           return (
             <button key={d} onClick={() => setSel(isSel ? null : d)}
               className={`aspect-square flex flex-col items-center justify-start pt-1 gap-0.5 rounded-lg transition-all hover:bg-muted ${isSel ? "bg-primary/10 ring-1 ring-primary/30" : ""}`}>
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold leading-none ${isToday ? "text-white" : dow===0?"text-red-400":dow===6?"text-blue-400":"text-foreground"}`}
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold leading-none ${isToday ? "text-white" : dow===0?"text-red-400":dow===6?"text-blue-400":"text-foreground"}`}
                 style={isToday ? { background: t.todayGrad } : {}}>
                 {d}
               </span>
@@ -675,7 +675,7 @@ function CalendarWidget({ onEdit, calTheme, density }: { onEdit: () => void; cal
       </div>
       {sel && (
         <div className="mt-3 pt-3 border-t border-border">
-          <div className="text-[10px] font-bold text-muted-foreground mb-2">7월 {sel}일 일정</div>
+          <div className="text-xs font-bold text-muted-foreground mb-2">7월 {sel}일 일정</div>
           <div className="space-y-1">
             {EVENTS.filter(e => e.date === sel).slice(0,2).map((ev,i) => {
               const art = ARTISTS.find(a => a.id === ev.artistId)!;
@@ -714,7 +714,7 @@ function HomePage({ setPage, calTheme, density }: { setPage:(p:Page)=>void; calT
         </div>
         <div className="col-span-3 grid grid-cols-3 gap-3">
           {[{l:"관람 공연",v:"8",u:"회"},{l:"본 뮤지컬",v:"2",u:"편"},{l:"총 지출",v:"₩382K",u:""}].map(({l,v,u}) => (
-            <div key={l} className="rounded-2xl bg-muted p-4"><div className="text-[10px] font-semibold text-muted-foreground">{l}</div><div className="text-xl font-black text-foreground mt-1">{v}<span className="text-sm">{u}</span></div></div>
+            <div key={l} className="rounded-2xl bg-muted p-4"><div className="text-xs font-semibold text-muted-foreground">{l}</div><div className="text-xl font-black text-foreground mt-1">{v}<span className="text-sm">{u}</span></div></div>
           ))}
         </div>
       </div>
@@ -735,8 +735,8 @@ function HomePage({ setPage, calTheme, density }: { setPage:(p:Page)=>void; calT
                     {art.short}
                     {show.b && <span className="absolute top-1 right-1 text-[7px] font-black px-1 py-0.5 rounded bg-white/25">{show.b}</span>}
                   </div>
-                  <div className="text-[10px] font-semibold text-foreground text-center truncate mt-1">{show.t}</div>
-                  <div className="text-[9px] text-muted-foreground text-center">{show.s}</div>
+                  <div className="text-xs font-semibold text-foreground text-center truncate mt-1">{show.t}</div>
+                  <div className="text-xs text-muted-foreground text-center">{show.s}</div>
                 </div>
               );
             })}
@@ -757,7 +757,7 @@ function HomePage({ setPage, calTheme, density }: { setPage:(p:Page)=>void; calT
               <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted transition-colors cursor-pointer">
                 <div className={`text-xs font-bold w-9 text-center flex-shrink-0 ${ev.day==="오늘"?"text-primary":"text-muted-foreground"}`}>{ev.day}</div>
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black flex-shrink-0" style={{ background:`linear-gradient(135deg,${art.from},${art.to})`, fontSize:art.short.length>4?"7px":"10px" }}>{art.short}</div>
-                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-foreground truncate">{ev.title}</div><div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5"><Clock size={8}/>{ev.time}</div></div>
+                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-foreground truncate">{ev.title}</div><div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><Clock size={8}/>{ev.time}</div></div>
                 <CatBadge category={ev.cat} />
               </div>
             );})}
@@ -817,7 +817,7 @@ function CalendarPage({
               <h2 className="text-xl font-black text-foreground">{year}. {String(month).padStart(2,"0")}</h2>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <div className="w-3 h-3 rounded-sm" style={{ background: t.preview }} />
-                <span className="text-[10px] text-muted-foreground">{t.name} 테마</span>
+                <span className="text-xs text-muted-foreground">{t.name} 테마</span>
               </div>
             </div>
             <div className="flex gap-1">
@@ -865,8 +865,8 @@ function CalendarPage({
             {TICKETING_SOON.map((t2,i) => { const art=ARTISTS.find(a=>a.id===t2.artistId)!; return (
               <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors cursor-pointer group">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black" style={{ background:`linear-gradient(135deg,${art.from},${art.to})`, fontSize:art.short.length>4?"7px":"10px" }}>{art.short}</div>
-                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-foreground truncate">{t2.title}</div><div className="text-[10px] text-muted-foreground">{t2.site}</div></div>
-                <div className="text-right flex-shrink-0"><div className="text-xs font-black text-primary">{t2.date}</div><div className="flex items-center gap-0.5 text-[9px] text-muted-foreground group-hover:text-primary justify-end mt-0.5">예매 <ExternalLink size={8}/></div></div>
+                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-foreground truncate">{t2.title}</div><div className="text-xs text-muted-foreground">{t2.site}</div></div>
+                <div className="text-right flex-shrink-0"><div className="text-xs font-black text-primary">{t2.date}</div><div className="flex items-center gap-0.5 text-xs text-muted-foreground group-hover:text-primary justify-end mt-0.5">예매 <ExternalLink size={8}/></div></div>
               </div>
             );})}
           </div>
@@ -878,7 +878,7 @@ function CalendarPage({
         <div className="flex border-b border-border flex-shrink-0">
           {([{id:"events" as const,l:"일정",icon:Calendar},{id:"add" as const,l:"추가",icon:Plus},{id:"themes" as const,l:"테마",icon:Layers},{id:"cast" as const,l:"캐스팅",icon:Users}]).map(({id,l,icon:Icon}) => (
             <button key={id} onClick={() => setTab(id)}
-              className={`flex-1 flex items-center justify-center gap-1 py-3 text-[10px] font-semibold transition-colors ${tab===id?"text-primary border-b-2 border-primary":"text-muted-foreground hover:text-foreground"}`}>
+              className={`flex-1 flex items-center justify-center gap-1 py-3 text-xs font-semibold transition-colors ${tab===id?"text-primary border-b-2 border-primary":"text-muted-foreground hover:text-foreground"}`}>
               <Icon size={11}/>{l}
             </button>
           ))}
@@ -901,16 +901,16 @@ function CalendarPage({
                         <div key={i} className="p-3 rounded-xl bg-muted relative overflow-hidden">
                           <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ backgroundColor:(t.dot??art.dot) }} />
                           <div className="pl-1.5">
-                            <div className="flex items-center gap-1.5 mb-1"><CatBadge category={ev.category} />{ev.hasTicket && <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-md">티켓팅</span>}</div>
+                            <div className="flex items-center gap-1.5 mb-1"><CatBadge category={ev.category} />{ev.hasTicket && <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-md">티켓팅</span>}</div>
                             <div className="text-xs font-semibold text-foreground">{ev.title}</div>
-                            <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5"><Clock size={9}/>{ev.time}{ev.venue&&<><MapPin size={9}/>{ev.venue}</>}</div>
+                            <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><Clock size={9}/>{ev.time}{ev.venue&&<><MapPin size={9}/>{ev.venue}</>}</div>
                           </div>
                         </div>
                       );})}
                       {selCust.map((ev,i) => (
                         <div key={`c${i}`} className="p-3 rounded-xl bg-muted relative overflow-hidden">
                           <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ backgroundColor:ev.color }} />
-                          <div className="pl-1.5"><span className="text-[9px] font-semibold text-muted-foreground">내 일정</span><div className="text-xs font-semibold text-foreground">{ev.title}</div>{ev.time&&<div className="text-[10px] text-muted-foreground flex items-center gap-1"><Clock size={9}/>{ev.time}</div>}</div>
+                          <div className="pl-1.5"><span className="text-xs font-semibold text-muted-foreground">내 일정</span><div className="text-xs font-semibold text-foreground">{ev.title}</div>{ev.time&&<div className="text-xs text-muted-foreground flex items-center gap-1"><Clock size={9}/>{ev.time}</div>}</div>
                         </div>
                       ))}
                     </div>
@@ -923,7 +923,7 @@ function CalendarPage({
                 {ARTISTS.map(art => (
                   <div key={art.id} className="flex items-center justify-between px-2 py-2 rounded-lg hover:bg-muted transition-colors">
                     <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full" style={{ backgroundColor:art.dot }} /><span className="text-xs font-medium text-foreground">{art.name}</span></div>
-                    <span className="text-[9px] text-muted-foreground">{art.category}</span>
+                    <span className="text-xs text-muted-foreground">{art.category}</span>
                   </div>
                 ))}
               </div>
@@ -997,7 +997,7 @@ function CalendarPage({
           {tab === "cast" && (
             <div>
               <h3 className="font-bold text-sm text-foreground mb-1">캐스팅 필터</h3>
-              <p className="text-[11px] text-muted-foreground mb-4">최애 배우가 나오는 회차만 캘린더에서 강조합니다.</p>
+              <p className="text-[11px] text-muted-foreground mb-4">최애 배우가 나오는 회차만 캘린더에서 강조해요.</p>
               {[
                 { artistId:"hades" as ArtistId, casts:[{name:"박지연 (에우리디케)",dates:[5,12,22,31]},{name:"이아람 (에우리디케)",dates:[10,17,24]},{name:"김준현 (하데스)",dates:[5,12,22,31]}] },
                 { artistId:"cats" as ArtistId,  casts:[{name:"전미도 (그리자벨라)",dates:[10,17,24]}] },
@@ -1013,7 +1013,7 @@ function CalendarPage({
                     <div className="space-y-1.5 ml-10">
                       {casts.map((cast,i) => (
                         <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted hover:bg-secondary transition-colors cursor-pointer">
-                          <div><div className="text-[11px] font-semibold text-foreground">{cast.name}</div><div className="text-[9px] text-muted-foreground">{cast.dates.join(", ")}일 출연</div></div>
+                          <div><div className="text-[11px] font-semibold text-foreground">{cast.name}</div><div className="text-xs text-muted-foreground">{cast.dates.join(", ")}일 출연</div></div>
                           <div className="w-8 h-4 rounded-full bg-muted border border-border flex items-center px-0.5"><div className="w-3 h-3 rounded-full bg-muted-foreground/40" /></div>
                         </div>
                       ))}
@@ -1022,7 +1022,7 @@ function CalendarPage({
                 );
               })}
               <div className="p-3 rounded-xl bg-muted text-[11px] text-muted-foreground">
-                활성화하면 해당 배우 회차 날짜가 캘린더에서 특별 강조됩니다.
+                활성화하면 해당 배우 회차 날짜가 캘린더에서 특별 강조돼요.
               </div>
             </div>
           )}
@@ -1056,7 +1056,7 @@ function CommunityPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-foreground">커뮤니티</h1>
-          <p className="text-sm text-muted-foreground mt-1">관람 기록을 공개하면 작품 방에 자동 노출됩니다.</p>
+          <p className="text-sm text-muted-foreground mt-1">관람 기록을 공개하면 작품 방에 자동 노출돼요.</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/8 text-primary text-xs font-semibold">
           <Sparkles size={12} />
@@ -1081,10 +1081,10 @@ function CommunityPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-sm text-foreground truncate">{room.title}</div>
-                  <div className="text-[10px] text-muted-foreground mt-0.5">{room.sub}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{room.sub}</div>
                   <div className="flex items-center gap-2 mt-1.5">
-                    <span className="text-[10px] text-muted-foreground">{room.members.toLocaleString()}명</span>
-                    <span className="text-[10px] text-primary font-semibold">관람기록 {room.records}개</span>
+                    <span className="text-xs text-muted-foreground">{room.members.toLocaleString()}명</span>
+                    <span className="text-xs text-primary font-semibold">관람기록 {room.records}개</span>
                   </div>
                 </div>
               </button>
@@ -1109,7 +1109,7 @@ function CommunityPage() {
                   {art.short}
                 </div>
                 <div className="font-bold text-xs text-foreground truncate">{room.title}</div>
-                <div className="text-[9px] text-muted-foreground mt-0.5">{room.posts}개 글 · {room.records}개 기록</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{room.posts}개 글 · {room.records}개 기록</div>
                 <div className="flex flex-wrap gap-1 mt-2">
                   {room.tags.slice(0,2).map(tag => (
                     <span key={tag} className={`text-[8px] font-semibold px-1.5 py-0.5 rounded-full ${TAG_COLORS[tag] ?? "bg-muted text-muted-foreground"}`}>{tag}</span>
@@ -1144,12 +1144,12 @@ function CommunityPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="text-[10px] font-semibold text-foreground">{room.title}</span>
+                      <span className="text-xs font-semibold text-foreground">{room.title}</span>
                       {post.tags.map(tag => (
-                        <span key={tag} className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${TAG_COLORS[tag] ?? "bg-muted text-muted-foreground"}`}>{tag}</span>
+                        <span key={tag} className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${TAG_COLORS[tag] ?? "bg-muted text-muted-foreground"}`}>{tag}</span>
                       ))}
                       {post.hasRecord && (
-                        <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">관람기록 연결</span>
+                        <span className="text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">관람기록 연결</span>
                       )}
                     </div>
                     <h4 className="font-bold text-sm text-foreground mb-1">{post.title}</h4>
@@ -1158,12 +1158,12 @@ function CommunityPage() {
                 </div>
                 <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold text-foreground">{post.avatar} {post.user}</span>
-                    <span className="text-[9px] text-muted-foreground">· {post.time}</span>
+                    <span className="text-xs font-bold text-foreground">{post.avatar} {post.user}</span>
+                    <span className="text-xs text-muted-foreground">· {post.time}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-red-500 transition-colors"><Heart size={11}/>{post.likes}</button>
-                    <button className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"><MessageCircle size={11}/>{post.comments}</button>
+                    <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-500 transition-colors"><Heart size={11}/>{post.likes}</button>
+                    <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"><MessageCircle size={11}/>{post.comments}</button>
                   </div>
                 </div>
               </motion.div>
@@ -1212,7 +1212,7 @@ function TicketStubCard({ entry, onClose }: { entry: typeof DIARY_ENTRIES[0]; on
           <div className="absolute -bottom-3 w-6 h-6 rounded-full bg-background" style={{ left:"-12px" }} />
         </div>
         <div className="w-28 flex-shrink-0 p-4 flex flex-col items-center justify-between bg-muted/40">
-          <div className="text-center"><div className="text-[10px] font-black text-foreground">{art.name.slice(0,4)}</div><div className="text-[9px] text-muted-foreground mt-0.5">{entry.date.slice(5)}</div></div>
+          <div className="text-center"><div className="text-xs font-black text-foreground">{art.name.slice(0,4)}</div><div className="text-xs text-muted-foreground mt-0.5">{entry.date.slice(5)}</div></div>
           <div className="flex gap-0.5 items-end h-10">{[3,5,2,6,4,2,5,3,4,6,2,4,3].map((h,i) => <div key={i} className="bg-foreground/20 w-0.5 rounded-full" style={{ height:`${h*6}%` }} />)}</div>
           <div className="text-[8px] font-black text-muted-foreground tracking-widest">{String(entry.id).padStart(6,"0")}</div>
         </div>
@@ -1233,7 +1233,7 @@ function DiaryPage() {
       </div>
       <div className="grid grid-cols-4 gap-3 mb-8">
         {[{l:"콘서트",v:DIARY_ENTRIES.filter(e=>e.category==="콘서트").length,u:"회"},{l:"뮤지컬",v:DIARY_ENTRIES.filter(e=>e.category==="뮤지컬").length,u:"편"},{l:"총 기록",v:DIARY_ENTRIES.length,u:"개"},{l:"총 지출",v:`₩${total.toLocaleString()}`,u:""}].map(({l,v,u}) => (
-          <div key={l} className="rounded-2xl border border-border bg-card p-4"><div className="text-[10px] font-semibold text-muted-foreground mb-1">{l}</div><div className="text-lg font-black text-foreground">{v}<span className="text-sm font-semibold">{u}</span></div></div>
+          <div key={l} className="rounded-2xl border border-border bg-card p-4"><div className="text-xs font-semibold text-muted-foreground mb-1">{l}</div><div className="text-lg font-black text-foreground">{v}<span className="text-sm font-semibold">{u}</span></div></div>
         ))}
       </div>
       <div className="space-y-2">
@@ -1264,7 +1264,7 @@ function DiaryPage() {
       <div className="mt-6 rounded-2xl border border-dashed border-border p-10 text-center">
         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ background:"linear-gradient(135deg,#6C4CE0,#3B82F6)" }}><Ticket size={28} className="text-white" /></div>
         <div className="text-sm font-bold text-foreground mb-1">첫 관람 기록을 남겨보세요</div>
-        <div className="text-xs text-muted-foreground max-w-xs mx-auto">공연, 뮤지컬, 페스티벌... 내 최애의 모든 순간이 여기 모입니다.</div>
+        <div className="text-xs text-muted-foreground max-w-xs mx-auto">공연, 뮤지컬, 페스티벌... 내 최애의 모든 순간이 여기 모여요.</div>
         <PrimaryBtn small className="mt-5 mx-auto"><Plus size={14}/>첫 기록 시작</PrimaryBtn>
       </div>
     </div>
@@ -1297,11 +1297,11 @@ function MyPage({ isDark, toggleDark }: { isDark:boolean; toggleDark:()=>void })
           <div className="space-y-3">
             <div className="flex justify-between items-end">
               {[{k:"새싹",i:"🌱"},{k:"열정",i:"🔥"},{k:"마스터",i:"⭐"}].map((l,i) => (
-                <div key={l.k} className="text-center"><div className={`text-xl transition-opacity ${i<=1?"opacity-100":"opacity-25"}`}>{l.i}</div><div className={`text-[10px] font-semibold mt-0.5 ${i===1?"text-primary":"text-muted-foreground"}`}>{l.k}</div></div>
+                <div key={l.k} className="text-center"><div className={`text-xl transition-opacity ${i<=1?"opacity-100":"opacity-25"}`}>{l.i}</div><div className={`text-xs font-semibold mt-0.5 ${i===1?"text-primary":"text-muted-foreground"}`}>{l.k}</div></div>
               ))}
             </div>
             <div className="h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full" style={{ width:"60%", background:"linear-gradient(90deg,#6C4CE0,#3B82F6)" }} /></div>
-            <div className="text-[10px] text-muted-foreground text-center">마스터까지 <span className="font-bold text-foreground">2개</span> 남음</div>
+            <div className="text-xs text-muted-foreground text-center">마스터까지 <span className="font-bold text-foreground">2개</span> 남음</div>
           </div>
         </div>
 
@@ -1322,13 +1322,13 @@ function MyPage({ isDark, toggleDark }: { isDark:boolean; toggleDark:()=>void })
               <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/5" />
               <div className="relative p-5 text-white flex flex-col h-full min-h-[280px]">
                 <div className="flex items-center justify-between mb-4">
-                  <div><div className="text-[8px] font-bold opacity-50 uppercase tracking-[0.15em]">연간 관람 결산</div><div className="text-[10px] font-black opacity-30">2026</div></div>
+                  <div><div className="text-[8px] font-bold opacity-50 uppercase tracking-[0.15em]">연간 관람 결산</div><div className="text-xs font-black opacity-30">2026</div></div>
                   <BarChart3 size={16} className="opacity-50" />
                 </div>
-                <div className="mb-3"><div className="text-[9px] font-semibold opacity-60 mb-0.5">올해 본 공연</div><div className="text-4xl font-black leading-none">8<span className="text-xl opacity-60 ml-1">편</span></div></div>
+                <div className="mb-3"><div className="text-xs font-semibold opacity-60 mb-0.5">올해 본 공연</div><div className="text-4xl font-black leading-none">8<span className="text-xl opacity-60 ml-1">편</span></div></div>
                 <div className="space-y-2 flex-1">
                   {[{l:"최애 작품",v:"하데스타운"},{l:"최다 관람",v:"SVT 콘서트"},{l:"총 관람 시간",v:"약 32시간"},{l:"총 지출",v:"₩382,000"},{l:"관람 레벨",v:"🔥 열정"}].map(({l,v}) => (
-                    <div key={l} className="flex items-center justify-between"><div className="text-[10px] opacity-55">{l}</div><div className="text-[10px] font-black">{v}</div></div>
+                    <div key={l} className="flex items-center justify-between"><div className="text-xs opacity-55">{l}</div><div className="text-xs font-black">{v}</div></div>
                   ))}
                 </div>
                 <button className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 transition-colors text-xs font-bold">
@@ -1361,7 +1361,7 @@ function MyPage({ isDark, toggleDark }: { isDark:boolean; toggleDark:()=>void })
                                 {item.isFirst && <span className="text-[8px] font-bold text-white bg-primary px-1.5 py-0.5 rounded-full">첫 공연</span>}
                                 {item.isUpcoming && <span className="text-[8px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">예정</span>}
                               </div>
-                              <div className="text-[10px] text-muted-foreground">{year}.{String(item.month).padStart(2,"0")}</div>
+                              <div className="text-xs text-muted-foreground">{year}.{String(item.month).padStart(2,"0")}</div>
                             </div>
                           </div>
                         </div>
@@ -1468,7 +1468,7 @@ function OneulpinApp() {
         <div className="mt-auto mx-2">
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-muted">
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-sm flex-shrink-0">🔥</div>
-            <div className="min-w-0"><div className="text-xs font-bold text-foreground truncate">열정</div><div className="text-[10px] text-muted-foreground">관람 3회</div></div>
+            <div className="min-w-0"><div className="text-xs font-bold text-foreground truncate">열정</div><div className="text-xs text-muted-foreground">관람 3회</div></div>
           </div>
         </div>
       </nav>
@@ -1535,7 +1535,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
       </span>
       <span className="flex flex-col gap-1">
         <span className={`${compact ? "text-xl" : "text-2xl"} whitespace-nowrap font-bold leading-none`}>{BEFORE_US.brand.name}</span>
-        <span className="whitespace-nowrap text-[9px] font-semibold leading-none tracking-[0.18em] text-muted-foreground">{BEFORE_US.brand.english}</span>
+        <span className="whitespace-nowrap text-[11px] font-semibold leading-none tracking-[0.18em] text-muted-foreground">{BEFORE_US.brand.english}</span>
       </span>
     </Link>
   );
@@ -1617,8 +1617,9 @@ function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
           <div className="mx-auto flex h-20 max-w-[1120px] items-center justify-between px-5 sm:px-8 lg:px-10">
             <div className="md:hidden"><Brand compact /></div>
             <div className="hidden items-center gap-3 text-xs md:flex"><span className="text-muted-foreground">{BEFORE_US.brand.name}</span><span className="text-border">/</span><span>{current?.label}</span></div>
-            <div className="flex items-center gap-3"><span className="rounded-full border border-border px-3 py-1.5 text-[11px] text-muted-foreground">둘러보기</span><ShellThemeToggle isDark={isDark} toggle={toggle} /></div>
+            <div className="flex items-center gap-3"><span className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground">데모</span><ShellThemeToggle isDark={isDark} toggle={toggle} /></div>
           </div>
+          <p className="border-t border-border bg-muted/40 px-5 py-2 text-center text-xs text-muted-foreground">데모 화면이에요. 실제 신청·결제·발송은 일어나지 않고, 새로고침하면 입력한 내용이 지워져요.</p>
         </header>
         <main id="main-content" className="mx-auto w-full max-w-[1120px] flex-1 px-5 py-10 sm:px-8 lg:px-10 lg:py-14"><PageTransition /></main>
       </div>
@@ -1650,8 +1651,8 @@ function AccessFrame({ application = false }: { application?: boolean }) {
       <h1 className="text-3xl font-semibold">{application ? "소개 신청하기" : "로그인"}</h1>
       <div className="mt-8 rounded-2xl border border-border bg-muted p-7">
         <p className="text-base font-semibold">지금은 데모로 둘러볼 수 있어요.</p>
-        <p className="mt-3 text-sm leading-7 text-muted-foreground">실제 계정 생성, 소개 신청과 결제는 진행되지 않습니다.</p>
-        {!application && <p className="mt-3 text-xs leading-7 text-muted-foreground">계정 단계에는 사진이나 이상형 입력이 없습니다. 소개 신청은 별도의 4단계로 진행합니다.</p>}
+        <p className="mt-3 text-sm leading-7 text-muted-foreground">실제 계정 생성, 소개 신청과 결제는 진행되지 않아요.</p>
+        {!application && <p className="mt-3 text-xs leading-7 text-muted-foreground">계정 단계에는 사진이나 이상형 입력이 없어요. 소개 신청은 별도의 4단계로 진행해요.</p>}
         <Button asChild className={`mt-7 h-12 w-full rounded-xl ${CONTROL_MOTION}`}><Link to="/today">회원 공간 둘러보기 <ArrowRight size={16} /></Link></Button>
       </div>
       <Link to="/" className={`mt-6 w-fit rounded-sm text-sm text-muted-foreground outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring ${CONTROL_MOTION}`}>공개 홈으로 돌아가기</Link>

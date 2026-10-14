@@ -45,7 +45,7 @@ export function PublicProfilePreview({ profile }: { profile: PublicProfile }) {
         <h3 id="public-preview-title" className="text-sm font-semibold">
           상대에게 보일 프로필
         </h3>
-        <p className="mt-2 text-[11px] leading-6 text-muted-foreground">
+        <p className="mt-2 text-xs leading-6 text-muted-foreground">
           특정 소개 상대에게만 · 아직 전달하지 않았어요
         </p>
       </div>
@@ -62,7 +62,7 @@ export function PublicProfilePreview({ profile }: { profile: PublicProfile }) {
                   photo ? "border-primary" : "border-border"
                 }`}
               />
-              <p className="text-[10px] leading-5 text-muted-foreground">
+              <p className="text-xs leading-5 text-muted-foreground">
                 {PHOTO_SLOTS.find((slot) => slot.id === slotId)?.label}
                 <br />
                   {photo ? "기준 확인된 가상 사진" : "제공할 사진 없음"}
@@ -80,7 +80,7 @@ export function PublicProfilePreview({ profile }: { profile: PublicProfile }) {
             .filter((item) => item.id !== "self.name")
             .map((item) => (
               <div key={item.id}>
-                <dt className="text-[10px] text-muted-foreground">
+                <dt className="text-xs text-muted-foreground">
                   {item.label}
                 </dt>
                 <dd className="mt-1 whitespace-pre-wrap break-words text-xs leading-7">
@@ -89,9 +89,9 @@ export function PublicProfilePreview({ profile }: { profile: PublicProfile }) {
               </div>
             ))}
         </dl>
-        <p className="mt-6 border-t border-border pt-4 text-[10px] leading-6 text-muted-foreground">
-          선택 정보는 공개를 켠 항목만 표시합니다. 가상 프로필 예시이며 실제
-          회원에게 제공되지 않습니다.
+        <p className="mt-6 border-t border-border pt-4 text-xs leading-6 text-muted-foreground">
+          선택 정보는 공개를 켠 항목만 표시해요. 가상 프로필 예시이며 실제
+          회원에게 제공되지 않아요.
         </p>
       </div>
     </aside>
@@ -150,7 +150,7 @@ export default function ApplicationReviewStep({
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-semibold">{label}</p>
-              <p className="mt-1 text-[10px] text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground">
                 {required
                   ? "기본 소개 · 필요한 공개"
                   : available
@@ -199,9 +199,9 @@ export default function ApplicationReviewStep({
           상대에게 보일 내용을 확인해 주세요.
         </h2>
         <p className="mt-3 text-xs leading-7 text-muted-foreground">
-          전체 회원에게 공개하는 게시물이 아닙니다. 소개받는 특정 상대에게
+          전체 회원에게 공개하는 게시물이 아니에요. 소개받는 특정 상대에게
           보여줄 범위를 확인해 주세요. 지금은 제공 준비이며, 아직 상대에게
-          보내지 않습니다.
+          보내지 않아요.
         </p>
       </header>
       {draft.completedDemo && review.submission === "received" && (
@@ -209,16 +209,16 @@ export default function ApplicationReviewStep({
           role="status"
           className="border-l-2 border-primary bg-primary/5 p-5"
         >
-          <span className="text-[10px] font-semibold text-primary">
+          <span className="text-xs font-semibold text-primary">
             가상 신청 접수 · 실제 접수 아님
           </span>
           <h3 className="mt-2 text-xl font-semibold">소개 신청을 받았어요.</h3>
           <p className="mt-3 text-sm leading-7">
-            내용을 살펴보고, 소개 가능한 상대가 준비되면 안내드리겠습니다.
+            내용을 살펴보고, 소개 가능한 상대가 준비되면 안내드릴게요.
           </p>
-          <p className="mt-3 text-[11px] leading-6 text-muted-foreground">
-            사진 확인·본인 확인·소개 준비 완료와는 다른 단계입니다. 실제
-            수집·결제·발송은 진행되지 않았습니다.
+          <p className="mt-3 text-xs leading-6 text-muted-foreground">
+            사진 확인·본인 확인·소개 준비 완료와는 다른 단계예요. 실제
+            수집·결제·발송은 진행되지 않았어요.
           </p>
         </section>
       )}
@@ -241,7 +241,7 @@ export default function ApplicationReviewStep({
                             {slot.required ? "필수" : "선택"}
                           </span>
                         </p>
-                        <p className="mt-1 text-[10px] leading-5 text-muted-foreground">
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
                           {photo.file
                             ? `${photo.review} · 가상 사진 초안 v${photo.revision}`
                             : "미등록"}
@@ -283,18 +283,18 @@ export default function ApplicationReviewStep({
                 )
               })}
             </div>
-            <p className="mt-4 text-[11px] leading-7 text-muted-foreground">
+            <p className="mt-4 text-xs leading-7 text-muted-foreground">
               필수 3장을 등록하면 신청할 수 있지만, 소개 제공에는 사진 기준
-              확인이 필요합니다. 필수 사진 3장과 공개를 선택한 선택 사진 중
+              확인이 필요해요. 필수 사진 3장과 공개를 선택한 선택 사진 중
               검토된 사진만 제공하며, 사진 기준 확인은 외모·인성·안전 인증이
-              아닙니다.
+              아니에요.
             </p>
           </section>
           <section>
             <h3 className="text-sm font-semibold">02 · 내가 켠 추가 정보만</h3>
-            <p className="mt-2 text-[11px] leading-6 text-muted-foreground">
-              MBTI·자기소개·나를 설명하는 태그·키·생활·관심사·직무 분야·직업명·질문 답변은 공개를 선택한 항목만. 직무 분야와 직업명은 각각 기본 비공개이며, 미입력을 무직으로 판단하지 않습니다. 미작성
-              선택 문항은 신청을 막지 않습니다.
+            <p className="mt-2 text-xs leading-6 text-muted-foreground">
+              MBTI·자기소개·나를 설명하는 태그·키·생활·관심사·직무 분야·직업명·질문 답변은 공개를 선택한 항목만. 직무 분야와 직업명은 각각 기본 비공개이며, 미입력을 무직으로 판단하지 않아요. 미작성
+              선택 문항은 신청을 막지 않아요.
             </p>
             <div className="mt-3">{rows(OPTIONAL_PUBLIC_FIELDS, false)}</div>
           </section>
@@ -308,10 +308,10 @@ export default function ApplicationReviewStep({
             <p className="mt-3 text-xs leading-7 text-muted-foreground">
               정확한 생년월일, 계정·인증 연락처·확인 자료, 이상형·희망
               나이·키·체형·인상·필수 조건, 운영자 메모·보완 이력·거절 사유는
-              소개 프로필에 포함되지 않습니다.
+              소개 프로필에 포함되지 않아요.
             </p>
-            <p className="mt-2 text-[11px] leading-7 text-muted-foreground">선호 MBTI·선호 성향·연애 중요 기준·자유 이상형 설명도 운영자용 비공개입니다. MBTI는 자기진술 참고 정보이며 성격 검증이나 궁합 점수가 아닙니다.</p>
-            <p className="mt-2 text-[11px] leading-7 text-muted-foreground">본인 성별·체형·스타일 응답은 운영자 참고용이며, 이번 소개 프로필 제공 항목에는 포함하지 않습니다.</p>
+            <p className="mt-2 text-xs leading-7 text-muted-foreground">선호 MBTI·선호 성향·연애 중요 기준·자유 이상형 설명도 운영자용 비공개예요. MBTI는 자기진술 참고 정보이며 성격 검증이나 궁합 점수가 아니에요.</p>
+            <p className="mt-2 text-xs leading-7 text-muted-foreground">본인 성별·체형·스타일 응답은 운영자 참고용이며, 이번 소개 프로필 제공 항목에는 포함하지 않아요.</p>
             <Button
               type="button"
               variant="link"
@@ -349,25 +349,25 @@ export default function ApplicationReviewStep({
                       {field.label}
                     </span>
                   </label>
-                  <p className="ml-7 mt-2 text-[11px] leading-6 text-muted-foreground">
+                  <p className="ml-7 mt-2 text-xs leading-6 text-muted-foreground">
                     {field.purpose}
                   </p>
                   {field.id === "consent.provision" && (
-                    <dl className="ml-7 mt-3 space-y-2 text-[11px] leading-6 text-muted-foreground">
+                    <dl className="ml-7 mt-3 space-y-2 text-xs leading-6 text-muted-foreground">
                       <div>
                         <dt className="font-semibold text-foreground">
                           항목·목적
                         </dt>
                         <dd>
                           오른쪽에서 확인한 사진·소개 정보로 일대일 소개를
-                          준비합니다.
+                          준비해요.
                         </dd>
                       </div>
                       <div>
                         <dt className="font-semibold text-foreground">범위</dt>
                         <dd>
                           구체적인 소개 제안의 특정 상대만. 전체 회원·연락처
-                          공유·후기 게시·홍보 사진 사용은 포함하지 않습니다.
+                          공유·후기 게시·홍보 사진 사용은 포함하지 않아요.
                         </dd>
                       </div>
                       <div>
@@ -389,9 +389,9 @@ export default function ApplicationReviewStep({
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-[11px] leading-7 text-muted-foreground">
-              법적 문서·보유기간은 검토가 필요한 정책입니다. 법률 검토 완료나
-              실제 개인정보 처리 동의로 표시하지 않습니다. 선택 마케팅과 정오
+            <p className="mt-4 text-xs leading-7 text-muted-foreground">
+              법적 문서·보유기간은 검토가 필요한 정책이에요. 법률 검토 완료나
+              실제 개인정보 처리 동의로 표시하지 않아요. 선택 마케팅과 정오
               상태 알림은 체크하지 않아도 신청할 수 있어요.
             </p>
           </section>
@@ -420,19 +420,19 @@ export default function ApplicationReviewStep({
         </div>
         <p className="mt-4 text-xs leading-7 text-muted-foreground">
           구체적인 소개 제안 전에 제공받는 상대, 공개 항목·버전과 제공 기간을
-          확인합니다. 이때는 프로필 제공 준비이지 최종 호감 선택이 아닙니다.
+          확인해요. 이때는 프로필 제공 준비이지 최종 호감 선택이 아니에요.
           필요한 준비와 동의가 실제로 완료된 뒤에만 준비된 날 정오 12:00,
-          Asia/Seoul에 소개를 공개합니다.
+          Asia/Seoul에 소개를 공개해요.
         </p>
-        <p className="mt-3 text-[11px] leading-7 text-muted-foreground">
-          현재는 상대 미정 · 별도 제공 동의 전이며 실제 공개하지 않습니다.
-          매일 새 소개를 보장하지 않습니다.
+        <p className="mt-3 text-xs leading-7 text-muted-foreground">
+          현재는 상대 미정 · 별도 제공 동의 전이며 실제 공개하지 않아요.
+          매일 새 소개를 보장하지 않아요.
         </p>
       </details>
       <section className="rounded-xl border border-border p-5">
         <div className="flex items-center gap-2">
           <ShieldCheck size={15} className="text-accent" />
-          <h3 className="text-sm font-semibold">각 단계는 별도로 확인합니다</h3>
+          <h3 className="text-sm font-semibold">각 단계는 별도로 확인해요</h3>
         </div>
         <dl className="mt-4 grid gap-4 sm:grid-cols-3">
           {[
@@ -463,7 +463,7 @@ export default function ApplicationReviewStep({
             ["소개 제공", "준비 미완료 · 아직 전달 안 함"],
           ].map(([label, value]) => (
             <div key={label}>
-              <dt className="text-[10px] text-muted-foreground">{label}</dt>
+              <dt className="text-xs text-muted-foreground">{label}</dt>
               <dd className="mt-2 text-xs leading-6">{value}</dd>
             </div>
           ))}
@@ -481,7 +481,7 @@ export default function ApplicationReviewStep({
         <p className="text-xs leading-7 text-muted-foreground">
           필요한 공개에 동의하지 않으면 신청을 보류하거나 철회할 수 있어요.
           사진·핵심 정보 수정은 새 버전으로 재검토하며, 승인되지 않은 사진으로
-          진행 중 제안을 덮어쓰지 않습니다.
+          진행 중 제안을 덮어쓰지 않아요.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button
@@ -516,9 +516,9 @@ export default function ApplicationReviewStep({
           <div role="alert" className="mt-4 rounded-xl bg-muted p-4">
             <p className="text-xs leading-7">
               {pendingAction === "held" ? "신청을 보류" : "신청을 철회"}하는
-              의사를 데모에만 기록합니다. 실제 운영 처리는 하지 않습니다. 새
+              의사를 데모에만 기록해요. 실제 운영 처리는 하지 않아요. 새
               제안 중단·기존 접근 재검토 상태로 연결하며, 이미 본 화면이나
-              캡처까지 회수한다고 약속하지 않습니다.
+              캡처까지 회수한다고 약속하지 않아요.
             </p>
             <div className="mt-3 flex gap-2">
               <Button

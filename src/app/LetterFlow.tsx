@@ -1,3 +1,4 @@
+import { kstDateTime } from "./dates"
 import { MeetingChoice } from "./MeetingChoice"
 import { useEffect, useState } from "react"
 import { Link } from "react-router"
@@ -7,7 +8,7 @@ import { Textarea } from "./components/ui/textarea"
 import { Checkbox } from "./components/ui/checkbox"
 import { LETTER_REPLY, type LetterCommand, type LetterView } from "./letter-model"
 
-const formatTime = (value: string) => Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false }) : "확인된 시각 없음"
+const formatTime = (value: string) => Number.isFinite(Date.parse(value)) ? kstDateTime(value) : "확인된 시각 없음"
 const clock = (value: string) => Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hour12: false }) : ""
 const longDate = (date: string) => new Intl.DateTimeFormat("ko-KR", { timeZone: "UTC", month: "long", day: "numeric", weekday: "short" }).format(new Date(`${date}T00:00:00Z`))
 const shortDate = (date: string) => new Intl.DateTimeFormat("ko-KR", { timeZone: "UTC", month: "long", day: "numeric" }).format(new Date(`${date}T00:00:00Z`))
@@ -114,7 +115,7 @@ export function LetterFlow({ view, nowLabel, onCommand }: LetterFlowProps) {
   const send = (command: LetterCommand) => {
     if (!view || !onCommand) {
       setMessage(
-        "실제 서비스 접수는 연결되지 않았습니다. 진행 상태와 문의 안내를 확인해 주세요.",
+        "실제 서비스 접수는 연결되지 않았어요. 진행 상태와 문의 안내를 확인해 주세요.",
       )
       return
     }
@@ -128,14 +129,14 @@ export function LetterFlow({ view, nowLabel, onCommand }: LetterFlowProps) {
             : command.type === "reply"
               ? "답장을 보냈어요. 두 분 모두 답장하면 함께 열려요."
             : command.type === "meeting-choice"
-              ? "만남 의사를 전달했어요. 상대의 응답을 임의로 만들지 않습니다."
+              ? "만남 의사를 전달했어요. 상대의 응답을 임의로 만들지 않아요."
               : command.type === "block"
-                ? "가상 차단 요청을 기록했습니다. 신규 교류를 멈추고 기존 글 접근은 재검토합니다. 이미 본 화면·캡처까지 회수하지는 못합니다."
+                ? "가상 차단 요청을 기록했어요. 신규 교류를 멈추고 기존 글 접근은 재검토해요. 이미 본 화면·캡처까지 회수하지는 못해요."
                 : command.type === "interrupt"
-                  ? "가상 중단 요청을 기록했습니다. 정상 완료·자동 환불로 처리하지 않습니다."
+                  ? "가상 중단 요청을 기록했어요. 정상 완료·자동 환불로 처리하지 않아요."
                   : command.type === "report"
-                    ? "가상 신고 요청을 기록했습니다. 실제 안전 담당자 접수·검토는 연결되지 않았습니다."
-                    : "가상 문의 요청을 기록했습니다. 실제 상담 접수는 연결되지 않았습니다."),
+                    ? "가상 신고 요청을 기록했어요. 실제 안전 담당자 접수·검토는 연결되지 않았어요."
+                    : "가상 문의 요청을 기록했어요. 실제 상담 접수는 연결되지 않았어요."),
     )
     if (!error && command.type === "submit") {
       setConfirmed(false)
@@ -382,7 +383,7 @@ export function LetterFlow({ view, nowLabel, onCommand }: LetterFlowProps) {
                     <div className="mt-10 py-6 text-center">
                       <LockKeyhole size={20} className="mx-auto text-muted-foreground" />
                       <p className="mx-auto mt-4 max-w-sm text-sm leading-7">{row.status === "future" ? "아직 열리지 않은 편지예요." : row.lockedReason}</p>
-                      <p className="mx-auto mt-2 max-w-sm text-[11px] leading-5 text-muted-foreground">
+                      <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-muted-foreground">
                         {row.status === "future" ? `${longDate(row.date)} 09:00에 열려요. 다른 날짜의 편지를 미리 쓰거나 몰아 보내지 않아요.` : "보내지 않은 날은 지연으로 남고, 정상 완료로 바꾸지 않아요."}
                       </p>
                     </div>
@@ -449,7 +450,7 @@ export function LetterFlow({ view, nowLabel, onCommand }: LetterFlowProps) {
             </div>
           </div>
         )}
-        <p className="mt-4 text-[11px] leading-6 text-muted-foreground">
+        <p className="mt-4 text-xs leading-6 text-muted-foreground">
           운영진·AI가 편지를 대신 쓰지 않아요. 신고 검토처럼 알려 드린 사유가 있을 때만 운영진이 열람할 수 있어요. 이미 본 화면이나 캡처까지 회수하지는 못해요.{" "}
           <Link to="/pricing#faq" className="text-primary underline underline-offset-4">미시작·중단·환불 안내</Link>
         </p>

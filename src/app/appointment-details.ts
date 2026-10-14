@@ -43,7 +43,7 @@ export function slotsError(slots: CandidateTime[], maximum: number, now: Date) {
 }
 export function availabilityError(value: Availability, now: Date) {
   if (!availabilityShape(value)) return "가능 조건의 형식과 날짜·활동·지역 선택 개수를 확인해 주세요.";
-  return slotsError(value.slots,5,now) || (!value.activities.length || value.activities.length > 3 || !unique(value.activities) || !value.activities.every(activity => APPOINTMENT_ACTIVITIES.includes(activity)) ? "활동을 1~3개 선택해 주세요." : null) || (!value.regions.length || value.regions.length > 3 || !unique(value.regions) || !value.regions.every(regionText) ? "넓은 지역·역을 1~3개 입력해 주세요. 주소·GPS는 입력하지 않습니다." : null);
+  return slotsError(value.slots,5,now) || (!value.activities.length || value.activities.length > 3 || !unique(value.activities) || !value.activities.every(activity => APPOINTMENT_ACTIVITIES.includes(activity)) ? "활동을 1~3개 선택해 주세요." : null) || (!value.regions.length || value.regions.length > 3 || !unique(value.regions) || !value.regions.every(regionText) ? "넓은 지역·역을 1~3개 입력해 주세요. 주소·GPS는 입력하지 않아요." : null);
 }
 export function intersectAvailability(left: Availability | null, right: Availability | null, now?: Date) {
   if (!left || !right) return { slots: [] as CandidateTime[], activities: [] as string[], regions: [] as string[], ready: false };
@@ -60,11 +60,11 @@ export function detailsError(details: AppointmentDetails, now: Date) {
   if (!detailsShape(details)) return "약속안 필드 형식과 후보 개수를 확인해 주세요.";
   const slots = slotsError(details.slots,3,now); if (slots) return slots;
   if (!APPOINTMENT_ACTIVITIES.includes(details.activity) || (details.activity === "직접 정할게요" && (!details.customActivity.trim() || details.customActivity.length > 80))) return "활동을 선택하고 직접 정할 경우 짧게 설명해 주세요.";
-  if (!details.regions.length || details.regions.length > 3 || !unique(details.regions) || !details.regions.every(regionText)) return "넓은 지역·역을 1~3개 입력해 주세요. 집·직장 주소·GPS는 입력하지 않습니다.";
+  if (!details.regions.length || details.regions.length > 3 || !unique(details.regions) || !details.regions.every(regionText)) return "넓은 지역·역을 1~3개 입력해 주세요. 집·직장 주소·GPS는 입력하지 않아요.";
   if (!Number.isSafeInteger(details.budget) || details.budget! < 0 || !Number.isSafeInteger(details.duration) || details.duration! < 1 || !["indoor","outdoor","either"].includes(details.environment)) return "1인 예상비용·예상 만남 길이·실내/야외를 확인해 주세요.";
   if (details.slots.some(slot => minutes(slot.end) - minutes(slot.start) < details.duration!)) return "예상 만남 길이가 후보 시간구간보다 길어요.";
-  if (details.place.kind === "example" && !EXAMPLE_SPACES.some(space => space.id === details.place.id && space.label === details.place.label)) return "공간 A/B는 예시입니다. 예시 후보를 직접 선택해 주세요.";
-  if (details.place.kind === "verified" && !VERIFIED_SPACES.some(space => space.id === details.place.id && space.label === details.place.label)) return "현재 확인된 장소 데이터가 없습니다. 예시 또는 직접 장소 제안을 사용해 주세요.";
+  if (details.place.kind === "example" && !EXAMPLE_SPACES.some(space => space.id === details.place.id && space.label === details.place.label)) return "공간 A/B는 예시예요. 예시 후보를 직접 선택해 주세요.";
+  if (details.place.kind === "verified" && !VERIFIED_SPACES.some(space => space.id === details.place.id && space.label === details.place.label)) return "현재 확인된 장소 데이터가 없어요. 예시 또는 직접 장소 제안을 사용해 주세요.";
   if (details.place.kind === "direct" && (!details.place.label.trim() || details.place.label.length > 160)) return "직접 제안할 장소 이름을 입력해 주세요.";
   if (!["example","verified","direct"].includes(details.place.kind) || !["direct","common"].includes(details.basis)) return "장소 유형·제안 기준을 확인해 주세요.";
   return null;

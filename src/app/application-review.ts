@@ -101,7 +101,7 @@ export function suspendDemoApplication(
   review.newProposalsPaused = true
   review.existingAccessReviewRequired = true
   review.changeMessage =
-    "새 제안을 중단하고 이미 제공된 프로필의 접근 범위를 재검토합니다. 이미 본 화면·캡처까지 회수한다고 약속하지 않습니다."
+    "새 제안을 중단하고 이미 제공된 프로필의 접근 범위를 재검토해요. 이미 본 화면·캡처까지 회수한다고 약속하지 않아요."
   if (review.preparation)
     review.preparation = {
       ...review.preparation,

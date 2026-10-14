@@ -1,3 +1,4 @@
+import { kstDateTime, kstDay } from "./dates"
 import { useMemo, useState } from "react"
 import { Archive, DoorOpen, FileLock2 } from "lucide-react"
 import { Button } from "./components/ui/button"
@@ -47,13 +48,13 @@ import {
 } from "./privacy-policy"
 
 const time = (at: string | null) =>
-  at ? new Date(at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false }) : "기한 없음"
+  at ? kstDateTime(at) : "기한 없음"
 const date = (at: string | null) =>
-  at ? new Date(at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" }) : "종결 후 산정"
+  at ? kstDay(at) : "종결 후 산정"
 const money = (value: number | null) =>
   value === null ? "개별 확인 필요" : `${value.toLocaleString("ko-KR")}원`
 const BASIS = { service: "서비스 이용", internal: "운영·보안", legal: "법정 보존" } as const
-const DRAFT_NOTICE = `${PRIVACY_POLICY.version} · 보유기간 정책 초안이며 실제 법률 검토 완료를 뜻하지 않습니다. 가상 자료로 시연하며 실제 삭제·백업 파기를 실행했다고 표시하지 않습니다.`
+const DRAFT_NOTICE = `${PRIVACY_POLICY.version} · 보유기간 정책 초안이며 실제 법률 검토 완료를 뜻하지 않아요. 가상 자료로 시연하며 실제 삭제·백업 파기를 실행했다고 표시하지 않아요.`
 
 function LegalHoldList({ holds }: { holds: LegalHold[] }) {
   if (!holds.length) return <p className="text-xs text-muted-foreground">별도 보존할 법정 기록이 확인되지 않았어요.</p>
@@ -155,7 +156,7 @@ export function WithdrawalPanel({
         ))}
         <LegalHoldList holds={record.legal} />
         <p className="text-xs text-muted-foreground">
-          가상 데모입니다. 삭제 예정 시각만 기록했으며 실제 삭제·백업 파기는 실행하지 않았습니다.
+          가상 데모예요. 삭제 예정 시각만 기록했으며 실제 삭제·백업 파기는 실행하지 않았어요.
         </p>
       </div>
     )
@@ -192,7 +193,7 @@ export function WithdrawalPanel({
         </ul>
         <p className="text-xs">
           일반 자료는 {PRIVACY_POLICY.activeDeleteDays}일 이내 활성 시스템에서, 백업은 최대{" "}
-          {PRIVACY_POLICY.backupMaxDays}일 이내 순차 삭제합니다.
+          {PRIVACY_POLICY.backupMaxDays}일 이내 순차 삭제해요.
         </p>
       </div>
       <div className="space-y-1">
@@ -201,7 +202,7 @@ export function WithdrawalPanel({
       </div>
       <Label className="flex items-start gap-3 text-xs leading-6">
         <Checkbox checked={confirmed} onCheckedChange={(value) => setConfirmed(value === true)} />
-        종료되는 내용과 삭제·보존 일정을 확인했어요. 탈퇴를 요청합니다.
+        종료되는 내용과 삭제·보존 일정을 확인했어요. 탈퇴를 요청해요.
       </Label>
       <Button
         variant="destructive"
@@ -282,7 +283,7 @@ export function DataRightsPanel({
         </div>
       )}
       {kind === "correction" && scope.includes("결제·환불 기록") && (
-        <p className="text-xs text-muted-foreground">결제 기록 원본은 바꾸지 않고 정정 사실을 별도로 기록합니다.</p>
+        <p className="text-xs text-muted-foreground">결제 기록 원본은 바꾸지 않고 정정 사실을 별도로 기록해요.</p>
       )}
       <Button
         size="sm"
@@ -354,7 +355,7 @@ export function AdminPrivacyQueue({ now }: { now?: Date } = {}) {
             </p>
           ))
         ) : (
-          <p className="text-xs text-muted-foreground">탈퇴 요청이 없습니다.</p>
+          <p className="text-xs text-muted-foreground">탈퇴 요청이 없어요.</p>
         )}
       </div>
       <div className="space-y-2">
@@ -372,7 +373,7 @@ export function AdminPrivacyQueue({ now }: { now?: Date } = {}) {
             </div>
           ))
         ) : (
-          <p className="text-xs text-muted-foreground">접수된 요청이 없습니다.</p>
+          <p className="text-xs text-muted-foreground">접수된 요청이 없어요.</p>
         )}
         {request && (
           <div className="grid gap-3 rounded-xl bg-muted p-4 text-xs">
@@ -393,7 +394,7 @@ export function AdminPrivacyQueue({ now }: { now?: Date } = {}) {
               onClick={() => {
                 const error = recordDataRequestResult(request.requestId, status, note, now)
                 if (!error) decideMemberRequest(request.requestId, "decided", note, now)
-                setMessage(error || "처리 결과를 기록했어요. 실제 삭제·변경은 서버 연동이 필요합니다.")
+                setMessage(error || "처리 결과를 기록했어요. 실제 삭제·변경은 서버 연동이 필요해요.")
               }}
             >
               처리 결과 저장
@@ -407,7 +408,7 @@ export function AdminPrivacyQueue({ now }: { now?: Date } = {}) {
           신고 증거 분리 보존 · 필요한 자료만
         </h3>
         <p className="text-xs leading-6 text-muted-foreground">
-          신고를 이유로 사진·편지 전체를 오래 보관하지 않습니다. 분쟁에 필요한 항목만 최대 3개 고르며, 사건 종결 후 기본 3년 보존합니다.
+          신고를 이유로 사진·편지 전체를 오래 보관하지 않아요. 분쟁에 필요한 항목만 최대 3개 고르며, 사건 종결 후 기본 3년 보존해요.
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Select value={reportId} onValueChange={setReportId}>
@@ -440,7 +441,7 @@ export function AdminPrivacyQueue({ now }: { now?: Date } = {}) {
             const report = consoleData.reports.find((entry) => entry.id === reportId)
             const members = report ? [report.reporterId, report.targetId || report.memberId].filter(Boolean) as string[] : ["demo-member-a", "demo-member-b"]
             const error = preserveEvidence({ reportId, memberIds: members, items, note: reason }, now)
-            setMessage(error || "필요한 자료만 증거로 분리했어요. 나머지는 일반 보유기간을 따릅니다.")
+            setMessage(error || "필요한 자료만 증거로 분리했어요. 나머지는 일반 보유기간을 따라요.")
             if (!error) { setItems([]); setReason("") }
           }}
         >
@@ -452,7 +453,7 @@ export function AdminPrivacyQueue({ now }: { now?: Date } = {}) {
               {item.reportId} · {item.items.join(", ")} · {item.closedAt ? `종결 · ${date(item.until)}까지 보존` : "사건 진행 중"}
             </span>
             {!item.closedAt && (
-              <Button size="sm" variant="ghost" onClick={() => setMessage(closeEvidence(item.id, now) || "사건 종결을 기록했어요. 3년 뒤 파기 검토 대상입니다.")}>
+              <Button size="sm" variant="ghost" onClick={() => setMessage(closeEvidence(item.id, now) || "사건 종결을 기록했어요. 3년 뒤 파기 검토 대상이에요.")}>
                 사건 종결
               </Button>
             )}

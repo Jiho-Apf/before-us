@@ -21,9 +21,9 @@ export function MeetingDemo() {
     <main className="mx-auto max-w-5xl px-5 py-8">
       <DemoDock title="DAY04 · 약속 조율">
         <p className="text-xs leading-6">
-          기존 A/B 가상 교류에서 정상 3일을 완료한 기록을 사용합니다. 완료·상대
-          응답·제안자를 자동 생성하지 않습니다. 제어는 회원 화면과 분리되어
-          있으며 새로고침하면 기록이 사라집니다.
+          기존 A/B 가상 교류에서 정상 3일을 완료한 기록을 사용해요. 완료·상대
+          응답·제안자를 자동 생성하지 않아요. 제어는 회원 화면과 분리되어
+          있으며 새로고침하면 기록이 사라져요.
         </p>
         <div className="flex flex-wrap gap-3">
           <Button
@@ -69,7 +69,7 @@ export function MeetingDemo() {
                   },
                   demo.appointment!.revision,
                 ) ||
-                  "가상 시계 기준 점검만 실행했습니다. 해당 건이 없으면 알림을 만들지 않습니다. 실제 발송은 없습니다.",
+                  "가상 시계 기준 점검만 실행했어요. 해당 건이 없으면 알림을 만들지 않아요. 실제 발송은 없어요.",
               )
             }
           >
@@ -83,8 +83,8 @@ export function MeetingDemo() {
           가상 계정 {demo.memberId || "없음"} · {demo.now}
         </p>
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" disabled={!demo.appointment} onClick={() => setReminderMessage(performAppointment({ type: "contact-check" },demo.appointment!.revision) || "가상 공개 조건을 점검했습니다. 충족한 예약만 공개하며 실제 예약 작업·발송은 없습니다.")}>연락처 자정 공개 가상 점검</Button>
-          {(["clear","cancelled","stopped","blocked","review"] as const).map((value,index) => <Button key={value} size="sm" variant="outline" disabled={!demo.appointment} onClick={() => setReminderMessage(setContactSafetyDemo(value) || "가상 안전 상태를 적용했습니다. 공유 동의는 대신 입력하지 않습니다.")}>{["안전 상태 정상","약속 취소","중단","차단","안전 검토"][index]}</Button>)}
+          <Button variant="outline" disabled={!demo.appointment} onClick={() => setReminderMessage(performAppointment({ type: "contact-check" },demo.appointment!.revision) || "가상 공개 조건을 점검했어요. 충족한 예약만 공개하며 실제 예약 작업·발송은 없어요.")}>연락처 자정 공개 가상 점검</Button>
+          {(["clear","cancelled","stopped","blocked","review"] as const).map((value,index) => <Button key={value} size="sm" variant="outline" disabled={!demo.appointment} onClick={() => setReminderMessage(setContactSafetyDemo(value) || "가상 안전 상태를 적용했어요. 공유 동의는 대신 입력하지 않아요.")}>{["안전 상태 정상","약속 취소","중단","차단","안전 검토"][index]}</Button>)}
         </div>
         <div className="flex flex-wrap gap-5 text-sm text-primary">
           <Link to="/demo/letters">A 교류 제어</Link>
@@ -98,7 +98,7 @@ export function MeetingDemo() {
         <h2 className="text-lg text-accent">만남 전후 화면 미리보기 · 가상</h2>
         <p className="text-xs leading-6">
           실제 약속이 합의되면 약속 화면 아래에 같은 안전 가이드와 피드백이 나와요. 여기서는 만남 시각을 2026-10-24 14:00으로 두고,
-          위 가상 시각 입력값 기준으로 보여 줘요. (15:00 이후로 바꾸면 피드백이 열립니다.)
+          위 가상 시각 입력값 기준으로 보여 줘요. (15:00 이후로 바꾸면 피드백이 열려요.)
         </p>
         <MeetingAftercare memberId="preview-member-a" partnerId="preview-member-b" programId="virtual-meeting-preview" meetingAt="2026-10-24T14:00:00+09:00" now={new Date(`${clock}:00+09:00`)} />
       </section>

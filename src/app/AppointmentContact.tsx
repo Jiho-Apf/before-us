@@ -1,3 +1,4 @@
+import { kstDateTime } from "./dates"
 import { useState } from "react"
 import { Link } from "react-router"
 import { Copy, ShieldCheck, Clock } from "lucide-react"
@@ -13,14 +14,7 @@ type ContactProps = {
   recheckContact?: () => string | null
 }
 const format = (at: string) =>
-  new Date(at).toLocaleString("ko-KR", {
-    timeZone: "Asia/Seoul",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
+  kstDateTime(at)
 const eventLabels: Record<string, string> = {
   "contact-consented": "연락처 공유 동의",
   "contact-withdrawn": "동의 철회",
@@ -59,7 +53,7 @@ export function ContactStatus({ view }: { view: AppointmentView }) {
       {contact.scheduled &&
         Date.parse(view.now) >= Date.parse(contact.releaseAt!) && (
           <p className="text-xs text-muted-foreground">
-            공개 시각이 도래했어요. 아직 가상 공개 작업이 실행되지 않았습니다.
+            공개 시각이 도래했어요. 아직 가상 공개 작업이 실행되지 않았어요.
           </p>
         )}
     </div>
@@ -78,8 +72,8 @@ export function AppointmentContact({ view, onCommand, recheckContact }: ContactP
     setMessage(
       error ||
         (value
-          ? "내 가상 동의를 기록했어요. 양쪽 동의와 공개 시각·진행 상태를 모두 확인한 뒤 공개됩니다."
-          : "공유 동의를 철회했어요. 미공개 자동 공개 예약이 취소됩니다."),
+          ? "내 가상 동의를 기록했어요. 양쪽 동의와 공개 시각·진행 상태를 모두 확인한 뒤 공개돼요."
+          : "공유 동의를 철회했어요. 미공개 자동 공개 예약이 취소돼요."),
     )
     if (!error) {
       setAllowed(false)
@@ -121,24 +115,24 @@ export function AppointmentContact({ view, onCommand, recheckContact }: ContactP
               {contact.ownMasked || "확인된 번호 없음"}
             </p>
             <p className="text-xs leading-6 text-muted-foreground">
-              가상 번호 · 가상 확인값입니다. 실제 전화번호 인증 완료를 의미하지
-              않습니다. 다른 번호 입력·수집은 제공하지 않습니다.
+              가상 번호 · 가상 확인값이에요. 실제 전화번호 인증 완료를 의미하지
+              않아요. 다른 번호 입력·수집은 제공하지 않아요.
             </p>
           </div>
           {contact.blocked ? (
             <p className="text-sm leading-7">
-              약속 취소·중단·차단 또는 안전 검토 상태에서는 공개하지 않습니다.
+              약속 취소·중단·차단 또는 안전 검토 상태에서는 공개하지 않아요.
               운영자에게 진행 상태를 확인해 주세요.
             </p>
           ) : contact.released ? (
             <p className="text-sm leading-7">
               공개가 완료됐어요. 이미 상대가 확인·저장한 번호를 완전히 회수할 수
-              있다고 약속하지 않습니다.
+              있다고 약속하지 않아요.
             </p>
           ) : contact.ownConsent ? (
             <div className="space-y-4">
               <p className="text-sm">
-                내 공유 동의를 기록했어요. 공개 전까지 철회할 수 있습니다.
+                내 공유 동의를 기록했어요. 공개 전까지 철회할 수 있어요.
               </p>
               <Button
                 variant="outline"
@@ -181,8 +175,8 @@ export function AppointmentContact({ view, onCommand, recheckContact }: ContactP
                 내 연락처 공유에 동의하기
               </Button>
               <p className="text-xs leading-6 text-muted-foreground">
-                선택하지 않아도 약속 합의는 유지됩니다. 한쪽만 동의하면 누구의
-                번호도 공개하지 않습니다.
+                선택하지 않아도 약속 합의는 유지돼요. 한쪽만 동의하면 누구의
+                번호도 공개하지 않아요.
               </p>
             </div>
           )}
@@ -192,8 +186,8 @@ export function AppointmentContact({ view, onCommand, recheckContact }: ContactP
           {contact.released && contact.displayEnded && (
             <p className="border border-border p-5 text-sm leading-7">
               상대 전화번호는 만남 당일 00:00부터 다음 날 23:59까지만 표시해요. 표시
-              기간이 끝나 더 이상 보여 주지 않습니다. 이미 저장한 번호의 회수는
-              보장하지 않습니다.
+              기간이 끝나 더 이상 보여 주지 않아요. 이미 저장한 번호의 회수는
+              보장하지 않아요.
             </p>
           )}
           {contact.released && contact.peerNumber && (
@@ -253,30 +247,25 @@ export function AppointmentContact({ view, onCommand, recheckContact }: ContactP
         )}
       </div>
       <div className="space-y-3 text-xs leading-6 text-muted-foreground">
-        {contact.wasReleased && <p>이미 공개된 번호는 상대가 확인·저장했을 수 있어요. 이후 접근을 중지해도 완전히 회수할 수 있다고 약속하지 않습니다.</p>}
+        {contact.wasReleased && <p>이미 공개된 번호는 상대가 확인·저장했을 수 있어요. 이후 접근을 중지해도 완전히 회수할 수 있다고 약속하지 않아요.</p>}
         <p>
-          만나는 날 자정 00:00, Asia/Seoul 기준입니다. 약속 변경 시 새 날짜로
+          만나는 날 자정 00:00, Asia/Seoul 기준이에요. 약속 변경 시 새 날짜로
           예약을 재검증하며, 취소·중단·차단·안전 검토 시 미공개 예약을
-          취소합니다. 상대의 동의 여부는 공개 전까지 안내하지 않습니다.
-        </p>
-        <p>
-          현재는 메모리 기반 가상 번호 데모입니다. 실제 공개 예약
-          작업·로그인·당사자 권한·번호 접근·카카오 승인과 발송은 서버 검증이
-          필요합니다. 카카오·푸시·활동 로그에는 번호 원문을 넣지 않습니다.
+          취소해요. 상대의 동의 여부는 공개 전까지 안내하지 않아요.
         </p>
         <p>
           공개 알림 예시: [비포어스] 오늘은 두 분이 만나기로 한 날이에요. 서로
-          동의한 연락처가 공개되었습니다. 홈페이지에서 확인해 주세요. / 버튼:
+          동의한 연락처가 공개되었어요. 홈페이지에서 확인해 주세요. / 버튼:
           연락처 확인하기
         </p>
         <p>
-          카카오: 미연결 · 홈페이지 번호 공개와 실제 발송은 별도입니다. 제공
-          기간·법적 문서는 검토가 필요한 정책입니다.
+          카카오: 미연결 · 홈페이지 번호 공개와 실제 발송은 별도예요. 제공
+          기간·법적 문서는 검토가 필요한 정책이에요.
         </p>
         <p>
-          이번 만남 당사자의 개인 연락용 정보입니다. 캡처·외부 공유를 삼가 주세요.
-          웹에서는 OS 스크린샷이나 다른 기기 촬영을 완전히 차단할 수 없습니다.
-          번호 확인과 복사에도 최신 당사자 권한·동의·약속·안전 조건을 재검사해야 하며 실제 서버 검증은 미구현입니다.
+          이번 만남 당사자의 개인 연락용 정보예요. 캡처·외부 공유를 삼가 주세요.
+          웹에서는 OS 스크린샷이나 다른 기기 촬영을 완전히 차단할 수 없어요.
+          번호 확인과 복사에도 최신 당사자 권한·동의·약속·안전 조건을 재검사해야 하며 실제 서버 검증은 미구현이에요.
         </p>
       </div>
       <Button asChild variant="outline">

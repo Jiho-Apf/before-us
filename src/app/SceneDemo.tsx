@@ -19,8 +19,8 @@ export function SceneDemo() {
     <main className="mx-auto max-w-6xl px-5 py-8">
       <DemoDock title="B 교류 · 두 가상 계정" defaultOpen={!demo.scene}>
         <p className="text-xs leading-6">
-          빈 B 개시 예시는 가상 결제·양쪽 동의·개시 기록을 불러옵니다.
-          활동·이유·상대 응답은 만들지 않습니다. 새로고침 시 사라집니다.
+          빈 B 개시 예시는 가상 결제·양쪽 동의·개시 기록을 불러와요.
+          활동·이유·상대 응답은 만들지 않아요. 새로고침 시 사라져요.
         </p>
         <div className="flex flex-wrap gap-3">
           <Button onClick={loadStartedSceneDemo}>

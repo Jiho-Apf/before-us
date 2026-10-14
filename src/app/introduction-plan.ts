@@ -8,7 +8,7 @@ import { BEFORE_US } from "./config"
 const PLAN = BEFORE_US.introductionPlans
 const kstDate = (value: Date) => value.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })
 const addDays = (date: string, days: number) => kstDate(new Date(Date.parse(`${date}T12:00:00+09:00`) + days * 86400000))
-const dotted = (date: string) => date.split("-").join(". ")
+const dotted = (date: string) => { const [y, m, d] = date.split("-").map(Number); return `${y === new Date().getFullYear() ? "" : `${y}년 `}${m}월 ${d}일` }
 
 export type IntroductionPlan = {
   kind: "early" | "standard"

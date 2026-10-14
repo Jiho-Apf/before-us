@@ -68,16 +68,16 @@ export function PreferenceSummary({ draft }: { draft: ApplicationDraft }) {
       ) : (
         <p className="mt-3 text-xs text-muted-foreground">
           추가 필수 조건을 지정하지 않았어요. 입력한 기준의 기본 중요도는
-          ‘선호’입니다.
+          ‘선호’예요.
         </p>
       )}
       <p className="mt-4 text-xs leading-6">
         필수 조건이 많으면 소개까지 시간이 더 필요할 수 있어요. 운영자가 임의로
-        바꾸지는 않습니다.
+        바꾸지는 않아요.
       </p>
-      <p className="mt-2 text-[11px] leading-6 text-muted-foreground">
-        성인·상호 소개 대상·활동 상태 등 공통 조건은 이 개수에서 제외합니다.
-        상대 정보가 없으면 충족이 아닌 ‘확인 필요’로 봅니다. 후보가 없으면
+      <p className="mt-2 text-xs leading-6 text-muted-foreground">
+        성인·상호 소개 대상·활동 상태 등 공통 조건은 이 개수에서 제외해요.
+        상대 정보가 없으면 충족이 아닌 ‘확인 필요’로 봐요. 후보가 없으면
         대기하거나, 본인이 선택해 기준 재검토를 요청할 수 있어요.
       </p>
       {settings.request !== "none" && (
@@ -159,7 +159,7 @@ export default function PreferencesStep({
     if (next.importance[id] === "required") next.importance[id] = "preference"
     else if (!hasSpecificPreference(id, draft.values)) {
       setNotice(
-        "구체적인 기준을 먼저 입력해 주세요. 선호 없음은 필수 조건으로 지정하지 않습니다.",
+        "구체적인 기준을 먼저 입력해 주세요. 선호 없음은 필수 조건으로 지정하지 않아요.",
       )
       return
     } else if (
@@ -266,7 +266,7 @@ export default function PreferencesStep({
       </div>
       {content}
       {helper && (
-        <p className="mt-3 text-[11px] leading-6 text-muted-foreground">
+        <p className="mt-3 text-xs leading-6 text-muted-foreground">
           {helper}
         </p>
       )}
@@ -292,7 +292,7 @@ export default function PreferencesStep({
         />
         비공개 응답으로 표시
       </label>
-      <p className="mt-1 text-[10px] text-muted-foreground">
+      <p className="mt-1 text-xs text-muted-foreground">
         {!draft.values[id] ||
         (Array.isArray(draft.values[id]) &&
           !(draft.values[id] as string[]).length)
@@ -348,16 +348,16 @@ export default function PreferencesStep({
             Array.isArray(draft.values[definition.id])
               ? (draft.values[definition.id] as string[]).length
               : 0
-          }개 선택. 다시 누르면 해제합니다.${
+          }개 선택. 다시 누르면 해제해요.${
             name === "regions"
-              ? " 상대의 주 활동 지역을 시·도 단위로 선택합니다. 내 활동 지역·실제 만남 지역과 별도이며, 필수 지정 시 양쪽 방향으로 확인합니다."
+              ? " 상대의 주 활동 지역을 시·도 단위로 선택해요. 내 활동 지역·실제 만남 지역과 별도이며, 필수 지정 시 양쪽 방향으로 확인해요."
               : name === "meetingRegions"
-                ? " 실제 만남이 가능한 시·도입니다. 상대 선호 지역과 별도로 저장하며 약속 확정은 아닙니다."
+                ? " 실제 만남이 가능한 시·도예요. 상대 선호 지역과 별도로 저장하며 약속 확정은 아니에요."
               : ""
           }`
         : definition.format === "text"
           ? `200자 이내 · 현재 ${Array.from(String(draft.values[definition.id] || "")).length}자. 연락처·SNS·민감정보는 적지 마세요.`
-          : "선택 항목 · 다시 누르면 해제합니다.",
+          : "선택 항목 · 다시 누르면 해제해요.",
     )
   }
   return (
@@ -368,8 +368,8 @@ export default function PreferencesStep({
         </h2>
         <p className="mt-3 flex items-center gap-2 text-xs leading-6 text-muted-foreground">
           <LockKeyhole size={14} className="shrink-0" />
-          나의 자기진술과 별도로 저장합니다. 모든 선호는 상대 비공개이며, 동의한
-          매칭 목적의 운영자 참고용입니다.
+          나의 자기진술과 별도로 저장해요. 모든 선호는 상대 비공개이며, 동의한
+          매칭 목적의 운영자 참고용이에요.
         </p>
       </div>
       <div
@@ -430,7 +430,7 @@ export default function PreferencesStep({
                 "선호 없음",
                 "직접 확인이 필요해요",
               ]),
-              "이전 단계와 연결됩니다. 여기서 수정해도 나의 성별 정보는 바뀌지 않아요.",
+              "이전 단계와 연결돼요. 여기서 수정해도 나의 성별 정보는 바뀌지 않아요.",
             )}
             {frame(
               "desired.ageMode",
@@ -470,7 +470,7 @@ export default function PreferencesStep({
                   </div>
                 )}
               </>,
-              `운영 초안: 만 ${BEFORE_US.operatingDraft.minimumAge}세 이상. 최소·최대 나이를 포함해 비교합니다.`,
+              `운영 초안: 만 ${BEFORE_US.operatingDraft.minimumAge}세 이상. 최소·최대 나이를 포함해 비교해요.`,
             )}
             {basic.map(field)}
           </div>
@@ -503,20 +503,20 @@ export default function PreferencesStep({
                 외적인 취향과 함께, 편안하게 알아갈 수 있는 모습을 알려 주세요.
                 미입력이어도 신청할 수 있어요.
               </p>
-              <p className="mt-3 rounded-xl bg-muted p-4 text-[11px] leading-7 text-muted-foreground">
+              <p className="mt-3 rounded-xl bg-muted p-4 text-xs leading-7 text-muted-foreground">
                 선호 MBTI는 ‘상관없어요’를 먼저 생각해 보세요. 자동으로 선택하지
                 않으며 특정 유형을 복수 선택할 수도 있어요. MBTI는 참고 정보일
-                뿐 필수 조건이나 궁합 점수가 아닙니다.
+                뿐 필수 조건이나 궁합 점수가 아니에요.
               </p>
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 {RELATIONSHIP_FIELDS.map((item) =>
                   field(item.id.replace("desired.", "")),
                 )}
               </div>
-              <p className="mt-4 text-[11px] leading-7 text-muted-foreground">
+              <p className="mt-4 text-xs leading-7 text-muted-foreground">
                 운영자는 외적 취향·기본 조건·생활·대화 성향과 이 정보를 함께
-                참고합니다. MBTI 조합·태그 개수·질문 답변을 자동 점수화해 상대를
-                확정하거나, 사진·MBTI에서 성격을 추론하지 않습니다.
+                참고해요. MBTI 조합·태그 개수·질문 답변을 자동 점수화해 상대를
+                확정하거나, 사진·MBTI에서 성격을 추론하지 않아요.
               </p>
             </details>
           </div>
@@ -538,7 +538,7 @@ export default function PreferencesStep({
                   [
                     "B",
                     "첫 장면 만들기",
-                    "공동 선택으로 두 사람의 첫 장면을 함께 만듭니다.",
+                    "공동 선택으로 두 사람의 첫 장면을 함께 만들어요.",
                   ],
                 ].map(([letter, title, text]) => (
                   <article key={letter} className="border border-border p-5">
@@ -554,10 +554,10 @@ export default function PreferencesStep({
               </div>
               <p className="mt-4 text-xs leading-7">
                 상호 선택과 양쪽 결제 뒤, 두 사람이 같은 방식과 시작일을
-                결정합니다. 지금 선택하거나 확정하지 않아요.
+                결정해요. 지금 선택하거나 확정하지 않아요.
               </p>
               <p className="mt-2 text-[11px] text-muted-foreground">
-                대화 느낌·주관적인 인상은 자동 탈락 조건이 아닙니다.
+                대화 느낌·주관적인 인상은 자동 탈락 조건이 아니에요.
               </p>
             </div>
           </div>
@@ -584,9 +584,9 @@ export default function PreferencesStep({
             내 기준을 그대로 두고, 요청하기
           </h3>
           <p className="text-xs leading-7 text-muted-foreground">
-            조건을 자동으로 완화하지 않습니다. 가상 기준만 적어 주세요. 아래
+            조건을 자동으로 완화하지 않아요. 가상 기준만 적어 주세요. 아래
             선택은 데모 초안에만 기록되고 실제 요청이나 신청 보류 처리는 하지
-            않습니다.
+            않아요.
           </p>
           <Textarea
             aria-label="운영자에게 요청할 추가 기준 · 가상 정보"

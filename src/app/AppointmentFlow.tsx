@@ -1,3 +1,4 @@
+import { kstDateTime } from "./dates"
 import { AppointmentDetailFlow } from "./AppointmentDetailFlow"
 import { useState } from "react"
 import { Link } from "react-router"
@@ -12,15 +13,7 @@ import {
 } from "./appointment-model"
 
 const format = (value: string) =>
-  new Date(value).toLocaleString("ko-KR", {
-    timeZone: "Asia/Seoul",
-    hour12: false,
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+  kstDateTime(value)
 type AppointmentFlowProps = {
   view: AppointmentView
   onCommand: (command: AppointmentCommand, revision: number) => string | null
@@ -32,7 +25,7 @@ export function AppointmentFlow({ view, onCommand }: AppointmentFlowProps) {
   const send = (command: AppointmentCommand) => {
     const result = onCommand(command, view.revision)
     setError(
-      result || "가상 기록을 반영했어요. 실제 예약·발송은 하지 않습니다.",
+      result || "가상 기록을 반영했어요. 실제 예약·발송은 하지 않아요.",
     )
     if (!result) {
       setConfirmed(false)
@@ -73,14 +66,14 @@ export function AppointmentFlow({ view, onCommand }: AppointmentFlowProps) {
             ? "이번 단계 안내 기한이 지났어요. 진행 상태와 참여 가능성을 확인해 주세요. "
             : ""}
           {view.targetExceeded ? "전체 조율 목표 시각을 지났어요. " : ""}
-          미응답을 동의로 처리하거나 약속을 자동 취소하지 않습니다. 필요하면
+          미응답을 동의로 처리하거나 약속을 자동 취소하지 않아요. 필요하면
           운영자에게 문의해 주세요.
         </div>
       )}
       {!view.active && (
         <p className="rounded-xl bg-muted p-5 text-sm">
-          교류가 중단되었거나 접근 재검토 중입니다. 새로운 약속 선택·제출은
-          보류합니다.
+          교류가 중단되었거나 접근 재검토 중이에요. 새로운 약속 선택·제출은
+          보류해요.
         </p>
       )}
       {!view.ownMethod && view.active && (
@@ -116,7 +109,7 @@ export function AppointmentFlow({ view, onCommand }: AppointmentFlowProps) {
               checked={confirmed}
               onCheckedChange={(value) => setConfirmed(value === true)}
             />
-            내 선택을 확인했어요. 상대 대신 선택하지 않습니다.
+            내 선택을 확인했어요. 상대 대신 선택하지 않아요.
           </label>
           <Button
             disabled={!method || !confirmed}
@@ -144,7 +137,7 @@ export function AppointmentFlow({ view, onCommand }: AppointmentFlowProps) {
           <p className="text-sm leading-7">
             자동으로 제안자를 지정하지 않을게요. 두 사람이 같이 고르기에
             동의하면 함께 약속안을 만들 수 있어요. 서로 다른 방식의 조합도
-            임의로 확정하지 않습니다.
+            임의로 확정하지 않아요.
           </p>
           <p className="text-xs">
             내 확인 {view.ownJointConfirmed ? "완료" : "대기"} · 상대 확인{" "}
@@ -172,7 +165,7 @@ export function AppointmentFlow({ view, onCommand }: AppointmentFlowProps) {
       {view.resolution === "parallel" && (
         <p className="text-sm leading-7">
           두 분 모두 먼저 제안하기를 선택했어요. 각자 약속안 한 개를 만들고
-          나란히 비교해요. 같은 안을 두 사람이 확인해야 최종 합의가 됩니다.
+          나란히 비교해요. 같은 안을 두 사람이 확인해야 최종 합의가 돼요.
         </p>
       )}
       {view.resolution === "joint" && (
@@ -185,7 +178,7 @@ export function AppointmentFlow({ view, onCommand }: AppointmentFlowProps) {
       <footer className="space-y-4 border-t border-border pt-5">
         <p className="text-xs leading-6 text-muted-foreground">
           전체 조율 목표: {format(view.targetAt)} · Asia/Seoul. 목표 시각은 자동
-          취소 기준이 아닙니다. 적용 정책 {view.policyVersion} · 운영 초안.
+          취소 기준이 아니에요. 적용 정책 {view.policyVersion} · 운영 초안.
         </p>
         <Button variant="outline" onClick={() => send({ type: "contact" })}>
           운영자 문의
@@ -193,9 +186,6 @@ export function AppointmentFlow({ view, onCommand }: AppointmentFlowProps) {
         <Button asChild variant="outline"><Link to="/support?demo=agreement">문의·신고·차단·중단</Link></Button>
         <p role="status" className="text-sm text-primary">
           {error}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          두 계정 동기화·서버 시간 검증·실제 저장·예약은 미연결인 데모입니다.
         </p>
       </footer>
     </section>

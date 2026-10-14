@@ -557,38 +557,37 @@ export function AdminDashboard() {
         / 접수·공개·완료·결제는 기간 내 기록, 대기·활성은 현재 전체 상태입니다.
         자동 갱신은 직접 검토가 아닙니다.
       </p>
-      <section
-        aria-label="핵심 지표"
-        className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-4"
-      >
-        {metrics.map((metric, index) => (
-          <Link
-            key={metric.label}
-            to={`/admin/${metric.path}${query(metric.filter)}`}
-            className={`group bg-card p-4 transition-colors duration-200 hover:bg-secondary motion-reduce:transition-none ${
-              index === 0 ? "border-t-2 border-primary" : ""
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">
-                {metric.label}
-              </span>
-              <ArrowRight
-                size={12}
-                className="text-muted-foreground opacity-0 group-hover:opacity-100"
-              />
+      <section aria-label="핵심 지표" className="space-y-4">
+        {["신청·검토", "소개할 수 있는 회원", "소개 진행", "교류 이후·안전"].map((group, groupIndex) => (
+          <div key={group}>
+            <p className="mb-2 text-xs font-semibold text-muted-foreground">{group}</p>
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-4">
+              {metrics.slice(groupIndex * 4, groupIndex * 4 + 4).map((metric) => {
+                const urgent = ["검토 대기", "보완 요청", "응답 대기", "신규 신고", "검토 중 신고"].includes(metric.label) && Number(metric.value) > 0
+                const empty = Number(metric.value) === 0
+                return (
+                  <Link
+                    key={metric.label}
+                    to={`/admin/${metric.path}${query(metric.filter)}`}
+                    className="group bg-card p-4 transition-colors duration-200 hover:bg-secondary motion-reduce:transition-none"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        {urgent && <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />}
+                        {metric.label}
+                        {urgent && <span className="sr-only">· 확인 필요</span>}
+                      </span>
+                      <ArrowRight size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100" />
+                    </div>
+                    <p className={`my-2 text-3xl font-semibold tabular-nums ${empty ? "text-muted-foreground/50" : urgent ? "text-accent" : ""}`}>
+                      {number(metric.value)}
+                    </p>
+                    <span className="text-xs text-muted-foreground">{metric.scope}</span>
+                  </Link>
+                )
+              })}
             </div>
-            <p
-              className={`my-2 text-3xl font-semibold tabular-nums ${
-                index === 0 ? "text-primary" : ""
-              }`}
-            >
-              {number(metric.value)}
-            </p>
-            <span className="text-xs text-muted-foreground">
-              {metric.scope}
-            </span>
-          </Link>
+          </div>
         ))}
       </section>
       <OperationsCapacityPanel state={data.admin} today={today} />

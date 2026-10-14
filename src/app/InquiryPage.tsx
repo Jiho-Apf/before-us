@@ -1,3 +1,4 @@
+import { kstDateTime } from "./dates"
 import { useState } from "react"
 import { Link } from "react-router"
 import { ArrowRight, Inbox, MailCheck, Search } from "lucide-react"
@@ -18,7 +19,7 @@ import {
   type InquiryType,
 } from "./inquiry-model"
 
-const time = (at: string) => new Date(at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false })
+const time = (at: string) => kstDateTime(at)
 const chip = "rounded-full border px-4 py-2 text-xs transition-colors duration-200 motion-reduce:transition-none"
 
 function InquiryLookup() {

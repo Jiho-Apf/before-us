@@ -1,5 +1,6 @@
+import { kstDateTime } from "./dates"
 import { benefitIssue, planFor, planIfPaidNow } from "./introduction-plan"
-import { Eyebrow, Sheet, TwoDots } from "./editorial"
+import { Eyebrow, PageHeader, Sheet, TwoDots } from "./editorial"
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import {
@@ -62,7 +63,7 @@ import { IdentityPanel, ProfileCoaching, WaitingJourney } from "./MemberTrust"
 
 const format = (at: string | null) =>
   at
-    ? new Date(at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })
+    ? kstDateTime(at)
     : "기록 없음"
 export const RELEASE_CHECKLIST = [
   "서버 인증·당사자별 권한·정오 예약·서버 시간·배정 잠금",
@@ -97,8 +98,8 @@ function ExperienceFeedback({
       <section className="space-y-3 border-t border-border pt-6">
         <h2 className="text-xl">경험을 나눠 주세요</h2>
         <p className="text-sm leading-7 text-muted-foreground">
-          후기·피드백 준비 중입니다. 실제 교류가 완료된 뒤 선택적으로 남길 수
-          있어요. 아직 공개된 사례나 성사율을 만들어 표시하지 않습니다.
+          후기·피드백 준비 중이에요. 실제 교류가 완료된 뒤 선택적으로 남길 수
+          있어요. 아직 공개된 사례나 성사율을 만들어 표시하지 않아요.
         </p>
       </section>
     )
@@ -107,7 +108,7 @@ function ExperienceFeedback({
       <h2 className="text-xl">경험을 나눠 주세요 · 선택</h2>
       <p className="text-sm leading-7 text-muted-foreground">
         운영팀에게 전하는 의견과 홈페이지 공개 동의는 별개예요. 다른 참가자의
-        외모·인성 평가나 별점을 받지 않습니다.
+        외모·인성 평가나 별점을 받지 않아요.
       </p>
       <Select
         value={category}
@@ -163,7 +164,7 @@ function ExperienceFeedback({
           })
           setMessage(
             error ||
-              "가상 경험 피드백을 기록했어요. 홈페이지 게시·발송은 하지 않습니다.",
+              "가상 경험 피드백을 기록했어요. 홈페이지 게시·발송은 하지 않아요.",
           )
           if (!error) {
             setBody("")
@@ -213,8 +214,8 @@ function ExperienceFeedback({
         </div>
       ))}
       <p className="text-xs leading-6 text-muted-foreground">
-        내용 수정·발췌는 별도 검토가 필요하며 공개를 다시 확인합니다. 공개
-        동의만으로 자동 게시하지 않습니다.
+        내용 수정·발췌는 별도 검토가 필요하며 공개를 다시 확인해요. 공개
+        동의만으로 자동 게시하지 않아요.
       </p>
     </section>
   )
@@ -309,9 +310,6 @@ export default function MemberProfile() {
             내가 알려 준 정보와, 지금의 참여 상태를 살펴보세요.
           </p>
         </div>
-        <span className="rounded-full border border-border px-3 py-2 text-xs text-muted-foreground">
-          가상 자료 데모 · 실제 수집·발송 없음
-        </span>
       </header>
       <div className="grid gap-6 lg:grid-cols-3">
         <Sheet className="space-y-5 p-6 sm:p-8 lg:col-span-2">
@@ -323,7 +321,7 @@ export default function MemberProfile() {
           </h2>
           <p className="max-w-xl text-sm leading-7 text-muted-foreground">
             {plan.kind === "early" ? `서비스 초기 혜택이에요. ${plan.summary.split(" · ")[0]}, 첫 A/B가 실제 시작되기 전까지 적용되고 먼저 오는 때에 끝나요.` : `하루 최대 한 명, 최대 ${plan.introductions}번이에요. 소개가 없는 날은 횟수에서 빼지 않아요.`} 매일 새 소개는 보장하지 않아요. 평생 재소개·실제
-            만남·연애 보장은 아닙니다.
+            만남·연애 보장은 아니에요.
           </p>
           <div className="flex items-center gap-3 border-t border-border pt-4 text-sm font-medium"><TwoDots />
             {benefitEnded
@@ -336,7 +334,7 @@ export default function MemberProfile() {
           </div>
           <p className="text-xs leading-6 text-muted-foreground">
             소개 정지·마케팅 해제·정오 대기 알림 해제로 이 권리가 소멸하지
-            않습니다. 숨은 만료·추가 소개권 구매는 없습니다.
+            않아요. 숨은 만료·추가 소개권 구매는 없어요.
           </p>
         </Sheet>
         <section className="space-y-4 border-t-2 border-foreground pt-5">
@@ -353,7 +351,7 @@ export default function MemberProfile() {
           </p>
           <p className="text-xs leading-6 text-muted-foreground">
             일시정지는 신규 소개만 멈춰요. 소개 이용 권리·결제·진행 중인 교류는
-            그대로 보존하며, 재개는 현재 참여 가능 상태를 확인한 뒤 처리합니다.
+            그대로 보존하며, 재개는 현재 참여 가능 상태를 확인한 뒤 처리해요.
             탈퇴와는 다르며 자료를 삭제하지 않아요.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -420,14 +418,14 @@ export default function MemberProfile() {
           ))}
         </div>
         <p className="text-xs leading-6 text-muted-foreground">
-          기존 STEP 01~04로 이동해 수정합니다. 핵심 프로필·사진은 새 버전으로
-          재검토하며 승인 사진을 조용히 교체하지 않습니다. 비공개 선호 변경은
-          현재 교류를 자동 종료하지 않습니다.
+          기존 STEP 01~04로 이동해 수정해요. 핵심 프로필·사진은 새 버전으로
+          재검토하며 승인 사진을 조용히 교체하지 않아요. 비공개 선호 변경은
+          현재 교류를 자동 종료하지 않아요.
           {service.connected
-            ? " 이 편집기는 별도의 가상 신청 원본이며 교류 데모 계정 정보로 자동 가져오지 않습니다."
+            ? " 이 편집기는 별도의 가상 신청 원본이며 교류 데모 계정 정보로 자동 가져오지 않아요."
             : application
               ? ` 현재 저장 원본: 프로필 v${application.review.profileVersion} · 선호 v${application.review.preferenceVersion} · 신청 ${application.review.submission}`
-              : " 아직 저장된 신청 원본이 없습니다."}
+              : " 아직 저장된 신청 원본이 없어요."}
         </p>
       </section>
       <div className="grid gap-8 lg:grid-cols-2">
@@ -447,7 +445,7 @@ export default function MemberProfile() {
             마케팅 안내에 동의해요. (선택·가상)
           </Label>
           <p className="text-xs leading-6 text-muted-foreground">
-            서비스 상태 안내와 별도이며 자동 체크하지 않습니다. 해제해도 소개
+            서비스 상태 안내와 별도이며 자동 체크하지 않아요. 해제해도 소개
             권리는 유지돼요.
           </p>
         </section>
@@ -497,8 +495,8 @@ export default function MemberProfile() {
             </Link>
           </Button>
           <p className="text-xs leading-6 text-muted-foreground">
-            실제 PG 미연결입니다. 구매 시점 환불 기준·제공 개시 이력을 확인하고 요청·검토·완료를 구분합니다. 법정 청약철회 권리는 제한하지 않습니다. 탈퇴·정지는 자동 전액 환불 또는 권리
-            소멸이 아닙니다.
+            실제 PG 미연결이에요. 구매 시점 환불 기준·제공 개시 이력을 확인하고 요청·검토·완료를 구분해요. 법정 청약철회 권리는 제한하지 않아요. 탈퇴·정지는 자동 전액 환불 또는 권리
+            소멸이 아니에요.
           </p>
         </section>
       </div>
@@ -534,13 +532,13 @@ export default function MemberProfile() {
           ))
         ) : (
           <p className="text-sm text-muted-foreground">
-            확인된 소개 이력이 없습니다. 가상 교류 기록으로 소개 횟수를 추정하지
-            않습니다.
+            확인된 소개 이력이 없어요. 가상 교류 기록으로 소개 횟수를 추정하지
+            않아요.
           </p>
         )}
         <p className="text-xs leading-6 text-muted-foreground">
           본인의 이력 요약만 표시하며 종료된 상대 사진·프로필을 무제한 다시 보는
-          보관함이 아닙니다.
+          보관함이 아니에요.
         </p>
       </section>
       <section className="space-y-4 border-t border-border pt-6">
@@ -549,7 +547,7 @@ export default function MemberProfile() {
         </h2>
         <p className="text-sm">
           적용 정책 {payment.policy.version} · 구매 시점 제공 범위는 이후 신규
-          판매 정책과 분리합니다.
+          판매 정책과 분리해요.
         </p>
         {account?.policies.length ? (
           account.policies.map((item) => (
@@ -584,13 +582,13 @@ export default function MemberProfile() {
         ) : (
           <p className="text-xs text-muted-foreground">
             구매·신청 동의 원본 기록이 아직 연결되지 않았어요. 열람만으로 동의
-            완료를 만들지 않습니다.
+            완료를 만들지 않아요.
           </p>
         )}
         <p className="text-xs leading-6 text-muted-foreground">
           중단·탈퇴·취소·미시작·시작 후 중단·재이용·자료 보유는 고지한 정책으로
-          처리합니다. 환불 운영 기준은 구매 시점 버전으로 관리하며 실제 약관 검토는 별도입니다. 교류 중단·약속 취소·노쇼·재이용은 V6-conduct-01 운영 기준을 따르며
-          영구 보관·무조건 환불 불가·숨은 기간 소멸을 지정하지 않습니다.
+          처리해요. 환불 운영 기준은 구매 시점 버전으로 관리하며 실제 약관 검토는 별도예요. 교류 중단·약속 취소·노쇼·재이용은 V6-conduct-01 운영 기준을 따르며
+          영구 보관·무조건 환불 불가·숨은 기간 소멸을 지정하지 않아요.
         </p>
       </section>
       <section className="space-y-4 border-t border-border pt-6">
@@ -617,8 +615,8 @@ export default function MemberProfile() {
           {REQUEST_LABELS.revoke}
         </Button>
         <p className="text-xs leading-6 text-muted-foreground">
-          새 소개를 중지하고 기존 접근 범위를 재검토합니다. 이미 본
-          화면·저장·캡처의 회수는 보장하지 않습니다.
+          새 소개를 중지하고 기존 접근 범위를 재검토해요. 이미 본
+          화면·저장·캡처의 회수는 보장하지 않아요.
         </p>
       </section>
       {kind === "revoke" && (
@@ -649,7 +647,7 @@ export default function MemberProfile() {
       <section className="space-y-4 rounded-xl border border-destructive/30 p-5">
         <h2 className="text-xl">회원 탈퇴</h2>
         <p className="text-xs leading-6 text-muted-foreground">
-          일시정지와 달리 계정을 정리합니다. 진행 중인 소개·교류·약속이 있어도
+          일시정지와 달리 계정을 정리해요. 진행 중인 소개·교류·약속이 있어도
           탈퇴할 수 있으며, 종료되는 내용과 환불·취소 상태를 먼저 보여 드려요.
         </p>
         <WithdrawalPanel
@@ -698,7 +696,7 @@ export default function MemberProfile() {
                   <p className="text-sm">
                     결정 기록:{" "}
                     {item.decision ||
-                      "구체적인 회원 안내는 운영자 확인이 필요합니다."}
+                      "구체적인 회원 안내는 운영자 확인이 필요해요."}
                   </p>
                   <Button
                     variant="outline"
@@ -716,7 +714,7 @@ export default function MemberProfile() {
           ))
         ) : (
           <p className="text-sm text-muted-foreground">
-            아직 접수된 요청이 없습니다.
+            아직 접수된 요청이 없어요.
           </p>
         )}
       </section>
@@ -732,11 +730,6 @@ export default function MemberProfile() {
         </section>
       )}
       <ExperienceFeedback key={`feedback-${service.memberId}`} service={service} />
-      <div className="border-l-2 border-accent bg-muted p-5 text-xs leading-7 text-muted-foreground">
-        가상 자료·메모리 데모입니다. 사진·편지·자유 입력·이상형을 광고나 외부
-        분석으로 전송하지 않습니다. 실제 과금·발송·자동 공개를 하지 않습니다.
-        공개 URL·숨긴 DOM을 보안 완료라고 주장하지 않습니다.
-      </div>
     </section>
   )
 }
@@ -746,14 +739,7 @@ export function MemberSupport() {
     service = useMemberServiceContext(params.get("demo") === "agreement")
   return (
     <section className="max-w-3xl space-y-6">
-      <p className="text-xs tracking-widest text-primary">
-        SUPPORT / BEFORE US
-      </p>
-      <h1 className="text-3xl">문의·신고·진행 보호</h1>
-      <p className="text-sm leading-7 text-muted-foreground">
-        운영 문의와 보호 요청을 따로 확인합니다. 실제 긴급 접수·서버 권한·발송은
-        연결되지 않은 가상 자료 데모입니다.
-      </p>
+      <PageHeader mark="문의" label="문의·신고" en="SUPPORT" title="문의·신고·진행 보호" lead="운영 문의와 보호 요청을 따로 확인해요. 필요한 순간에는 언제든 진행을 멈출 수 있어요." />
       <MemberSafetyTools
         key={service.memberId}
         context={{

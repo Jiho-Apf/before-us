@@ -171,7 +171,7 @@ export function loadMatchingFixtures(state: AdminState, now = new Date()): Admin
     draft.values = {
       "self.name": fullName.replace("가상 ", ""), "self.gender": gender, "desired.gender": gender === "여성" ? "남성" : "여성",
       "self.province": province, "self.area": "가상구", "self.purpose": index % 4 === 1 ? "천천히 알아가며 연애" : "진지한 연애",
-      "self.bio": "실제 회원이 아닌 후보 추천 시연용 가상 소개입니다. 천천히 알아가고 싶어요.", "self.statement": true, "self.pledge": true,
+      "self.bio": "실제 회원이 아닌 후보 추천 시연용 가상 소개예요. 천천히 알아가고 싶어요.", "self.statement": true, "self.pledge": true,
       "self.smoking": "안 함", "desired.regions": ["선호 없음"], "desired.smoking": "비흡연 선호", ...extra,
     }
     for (const consent of REVIEW_CONSENTS.filter((field) => field.required)) draft.values[consent.id] = true

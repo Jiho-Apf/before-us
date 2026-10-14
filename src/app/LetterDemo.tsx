@@ -29,9 +29,9 @@ export function LetterDemo() {
     <main className="mx-auto w-full min-w-0 max-w-5xl px-5 py-8">
       <DemoDock title="A 편지 · 두 가상 계정" defaultOpen={!demo.state}>
         <p className="text-xs leading-6">
-          실제 결제·회원·서버 시간·두 계정 동기화·영구 저장은 없습니다. 가상
-          개시 기록만 불러오며 편지·답장은 생성하지 않습니다. 각 계정으로 직접
-          작성하고 전송해야 합니다.
+          실제 결제·회원·서버 시간·두 계정 동기화·영구 저장은 없어요. 가상
+          개시 기록만 불러오며 편지·답장은 생성하지 않아요. 각 계정으로 직접
+          작성하고 전송해야 해요.
         </p>
         <p className="mt-3 text-xs">
           가상 시계: {demo.now} · 현재 계정{" "}

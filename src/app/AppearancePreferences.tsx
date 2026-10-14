@@ -35,8 +35,8 @@ export function AppearanceSummary({ draft }: { draft: ApplicationDraft }) {
       <p className="mt-3 whitespace-pre-wrap break-words text-xs leading-7">
         {selected.join(" / ")}
       </p>
-      <p className="mt-2 text-[11px] leading-6 text-muted-foreground">
-        실제로 선택한 내용만 묶었어요. 미입력 항목은 추측하지 않습니다.
+      <p className="mt-2 text-xs leading-6 text-muted-foreground">
+        실제로 선택한 내용만 묶었어요. 미입력 항목은 추측하지 않아요.
       </p>
     </section>
   )
@@ -177,7 +177,7 @@ export default function AppearancePreferences({
                 : "선호 · 중요도 변경"}
             </Button>
           ) : (
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               선택 · 취향 참고
             </span>
           )}
@@ -186,12 +186,12 @@ export default function AppearancePreferences({
         {field.format === "multi" && (
           <p className="mt-3 text-[11px] text-muted-foreground">
             최대 {field.limit}개 · {Array.isArray(value) ? value.length : 0}개
-            선택. 다시 누르면 해제합니다.
+            선택. 다시 누르면 해제해요.
           </p>
         )}
         {field.format === "single" && (
           <p className="mt-3 text-[11px] text-muted-foreground">
-            다시 누르면 해제합니다. 미입력도 괜찮아요.
+            다시 누르면 해제해요. 미입력도 괜찮아요.
           </p>
         )}
         {errors[field.id] && (
@@ -199,7 +199,7 @@ export default function AppearancePreferences({
             {errors[field.id]}
           </p>
         )}
-        <p className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
           <LockKeyhole size={11} />
           상대 비공개 · 동의한 매칭 목적의 운영자 참고
         </p>
@@ -240,7 +240,7 @@ export default function AppearancePreferences({
         </h2>
         <p className="mt-3 text-sm leading-7 text-muted-foreground">
           정답을 고르는 것이 아니라, 운영자가 취향을 이해하도록 알려 주세요.
-          실제로 끌리는지는 소개 사진을 보고 직접 결정합니다.
+          실제로 끌리는지는 소개 사진을 보고 직접 결정해요.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -265,7 +265,7 @@ export default function AppearancePreferences({
           </Button>
         ))}
       </div>
-      <p className="text-[11px] leading-6 text-muted-foreground">
+      <p className="text-xs leading-6 text-muted-foreground">
         필수 항목이 아니에요. 미입력·선호 없음·나중에 작성은 따로 기록하며,
         작성하지 않아도 신청할 수 있어요. 가상 선호로만 시연해 주세요.
       </p>
@@ -281,7 +281,7 @@ export default function AppearancePreferences({
         >
           <p className="text-xs leading-7">
             ‘{pendingMode}’으로 바꾸면 외적인 취향의 기존 답변과 키 필수 조건을
-            지웁니다. 기본 조건과 함께할 방식은 그대로 유지해요.
+            지워요. 기본 조건과 함께할 방식은 그대로 유지해요.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
@@ -367,10 +367,10 @@ export default function AppearancePreferences({
                       ))}
                     </div>
                   )}
-                  <p className="mt-3 text-[11px] leading-6 text-muted-foreground">
+                  <p className="mt-3 text-xs leading-6 text-muted-foreground">
                     키는 cm 단위의 양의 정수로 입력해요. 최소·최대를 포함해
-                    비교합니다. 키만 필수 조건으로 설정할 수 있고, 기본 조건과
-                    합쳐 최대 3개입니다.
+                    비교해요. 키만 필수 조건으로 설정할 수 있고, 기본 조건과
+                    합쳐 최대 3개예요.
                   </p>
                 </>,
               )}
@@ -389,7 +389,7 @@ export default function AppearancePreferences({
               hidden={!detailOpen}
               className="mt-5 space-y-4"
             >
-              <p className="text-[11px] leading-6 text-muted-foreground">
+              <p className="text-xs leading-6 text-muted-foreground">
                 성별과 관계없이 원하는 항목에만 답해 주세요.
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -443,14 +443,14 @@ export default function AppearancePreferences({
           ‘취향 작성하기’로 다시 입력할 수 있어요.
         </div>
       )}
-      <div className="border-t border-border pt-5 text-[11px] leading-7 text-muted-foreground">
+      <div className="border-t border-border pt-5 text-xs leading-7 text-muted-foreground">
         <p>
-          태그는 나의 비공개 취향 설명입니다. 운영자는 사진과 양쪽 선호,
-          관계·생활 기준을 함께 참고합니다. 주관적인 인상을 필수 통과·탈락
-          점수로 바꾸거나 자동 합산 점수만으로 상대를 확정하지 않습니다.
+          태그는 나의 비공개 취향 설명이에요. 운영자는 사진과 양쪽 선호,
+          관계·생활 기준을 함께 참고해요. 주관적인 인상을 필수 통과·탈락
+          점수로 바꾸거나 자동 합산 점수만으로 상대를 확정하지 않아요.
         </p>
         <p className="mt-2">
-          태그를 많이 선택한다고 더 정확하거나 우선 소개되는 것은 아닙니다.
+          태그를 많이 선택한다고 더 정확하거나 우선 소개되는 것은 아니에요.
           ‘끌리는 사람’은 특정 외모 등급을 의미하지 않아요.
         </p>
       </div>

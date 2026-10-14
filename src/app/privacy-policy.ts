@@ -29,7 +29,7 @@ export const RETENTION_ITEMS: { id: string; data: string; period: string; basis:
   { id: "safety", data: "안전 신고 증거 · 필요한 자료만", period: "사건 종결 후 기본 3년", basis: "legal" },
   { id: "litigation", data: "수사·소송 등 법적 절차 자료", period: "절차 진행 중 필요한 자료만 별도 보존 · 종료 후 파기 검토", basis: "legal" },
 ];
-export const LEGAL_SEPARATION = "법적 보존자료는 일반 프로필과 분리해 보관하며 재매칭·광고 목적으로 사용하지 않습니다.";
+export const LEGAL_SEPARATION = "법적 보존자료는 일반 프로필과 분리해 보관하며 재매칭·광고 목적으로 사용하지 않아요.";
 
 // 가상 회원의 자료 현황. 기록이 없는 항목은 추정하지 않는다.
 export type DataInventory = {
@@ -165,7 +165,7 @@ export function recordDataRequestResult(requestId: string, status: "processed" |
 // 신고 때문에 사진·편지 전체를 오래 보관하지 않는다. 분쟁에 필요한 항목만 최대 3개 분리 보존한다.
 export function preserveEvidence(input: { reportId: string; memberIds: string[]; items: string[]; note: string }, now = new Date()) {
   const items = input.items.filter(item => (EVIDENCE_ITEMS as readonly string[]).includes(item));
-  if (!input.reportId || !input.memberIds.length || !items.length || items.length !== input.items.length || items.length > 3) return "신고와 분쟁에 필요한 항목만 1~3개 선택해 주세요. 사진·편지 전체 보관은 하지 않습니다.";
+  if (!input.reportId || !input.memberIds.length || !items.length || items.length !== input.items.length || items.length > 3) return "신고와 분쟁에 필요한 항목만 1~3개 선택해 주세요. 사진·편지 전체 보관은 하지 않아요.";
   if (!input.note.trim() || /(?:https?:|@|\d[\d\s-]{6,})/i.test(input.note)) return "보존 사유를 개인정보 없이 적어 주세요.";
   const next = structuredClone(snapshot);
   if (next.evidence.some(item => item.reportId === input.reportId && !item.closedAt)) return "이 신고에는 이미 진행 중인 증거 보존 기록이 있어요.";

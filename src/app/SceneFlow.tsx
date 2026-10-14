@@ -33,7 +33,7 @@ function ActivityImage({ activity }: { activity: string }) {
           onError={() => setFailed(true)}
         />
       )}
-      <span className="absolute bottom-0 left-0 bg-background/90 px-2 py-1 text-[10px]">
+      <span className="absolute bottom-0 left-0 bg-background/90 px-2 py-1 text-xs">
         {item.credit} · 이미지 예시
       </span>
     </div>
@@ -63,16 +63,16 @@ export function SceneFlow({ view, onCommand }: SceneFlowProps) {
         <h2 className="text-2xl">B 교류 시작을 기다리고 있어요.</h2>
         <p className="mt-4 text-sm text-muted-foreground">
           양쪽 결제·B 선택·시작일 동의와 실제 개시가 확인된 한 쌍만 이용할 수
-          있습니다. 가상 상대의 선택은 생성하지 않습니다.
+          있어요. 가상 상대의 선택은 생성하지 않아요.
         </p>
       </section>
     )
   const send = (command: SceneCommand) => {
     const error = onCommand
       ? onCommand(command, view.revision)
-      : "현재 읽기 전용입니다."
+      : "현재 읽기 전용이에요."
     setNotice(
-      error || "가상 기록을 반영했어요. 실제 저장·발송은 하지 않습니다.",
+      error || "가상 기록을 반영했어요. 실제 저장·발송은 하지 않아요.",
     )
     if (!error) setConfirmed(false)
   }
@@ -127,7 +127,7 @@ export function SceneFlow({ view, onCommand }: SceneFlowProps) {
         임시 저장
       </Button>
       <span className="self-center text-xs text-muted-foreground">
-        미공유 초안은 작성자에게만 표시됩니다.
+        미공유 초안은 작성자에게만 표시돼요.
       </span>
     </div>
   )
@@ -145,7 +145,7 @@ export function SceneFlow({ view, onCommand }: SceneFlowProps) {
             취향이 꼭 같을 필요는 없어요. 서로의 선택에서 이야기를 시작해요.
           </p>
           <p className="mt-5 text-xs leading-6 opacity-85">
-            상상 속 상황입니다. 실제 약속·만남 의사·날짜·예약이 아닙니다.
+            상상 속 상황이에요. 실제 약속·만남 의사·날짜·예약이 아니에요.
           </p>
         </div>
         <div className="flex flex-col justify-end bg-accent p-8">
@@ -366,7 +366,7 @@ export function SceneFlow({ view, onCommand }: SceneFlowProps) {
               ) : (
                 <p className="bg-muted p-5 text-sm">
                   상대의 제안 차례를 기다리고 있어요. 응답은 대신 작성하지
-                  않습니다.
+                  않아요.
                 </p>
               ))}
           </>
@@ -375,7 +375,7 @@ export function SceneFlow({ view, onCommand }: SceneFlowProps) {
           <>
             <p className="text-sm">
               한 장으로 정리하고 같은 최신 버전을 각자 승인해요. 수정 제안은
-              기존 승인을 해제합니다.
+              기존 승인을 해제해요.
             </p>
             {view.board && (
               <article className="grid border border-border md:grid-cols-2">
@@ -496,7 +496,7 @@ export function SceneFlow({ view, onCommand }: SceneFlowProps) {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    상상 속 3시간 이내. 실제 만남 길이는 새로 정합니다.
+                    상상 속 3시간 이내. 실제 만남 길이는 새로 정해요.
                   </p>
                   {reason}
                   {controls}
@@ -547,7 +547,7 @@ export function SceneFlow({ view, onCommand }: SceneFlowProps) {
         )}
       </section>
       <section className="border-t border-border pt-6">
-        <h2 className="text-xl">다음 장면은 두 사람이 선택합니다.</h2>
+        <h2 className="text-xl">다음 장면은 두 사람이 선택해요.</h2>
         <p className="mt-3 text-sm leading-7">
           {view.complete
             ? "세 날의 선택과 같은 버전의 승인을 마쳤어요."
@@ -556,7 +556,7 @@ export function SceneFlow({ view, onCommand }: SceneFlowProps) {
         </p>
         {view.delayed && (
           <p className="mt-3 text-sm text-destructive">
-            미공유·미합의로 교류가 지연됐어요. 자동 완료하지 않습니다. 문의 또는
+            미공유·미합의로 교류가 지연됐어요. 자동 완료하지 않아요. 문의 또는
             중단 요청을 선택할 수 있어요.
           </p>
         )}
@@ -568,7 +568,7 @@ export function SceneFlow({ view, onCommand }: SceneFlowProps) {
           <p className="text-sm leading-7">
             양쪽 만남 희망이 확인되어 공동 장면 v
             {view.recommendation.boardVersion}을 장소 추천 참고로 연결할 수
-            있어요. 상상 속 일요일·세 시간은 실제 일정이 아닙니다. 현재 장소
+            있어요. 상상 속 일요일·세 시간은 실제 일정이 아니에요. 현재 장소
             추천·예약은 연결되지 않았어요.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -643,7 +643,7 @@ export function SceneFlow({ view, onCommand }: SceneFlowProps) {
                   if (
                     type === "contact" ||
                     window.confirm(
-                      "가상 요청을 기록할까요? 중단·차단은 새 제출과 만남 선택을 멈춥니다.",
+                      "가상 요청을 기록할까요? 중단·차단은 새 제출과 만남 선택을 멈춰요.",
                     )
                   )
                     send({ type })
@@ -659,9 +659,8 @@ export function SceneFlow({ view, onCommand }: SceneFlowProps) {
           )}
         </div>
         <p className="text-xs leading-6 text-muted-foreground">
-          일정 재설정 정책은 검토 중입니다. 고지된 정책·양쪽 동의·운영 기록 없이
-          일정을 변경하지 않습니다. 가상 자료만 입력해 주세요. 실제 저장·신고
-          접수·계정 동기화는 미연결입니다.
+          일정 재설정 정책은 검토 중이에요. 고지된 정책·양쪽 동의·운영 기록 없이
+          일정을 변경하지 않아요.
         </p>
         <Button asChild variant="outline"><Link to="/support?demo=agreement">문의·신고 자세히 접수</Link></Button>
         <p role="status" className="text-sm text-primary">

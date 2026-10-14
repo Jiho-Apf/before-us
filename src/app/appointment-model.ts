@@ -62,13 +62,13 @@ function notice(state: AppointmentState, recipient: string, kind: AppointmentSta
 export function appointmentAction(state: AppointmentState, memberId: string, command: AppointmentCommand, revision: number, now: Date, active: boolean) {
   const reject = (error: string) => ({ state, error });
   if ((!active && !["contact","contact-check"].includes(command.type)) || !state.members.includes(memberId) || !Number.isFinite(now.getTime()) || now.getTime() < Date.parse(state.mutualYesAt) || state.events.some(event => Date.parse(event.at) > now.getTime()) || revision !== state.revision) return reject("당사자 권한·진행 상태·최신 버전을 확인해 주세요.");
-  if (approved(state) && !["contact","page-open","contact-consent","contact-check","reminder-check"].includes(command.type)) return reject("최종 합의된 약속은 임의로 변경하지 않습니다. 문의해 주세요.");
+  if (approved(state) && !["contact","page-open","contact-consent","contact-check","reminder-check"].includes(command.type)) return reject("최종 합의된 약속은 임의로 변경하지 않아요. 문의해 주세요.");
   const next = structuredClone(state), mode = resolution(state);
   if (command.type === "method") {
-    if (!command.confirmed || !Object.keys(APPOINTMENT_METHODS).includes(command.value) || state.methods[memberId]) return reject("본인의 약속 방식을 확인해 제출해 주세요. 상대 대신 선택하거나 중복 제출하지 않습니다.");
+    if (!command.confirmed || !Object.keys(APPOINTMENT_METHODS).includes(command.value) || state.methods[memberId]) return reject("본인의 약속 방식을 확인해 제출해 주세요. 상대 대신 선택하거나 중복 제출하지 않아요.");
     next.methods[memberId] = { value: command.value, at: now.toISOString() };
   } else if (command.type === "joint-confirm") {
-    if (mode.kind !== "confirm-joint" || !command.confirmed || state.jointConsents[memberId]) return reject("자동 제안자 지정 대신 같이 고르기에 각자 확인이 필요합니다.");
+    if (mode.kind !== "confirm-joint" || !command.confirmed || state.jointConsents[memberId]) return reject("자동 제안자 지정 대신 같이 고르기에 각자 확인이 필요해요.");
     next.jointConsents[memberId] = now.toISOString();
   } else if (command.type === "save-draft") {
     if (!mode.readyAt || !draftSafe(command.details) || !detailsShape(command.details) || (command.note !== undefined && (typeof command.note !== "string" || command.note.length > 200))) return reject("약속 방식 확정과 초안 크기를 확인해 주세요.");
@@ -96,7 +96,7 @@ export function appointmentAction(state: AppointmentState, memberId: string, com
     next.receipts[memberId] = { ...next.receipts[memberId] };
     for (const proposal of unread) next.receipts[memberId][proposal.id] = { version: proposal.version, at: now.toISOString() };
   } else if (command.type === "reminder-check") {
-    if (!Number.isInteger(command.windowHours) || command.windowHours < 1 || command.windowHours > state.policy.replyHours) return reject("마감 임박 기준 시간을 직접 설정해 주세요. 기본값은 임의 적용하지 않습니다.");
+    if (!Number.isInteger(command.windowHours) || command.windowHours < 1 || command.windowHours > state.policy.replyHours) return reject("마감 임박 기준 시간을 직접 설정해 주세요. 기본값은 임의 적용하지 않아요.");
     const size = next.notices.length;
     if (!approved(state)) for (const proposal of next.proposals) {
       const remaining = Date.parse(afterHours(proposal.at,state.policy.replyHours)) - now.getTime();
@@ -115,7 +115,7 @@ export function appointmentAction(state: AppointmentState, memberId: string, com
     reconcileContact(next,approved(next),now,active,true);
     if (JSON.stringify(next) === JSON.stringify(state)) return { state, error: null };
   } else if (command.type === "propose") {
-    if (!command.details) return reject("새 약속안은 날짜·시간·활동·지역·예산·예상 길이·장소의 상세 항목을 확인한 뒤 보내 주세요. 기존 기록은 변조하지 않습니다.");
+    if (!command.details) return reject("새 약속안은 날짜·시간·활동·지역·예산·예상 길이·장소의 상세 항목을 확인한 뒤 보내 주세요. 기존 기록은 변조하지 않아요.");
     const current = command.proposalId ? state.proposals.find(proposal => proposal.id === command.proposalId) : null;
     if (!mode.readyAt || (!current && !mode.proposers.includes(memberId)) || (current && current.version !== command.version) || (command.proposalId && !current)) return reject("제안 차례와 수정할 최신 버전을 확인해 주세요.");
     if (!current && (mode.kind === "parallel" ? state.proposals.some(proposal => proposal.owner === memberId) : state.proposals.length > 0)) return reject("새 약속안을 중복 생성하지 말고 기존 안에 수정 제안을 해 주세요.");
@@ -127,7 +127,7 @@ export function appointmentAction(state: AppointmentState, memberId: string, com
     }
     const proposedWhen = command.details ? slotStart(command.details.slots[0]) : command.when;
     const proposedPlace = command.details ? command.details.place.label : command.place;
-    if (!command.confirmed || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\+09:00$/.test(proposedWhen) || !Number.isFinite(Date.parse(proposedWhen)) || new Date(Date.parse(proposedWhen) + 9 * 3600000).toISOString().slice(0,19) !== proposedWhen.slice(0,19) || Date.parse(proposedWhen) <= now.getTime() || !proposedPlace.trim() || proposedPlace.length > 160 || command.note.length > 200) return reject("미래의 실제 일시·장소와 제안 내용을 직접 확인해 주세요. 장소 운영·예약은 확인된 것으로 표시하지 않습니다.");
+    if (!command.confirmed || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\+09:00$/.test(proposedWhen) || !Number.isFinite(Date.parse(proposedWhen)) || new Date(Date.parse(proposedWhen) + 9 * 3600000).toISOString().slice(0,19) !== proposedWhen.slice(0,19) || Date.parse(proposedWhen) <= now.getTime() || !proposedPlace.trim() || proposedPlace.length > 160 || command.note.length > 200) return reject("미래의 실제 일시·장소와 제안 내용을 직접 확인해 주세요. 장소 운영·예약은 확인된 것으로 표시하지 않아요.");
     if (current && current.when === proposedWhen && current.place === proposedPlace.trim() && current.note === command.note.trim() && JSON.stringify(current.details) === JSON.stringify(command.details)) return reject("수정할 내용을 입력해 주세요.");
     if (current) next.history.push(structuredClone(current));
     next.proposals.forEach(proposal => { proposal.approvals = {}; proposal.selections = {}; });
@@ -138,7 +138,7 @@ export function appointmentAction(state: AppointmentState, memberId: string, com
     notice(next,state.members.find(id => id !== memberId)!,current ? "revision" : "new",now,proposal);
   } else if (command.type === "approve") {
     const proposal = next.proposals.find(item => item.id === command.proposalId);
-    if (!proposal || proposal.version !== command.version || !command.confirmed || (!proposal.details && proposal.approvals[memberId]) || !commonCurrent(proposal,state) || Date.parse(proposal.details ? slotStart(proposal.details.slots.find(slot => slotKey(slot) === command.selectedSlot) || { date:"",start:"",end:"" }) : proposal.when) <= now.getTime() || (mode.kind === "parallel" && state.proposals.length < 2)) return reject("같은 최신 약속안을 확인해 주세요. 두 분이 먼저 제안하기를 골랐다면 각자 한 안을 작성한 뒤 비교합니다.");
+    if (!proposal || proposal.version !== command.version || !command.confirmed || (!proposal.details && proposal.approvals[memberId]) || !commonCurrent(proposal,state) || Date.parse(proposal.details ? slotStart(proposal.details.slots.find(slot => slotKey(slot) === command.selectedSlot) || { date:"",start:"",end:"" }) : proposal.when) <= now.getTime() || (mode.kind === "parallel" && state.proposals.length < 2)) return reject("같은 최신 약속안을 확인해 주세요. 두 분이 먼저 제안하기를 골랐다면 각자 한 안을 작성한 뒤 비교해요.");
     if (proposal.details && proposal.approvals[memberId] && proposal.selections?.[memberId] === command.selectedSlot) return reject("이미 이 후보와 최신 버전을 확인했어요.");
     if (proposal.details && (!command.selectedSlot || !proposal.details.slots.some(slot => slotKey(slot) === command.selectedSlot && Date.parse(slotStart(slot)) > now.getTime()))) return reject("최신 제안의 후보 날짜·정확한 시작시간을 직접 골라 확인해 주세요.");
     next.proposals.forEach(item => { delete item.approvals[memberId]; if (item.selections) delete item.selections[memberId]; });
@@ -146,7 +146,7 @@ export function appointmentAction(state: AppointmentState, memberId: string, com
     if (proposal.details) proposal.selections = { ...proposal.selections, [memberId]: command.selectedSlot! };
     notice(next,state.members.find(id => id !== memberId)!,"accept",now,proposal);
     if (approved(next)) for (const id of state.members) notice(next,id,"final",now,proposal);
-  } else if (command.type !== "contact") return reject("운영자는 회원 의사나 약속 방식을 대신 입력할 수 없습니다.");
+  } else if (command.type !== "contact") return reject("운영자는 회원 의사나 약속 방식을 대신 입력할 수 없어요.");
   next.revision += 1; next.events.push({ actor: command.type === "contact-check" ? "system-demo" : memberId, at: now.toISOString(), kind: command.type, reason: command.type === "contact-check" ? "명시적 가상 공개 점검 · 실제 서버 예약 미연결" : command.type === "contact" ? "조율 문의" : "본인 선택 확인 · 실제 인증 아님" });
   return { state: next, error: null };
 }

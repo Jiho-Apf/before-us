@@ -279,10 +279,10 @@ export function validatePreferences(
     `${APPEARANCE_PREFIX}heightMax`,
   ]) {
     if (heightRange && !validHeight(values[id]))
-      errors[id] = "키는 0보다 큰 정수로 입력해 주세요. 단위는 cm입니다."
+      errors[id] = "키는 0보다 큰 정수로 입력해 주세요. 단위는 cm예요."
     if (!heightRange && values[id])
       errors[HEIGHT_CRITERION] =
-        "키 범위와 선호 없음을 동시에 저장할 수 없습니다."
+        "키 범위와 선호 없음을 동시에 저장할 수 없어요."
   }
   if (
     heightRange &&
@@ -290,7 +290,7 @@ export function validatePreferences(
       Number(values[`${APPEARANCE_PREFIX}heightMax`])
   )
     errors[`${APPEARANCE_PREFIX}heightMax`] =
-      "최대 키는 최소 키 이상이어야 합니다."
+      "최대 키는 최소 키 이상이어야 해요."
   if (
     ["선호 없음", "나중에 작성"].includes(
       String(values[`${APPEARANCE_PREFIX}mode`]),
@@ -298,7 +298,7 @@ export function validatePreferences(
     hasAppearanceAnswers(values)
   )
     errors[`${APPEARANCE_PREFIX}mode`] =
-      "외적인 취향의 상세 답변과 선호 없음·나중에 작성은 함께 저장할 수 없습니다."
+      "외적인 취향의 상세 답변과 선호 없음·나중에 작성은 함께 저장할 수 없어요."
   const hasRange = values["desired.ageMode"] === "범위 지정"
   for (const id of ["desired.ageMin", "desired.ageMax"]) {
     const value = values[id]
@@ -312,13 +312,13 @@ export function validatePreferences(
         `만 ${BEFORE_US.operatingDraft.minimumAge}세 이상의 정수를 입력해 주세요.`
     if (!hasRange && value)
       errors["desired.ageMode"] =
-        "나이 범위와 선호 없음을 동시에 저장할 수 없습니다."
+        "나이 범위와 선호 없음을 동시에 저장할 수 없어요."
   }
   if (
     hasRange &&
     Number(values["desired.ageMin"]) > Number(values["desired.ageMax"])
   )
-    errors["desired.ageMax"] = "최대 나이는 최소 나이 이상이어야 합니다."
+    errors["desired.ageMax"] = "최대 나이는 최소 나이 이상이어야 해요."
   const regions = values["desired.regions"]
   if (
     Array.isArray(regions) &&
@@ -326,7 +326,7 @@ export function validatePreferences(
     regions.length > 1
   )
     errors["desired.regions"] =
-      "선호 없음과 상대 선호 지역은 함께 선택할 수 없습니다."
+      "선호 없음과 상대 선호 지역은 함께 선택할 수 없어요."
   for (const id of requiredConditions(settings))
     if (!COMPARABLE.includes(id) || !hasSpecificPreference(id, values))
       errors[id] = "필수 조건은 비교 가능한 구체적인 값을 확인해 주세요."
@@ -335,7 +335,7 @@ export function validatePreferences(
     BEFORE_US.operatingDraft.additionalRequiredConditionsMaximum
   )
     errors["desired.ageMode"] =
-      "추가 필수 조건은 운영 초안 기준 최대 3개입니다. 추가 기준은 운영자에게 요청하거나 신청을 보류해 주세요."
+      "추가 필수 조건은 운영 초안 기준 최대 3개예요. 추가 기준은 운영자에게 요청하거나 신청을 보류해 주세요."
   if (settings.requestNote.length > 300)
     errors["desired.ageMode"] = "추가 기준 요청은 300자 이내로 적어 주세요."
   return errors

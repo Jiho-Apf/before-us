@@ -29,7 +29,7 @@ export function DemoDock({ title, note, defaultOpen = false, children }: { title
           <div>
             <p className="text-[10px] font-semibold tracking-[0.2em] text-accent">DEMO CONTROL</p>
             <p className="mt-1 text-sm font-semibold">{title}</p>
-            {note && <p className="mt-1 text-[11px] leading-5 text-muted-foreground">{note}</p>}
+            {note && <p className="mt-1 text-xs leading-5 text-muted-foreground">{note}</p>}
           </div>
           <button type="button" onClick={() => setOpen(false)} aria-label="데모 조작 닫기" className="rounded-full p-1.5 text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <X size={16} />

@@ -54,8 +54,8 @@ export function createSceneBook(agreement: AgreementState, now: Date): SceneBook
   return { programId: agreement.sessions[0].program!.id, revision: 0, scheduleVersion: 1, dates: [dates[0], dates[1], dates[2]], drafts: {}, choices: {}, turns: [], boards: [], status: "active", access: Object.fromEntries(agreement.members.map(id => [id, true])), meetingChoices: {}, meetingPolicy: { ...getMeetingPolicy() }, actualProposals: {}, events: [] };
 }
 function dayGate(book: SceneBook, agreement: AgreementState, day: number, now: Date) {
-  if (agreementGate(agreement, now) || agreement.status !== "started" || book.status !== "active") return "교류가 중단되었거나 참여 상태 확인이 필요합니다.";
-  if (!Number.isInteger(day) || day < 0 || day > 2 || exchangeDay(now) !== book.dates[day] || now.getTime() < Date.parse(`${book.dates[day]}T09:00:00+09:00`)) return "해당 DAY의 09:00~23:59, Asia/Seoul에만 공유할 수 있습니다. 미래 날짜·과거 수정은 잠겨 있어요.";
+  if (agreementGate(agreement, now) || agreement.status !== "started" || book.status !== "active") return "교류가 중단되었거나 참여 상태 확인이 필요해요.";
+  if (!Number.isInteger(day) || day < 0 || day > 2 || exchangeDay(now) !== book.dates[day] || now.getTime() < Date.parse(`${book.dates[day]}T09:00:00+09:00`)) return "해당 DAY의 09:00~23:59, Asia/Seoul에만 공유할 수 있어요. 미래 날짜·과거 수정은 잠겨 있어요.";
   if (day > 0 && !completedDays(book, agreement, now)[day - 1]) return "앞선 날의 실제 공유·합의가 아직 완료되지 않았어요. 대기·지연 상태를 확인하거나 문의해 주세요.";
   return null;
 }
@@ -90,22 +90,22 @@ export function sceneAction(book: SceneBook, agreement: AgreementState, memberId
     if (next.drafts[memberId]) delete next.drafts[memberId][0];
   } else if (command.type === "propose-turn") {
     const index = book.turns.length;
-    if (index >= 3 || command.slot !== ["flow", "rest", "topic"][index] || memberId !== agreement.members[index % 2]) return reject("현재 제안 차례와 항목을 확인해 주세요. 상대의 차례를 대신 작성하지 않습니다.");
+    if (index >= 3 || command.slot !== ["flow", "rest", "topic"][index] || memberId !== agreement.members[index % 2]) return reject("현재 제안 차례와 항목을 확인해 주세요. 상대의 차례를 대신 작성하지 않아요.");
     if (!(command.slot === "flow" ? FLOW_OPTIONS.includes(command.value) : command.slot === "rest" ? REST_OPTIONS.includes(command.value) : textValid(command.value, 80)) || !textValid(command.reason, 200) || !textValid(command.opinion, 200)) return reject("제안과 짧은 이유, 공유한 내용에 대한 의견을 작성해 주세요.");
     next.turns.push({ slot: command.slot, value: command.value.trim(), reason: command.reason.trim(), opinion: command.opinion.trim(), author: memberId, at: now.toISOString() });
     if (next.drafts[memberId]) delete next.drafts[memberId][1];
   } else if (command.type === "propose-board") {
-    if (!valuesValid(command.values) || !textValid(command.reason, 200)) return reject("활동·쉬는 시간·대화 소재와 제안 이유를 확인해 주세요. 상상 속 시간은 3시간 이내이며 분량은 선택입니다.");
+    if (!valuesValid(command.values) || !textValid(command.reason, 200)) return reject("활동·쉬는 시간·대화 소재와 제안 이유를 확인해 주세요. 상상 속 시간은 3시간 이내이며 분량은 선택이에요.");
     const previous = book.boards[book.boards.length - 1];
-    if (previous && JSON.stringify(previous.values) === JSON.stringify(command.values)) return reject("현재 버전과 다른 수정 내용을 제안해 주세요. 같은 장면은 별도로 승인할 수 있습니다.");
+    if (previous && JSON.stringify(previous.values) === JSON.stringify(command.values)) return reject("현재 버전과 다른 수정 내용을 제안해 주세요. 같은 장면은 별도로 승인할 수 있어요.");
     next.boards.push({ version: (previous?.version || 0) + 1, values: structuredClone(command.values), reason: command.reason.trim(), author: memberId, at: now.toISOString(), approvals: {} });
     if (next.drafts[memberId]) delete next.drafts[memberId][2];
   } else if (command.type === "approve-board") {
     const board = next.boards[next.boards.length - 1];
-    if (!board || board.version !== command.version || !command.confirmed || board.approvals[memberId]) return reject("같은 최신 버전을 직접 확인해야 합니다. 과거 버전·중복 승인은 처리하지 않습니다.");
+    if (!board || board.version !== command.version || !command.confirmed || board.approvals[memberId]) return reject("같은 최신 버전을 직접 확인해야 해요. 과거 버전·중복 승인은 처리하지 않아요.");
     board.approvals[memberId] = now.toISOString();
   } else if (command.type === "meeting-choice") {
-    if (!sceneView(book, agreement, memberId, now)?.canRespond || !command.confirmed || !["positive", "negative"].includes(command.choice) || book.meetingChoices[memberId]) return reject("정상 3일 완료·DAY04 오픈·본인 확인과 응답 기한을 확인해 주세요. 마감 후 미응답은 자동 선택하지 않으며 문의가 필요합니다. 선택은 중복 제출하지 않습니다.");
+    if (!sceneView(book, agreement, memberId, now)?.canRespond || !command.confirmed || !["positive", "negative"].includes(command.choice) || book.meetingChoices[memberId]) return reject("정상 3일 완료·DAY04 오픈·본인 확인과 응답 기한을 확인해 주세요. 마감 후 미응답은 자동 선택하지 않으며 문의가 필요해요. 선택은 중복 제출하지 않아요.");
     next.meetingChoices[memberId] = command.choice;
   } else if (command.type === "actual-proposal") {
     const view = sceneView(book, agreement, memberId, now);
@@ -113,7 +113,7 @@ export function sceneAction(book: SceneBook, agreement: AgreementState, memberId
     next.actualProposals[memberId] = { activity: command.activity.trim(), region: command.region.trim(), duration: command.duration, budget: command.budget, at: now.toISOString() };
   } else if (command.type === "interrupt") next.status = "interrupted";
   else if (command.type === "block") { next.status = "blocked"; next.access = Object.fromEntries(agreement.members.map(id => [id, false])); }
-  else if (!["report", "contact"].includes(command.type)) return reject("지원하지 않는 요청입니다.");
+  else if (!["report", "contact"].includes(command.type)) return reject("지원하지 않는 요청이에요.");
   next.revision += 1; next.events.push({ kind: command.type, actor: memberId, at: now.toISOString(), revision: next.revision, day });
   return { book: next, error: null };
 }

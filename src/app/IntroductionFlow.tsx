@@ -1,8 +1,9 @@
+import { kstDateTime } from "./dates"
 import { DemoDock } from "./DemoDock"
 import { useState, useEffect } from "react"
 import { Link, useSearchParams } from "react-router"
 import { MemberAgreement } from "./AgreementFlow"
-import { PageHeader, Sheet, TwoDots } from "./editorial"
+import { Moment, PageHeader, Sheet, TwoDots } from "./editorial"
 import { NoonClock } from "./PublicHome"
 import { ArrowRight, Clock3, LockKeyhole, Users, Image } from "lucide-react"
 import { Button } from "./components/ui/button"
@@ -32,10 +33,7 @@ import {
 
 const formatTime = (at: string | null) =>
   at
-    ? new Date(at).toLocaleString("ko-KR", {
-        timeZone: "Asia/Seoul",
-        hour12: false,
-      })
+    ? kstDateTime(at)
     : "기록 없음"
 const endLabels: Record<string, string> = {
   rejected: "상호 선택으로 이어지지 않음",
@@ -88,12 +86,17 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
     setChoice(null)
     setConfirmed(false)
     setMessage(
-      "가상 최종 응답만 기록했습니다. 실제 응답·발송은 진행하지 않았습니다.",
+      "가상 최종 응답만 기록했어요. 실제 응답·발송은 진행하지 않았어요.",
     )
   }
   return (
     <section className="space-y-7 py-6">
-      <PageHeader mark="두 사람" label="이번 소개" en="THIS INTRODUCTION" title={title} aside={<span className="rounded-full border border-border px-3 py-1 text-[11px] text-muted-foreground">가상 상태 · 실서버 공개 미연결</span>} />
+      <PageHeader mark="두 사람" label="이번 소개" en="THIS INTRODUCTION" title={title} />
+      {view.mutual && (
+        <Moment eyebrow="MUTUAL · 서로의 선택" title={<>두 분 모두<br />‘알아가고 싶어요’를 골랐어요.</>}>
+          이제 각자 교류비를 확인하면, 사흘을 함께 보낼 방식을 정해요. 서두르지 않아도 괜찮아요.
+        </Moment>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4 text-xs text-muted-foreground">
         <span>이번 소개 · {view.id || "아직 공개된 건 없음"}</span>
         {view.dueAt && (
@@ -109,7 +112,7 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
         else { onChange(result.book); saveMemberPayment(memberId, session, now); }
       } : undefined} />}
       {view.profile && needsFirstOpen ? <div className="space-y-4 rounded-xl border border-border p-6">
-        <p className="text-sm leading-7">첫 상대 프로필이 실제 표시된 시점부터 소개 서비스 제공이 시작됩니다. 열람 전 취소는 소개비 5,000원 전액 환불 대상이며 요청과 실제 환불 완료는 구분합니다.</p>
+        <p className="text-sm leading-7">첫 상대 프로필이 실제 표시된 시점부터 소개 서비스 제공이 시작돼요. 열람 전 취소는 소개비 5,000원 전액 환불 대상이며 요청과 실제 환불 완료는 구분해요.</p>
         <Button onClick={() => setOpened(`${memberId}:${view.id}`)}>첫 소개 확인하기</Button>
       </div> : view.profile ? (
         <PrivateProfile key={`${memberId}-${view.id}`} memberId={memberId} introductionId={view.id!} profileVersion={view.profile.version} onViewed={() => {
@@ -126,23 +129,16 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
                   className={index === 0 ? "col-span-2" : ""}
                 >
                   <PrivatePhoto memberId={memberId}
-                    className={`flex flex-col items-center justify-center gap-5 border border-border bg-secondary ${
+                    className={`relative flex flex-col items-center justify-center gap-4 overflow-hidden border border-border bg-[linear-gradient(160deg,color-mix(in_oklch,var(--primary)_10%,var(--card)),color-mix(in_oklch,var(--accent)_8%,var(--card)))] ${
                       index === 0 ? "aspect-video" : "aspect-square"
                     }`}
                   >
-                    <div className="flex items-center gap-3 text-primary">
-                      <span className="size-5 rounded-full bg-primary" />
-                      <span className="size-5 rounded-full bg-accent" />
-                    </div>
-                    <Image
-                      size={index === 0 ? 44 : 30}
-                      className="text-primary/30"
-                    />
-                    <span className="text-xs text-muted-foreground">
+                    <span aria-hidden="true" className={`rounded-full border border-primary/25 ${index === 0 ? "size-28" : "size-16"}`} />
+                    <span className="absolute bottom-3 left-3 text-xs text-muted-foreground">
                       {photo.label} · 구도 예시
                     </span>
                   </PrivatePhoto>
-                  <figcaption className="flex justify-between gap-2 bg-accent px-3 py-2 text-xs text-accent-foreground">
+                  <figcaption className="flex justify-between gap-2 border-x border-b border-border px-3 py-2 text-xs text-muted-foreground">
                     <span>{photo.label}</span>
                     <span>공개 v{photo.version}</span>
                   </figcaption>
@@ -150,11 +146,11 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
               ))}
             </div>
             <p className="text-xs leading-6 text-muted-foreground">
-              서비스 화면 예시입니다. 실존 인물·가짜 회원 사진을 만들지
-              않았으며, 승인·공개 동의된 3~4장 자리만 그래픽으로 표시합니다.
+              서비스 화면 예시예요. 실존 인물·가짜 회원 사진을 만들지
+              않았으며, 승인·공개 동의된 3~4장 자리만 그래픽으로 표시해요.
             </p>
             <p className="text-xs leading-6 text-muted-foreground">
-              워터마크와 드래그·우클릭·길게 누르기 저장 억제는 보조 수단입니다. 캡처나 유출을 완전히 막거나 보안 구현 완료를 의미하지 않습니다. 표시 코드는 탭 메모리의 가상 코드이며 서버 연동 전입니다.
+              워터마크와 드래그·우클릭·길게 누르기 저장 억제는 보조 수단이에요. 캡처나 유출을 완전히 막거나 보안 구현 완료를 의미하지 않아요. 표시 코드는 탭 메모리의 가상 코드이며 서버 연동 전이에요.
             </p>
           </div>
           <div className="space-y-5">
@@ -188,8 +184,8 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
               <p className="text-sm leading-7">{view.reason}</p>
             </div>
             <p className="text-xs leading-6 text-muted-foreground">
-              ‘천천히 알아가기’는 교류 속도를 존중한다는 뜻입니다. 응답 기한을
-              숨겨서 연장하지 않으며 초 단위 카운트다운은 없습니다.
+              ‘천천히 알아가기’는 교류 속도를 존중한다는 뜻이에요. 응답 기한을
+              숨겨서 연장하지 않으며 초 단위 카운트다운은 없어요.
             </p>
           </div>
         </div>
@@ -200,11 +196,11 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
             <div className="flex items-center gap-4"><TwoDots apart faded /><LockKeyhole className="text-muted-foreground" size={15} /></div>
             <p className="mt-6 text-xl font-semibold leading-[1.6]">
               {view.expired
-                ? "응답 기한이 지났어요. 종료 상태를 확인하고 있습니다."
+                ? "응답 기한이 지났어요. 종료 상태를 확인하고 있어요."
                 : view.status === "closed"
                   ? endLabels[view.endReason || ""] || "종료 상태 확인"
                   : view.status === "reserved"
-                    ? "양쪽 공개 준비가 확인된 한 쌍을 정오에 동시에 공개합니다."
+                    ? "양쪽 공개 준비가 확인된 한 쌍을 정오에 동시에 공개해요."
                     : "현재 조건과 참여 시점이 맞는 상대를 준비하고 있어요."}
             </p>
             <ul className="mt-6 divide-y divide-border border-y border-border text-sm leading-7 text-muted-foreground">
@@ -267,7 +263,7 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
                   />
                   <span>
                     이번 소개의 최종 응답임을 확인했어요. 모두 응답하기 전에는
-                    한쪽 호감을 상대에게 공개하지 않습니다.
+                    한쪽 호감을 상대에게 공개하지 않아요.
                   </span>
                 </Label>
                 <Button
@@ -285,12 +281,12 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
         <div className="border-l-2 border-primary bg-secondary p-5">
           <p className="text-sm font-semibold">
             {view.ownResponse === "positive"
-              ? "선택을 전달했어요. 상대의 응답을 기다리고 있습니다."
+              ? "선택을 전달했어요. 상대의 응답을 기다리고 있어요."
               : "다음 소개를 기다리는 선택을 전달했어요."}
           </p>
           <p className="mt-2 text-xs leading-6 text-muted-foreground">
-            상대의 미공개 응답·거절 이유·평가는 전달하지 않습니다. 다음 소개를
-            선택해도 같은 날 다른 사람을 즉시 보여 주지 않습니다.
+            상대의 미공개 응답·거절 이유·평가는 전달하지 않아요. 다음 소개를
+            선택해도 같은 날 다른 사람을 즉시 보여 주지 않아요.
           </p>
         </div>
       )}
@@ -319,8 +315,8 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
               : "확인된 소개 상태만 표시"}
           </p>
           <p className="mt-2 text-xs leading-6 text-muted-foreground">
-            반복 미응답은 참여 상태를 확인하고 소개를 잠시 중지합니다. 정지는
-            소개 이용 권리 종료와 다릅니다.
+            반복 미응답은 참여 상태를 확인하고 소개를 잠시 중지해요. 정지는
+            소개 이용 권리 종료와 달라요.
           </p>
         </div>
         <div className="border-t-2 border-foreground pt-5">
@@ -333,8 +329,8 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
                 : "권리 확인 전"}
           </p>
           <p className="mt-2 text-xs leading-6 text-muted-foreground">
-            거절·미응답으로 횟수를 소진하거나 추가 결제를 요구하지 않습니다.
-            상호 선택·결제·방식 합의 중에는 새 소개를 하지 않습니다.
+            거절·미응답으로 횟수를 소진하거나 추가 결제를 요구하지 않아요.
+            상호 선택·결제·방식 합의 중에는 새 소개를 하지 않아요.
           </p>
         </div>
       </div>
@@ -380,13 +376,13 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
           ))
         ) : (
           <p className="text-sm text-muted-foreground">
-            확인된 소개 이력이 없습니다.
+            확인된 소개 이력이 없어요.
           </p>
         )}
         <p className="mt-4 text-xs leading-6 text-muted-foreground">
-          이력은 본인 기록 요약이며 종료된 상대의 사진 보관함이 아닙니다. 프로필
-          접근은 동의·정책·현재 권한을 별도로 확인해야 합니다. 실제 서버
-          권한·원자적 동시 공개·동기화는 미구현입니다.
+          이력은 본인 기록 요약이며 종료된 상대의 사진 보관함이 아니에요. 프로필
+          접근은 동의·정책·현재 권한을 별도로 확인해야 해요. 실제 서버
+          권한·원자적 동시 공개·동기화는 미구현이에요.
         </p>
       </section>
       <Link
@@ -429,7 +425,7 @@ export function IntroductionDemo() {
     else {
       setBook(result.book)
       setMessage(
-        "가상 상태에만 반영했습니다. 실제 공개·발송·회원 응답은 변경하지 않았습니다.",
+        "가상 상태에만 반영했어요. 실제 공개·발송·회원 응답은 변경하지 않았어요.",
       )
     }
   }
@@ -450,8 +446,8 @@ export function IntroductionDemo() {
       <DemoDock title="한 쌍 소개 시연 · 운영/회원 전환" defaultOpen>
         <p className="text-xs leading-6 text-muted-foreground">
           가상 기준 시각 {formatTime(now.toISOString())} · 실제 서버 스케줄·동시
-          공개·운영자 권한·발송은 연결하지 않았습니다. 양쪽 회원 전환과 종료
-          제어는 이 개발 화면에만 있습니다.
+          공개·운영자 권한·발송은 연결하지 않았어요. 양쪽 회원 전환과 종료
+          제어는 이 개발 화면에만 있어요.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button

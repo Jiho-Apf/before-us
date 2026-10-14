@@ -1,3 +1,4 @@
+import { kstDateTime } from "./dates"
 import { useState } from "react"
 import { Link } from "react-router"
 import { ArrowRight, Plus, X, CalendarDays, MapPin, Eye } from "lucide-react"
@@ -33,14 +34,7 @@ import {
 } from "./appointment-model"
 
 const stamp = (value: string) =>
-  new Date(value).toLocaleString("ko-KR", {
-    timeZone: "Asia/Seoul",
-    hour12: false,
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+  kstDateTime(value)
 type SelectFieldProps = {
   label: string
   value: string
@@ -180,7 +174,7 @@ function DateSlots({
       </Button>
       <p className="text-xs leading-6 text-muted-foreground">
         서로 다른 날짜를 선택해 주세요. 과거 날짜·이미 지난 시작시간은 공유할 수
-        없습니다.
+        없어요.
       </p>
     </div>
   )
@@ -253,8 +247,8 @@ function Regions({ value, onChange, disabled }: RegionsProps) {
         ))}
       </div>
       <p className="text-xs leading-6 text-muted-foreground">
-        최대 3개 · 선택한 지역을 눌러 해제합니다. 집·직장 주소·GPS는 입력하지
-        않습니다.
+        최대 3개 · 선택한 지역을 눌러 해제해요. 집·직장 주소·GPS는 입력하지
+        않아요.
       </p>
     </div>
   )
@@ -319,10 +313,10 @@ function DetailsSummary({ value }: { value: AppointmentDetails }) {
         </p>
         <p className="mt-2 text-xs leading-6 text-muted-foreground">
           {value.place.kind === "example"
-            ? "예시 공간입니다. 실제 주소·영업시간·예약 데이터가 아닙니다."
+            ? "예시 공간이에요. 실제 주소·영업시간·예약 데이터가 아니에요."
             : value.place.kind === "direct"
-              ? "회원이 직접 제안한 장소입니다. 운영시간·예약 가능 여부는 확인되지 않았습니다."
-              : "확인된 후보의 제공 범위만 참고합니다. 예약 완료는 아닙니다."}
+              ? "회원이 직접 제안한 장소예요. 운영시간·예약 가능 여부는 확인되지 않았어요."
+              : "확인된 후보의 제공 범위만 참고해요. 예약 완료는 아니에요."}
         </p>
       </div>
     </div>
@@ -376,7 +370,7 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
     const error = onCommand(command, view.revision)
     setMessage(
       error ||
-        "가상 기록에 반영했어요. 실제 저장·예약·카카오 발송은 하지 않습니다.",
+        "가상 기록에 반영했어요. 실제 저장·예약·카카오 발송은 하지 않아요.",
     )
     if (!error) {
       setConfirmed(false)
@@ -429,7 +423,7 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
     final: "최종 합의",
     availability: "가능 조건 공유",
     "change-request": "수정 요청",
-    "contact-changed": "연락처 공유 설정이 변경되었습니다",
+    "contact-changed": "연락처 공유 설정이 변경되었어요",
     "contact-released": "연락처 공개 완료 · 홈페이지에서 확인해 주세요",
   }
   return (
@@ -444,7 +438,7 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
             ? `응답·진행 기한 ${stamp(view.deadline)} · Asia/Seoul`
             : "현재 단계 기한 없음"}
           <p className="text-xs text-muted-foreground">
-            공유·홈페이지 확인·카카오 발송은 서로 다른 상태입니다.
+            공유·홈페이지 확인·카카오 발송은 서로 다른 상태예요.
           </p>
         </div>
       </section>
@@ -453,7 +447,7 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
           <h2 className="text-xl">가능한 시간을, 같이 골라요.</h2>
           <p className="text-sm leading-7 text-muted-foreground">
             각자 날짜 최대 5개·시간구간·활동 최대 3개·지역 최대 3개를 공유해요.
-            공개 전 초안은 작성자만 볼 수 있습니다.
+            공개 전 초안은 작성자만 볼 수 있어요.
           </p>
           {!disabled && (
             <details open={!view.ownAvailability}>
@@ -585,7 +579,7 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
                   </p>
                 ))
               ) : (
-                <p className="text-sm">겹치는 시간구간이 없습니다.</p>
+                <p className="text-sm">겹치는 시간구간이 없어요.</p>
               )}
               <p className="text-sm">
                 활동: {view.common.activities.join(" / ") || "겹침 없음"}
@@ -596,8 +590,8 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
               {!view.common.ready && (
                 <p className="text-sm leading-7 text-muted-foreground">
                   날짜·시간·활동·지역의 공통 조건이 아직 없어요. 조건을
-                  수정하거나 직접 새 제안으로 돌아갈 수 있습니다. 자동으로
-                  조건을 완화하지 않습니다.
+                  수정하거나 직접 새 제안으로 돌아갈 수 있어요. 자동으로
+                  조건을 완화하지 않아요.
                 </p>
               )}
               {canDirectStart && (
@@ -699,7 +693,7 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
                   proposal.ownSelectedSlot !== proposal.peerSelectedSlot && (
                     <p className="text-sm text-primary">
                       선택한 날짜가 달라요. 같은 후보 날짜와 최신 버전을
-                      확인해야 합의됩니다.
+                      확인해야 합의돼요.
                     </p>
                   )}
                 {view.canApprove && !proposal.staleCommon && (
@@ -858,8 +852,8 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
                 )}
                 {draft.activity === "비포어스 추천받기" && (
                   <p className="text-xs leading-6 text-muted-foreground">
-                    실제 추천 데이터는 미연결입니다. 추천 요청 취향만 기록하며
-                    예시 공간을 실제 예약 가능한 장소로 표시하지 않습니다.
+                    실제 추천 데이터는 미연결이에요. 추천 요청 취향만 기록하며
+                    예시 공간을 실제 예약 가능한 장소로 표시하지 않아요.
                   </p>
                 )}
                 <Regions
@@ -1006,8 +1000,8 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
                   />
                 )}
                 <p className="text-xs leading-6 text-muted-foreground">
-                  공간 A/B는 예시입니다. 가짜 주소·영업시간·예약 가능 여부를
-                  만들지 않습니다. 직접 제안은 장소 이름만 적고 개인정보를 넣지
+                  공간 A/B는 예시예요. 가짜 주소·영업시간·예약 가능 여부를
+                  만들지 않아요. 직접 제안은 장소 이름만 적고 개인정보를 넣지
                   마세요.
                 </p>
               </section>
@@ -1030,8 +1024,8 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
             <aside className="h-fit space-y-5 border border-border bg-muted/40 p-5 lg:sticky lg:top-6">
               <h3 className="text-lg">제안 미리보기</h3>
               <p className="text-xs leading-6 text-muted-foreground">
-                현재는 나에게만 보입니다. ‘제안 보내기’를 눌러야 상대에게
-                공유됩니다.
+                현재는 나에게만 보여요. ‘제안 보내기’를 눌러야 상대에게
+                공유돼요.
               </p>
               {preview ? (
                 <>
@@ -1073,7 +1067,7 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
                     onCheckedChange={(value) => setNewConfirmed(value === true)}
                   />
                   공통 조건 밖의 새 제안으로 공유할게요. 양쪽이 다시 확인해야
-                  합니다.
+                  해요.
                 </Label>
               )}
               <Label className="flex items-start gap-3 text-xs leading-6">
@@ -1082,7 +1076,7 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
                   onCheckedChange={(value) => setConfirmed(value === true)}
                 />
                 현재 미리보기의 모든 내용을 상대에게 제안할게요. 발송은 양쪽
-                승인이 아닙니다.
+                승인이 아니에요.
               </Label>
               <Button
                 className="w-full"
@@ -1209,12 +1203,12 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
           ))
         ) : (
           <p className="text-sm text-muted-foreground">
-            내게 생성된 가상 약속 알림이 없습니다.
+            내게 생성된 가상 약속 알림이 없어요.
           </p>
         )}
         <p className="text-xs leading-6 text-muted-foreground">
           마감 임박 안내는 분리된 개발 제어에서 설정한 기준과 실제 가상 시계로
-          점검합니다. 자동 실행·카카오 승인·발송 완료를 표시하지 않습니다.
+          점검해요. 자동 실행·카카오 승인·발송 완료를 표시하지 않아요.
         </p>
       </section>
       {view.final && (
@@ -1231,8 +1225,8 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
             </p>
           )}
           <p className="text-xs leading-6 text-muted-foreground">
-            예약 완료가 아닙니다. 다음 단계는 연락처 공개에 대한 별도 동의이며
-            전화번호는 자동 공개하지 않습니다.
+            예약 완료가 아니에요. 다음 단계는 연락처 공개에 대한 별도 동의이며
+            전화번호는 자동 공개하지 않아요.
           </p>
           <Button asChild disabled={!view.active}>
             <Link to="/meeting/contact?demo=agreement">

@@ -44,14 +44,14 @@ function validBook(book: LetterBook, agreement: AgreementState) {
   return book.days.length === 3 && Number.isInteger(book.scheduleVersion) && book.scheduleVersion >= 1 && book.days.every((row, index) => /^\d{4}-\d{2}-\d{2}$/.test(row.date) && Number.isFinite(Date.parse(`${row.date}T09:00:00+09:00`)) && seoulDay(new Date(`${row.date}T09:00:00+09:00`)) === row.date && (index === 0 || row.date > book.days[index - 1].date) && (book.scheduleVersion !== 1 || row.date === shiftDay(seoulDay(new Date(agreement.startAt!)), index))) && (book.scheduleVersion === 1 || book.events.some(event => event.type.startsWith("schedule-reset:")));
 }
 function rowGate(book: LetterBook, agreement: AgreementState, memberId: string, index: number, now: Date) {
-  if (agreementGate(agreement, now) || agreement.status !== "started" || book.status !== "active") return "교류가 중단되었거나 새 편지 이용 확인이 필요합니다. 문의해 주세요.";
+  if (agreementGate(agreement, now) || agreement.status !== "started" || book.status !== "active") return "교류가 중단되었거나 새 편지 이용 확인이 필요해요. 문의해 주세요.";
   const row = book.days[index];
   if (!row) return "유효한 DAY를 확인해 주세요.";
-  if (row.submissions[memberId]) return "이미 보낸 편지는 수정하거나 같은 날 다시 보낼 수 없습니다.";
+  if (row.submissions[memberId]) return "이미 보낸 편지는 수정하거나 같은 날 다시 보낼 수 없어요.";
   const opens = Date.parse(`${row.date}T${BEFORE_US.letters.opensAt}:00+09:00`);
   const closes = Date.parse(`${shiftDay(row.date, 1)}T00:00:00+09:00`);
-  if (now.getTime() < opens || now.getTime() >= closes || seoulDay(now) !== row.date) return "오늘의 작성 시간은 09:00~23:59, Asia/Seoul입니다. 다른 날짜 편지는 보낼 수 없습니다.";
-  if (index === 1 && !published(book.days[0], agreement.members, now)) return "어제 실제로 공개된 편지가 없습니다. 없는 편지에 답장을 요청하지 않습니다. 교류 지연 상담이 필요합니다.";
+  if (now.getTime() < opens || now.getTime() >= closes || seoulDay(now) !== row.date) return "오늘의 작성 시간은 09:00~23:59, Asia/Seoul 기준이에요. 다른 날짜 편지는 보낼 수 없어요.";
+  if (index === 1 && !published(book.days[0], agreement.members, now)) return "어제 실제로 공개된 편지가 없어요. 없는 편지에 답장을 요청하지 않아요. 교류 지연 상담이 필요해요.";
   return null;
 }
 const replyClosesAt = (row: LetterDay) => `${shiftDay(row.date, 1)}T00:00:00+09:00`;
@@ -60,7 +60,7 @@ const replyReminderAt = (row: LetterDay) => `${row.date}T${LETTER_REPLY.reminder
 const repliesOpen = (row: LetterDay, members: string[], now: Date) =>
   members.every(id => { const reply = row.replies?.[id]; return !!reply && Number.isFinite(Date.parse(reply.at)) && Date.parse(reply.at) < Date.parse(replyClosesAt(row)) && Date.parse(reply.at) <= now.getTime(); });
 function replyGate(book: LetterBook, agreement: AgreementState, memberId: string, index: number, now: Date) {
-  if (agreementGate(agreement, now) || agreement.status !== "started" || book.status !== "active" || !book.access[memberId]) return "교류가 중단되었거나 이용 확인이 필요합니다. 문의해 주세요.";
+  if (agreementGate(agreement, now) || agreement.status !== "started" || book.status !== "active" || !book.access[memberId]) return "교류가 중단되었거나 이용 확인이 필요해요. 문의해 주세요.";
   const row = book.days[index];
   if (!row) return "유효한 DAY를 확인해 주세요.";
   if (!published(row, agreement.members, now)) return "그날의 편지가 두 사람 모두에게 열린 뒤에 답장할 수 있어요.";
@@ -80,7 +80,7 @@ export function letterAction(book: LetterBook, agreement: AgreementState, member
     const row = next.days[command.day];
     if (command.type === "save") row.drafts[memberId] = command.body;
     else {
-      if (!command.confirmed || !command.body.replace(/[\s\u200B-\u200D\uFEFF]/g, "").length) return reject("빈 편지는 보낼 수 없습니다. 내용을 확인하고 전송에 동의해 주세요.");
+      if (!command.confirmed || !command.body.replace(/[\s\u200B-\u200D\uFEFF]/g, "").length) return reject("빈 편지는 보낼 수 없어요. 내용을 확인하고 전송에 동의해 주세요.");
       row.submissions[memberId] = { body: command.body.trim(), at: now.toISOString() };
       delete row.drafts[memberId];
       if (agreement.members.every(id => row.submissions[id]) && !row.publishedAt) row.publishedAt = now.toISOString();
@@ -95,11 +95,11 @@ export function letterAction(book: LetterBook, agreement: AgreementState, member
     const row = next.days[command.day];
     row.replies = { ...(row.replies || {}), [memberId]: { body, at: now.toISOString() } };
   } else if (command.type === "meeting-choice") {
-    if (!letterView(book, agreement, memberId, now)?.canRespond || agreementGate(agreement, now) || !command.confirmed || !["positive", "negative"].includes(command.choice) || book.meetingChoices[memberId]) return reject("정상 3일 교환·DAY04 오픈·본인 확인과 응답 기한을 확인해 주세요. 마감 후 미응답은 자동 선택하지 않으며 문의가 필요합니다. 이미 제출한 선택은 중복 제출하지 않습니다.");
+    if (!letterView(book, agreement, memberId, now)?.canRespond || agreementGate(agreement, now) || !command.confirmed || !["positive", "negative"].includes(command.choice) || book.meetingChoices[memberId]) return reject("정상 3일 교환·DAY04 오픈·본인 확인과 응답 기한을 확인해 주세요. 마감 후 미응답은 자동 선택하지 않으며 문의가 필요해요. 이미 제출한 선택은 중복 제출하지 않아요.");
     next.meetingChoices[memberId] = command.choice;
   } else if (command.type === "interrupt") next.status = "interrupted";
   else if (command.type === "block") { next.status = "blocked"; next.access = Object.fromEntries(agreement.members.map(id => [id, false])); }
-  else if (!["report", "contact"].includes(command.type)) return reject("지원하지 않는 요청입니다.");
+  else if (!["report", "contact"].includes(command.type)) return reject("지원하지 않는 요청이에요.");
   next.revision += 1;
   next.events.push({ type: command.type, actor: memberId, at: now.toISOString(), revision: next.revision, day: index });
   return { book: next, error: null };
@@ -121,7 +121,7 @@ export function letterView(book: LetterBook | null, agreement: AgreementState | 
       ownSubmittedAt: own?.at || null,
       ownSentBody: own?.body || null,
       writable: open,
-      lockedReason: permitted ? rowGate(book, agreement, memberId, index, now) : "접근 권한 재검토 중 · 본문을 제공하지 않습니다.",
+      lockedReason: permitted ? rowGate(book, agreement, memberId, index, now) : "접근 권한 재검토 중 · 본문을 제공하지 않아요.",
       status: !permitted ? "access-review" : released ? "published" : own ? "own-submitted" : past ? "delayed" : row.date > seoulDay(now) ? "future" : "not-submitted",
       publishedAt: released ? row.publishedAt : null,
       exchange: released ? {

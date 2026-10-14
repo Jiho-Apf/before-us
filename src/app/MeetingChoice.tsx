@@ -1,8 +1,10 @@
+import { kstDateTime } from "./dates"
 import { Link } from "react-router"
 import { useState } from "react"
 import { ArrowRight, Clock3 } from "lucide-react"
 import { Button } from "./components/ui/button"
 import { Checkbox } from "./components/ui/checkbox"
+import { Moment } from "./editorial"
 export type MeetingChoiceCommand = {
   type: "meeting-choice"
   choice: "positive" | "negative"
@@ -21,15 +23,7 @@ type MeetingChoiceProps = {
 export function MeetingChoice({ view, onSend }: MeetingChoiceProps) {
   const [choice, setChoice] = useState<"positive" | "negative" | null>(null)
   const [confirmed, setConfirmed] = useState(false)
-  const deadline = new Date(view.meetingDeadline).toLocaleString("ko-KR", {
-    timeZone: "Asia/Seoul",
-    hour12: false,
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+  const deadline = kstDateTime(view.meetingDeadline)
   const response = view.meetingResponseStatus
   const status =
     response === "choosing"
@@ -64,9 +58,17 @@ export function MeetingChoice({ view, onSend }: MeetingChoiceProps) {
           <Clock3 size={14} />
           응답 마감: {deadline} · Asia/Seoul
         </p>
-        <p>모두 응답하기 전 서로의 선택은 비공개입니다.</p>
+        <p>모두 응답하기 전 서로의 선택은 비공개예요.</p>
       </div>
-      {view.ownMeetingChoice || !view.canRespond ? (
+      {view.mutualMeetingWish ? (
+        <Moment
+          eyebrow="DAY 04 · BOTH SAID YES"
+          title={<>두 분 모두,<br />만나보고 싶다고 했어요.</>}
+          action={<Button asChild><Link to="/meeting?demo=agreement">약속 방식 함께 정하기 <ArrowRight size={16} /></Link></Button>}
+        >
+          사흘 동안 나눈 이야기가 여기까지 왔어요. 이제 두 분이 편한 날과 장소를 천천히 맞춰 봐요.
+        </Moment>
+      ) : view.ownMeetingChoice || !view.canRespond ? (
         <div className="space-y-4 text-sm leading-7">
           <p>
             내 만남 의사:{" "}
@@ -80,12 +82,12 @@ export function MeetingChoice({ view, onSend }: MeetingChoiceProps) {
             {view.mutualMeetingWish
               ? "양쪽 만남 희망이 확인됐어요. 다음 단계에서 약속 방식을 함께 정해요."
               : response === "closed"
-                ? "두 분의 응답이 모두 확인되어 이번 교류를 마무리합니다. 거절 사유는 전달하지 않습니다."
+                ? "두 분의 응답이 모두 확인되어 이번 교류를 마무리해요. 거절 사유는 전달하지 않아요."
                 : response === "unanswered"
-                  ? "응답 기한이 지났어요. 미응답을 YES나 NO로 처리하지 않습니다. 운영자에게 문의해 주세요."
+                  ? "응답 기한이 지났어요. 미응답을 YES나 NO로 처리하지 않아요. 운영자에게 문의해 주세요."
                   : response === "locked"
-                    ? "진행 상태를 확인해 주세요. 새 응답은 보류합니다."
-                    : "선택을 전달했어요. 상대의 응답을 기다리고 있습니다."}
+                    ? "진행 상태를 확인해 주세요. 새 응답은 보류해요."
+                    : "선택을 전달했어요. 상대의 응답을 기다리고 있어요."}
           </p>
           {view.mutualMeetingWish && (
             <Button asChild>
@@ -124,7 +126,7 @@ export function MeetingChoice({ view, onSend }: MeetingChoiceProps) {
               checked={confirmed}
               onCheckedChange={(value) => setConfirmed(value === true)}
             />
-            내 선택을 확인했어요. 여기서 마무리해도 괜찮습니다.
+            내 선택을 확인했어요. 여기서 마무리해도 괜찮아요.
           </label>
           <Button
             disabled={!choice || !confirmed}
@@ -136,10 +138,6 @@ export function MeetingChoice({ view, onSend }: MeetingChoiceProps) {
           </Button>
         </div>
       )}
-      <p className="border-t border-border pt-4 text-xs leading-6 text-muted-foreground">
-        가상 응답 상태입니다. 실제 저장·계정 동기화·약속 예약은 연결되지
-        않았습니다.
-      </p>
     </section>
   )
 }

@@ -1,3 +1,4 @@
+import { kstDateTime } from "./dates"
 import { useState } from "react"
 import { Link } from "react-router"
 import { ShieldAlert, ArrowUpRight, LifeBuoy } from "lucide-react"
@@ -70,10 +71,10 @@ export function MemberRequestForm({
           </Label>
           <p className="text-xs leading-6 text-muted-foreground">
             현실의 긴급 위험에는 지역 긴급 신고·지원 기관을 이용해 주세요. 이
-            데모는 긴급 접수·실제 보호 조치를 제공하지 않습니다.
+            데모는 긴급 접수·실제 보호 조치를 제공하지 않아요.
           </p>
           <p className="text-xs leading-6 text-muted-foreground">
-            노쇼·약속 취소·연락처 악용은 별도 유형으로 기록합니다. 접수만으로 약속 취소 완료·자동 차단·환불을 확정하지 않습니다. 노쇼는 약속 시작 30분 뒤부터 신고할 수 있고 운영자가 사실을 확인합니다(V6-conduct-01). 상대에게 신고 사유를 자세히 공개하지 않습니다.
+            노쇼·약속 취소·연락처 악용은 별도 유형으로 기록해요. 접수만으로 약속 취소 완료·자동 차단·환불을 확정하지 않아요. 노쇼는 약속 시작 30분 뒤부터 신고할 수 있고 운영자가 사실을 확인합니다(V6-conduct-01). 상대에게 신고 사유를 자세히 공개하지 않아요.
           </p>
         </>
       )}
@@ -87,7 +88,7 @@ export function MemberRequestForm({
             setBody(event.target.value)
             setConfirmed(false)
           }}
-          placeholder="가상 사례만 작성해 주세요. 연락처·사진·신분 자료·상대 편지 원문은 넣지 않습니다."
+          placeholder="가상 사례만 작성해 주세요. 연락처·사진·신분 자료·상대 편지 원문은 넣지 않아요."
           className="min-h-28 bg-background leading-7"
         />
       </Label>
@@ -120,7 +121,7 @@ export function MemberRequestForm({
           )
           setMessage(
             result.error ||
-              "가상 요청을 기록했어요. 운영 확인·결정과 실제 실행은 별도입니다.",
+              "가상 요청을 기록했어요. 운영 확인·결정과 실제 실행은 별도예요.",
           )
           if (!result.error) {
             setConfirmed(false)
@@ -181,8 +182,8 @@ export function MemberSafetyTools({
       {mode && ["block", "interrupt"].includes(mode) && (
         <div className="space-y-4 rounded-xl bg-muted p-5">
           <p className="text-sm leading-7">
-            새 전달과 진행을 멈춥니다. 과거 기록 열람·증거 보존·삭제는 고지할
-            정책과 별도 권한으로 검토합니다. 이미 본 내용까지 회수하지 않습니다.
+            새 전달과 진행을 멈춰요. 과거 기록 열람·증거 보존·삭제는 고지할
+            정책과 별도 권한으로 검토해요. 이미 본 내용까지 회수하지 않아요.
           </p>
           <Label className="flex items-center gap-3 text-xs">
             <Checkbox
@@ -207,7 +208,7 @@ export function MemberSafetyTools({
               )
               setMessage(
                 result.error ||
-                  "가상 새 전달·진행을 중지했어요. 소개 권리·환불·기록 보유는 별도 처리합니다.",
+                  "가상 새 전달·진행을 중지했어요. 소개 권리·환불·기록 보유는 별도 처리해요.",
               )
               setConfirm(false)
             }}
@@ -216,7 +217,7 @@ export function MemberSafetyTools({
           </Button>
           {!onProtect && (
             <p className="text-xs text-muted-foreground">
-              현재 연결된 상대·교류가 없어 직접 중지할 진행이 없습니다.
+              현재 연결된 상대·교류가 없어 직접 중지할 진행이 없어요.
               문의·신고는 접수할 수 있어요.
             </p>
           )}
@@ -226,8 +227,8 @@ export function MemberSafetyTools({
         {message}
       </p>
       <p className="text-xs leading-6 text-muted-foreground">
-        신고 건수로 자동 차단·공개 낙인·외모나 인성 점수를 만들지 않습니다. 보호
-        확인 → 사실 확인 → 결정 기록 → 재검토 요청을 구분합니다.
+        신고 건수로 자동 차단·공개 낙인·외모나 인성 점수를 만들지 않아요. 보호
+        확인 → 사실 확인 → 결정 기록 → 재검토 요청을 구분해요.
       </p>
     </section>
   )
@@ -251,7 +252,7 @@ export function AdminMemberRequests() {
       <p className="text-xs leading-6 text-muted-foreground">
         가상 Owner 전용 · 실제 관리자 권한 미구현. 보호 확인·사실
         확인·결정·재검토 기록만 추가하며 환불·삭제·재개나 당사자 결정을 대행하지
-        않습니다.
+        않아요.
       </p>
       {requests.length ? (
         <div className="overflow-x-auto">
@@ -275,9 +276,7 @@ export function AdminMemberRequests() {
                   </td>
                   <td>{REQUEST_STATUSES[item.status]}</td>
                   <td>
-                    {new Date(item.at).toLocaleString("ko-KR", {
-                      timeZone: "Asia/Seoul",
-                    })}
+                    {kstDateTime(item.at)}
                   </td>
                   <td>
                     <Button
@@ -299,14 +298,14 @@ export function AdminMemberRequests() {
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          접수된 회원 요청이 없습니다.
+          접수된 회원 요청이 없어요.
         </p>
       )}
       {selected && (
         <div className="grid gap-3 rounded-xl bg-muted p-4">
           <p className="text-xs">
             선택된 내부 요청 ID · {selected} · 원문은 이 목록에 노출하지
-            않습니다.
+            않아요.
           </p>
           <Select
             value={status}
@@ -336,7 +335,7 @@ export function AdminMemberRequests() {
             onClick={() =>
               setMessage(
                 decideMemberRequest(selected, status, note) ||
-                  "가상 검토 기록을 저장했습니다. 실제 실행·완료는 하지 않았습니다.",
+                  "가상 검토 기록을 저장했어요. 실제 실행·완료는 하지 않았어요.",
               )
             }
           >
@@ -361,8 +360,8 @@ export function AdminMemberRequests() {
         </Link>
       </div>
       <p className="text-xs leading-6 text-muted-foreground">
-        실제 대기 기록만 기존 관리 목록으로 연결합니다. 자동 시스템 점검으로
-        운영자 마지막 검토 시각을 만들거나 조건 완화·탈퇴를 강요하지 않습니다.
+        실제 대기 기록만 기존 관리 목록으로 연결해요. 자동 시스템 점검으로
+        운영자 마지막 검토 시각을 만들거나 조건 완화·탈퇴를 강요하지 않아요.
       </p>
     </section>
   )

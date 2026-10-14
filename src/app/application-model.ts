@@ -27,7 +27,7 @@ export const APPLICATION_FIELDS: readonly FieldDefinition[] = [
   { id: "self.area", label: "주 활동 지역 · 시·군·구", step: 0, group: "core", format: "text", purpose: "시·군·구 수준만 · 집·직장 주소·GPS 수집 안 함", required: true, scope: "partner", min: 2, max: 40, rule: "broad-area", placeholder: "가상구 · 가상 시·군·구만 입력해 주세요" },
   { id: "self.purpose", label: "관계 목적", step: 0, group: "core", format: "single", purpose: "나의 관계 기준 참고", required: true, scope: "partner", options: ["진지한 연애", "천천히 알아가며 연애", "아직 정리 중"] },
   { id: "self.bio", label: "한 줄 소개", step: 0, group: "core", format: "text", purpose: "나를 소개하는 짧은 글", required: true, scope: "partner", min: 20, max: 150, placeholder: "가상 인물에 대한 소개를 20~150자로 적어주세요." },
-  { id: "self.statement", label: "현재 다른 사람과 교제·혼인 관계가 없고 성실히 참여할 의사가 있습니다.", step: 0, group: "core", format: "boolean", purpose: "본인 진술 · 인증 아님", required: true, scope: "operator" },
+  { id: "self.statement", label: "현재 다른 사람과 교제·혼인 관계가 없고 성실히 참여할 의사가 있어요.", step: 0, group: "core", format: "boolean", purpose: "본인 진술 · 인증 아님", required: true, scope: "operator" },
   { id: "self.pledge", label: "기혼·사실혼이거나 다른 사람과 교제 중인 사실이 확인되면 이용이 종료되고, 상대 보호에 필요한 조치가 이뤄질 수 있음을 이해했어요.", step: 0, group: "core", format: "boolean", purpose: "허위 진술 시 조치 고지 확인 · 미혼 인증 아님", required: true, scope: "operator" },
   { id: "self.height", label: "키", step: 0, group: "optional", format: "number", purpose: "본인이 입력한 키 · cm", required: false, scope: "partner", rule: "positive-cm", placeholder: "cm 직접 입력" },
   { id: "self.body", label: "체형", step: 0, group: "optional", format: "single", purpose: "본인이 선택한 표현", required: false, scope: "operator", options: ["마른 편", "보통", "탄탄한 편", "체격 있는 편", "미선택"] },
@@ -38,8 +38,8 @@ export const APPLICATION_FIELDS: readonly FieldDefinition[] = [
   { id: "self.available", label: "편한 시간", step: 0, group: "optional", format: "single", purpose: "참여 가능한 시간대 참고", required: false, scope: "partner", options: ["평일 저녁", "주말 낮", "주말 저녁", "일정에 따라"] },
   { id: "self.interests", label: "관심사", step: 0, group: "optional", format: "multi", purpose: "넓은 관심 분야 참고", required: false, scope: "partner", limit: 5, options: ["음악", "산책", "영화", "책", "여행", "운동", "음식", "전시", "게임", "자연"] },
   { id: "self.work", label: "직업/직무 · 넓은 분야", step: 0, group: "optional", format: "single", purpose: "동의한 매칭 참고 범위에서만 운영자 확인 · 회사명·직장 주소·소득 수집 안 함 · 미입력은 무직으로 판단하지 않음", required: false, scope: "partner", options: ["기획·사무", "개발·기술", "디자인·콘텐츠", "교육·연구", "서비스·영업", "현장·생산", "기타", "답하지 않음"] },
-  { id: "self.workTitle", label: "직업/직무 · 직업명", step: 0, group: "optional", format: "text", purpose: "가상 직업명만 · 회사명·직장 주소·소득은 입력하지 마세요. 비공개여도 동의한 매칭 참고 범위에서만 운영자가 확인하며, 미입력은 무직으로 판단하지 않습니다.", required: false, scope: "partner", max: 40, rule: "no-contact", placeholder: "가상 직무 예: 콘텐츠 기획자 · 선택" },
-  { id: "self.question", label: "질문형 소개 01", step: 0, section: "expression", group: "optional", format: "single", purpose: "기존 대화 질문을 그대로 사용합니다 · 선택하지 않아도 신청 가능", required: false, scope: "partner", options: ["어떤 사람과 있을 때 편안한가요?"] },
+  { id: "self.workTitle", label: "직업/직무 · 직업명", step: 0, group: "optional", format: "text", purpose: "가상 직업명만 · 회사명·직장 주소·소득은 입력하지 마세요. 비공개여도 동의한 매칭 참고 범위에서만 운영자가 확인하며, 미입력은 무직으로 판단하지 않아요.", required: false, scope: "partner", max: 40, rule: "no-contact", placeholder: "가상 직무 예: 콘텐츠 기획자 · 선택" },
+  { id: "self.question", label: "질문형 소개 01", step: 0, section: "expression", group: "optional", format: "single", purpose: "기존 대화 질문을 그대로 사용해요 · 선택하지 않아도 신청 가능", required: false, scope: "partner", options: ["어떤 사람과 있을 때 편안한가요?"] },
   { id: "self.answer", label: "어떤 사람과 있을 때 편안한가요? · 답변", step: 0, section: "expression", group: "optional", format: "text", purpose: "기존 대화 답변 재사용 · 연락처·SNS·민감정보는 적지 마세요", required: false, scope: "partner", min: 100, max: 300, placeholder: "가상 답변을 100~300자로 적어주세요." },
   ...EXPRESSION_FIELDS,
   ...PHOTO_SLOTS.map(slot => ({ ...slot, step: 1, group: slot.required ? "core" as const : "optional" as const })),
@@ -69,7 +69,7 @@ export function accountAge(account: AccountFacts, today: string) {
 }
 export function fieldError(field: FieldDefinition, value: AnswerValue | undefined, today: string, account: AccountFacts = {}, photos: ApplicationPhotos = emptyPhotos()) {
   if (field.format === "photo") return photoError(photos, field.id as PhotoSlotId);
-  if (field.id === "self.birthDate" && accountAge(account, today) !== null) return accountAge(account, today)! < BEFORE_US.operatingDraft.minimumAge ? "운영 초안의 만 19세 이상 기준을 충족하지 않습니다." : null;
+  if (field.id === "self.birthDate" && accountAge(account, today) !== null) return accountAge(account, today)! < BEFORE_US.operatingDraft.minimumAge ? "운영 초안의 만 19세 이상 기준을 충족하지 않아요." : null;
   const state = answerState(value);
   if (state === "unanswered") return field.required ? "필수 항목을 확인해 주세요." : null;
   if (field.format === "boolean") return value === true ? null : "직접 확인해 주세요.";
@@ -83,12 +83,12 @@ export function fieldError(field: FieldDefinition, value: AnswerValue | undefine
   if (field.min && length < field.min || field.max && length > field.max) return `${field.min || 0}~${field.max}자로 입력해 주세요.`;
   if (field.rule === "no-contact" && /(?:@|https?:|www\.|\d[\d\s-]{6,}|카톡|카카오톡|인스타|instagram|sns|연락처|전화번호|아이디)/i.test(value)) return field.id === "desired.appearance.note" ? "타인의 연락처·SNS·아이디 등 개인정보는 설명에 넣지 마세요." : "연락처·SNS·아이디는 이름에 넣을 수 없어요.";
   if (field.rule === "broad-area" && /(?:\d+\s*(?:번지|호|층)|(?:로|길)\s*\d|(?:집|직장)\s*주소|\d{1,3}\.\d+\s*[,/]\s*\d{1,3}\.\d+)/.test(value)) return "주소·GPS 대신 넓은 생활권만 입력해 주세요.";
-  if (field.id === "self.area" && !/^[가-힣]+(?:시|군|구)(?:\s+[가-힣]+구)?$/.test(value.trim())) return "주 활동 지역은 시·군·구 수준으로 입력해 주세요. 기존 생활권 답변은 보존되며 보완이 필요합니다.";
-  if (field.rule === "positive-cm" && (!/^\d+$/.test(value) || Number(value) <= 0)) return "키는 양의 정수로 직접 입력해 주세요. 단위는 cm입니다.";
+  if (field.id === "self.area" && !/^[가-힣]+(?:시|군|구)(?:\s+[가-힣]+구)?$/.test(value.trim())) return "주 활동 지역은 시·군·구 수준으로 입력해 주세요. 기존 생활권 답변은 보존되며 보완이 필요해요.";
+  if (field.rule === "positive-cm" && (!/^\d+$/.test(value) || Number(value) <= 0)) return "키는 양의 정수로 직접 입력해 주세요. 단위는 cm예요.";
   if (field.rule === "adult-draft") {
     const age = ageOn(value, today);
     if (age === null) return "유효한 가상 생년월일을 입력해 주세요.";
-    if (age < BEFORE_US.operatingDraft.minimumAge) return "만 19세 이상은 운영 초안 기준입니다. 현재 입력값은 기준 미충족입니다.";
+    if (age < BEFORE_US.operatingDraft.minimumAge) return "만 19세 이상은 운영 초안 기준이에요. 현재 입력값은 기준 미충족이에요.";
   }
   return null;
 }
@@ -106,8 +106,8 @@ export function validateApplication(draft: ApplicationDraft, today: string, acco
   if (step === undefined || step === 2) Object.assign(errors, validatePreferences(draft.values, draft.preferences || emptyPreferences()));
   if (step === undefined || step === 2) Object.assign(errors, validateRelationshipPreferences(draft.values));
   if (step === undefined || step === 3) {
-    for (const id of [...BASE_PUBLIC_FIELDS, ...REQUIRED_PUBLIC_PHOTOS]) if (!draft.sharing[id]) errors[`sharing.${id}`] = "기본 소개 프로필에 필요한 공개입니다. 동의하지 않으면 신청을 보류하거나 철회할 수 있어요.";
-    if (draft.review?.submission === "held" || draft.review?.submission === "withdrawn") errors["submission.resume"] = "보류·철회 상태입니다. 다시 작성하기를 선택한 뒤 확인해 주세요.";
+    for (const id of [...BASE_PUBLIC_FIELDS, ...REQUIRED_PUBLIC_PHOTOS]) if (!draft.sharing[id]) errors[`sharing.${id}`] = "기본 소개 프로필에 필요한 공개예요. 동의하지 않으면 신청을 보류하거나 철회할 수 있어요.";
+    if (draft.review?.submission === "held" || draft.review?.submission === "withdrawn") errors["submission.resume"] = "보류·철회 상태예요. 다시 작성하기를 선택한 뒤 확인해 주세요.";
     if (draft.preferences.request === "hold") errors["preference.hold"] = "신청 보류 의사가 기록되어 있어요. 원하는 만남 단계에서 보류 의사를 해제하거나 신청을 보류해 주세요.";
   }
   return errors;

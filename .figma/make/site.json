@@ -8,5 +8,11 @@
   "accessibility": {
     "addBypassLinks": false,
     "ignoreReducedMotion": false
+  },
+  "icons": {
+    "icon": "/favicon.svg"
+  },
+  "openGraph": {
+    "image": "https://before-us-3jr4.vercel.app/og-image.png"
   }
 }

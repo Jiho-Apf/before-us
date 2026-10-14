@@ -1,3 +1,4 @@
+import { kstDateTime, kstDay } from "./dates"
 import { useSyncExternalStore } from "react";
 import { BEFORE_US } from "./config";
 import { getConsoleData, replaceConsoleData } from "./admin-console-data";
@@ -89,12 +90,12 @@ export function interruptionOutcome(session: PaymentSession, reason: Interruptio
     refundBasis: quote.reason,
     introductionBenefitEnds: started,
     feeWaiver: victimClaim ? "운영 확인 후 다음 소개 이용료 5,000원 면제" : null,
-    review: reason === "self-change" ? null : reason === "safety" ? "안전·신고 사유는 단순 변심으로 자동 판정하지 않고 운영자가 확인합니다." : "상대 귀책·운영 문제는 운영자가 사실을 확인한 뒤 면제를 적용합니다.",
+    review: reason === "self-change" ? null : reason === "safety" ? "안전·신고 사유는 단순 변심으로 자동 판정하지 않고 운영자가 확인해요." : "상대 귀책·운영 문제는 운영자가 사실을 확인한 뒤 면제를 적용해요.",
   };
 }
 export function recordInterruption(input: { programId: string; actorId: string; partnerId: string; reason: InterruptionReason; session: PaymentSession; partnerSession?: PaymentSession | null }, now = new Date()) {
   if (!input.programId || !input.actorId || !input.partnerId || input.actorId === input.partnerId || !Object.prototype.hasOwnProperty.call(INTERRUPTION_REASONS, input.reason) || !Number.isFinite(now.getTime())) return { error: "당사자·교류·중단 사유·가상 시각을 확인해 주세요.", id: null };
-  if (snapshot.cases.some(item => item.kind === "interruption" && item.programId === input.programId && item.status !== "dismissed")) return { error: "이 교류에는 이미 중단 기록이 있습니다. 중복 기록하지 않습니다.", id: null };
+  if (snapshot.cases.some(item => item.kind === "interruption" && item.programId === input.programId && item.status !== "dismissed")) return { error: "이 교류에는 이미 중단 기록이 있어요. 중복 기록하지 않아요.", id: null };
   const outcome = interruptionOutcome(input.session, input.reason, now);
   const partnerQuote = input.partnerSession ? refundQuote(input.partnerSession, "exchange", now, "cancel").amount : null;
   const next = structuredClone(snapshot);
@@ -121,7 +122,7 @@ export function recordInterruption(input: { programId: string; actorId: string; 
 export function classifyCancellation(meetingStartAt: string, cancelledAt: string, excuse: ExcuseReason | null = null) {
   if (!parsed(meetingStartAt) || !parsed(cancelledAt)) return { error: "약속 시작 시각과 취소 시각을 확인해 주세요." } as const;
   const hoursBefore = (Date.parse(meetingStartAt) - Date.parse(cancelledAt)) / HOUR;
-  if (hoursBefore <= 0) return { error: "약속 시작 이후에는 취소로 기록하지 않습니다. 불참은 시작 30분 뒤 노쇼 신고로 확인합니다." } as const;
+  if (hoursBefore <= 0) return { error: "약속 시작 이후에는 취소로 기록하지 않아요. 불참은 시작 30분 뒤 노쇼 신고로 확인해요." } as const;
   const late = hoursBefore < CONDUCT_POLICY.lateCancelHours;
   return {
     error: null, hoursBefore, late,
@@ -135,7 +136,7 @@ export function recordCancellation(input: { programId: string; appointmentId: st
   if (result.error) return { error: result.error, id: null };
   if (!input.programId || !input.appointmentId || !input.cancellerId || !input.partnerId || input.cancellerId === input.partnerId) return { error: "당사자·약속을 확인해 주세요.", id: null };
   if (!result.late && !["reschedule", "end"].includes(input.choice || "")) return { error: "24시간 이전 취소는 재조율 또는 종료를 선택해 주세요.", id: null };
-  if (snapshot.cases.some(item => item.appointmentId === input.appointmentId && item.kind === "cancellation" && item.status !== "dismissed")) return { error: "이 약속에는 이미 취소 기록이 있습니다.", id: null };
+  if (snapshot.cases.some(item => item.appointmentId === input.appointmentId && item.kind === "cancellation" && item.status !== "dismissed")) return { error: "이 약속에는 이미 취소 기록이 있어요.", id: null };
   const next = structuredClone(snapshot);
   const item = newCase(next, {
     kind: "cancellation", programId: input.programId, appointmentId: input.appointmentId,
@@ -159,7 +160,7 @@ export function endAfterLateCancellation(caseId: string, memberId: string, now =
 export function noShowReportGate(meetingStartAt: string, now: Date, appointmentId: string, accusedId: string) {
   if (!parsed(meetingStartAt) || !Number.isFinite(now.getTime())) return "약속 시작 시각을 확인해 주세요.";
   if (now.getTime() < Date.parse(meetingStartAt) + CONDUCT_POLICY.noShowGraceMinutes * 60000) return `약속 시작 ${CONDUCT_POLICY.noShowGraceMinutes}분이 지난 뒤에 신고할 수 있어요.`;
-  if (snapshot.cases.some(item => item.kind === "cancellation" && item.appointmentId === appointmentId && item.actorId === accusedId)) return "상대의 사전 취소 기록이 있는 약속은 노쇼가 아니라 취소 기준으로 처리합니다.";
+  if (snapshot.cases.some(item => item.kind === "cancellation" && item.appointmentId === appointmentId && item.actorId === accusedId)) return "상대의 사전 취소 기록이 있는 약속은 노쇼가 아니라 취소 기준으로 처리해요.";
   return null;
 }
 export function reportNoShow(input: { programId: string; appointmentId: string; reporterId: string; accusedId: string; meetingStartAt: string; noContactConfirmed: boolean }, now = new Date()) {
@@ -167,7 +168,7 @@ export function reportNoShow(input: { programId: string; appointmentId: string; 
   if (blocked) return { error: blocked, id: null };
   if (!input.noContactConfirmed) return { error: "사전 취소나 연락 없이 불참했는지 확인해 주세요.", id: null };
   if (!input.reporterId || !input.accusedId || input.reporterId === input.accusedId) return { error: "당사자를 확인해 주세요.", id: null };
-  if (snapshot.cases.some(item => item.kind === "no-show" && item.appointmentId === input.appointmentId && item.actorId === input.accusedId && item.status !== "dismissed")) return { error: "이미 접수된 노쇼 신고가 있습니다.", id: null };
+  if (snapshot.cases.some(item => item.kind === "no-show" && item.appointmentId === input.appointmentId && item.actorId === input.accusedId && item.status !== "dismissed")) return { error: "이미 접수된 노쇼 신고가 있어요.", id: null };
   const next = structuredClone(snapshot);
   const item = newCase(next, {
     kind: "no-show", programId: input.programId, appointmentId: input.appointmentId,
@@ -182,9 +183,9 @@ export function reportNoShow(input: { programId: string; appointmentId: string; 
 export function decideConductCase(caseId: string, decision: "confirmed" | "dismissed" | "excused", note: string, options: { intentional?: boolean } = {}, now = new Date()) {
   if (!note.trim() || note.length > 200 || /(?:https?:|@|\d[\d\s-]{6,})/i.test(note) || !Number.isFinite(now.getTime())) return "1~200자 개인정보 없는 확인 내용을 기록해 주세요.";
   const next = structuredClone(snapshot), item = next.cases.find(entry => entry.id === caseId);
-  if (!item || !["checking", "recorded", "reconsidering"].includes(item.status)) return "확인할 수 있는 사건 상태가 아닙니다.";
-  if (decision === "excused" && item.kind !== "cancellation") return "불가피 사유 확인은 약속 취소에만 적용합니다.";
-  if (item.kind === "interruption" && item.interruption!.reason === "self-change" && decision !== "dismissed") return "단순 변심 중단은 본인 기록으로 이미 반영되었습니다.";
+  if (!item || !["checking", "recorded", "reconsidering"].includes(item.status)) return "확인할 수 있는 사건 상태가 아니에요.";
+  if (decision === "excused" && item.kind !== "cancellation") return "불가피 사유 확인은 약속 취소에만 적용해요.";
+  if (item.kind === "interruption" && item.interruption!.reason === "self-change" && decision !== "dismissed") return "단순 변심 중단은 본인 기록으로 이미 반영되었어요.";
   item.status = decision;
   item.adminLog.push({ at: now.toISOString(), actor: "가상 Owner", action: CASE_STATUS[decision], note: note.trim() });
   const pending = next.waivers.filter(waiver => waiver.caseId === item.id && waiver.status === "pending");
@@ -252,7 +253,7 @@ export function conductNoticeFor(item: ConductCase, memberId: string) {
     ? `내 약속 취소 · ${item.cancellation!.late ? "늦은 취소(24시간 이내) 기록" : "일반 취소"}${item.cancellation!.excuse ? ` · ${EXCUSE_REASONS[item.cancellation!.excuse]} 사유 ${item.status === "excused" ? "확인 · 불이익 없음" : "운영 확인 중"}` : ""}`
     : "상대가 약속을 취소했어요. 다음 진행을 선택할 수 있어요.";
   if (item.kind === "no-show") return own
-    ? `노쇼 신고 · ${CASE_STATUS[item.status]}${item.sanction && item.sanction.status !== "lifted" ? ` · 소개 이용 정지 ${item.sanction.days}일(${new Date(item.sanction.endsAt).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}까지)${item.sanction.escalationReview ? " · 추가 조치 운영 검토" : ""}` : ""}`
+    ? `노쇼 신고 · ${CASE_STATUS[item.status]}${item.sanction && item.sanction.status !== "lifted" ? ` · 소개 이용 정지 ${item.sanction.days}일(${kstDay(item.sanction.endsAt)}까지)${item.sanction.escalationReview ? " · 추가 조치 운영 검토" : ""}` : ""}`
     : `노쇼 신고 · ${item.status === "confirmed" ? "운영 확인 완료" : CASE_STATUS[item.status]}`;
   const reason = item.interruption!.reason;
   if (reason === "self-change") return own ? "내가 교류를 중단했어요 · 단순 변심" : "교류가 종료되었어요.";
@@ -270,10 +271,10 @@ export function memberConductView(memberId: string, now: Date, state = snapshot)
 // ── 재이용 ──
 export function reuseQuote(input: { memberId: string; payment: PaymentSession; programEnded: boolean; lastReviewAt: string | null; now: Date }, state = snapshot) {
   const { memberId, payment, now } = input;
-  if (!validAt(payment.firstProgramStartedAt, now)) return { status: "initial" as const, message: "첫 교류가 실제 시작되기 전에는 기존 소개 혜택이 유지돼 새 회차 소개비가 없습니다." };
+  if (!validAt(payment.firstProgramStartedAt, now)) return { status: "initial" as const, message: "첫 교류가 실제 시작되기 전에는 기존 소개 혜택이 유지돼 새 회차 소개비가 없어요." };
   if (!input.programEnded) return { status: "in-progress" as const, message: "진행 중인 교류가 끝난 뒤 새 회차 소개를 신청할 수 있어요." };
   const suspension = activeSuspension(memberId, now, state);
-  if (suspension) return { status: "suspended" as const, message: `소개 이용 정지 중입니다 · ${new Date(suspension.endsAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false })}까지. 재검토를 요청할 수 있어요.` };
+  if (suspension) return { status: "suspended" as const, message: `소개 이용 정지 중이에요 · ${kstDateTime(suspension.endsAt)}까지. 재검토를 요청할 수 있어요.` };
   const waiver = state.waivers.find(item => item.memberId === memberId && item.status === "granted") || null;
   const pendingWaiver = state.waivers.some(item => item.memberId === memberId && item.status === "pending");
   // 마지막 검토 기록이 없으면 90일 이내라고 추정하지 않고 다시 확인한다.
@@ -291,7 +292,7 @@ export function reuseQuote(input: { memberId: string; payment: PaymentSession; p
 export function requestNewRound(input: Parameters<typeof reuseQuote>[0]) {
   const quote = reuseQuote(input);
   if (quote.status !== "available") return { error: quote.message, id: null };
-  if (snapshot.rounds.some(item => item.memberId === input.memberId && item.status === "requested")) return { error: "이미 접수된 새 회차 요청이 있습니다. 중복 청구하지 않습니다.", id: null };
+  if (snapshot.rounds.some(item => item.memberId === input.memberId && item.status === "requested")) return { error: "이미 접수된 새 회차 요청이 있어요. 중복 청구하지 않아요.", id: null };
   const next = structuredClone(snapshot);
   const id = `round-${next.revision + 1}-${input.memberId}`;
   next.rounds.push({ id, memberId: input.memberId, at: input.now.toISOString(), introductionFee: quote.introductionFee, exchangeFee: quote.exchangeFee, waiverId: quote.waiver?.id || null, reverify: quote.reverify, policyVersion: CONDUCT_POLICY.version, status: "requested" });
@@ -302,11 +303,11 @@ export function requestNewRound(input: Parameters<typeof reuseQuote>[0]) {
 }
 
 export const CONDUCT_NOTICE = [
-  "본인 단순 변심으로 교류를 중단하면 아직 시작하지 않은 DAY 금액만 환불합니다. 교류가 실제 시작된 뒤라면 이번 소개비로 받던 소개 혜택(초기 30일 혜택 또는 기본 5번)은 종료됩니다.",
-  "상대의 미응답·중도 이탈이나 운영 문제로 정상 진행이 어려우면 미제공 DAY 금액을 환불하고 다음 소개 이용료 5,000원을 면제합니다. 안전·신고 사유 중단은 단순 변심으로 자동 판정하지 않습니다.",
-  "약속 24시간 이전 취소는 일반 취소로 재조율 또는 종료를 선택합니다. 24시간 이내 취소는 늦은 취소로 기록하며, 피해를 본 상대가 교류를 종료하면 다음 소개비 5,000원을 면제합니다. 응급·질병·사고·안전 사유는 운영자 확인 후 불이익을 적용하지 않습니다.",
-  "약속 시작 30분이 지났고 사전 취소나 연락 없이 불참했다면 노쇼로 신고할 수 있어요. 자동 판정하지 않고 운영자가 사실을 확인하며, 확인된 노쇼는 기본 14일 소개 이용 정지입니다. 반복·고의성이 확인되면 30일 이상 또는 이용 종료를 운영자가 검토합니다.",
-  "노쇼 피해자는 다음 소개비 5,000원 면제와 우선 재소개 대상입니다. 노쇼만을 이유로 이미 정상 제공된 3일 교류비 전체를 자동 환불하지는 않습니다.",
-  "정상 교류가 끝난 뒤 새 소개를 원하면 새 회차 소개비 5,000원, 새 상대와 상호 선택 시 교류비 24,000원입니다. 기존 프로필·사진·취향은 다시 쓸 수 있고, 마지막 검토 후 90일이 지났다면 사진·지역·직업·관계상태·선호를 다시 확인합니다.",
-  "취소·노쇼·제재 사유를 상대에게 자세히 공개하지 않습니다. 모든 이용 제한은 운영 기록을 남기며 재검토를 요청할 수 있습니다.",
+  "본인 단순 변심으로 교류를 중단하면 아직 시작하지 않은 DAY 금액만 환불해요. 교류가 실제 시작된 뒤라면 이번 소개비로 받던 소개 혜택(초기 30일 혜택 또는 기본 5번)은 종료돼요.",
+  "상대의 미응답·중도 이탈이나 운영 문제로 정상 진행이 어려우면 미제공 DAY 금액을 환불하고 다음 소개 이용료 5,000원을 면제해요. 안전·신고 사유 중단은 단순 변심으로 자동 판정하지 않아요.",
+  "약속 24시간 이전 취소는 일반 취소로 재조율 또는 종료를 선택해요. 24시간 이내 취소는 늦은 취소로 기록하며, 피해를 본 상대가 교류를 종료하면 다음 소개비 5,000원을 면제해요. 응급·질병·사고·안전 사유는 운영자 확인 후 불이익을 적용하지 않아요.",
+  "약속 시작 30분이 지났고 사전 취소나 연락 없이 불참했다면 노쇼로 신고할 수 있어요. 자동 판정하지 않고 운영자가 사실을 확인하며, 확인된 노쇼는 기본 14일 소개 이용 정지예요. 반복·고의성이 확인되면 30일 이상 또는 이용 종료를 운영자가 검토해요.",
+  "노쇼 피해자는 다음 소개비 5,000원 면제와 우선 재소개 대상이에요. 노쇼만을 이유로 이미 정상 제공된 3일 교류비 전체를 자동 환불하지는 않아요.",
+  "정상 교류가 끝난 뒤 새 소개를 원하면 새 회차 소개비 5,000원, 새 상대와 상호 선택 시 교류비 24,000원이에요. 기존 프로필·사진·취향은 다시 쓸 수 있고, 마지막 검토 후 90일이 지났다면 사진·지역·직업·관계상태·선호를 다시 확인해요.",
+  "취소·노쇼·제재 사유를 상대에게 자세히 공개하지 않아요. 모든 이용 제한은 운영 기록을 남기며 재검토를 요청할 수 있어요.",
 ] as const;

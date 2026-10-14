@@ -31,17 +31,17 @@ export const emptyPhotos = (): ApplicationPhotos => Object.fromEntries(PHOTO_SLO
 
 export function mockFileError(file: MockPhotoFile) {
   const extension = file.name.split(".").pop()?.toLowerCase();
-  if (extension === "heic" || file.mime === "image/heic") return "HEIC 변환 기능이 연결되어 있지 않습니다. JPG·PNG·WebP로 변환한 뒤 등록해 주세요. (가상 파일 검사)";
+  if (extension === "heic" || file.mime === "image/heic") return "HEIC 변환 기능이 연결되어 있지 않아요. JPG·PNG·WebP로 변환한 뒤 등록해 주세요. (가상 파일 검사)";
   const expected = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
-  if (!extension || !BEFORE_US.photoFiles.allowedExtensions.some(allowed => allowed === extension) || !(extension in expected) || expected[extension as keyof typeof expected] !== file.mime) return "JPG/JPEG·PNG·WebP 형식만 사용합니다. (가상 파일 정보 검사)";
+  if (!extension || !BEFORE_US.photoFiles.allowedExtensions.some(allowed => allowed === extension) || !(extension in expected) || expected[extension as keyof typeof expected] !== file.mime) return "JPG/JPEG·PNG·WebP 형식만 사용해요. (가상 파일 정보 검사)";
   if (!Number.isInteger(file.bytes) || file.bytes <= 0 || file.bytes > BEFORE_US.photoFiles.maximumBytes) return "장당 10MB 이하 파일을 선택해 주세요. (가상 파일 용량 검사)";
-  if (!Number.isInteger(file.width) || !Number.isInteger(file.height) || file.width <= 0 || file.height <= 0) return "가상 파일의 이미지 크기 정보가 유효하지 않습니다.";
+  if (!Number.isInteger(file.width) || !Number.isInteger(file.height) || file.width <= 0 || file.height <= 0) return "가상 파일의 이미지 크기 정보가 유효하지 않아요.";
   return null;
 }
 export function registerMockPhoto(photos: ApplicationPhotos, id: PhotoSlotId, file: MockPhotoFile, simulateFailure = false): ApplicationPhotos {
   const old = photos[id];
   const duplicate = PHOTO_SLOTS.some(slot => slot.id !== id && photos[slot.id].file?.id === file.id);
-  const error = mockFileError(file) || (duplicate ? "동일 가상 파일이 다른 슬롯에 있습니다. 서로 다른 사진을 선택해 주세요." : null) || (simulateFailure ? "가상 등록 실패입니다. 재시도로 다시 확인할 수 있습니다." : null);
+  const error = mockFileError(file) || (duplicate ? "동일 가상 파일이 다른 슬롯에 있어요. 서로 다른 사진을 선택해 주세요." : null) || (simulateFailure ? "가상 등록 실패예요. 재시도로 다시 확인할 수 있어요." : null);
   const record: PhotoRecord = error ? { ...old, attempt: file, status: "failed", error } : { ...emptyPhoto(), file: { ...file }, attempt: null, status: "ready", revision: old.revision + 1, activeProposalPhoto: old.activeProposalPhoto };
   return { ...photos, [id]: record };
 }
@@ -55,7 +55,7 @@ export function deletePhoto(photos: ApplicationPhotos, id: PhotoSlotId): Applica
 export function photoError(photos: ApplicationPhotos, id: PhotoSlotId) {
   const slot = PHOTO_SLOTS.find(slot => slot.id === id)!;
   const record = photos[id];
-  if (!record || record.status === "empty") return slot.required ? `${slot.number}번 ${slot.label} 사진이 필요합니다. (가상 등록)` : null;
+  if (!record || record.status === "empty") return slot.required ? `${slot.number}번 ${slot.label} 사진이 필요해요. (가상 등록)` : null;
   if (record.status === "failed") return record.error || "등록 실패 상태를 확인해 주세요.";
   if (!record.file) return "가상 파일을 선택해 주세요.";
   const fileError = mockFileError(record.file);

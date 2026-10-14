@@ -1,3 +1,4 @@
+import { kstDateTime } from "./dates"
 import { useMemo, useState } from "react"
 import { Link } from "react-router"
 import { Scale } from "lucide-react"
@@ -41,7 +42,7 @@ import {
 } from "./conduct-policy"
 
 const time = (at: string) =>
-  new Date(at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false })
+  kstDateTime(at)
 const money = (value: number | null) =>
   value === null ? "개별 확인 필요" : `${value.toLocaleString("ko-KR")}원`
 const KIND_LABELS = { interruption: "교류 중단", cancellation: "약속 취소", "no-show": "노쇼" } as const
@@ -59,9 +60,9 @@ export function ConductPolicyNotice({ compact = false }: { compact?: boolean }) 
         ))}
       </ul>
       <p className="text-muted-foreground">
-        운영 기준이며 실제 약관의 법률 검토 완료를 뜻하지 않습니다. 법정
-        청약철회 권리와 더 유리한 약관상 권리를 제한하지 않습니다. 기존 환불
-        기준 V6-refund-01의 DAY별 산정을 그대로 사용합니다.
+        운영 기준이며 실제 약관의 법률 검토 완료를 뜻하지 않아요. 법정
+        청약철회 권리와 더 유리한 약관상 권리를 제한하지 않아요. 기존 환불
+        기준 V6-refund-01의 DAY별 산정을 그대로 사용해요.
       </p>
     </div>
   )
@@ -111,7 +112,7 @@ export function MemberConductSummary({
                   onClick={() =>
                     setMessage(
                       endAfterLateCancellation(item.id, memberId, now) ||
-                        "교류 종료를 기록했어요. 다음 소개비 5,000원 면제가 적용됩니다.",
+                        "교류 종료를 기록했어요. 다음 소개비 5,000원 면제가 적용돼요.",
                     )
                   }
                 >
@@ -135,7 +136,7 @@ export function MemberConductSummary({
         ))
       ) : (
         <p className="text-sm text-muted-foreground">
-          교류 중단·약속 취소·노쇼 기록이 없습니다.
+          교류 중단·약속 취소·노쇼 기록이 없어요.
         </p>
       )}
       {reconsider && (
@@ -151,7 +152,7 @@ export function MemberConductSummary({
             size="sm"
             onClick={() => {
               const error = requestConductReconsideration(reconsider, memberId, note, now)
-              setMessage(error || "재검토 요청을 기록했어요. 운영자가 다시 확인합니다.")
+              setMessage(error || "재검토 요청을 기록했어요. 운영자가 다시 확인해요.")
               if (!error) setReconsider(null)
             }}
           >
@@ -185,7 +186,7 @@ export function MemberConductSummary({
                 const result = requestNewRound({ memberId, payment, programEnded, lastReviewAt, now })
                 setMessage(
                   result.error ||
-                    "새 회차 소개 요청을 가상으로 기록했어요. 실제 결제·청구는 하지 않습니다.",
+                    "새 회차 소개 요청을 가상으로 기록했어요. 실제 결제·청구는 하지 않아요.",
                 )
               }}
             >
@@ -211,7 +212,7 @@ export function AdminConductCases({ now }: { now?: Date } = {}) {
   const decide = (decision: "confirmed" | "dismissed" | "excused") =>
     setMessage(
       decideConductCase(selected, decision, note, { intentional }, now) ||
-        "가상 운영 확인을 기록했어요. 실제 환불·정지 실행은 서버 연동이 필요합니다.",
+        "가상 운영 확인을 기록했어요. 실제 환불·정지 실행은 서버 연동이 필요해요.",
     )
   return (
     <section className="mt-7 space-y-4 border border-border bg-card p-5">
@@ -220,10 +221,10 @@ export function AdminConductCases({ now }: { now?: Date } = {}) {
         <h2 className="text-lg">교류 중단·약속 취소·노쇼 · {CONDUCT_POLICY.version}</h2>
       </div>
       <p className="text-xs leading-6 text-muted-foreground">
-        노쇼와 귀책 주장은 자동 판정하지 않습니다. 확인된 노쇼는 기본{" "}
+        노쇼와 귀책 주장은 자동 판정하지 않아요. 확인된 노쇼는 기본{" "}
         {CONDUCT_POLICY.noShowSuspensionDays}일 소개 이용 정지이며 반복·고의성은
-        30일 이상 또는 이용 종료를 별도로 검토합니다. 모든 이용 제한은 기록과
-        재검토 경로를 남깁니다.
+        30일 이상 또는 이용 종료를 별도로 검토해요. 모든 이용 제한은 기록과
+        재검토 경로를 남겨요.
       </p>
       {state.cases.length ? (
         <div className="overflow-x-auto">
@@ -280,7 +281,7 @@ export function AdminConductCases({ now }: { now?: Date } = {}) {
           </table>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">기록된 사건이 없습니다.</p>
+        <p className="text-sm text-muted-foreground">기록된 사건이 없어요.</p>
       )}
       {item && (
         <div className="grid gap-3 rounded-xl bg-muted p-4 text-xs">
@@ -380,8 +381,8 @@ export function ConductDemo() {
       <section className="space-y-4 border border-accent/20 bg-accent/5 p-5">
         <h1 className="text-lg text-accent">개발용 · 교류 중단·약속 취소·노쇼·재이용</h1>
         <p className="text-xs leading-6">
-          가상 회원 가·나와 가상 시각으로 {CONDUCT_POLICY.version} 기준을 시연합니다.
-          실제 결제·환불·정지·발송은 하지 않으며 새로고침하면 기록이 사라집니다.
+          가상 회원 가·나와 가상 시각으로 {CONDUCT_POLICY.version} 기준을 시연해요.
+          실제 결제·환불·정지·발송은 하지 않으며 새로고침하면 기록이 사라져요.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <Input
@@ -502,7 +503,7 @@ export function ConductDemo() {
         </TabsContent>
         <TabsContent value="no-show" className="space-y-4 pt-4">
           <p className="text-sm leading-7">
-            {NAMES[actor]}가 {NAMES[partner]}의 불참을 신고합니다. 약속 시작 시각은 약속 취소 탭과 같은 값을 씁니다.
+            {NAMES[actor]}가 {NAMES[partner]}의 불참을 신고해요. 약속 시작 시각은 약속 취소 탭과 같은 값을 써요.
           </p>
           <Label className="flex items-center gap-3 text-sm">
             <Checkbox checked={noContact} onCheckedChange={(value) => setNoContact(value === true)} />
@@ -513,7 +514,7 @@ export function ConductDemo() {
             disabled={!!noShowBlocked}
             onClick={() => {
               const result = reportNoShow({ programId: "virtual-program-meeting", appointmentId: "virtual-appointment-1", reporterId: actor, accusedId: partner, meetingStartAt, noContactConfirmed: noContact }, now)
-              setMessage(result.error || "노쇼 신고를 접수했어요. 운영자가 사실을 확인합니다.")
+              setMessage(result.error || "노쇼 신고를 접수했어요. 운영자가 사실을 확인해요.")
             }}
           >
             {NAMES[actor]} · 노쇼 신고
@@ -529,7 +530,7 @@ export function ConductDemo() {
             <Input type="datetime-local" value={lastReview} onChange={(event) => setLastReview(event.target.value)} />
           </Label>
           <p className="text-xs text-muted-foreground">
-            재이용은 아래 회원별 보기에서 확인합니다. 첫 교류가 실제로 시작된 가상 결제 기록을 사용합니다.
+            재이용은 아래 회원별 보기에서 확인해요. 첫 교류가 실제로 시작된 가상 결제 기록을 사용해요.
           </p>
         </TabsContent>
       </Tabs>

@@ -69,7 +69,7 @@ export function responseDeadline(publication: string, time = BEFORE_US.introduct
 }
 export function validateAdminIntroductionPreparation(state: AdminState, proposalId: string, now = new Date()) {
   const proposal = state.proposals.find(item => item.id === proposalId)
-  return proposal ? reservationIssues(state, proposal, dateAt(now)) : ["기존 후보 검토·소개 준비 건이 필요합니다."]
+  return proposal ? reservationIssues(state, proposal, dateAt(now)) : ["기존 후보 검토·소개 준비 건이 필요해요."]
 }
 function event(book: IntroductionBook, record: IntroductionRecord, kind: string, now: Date, memberId: string | null = null) {
   book.revision += 1
@@ -80,12 +80,12 @@ export function publicationIssues(book: IntroductionBook, record: IntroductionRe
   const issues: string[] = []
   if (book.records.filter(item => item.id === record.id).length !== 1) issues.push("중복 소개 ID를 확인해 주세요.")
   if (record.pair.some(id => book.members.filter(member => member.id === id).length !== 1)) issues.push("양쪽 고유 회원을 확인해 주세요.")
-  if (record.pair[0] === record.pair[1]) issues.push("한 쌍의 서로 다른 회원이 필요합니다.")
+  if (record.pair[0] === record.pair[1]) issues.push("한 쌍의 서로 다른 회원이 필요해요.")
   const publication = new Date(record.scheduledAt)
   if (!Number.isFinite(publication.getTime()) || !Number.isFinite(now.getTime())) return ["유효한 공개·현재 시각을 확인해 주세요."]
   const parts = new Intl.DateTimeFormat("en-GB", { timeZone: BEFORE_US.introduction.timezone, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })
   if (!Number.isFinite(publication.getTime()) || parts.format(publication) !== `${BEFORE_US.introduction.readyAt}:00` || record.status !== "reserved") issues.push("정오 공개 예약 상태를 확인해 주세요.")
-  if (!Number.isFinite(Date.parse(record.responseDueAt)) || Date.parse(record.responseDueAt) <= publication.getTime()) issues.push("공개 뒤의 실제 응답 기한이 필요합니다.")
+  if (!Number.isFinite(Date.parse(record.responseDueAt)) || Date.parse(record.responseDueAt) <= publication.getTime()) issues.push("공개 뒤의 실제 응답 기한이 필요해요.")
   for (const id of record.pair) {
     const member = book.members.find(item => item.id === id)
     const other = record.pair.find(item => item !== id)!
@@ -96,17 +96,17 @@ export function publicationIssues(book: IntroductionBook, record: IntroductionRe
     if (member.profile.version !== record.versions[id] || member.policyVersion !== record.policyVersions[id] || member.paymentPolicy.version !== member.policyVersion) issues.push(`${id}: 준비 후 버전 재확인 필요`)
     if (member.blockedIds.includes(other) || member.previousIds.includes(other)) issues.push(`${id}: 차단·동일 상대 재제안 금지`)
     if (book.records.some(item => item.id !== record.id && item.pair.includes(id) && item.status !== "closed")) issues.push(`${id}: 다른 활성 소개·결제·합의와 동시 진행 불가`)
-    if (book.records.some(item => item.id !== record.id && item.pair.includes(id) && item.pair.includes(other))) issues.push("동일 상대 이력이 있습니다.")
+    if (book.records.some(item => item.id !== record.id && item.pair.includes(id) && item.pair.includes(other))) issues.push("동일 상대 이력이 있어요.")
     if (member.lastPublishedAt && (!Number.isFinite(Date.parse(member.lastPublishedAt)) || dateAt(new Date(member.lastPublishedAt)) === dateAt(publication))) issues.push(`${id}: 같은 날 추가 공개 또는 이력 확인 필요`)
     if (member.nextEligibleAt && publication.getTime() < Date.parse(member.nextEligibleAt)) issues.push(`${id}: 다음 후보가 준비된 정오까지 대기`)
     const profile = record.profiles[id]
     const slots = profile?.photos.map(photo => photo.slot) || []
     if (!profile || slots.length < 3 || slots.length > 4 || new Set(slots).size !== slots.length || !["photo.face", "photo.upper", "photo.style"].every(slot => slots.includes(slot)) || JSON.stringify(clonePublicProfile(member.profile)) !== JSON.stringify(clonePublicProfile(profile))) issues.push(`${id}: 동의한 사진·프로필 스냅샷 확인 필요`)
   }
-  if (now < publication) issues.push("정오 공개 시각 전입니다.")
-  if (Number.isFinite(now.getTime()) && parts.format(now).slice(0, 5) !== BEFORE_US.introduction.readyAt) issues.push("정오 공개 시각을 벗어났습니다. 다른 시각에 일방 공개하지 않습니다.")
-  if (now >= new Date(record.responseDueAt)) issues.push("응답 기한이 지난 건은 공개하지 않습니다.")
-  if (Number.isFinite(publication.getTime()) && dateAt(now) !== dateAt(publication)) issues.push("서로 다른 날의 지연 일방 공개는 하지 않습니다. 새 공개 준비가 필요합니다.")
+  if (now < publication) issues.push("정오 공개 시각 전이에요.")
+  if (Number.isFinite(now.getTime()) && parts.format(now).slice(0, 5) !== BEFORE_US.introduction.readyAt) issues.push("정오 공개 시각을 벗어났어요. 다른 시각에 일방 공개하지 않아요.")
+  if (now >= new Date(record.responseDueAt)) issues.push("응답 기한이 지난 건은 공개하지 않아요.")
+  if (Number.isFinite(publication.getTime()) && dateAt(now) !== dateAt(publication)) issues.push("서로 다른 날의 지연 일방 공개는 하지 않아요. 새 공개 준비가 필요해요.")
   return [...new Set(issues)]
 }
 export function publishDemoIntroduction(book: IntroductionBook, id: string, expectedRevision: number, now: Date) {
@@ -158,7 +158,7 @@ export function respondToIntroduction(book: IntroductionBook, id: string, member
   if (member?.refundOperations && !member.refundOperations.introductionOpenedAt)
     return { book, errors: ["첫 상대 프로필을 실제로 확인한 뒤 최종 응답해 주세요."] };
   if (book.revision !== expectedRevision || !record || !record.pair.includes(memberId) || !["positive", "negative"].includes(choice)) return { book, errors: ["소개·회원·응답 버전을 확인해 주세요."] }
-  if (!confirmed || record.status !== "published" || !record.publishedAt || now < new Date(record.publishedAt) || now >= new Date(record.responseDueAt) || record.responses[memberId] || !introductionView(book, memberId, now).profile) return { book, errors: ["공개된 소개의 기한 내 최초 응답을 확인한 뒤 제출해 주세요. 제출한 응답은 덮어쓰지 않습니다."] }
+  if (!confirmed || record.status !== "published" || !record.publishedAt || now < new Date(record.publishedAt) || now >= new Date(record.responseDueAt) || record.responses[memberId] || !introductionView(book, memberId, now).profile) return { book, errors: ["공개된 소개의 기한 내 최초 응답을 확인한 뒤 제출해 주세요. 제출한 응답은 덮어쓰지 않아요."] }
   const next = structuredClone(book)
   const target = next.records.find(item => item.id === id)!
   target.responses[memberId] = { choice, at: now.toISOString() }
@@ -197,7 +197,7 @@ export function protectDemoIntroduction(book: IntroductionBook, id: string, memb
 export function resumeDemoParticipation(book: IntroductionBook, memberId: string, checked: boolean, now: Date) {
   const member = book.members.find(item => item.id === memberId)
   const record = [...book.records].reverse().find(item => item.pair.includes(memberId))
-  if (!checked || !member || member.activity !== "paused" || !record || record.status !== "closed") return { book, errors: ["기존 소개 종료와 현재 참여 가능 재확인이 필요합니다."] }
+  if (!checked || !member || member.activity !== "paused" || !record || record.status !== "closed") return { book, errors: ["기존 소개 종료와 현재 참여 가능 재확인이 필요해요."] }
   const next = structuredClone(book)
   const target = next.members.find(item => item.id === memberId)!
   target.activity = "idle"; target.available = true; target.participationConfirmed = true
@@ -244,7 +244,7 @@ export function recordIntroductionPaymentRequest(book: IntroductionBook, memberI
       member.receipt?.status !== "confirmed" && session.introduction?.status === "confirmed" ||
       session.refundOperations?.introductionOpenedAt !== member.refundOperations?.introductionOpenedAt ||
       JSON.stringify(session.refundOperations?.policy) !== JSON.stringify(member.refundOperations?.policy))
-    return { book, errors: ["본인의 기납 승인·정책·요청 버전을 확인해 주세요. 환불 완료는 생성하지 않습니다."] };
+    return { book, errors: ["본인의 기납 승인·정책·요청 버전을 확인해 주세요. 환불 완료는 생성하지 않아요."] };
   const next = structuredClone(book), own = next.members.find(item => item.id === memberId)!;
   own.receipt = structuredClone(session.introduction);
   own.refundOperations = session.refundOperations ? structuredClone(session.refundOperations) : undefined;
@@ -277,12 +277,12 @@ export function recordDemoExchangeRequest(book: IntroductionBook, memberId: stri
   const receipt = session.exchange
   if (member && (session.refundOperations?.introductionOpenedAt !== member.refundOperations?.introductionOpenedAt ||
       JSON.stringify(session.refundOperations?.policy) !== JSON.stringify(member.refundOperations?.policy)))
-    return { book, errors: ["구매 시점 환불 정책·첫 소개 제공 개시 원본은 덮어쓰지 않습니다."] };
+    return { book, errors: ["구매 시점 환불 정책·첫 소개 제공 개시 원본은 덮어쓰지 않아요."] };
   const peer = book.members.find(item => item.id !== memberId && book.records.find(record => record.id === view.id)?.pair.includes(item.id));
   if (member?.rights !== "valid" || member.activity === "exchange" || peer?.rights === "first-program-started" || peer?.activity === "exchange" ||
       receipt?.refundRequest?.requestedReason === "partner-unpaid" && peer?.exchangeReceipt?.status === "confirmed" && peer.exchangeReceipt.programId === view.id && validOwnPayment(peer.exchangeReceipt, now))
     return { book, errors: ["미시작·현재 소개 권리·상대의 실제 미결제 기록을 확인해 주세요."] };
-  if (book.revision !== expectedRevision || !view.mutual || !member || !receipt || receipt.programId !== view.id || receipt.kind !== "exchange" || !["requested", "cancellation-requested"].includes(receipt.status) || session.applicationId !== member.applicationId || JSON.stringify(session.policy) !== JSON.stringify(member.paymentPolicy) || receipt.amount !== member.paymentPolicy.exchange) return { book, errors: ["본인의 현재 소개에 연결된 가상 요청·정책·버전을 확인해 주세요. 승인·환불은 생성하지 않습니다."] }
+  if (book.revision !== expectedRevision || !view.mutual || !member || !receipt || receipt.programId !== view.id || receipt.kind !== "exchange" || !["requested", "cancellation-requested"].includes(receipt.status) || session.applicationId !== member.applicationId || JSON.stringify(session.policy) !== JSON.stringify(member.paymentPolicy) || receipt.amount !== member.paymentPolicy.exchange) return { book, errors: ["본인의 현재 소개에 연결된 가상 요청·정책·버전을 확인해 주세요. 승인·환불은 생성하지 않아요."] }
   const next = structuredClone(book)
   next.members.find(item => item.id === memberId)!.exchangeReceipt = structuredClone(receipt)
   next.members.find(item => item.id === memberId)!.refundOperations = session.refundOperations ? structuredClone(session.refundOperations) : undefined
@@ -297,8 +297,8 @@ export function recordDemoExchangeRequest(book: IntroductionBook, memberId: stri
 export function makeIntroductionFixture(now: Date): IntroductionBook {
   const at = `${dateAt(now)}T12:00:00+09:00`
   const book = emptyIntroductionBook()
-  book.members = ["virtual-left", "virtual-right"].map((id, index) => ({ id, applicationId: `virtual-application-${index}`, policyVersion: BEFORE_US.policyVersion, paymentPolicy: emptyPaymentSession().policy, profile: { demo: true, version: 1, items: [{ id: "self.name", label: "활동용 이름", value: `소개 화면 예시 ${index ? "나" : "가"}` }, { id: "self.age", label: "만 나이", value: "28세 · 가상" }, { id: "self.area", label: "넓은 생활권", value: "서울 · 가상" }, { id: "self.purpose", label: "관계 목적", value: "천천히 알아가며 연애" }, { id: "self.bio", label: "한 줄 소개", value: "산책과 음악을 좋아합니다. 일상의 작은 이야기를 천천히 나누고 싶어요. (가상 예시)" }], photos: ["photo.face", "photo.upper", "photo.style"].map((slot, photoIndex) => ({ slot, label: ["대표 얼굴", "자연스러운 상반신", "전체 스타일"][photoIndex], assetId: `virtual-layout-${photoIndex}`, version: 1 })) }, ready: true, participationConfirmed: true, scopeConfirmed: true, available: true, activity: "idle", rights: "valid", receipt: { id: `virtual-intro-fee-${id}`, key: `virtual-intro-fee-${id}`, kind: "introduction", programId: null, amount: BEFORE_US.pricing.introduction, attempts: 1, status: "confirmed", confirmedAt: new Date(Date.parse(at) - 3600000).toISOString(), cancelRequestedAt: null, refundedAt: null }, exchangeReceipt: null, blockedIds: [], previousIds: [], lastPublishedAt: null, nextEligibleAt: null, missedResponses: 0 }))
-  const record: IntroductionRecord = { id: "virtual-pair-1", revision: 1, pair: ["virtual-left", "virtual-right"], versions: { "virtual-left": 1, "virtual-right": 1 }, policyVersions: { "virtual-left": "V6", "virtual-right": "V6" }, profiles: Object.fromEntries(book.members.map(member => [member.id, clonePublicProfile(member.profile)])), reason: "두 분이 공개한 관계 목적은 ‘천천히 알아가며 연애’입니다. 서로 알아가며 직접 확인해 주세요.", status: "reserved", scheduledAt: at, publishedAt: null, publishedFor: {}, responseDueAt: responseDeadline(at)!, responses: { "virtual-left": null, "virtual-right": null }, mutualAt: null, closedAt: null, endReason: null }
+  book.members = ["virtual-left", "virtual-right"].map((id, index) => ({ id, applicationId: `virtual-application-${index}`, policyVersion: BEFORE_US.policyVersion, paymentPolicy: emptyPaymentSession().policy, profile: { demo: true, version: 1, items: [{ id: "self.name", label: "활동용 이름", value: `소개 화면 예시 ${index ? "나" : "가"}` }, { id: "self.age", label: "만 나이", value: "28세 · 가상" }, { id: "self.area", label: "넓은 생활권", value: "서울 · 가상" }, { id: "self.purpose", label: "관계 목적", value: "천천히 알아가며 연애" }, { id: "self.bio", label: "한 줄 소개", value: "산책과 음악을 좋아해요. 일상의 작은 이야기를 천천히 나누고 싶어요. (가상 예시)" }], photos: ["photo.face", "photo.upper", "photo.style"].map((slot, photoIndex) => ({ slot, label: ["대표 얼굴", "자연스러운 상반신", "전체 스타일"][photoIndex], assetId: `virtual-layout-${photoIndex}`, version: 1 })) }, ready: true, participationConfirmed: true, scopeConfirmed: true, available: true, activity: "idle", rights: "valid", receipt: { id: `virtual-intro-fee-${id}`, key: `virtual-intro-fee-${id}`, kind: "introduction", programId: null, amount: BEFORE_US.pricing.introduction, attempts: 1, status: "confirmed", confirmedAt: new Date(Date.parse(at) - 3600000).toISOString(), cancelRequestedAt: null, refundedAt: null }, exchangeReceipt: null, blockedIds: [], previousIds: [], lastPublishedAt: null, nextEligibleAt: null, missedResponses: 0 }))
+  const record: IntroductionRecord = { id: "virtual-pair-1", revision: 1, pair: ["virtual-left", "virtual-right"], versions: { "virtual-left": 1, "virtual-right": 1 }, policyVersions: { "virtual-left": "V6", "virtual-right": "V6" }, profiles: Object.fromEntries(book.members.map(member => [member.id, clonePublicProfile(member.profile)])), reason: "두 분이 공개한 관계 목적은 ‘천천히 알아가며 연애’예요. 서로 알아가며 직접 확인해 주세요.", status: "reserved", scheduledAt: at, publishedAt: null, publishedFor: {}, responseDueAt: responseDeadline(at)!, responses: { "virtual-left": null, "virtual-right": null }, mutualAt: null, closedAt: null, endReason: null }
   book.records = [record]
   book.members.forEach(member => { member.refundOperations = emptyRefundOperations(); member.refundOperations.activeWaitingSince = member.receipt!.confirmedAt; });
   return book

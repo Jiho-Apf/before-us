@@ -28,12 +28,12 @@ export function PrivateProfile({
       <ShieldCheck className="text-primary" />
       <AlertTitle>이번 소개를 위한 개인 열람</AlertTitle>
       <AlertDescription className="mt-3 space-y-4 leading-7">
-        <p>상대의 사진과 소개는 이번 소개를 위해 공유된 정보입니다. 캡처·저장·외부 공유를 삼가 주세요.</p>
-        <p className="text-xs">웹에서는 브라우저·운영체제의 스크린샷이나 다른 기기로 촬영하는 행위까지 기술적으로 막을 수 없습니다.</p>
+        <p>상대의 사진과 소개는 이번 소개를 위해 공유된 정보예요. 캡처·저장·외부 공유를 삼가 주세요.</p>
+        <p className="text-xs">웹에서는 브라우저·운영체제의 스크린샷이나 다른 기기로 촬영하는 행위까지 기술적으로 막을 수 없어요.</p>
         <Button disabled={!session} onClick={() => acknowledgeViewing(memberId)} className="rounded-xl">
           확인 후 계속 보기
         </Button>
-        <p className="text-xs">가상 열람 안내 · 이 탭에서 회원별로 한 번 확인하며 새로고침하면 초기화됩니다.</p>
+        <p className="text-xs">가상 열람 안내 · 이 탭에서 회원별로 한 번 확인하며 새로고침하면 초기화돼요.</p>
       </AlertDescription>
     </Alert>
   );
