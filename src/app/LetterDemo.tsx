@@ -10,7 +10,7 @@ import {
   performLetter,
   setLetterDemoClock,
   switchLetterDemoAccount,
-  runReplyReminderDemo,
+  runLetterNoticeDemo,
   useAgreementDemo,
 } from "./AgreementFlow"
 
@@ -66,9 +66,9 @@ export function LetterDemo() {
           <Button
             variant="outline"
             disabled={!demo.state}
-            onClick={() => setReminderMessage(runReplyReminderDemo())}
+            onClick={() => setReminderMessage(runLetterNoticeDemo())}
           >
-            18:00 답장 알림 점검
+            지금 시각 알림 점검
           </Button>
         </div>
         {reminderMessage && <p role="status" className="mt-3 text-xs text-primary">{reminderMessage}</p>}

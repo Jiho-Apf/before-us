@@ -145,42 +145,43 @@ export function letterView(book: LetterBook | null, agreement: AgreementState | 
 }
 export type LetterView = NonNullable<ReturnType<typeof letterView>>;
 
-// 18:00 답장 알림: 그날 편지가 함께 열렸고 아직 답장하지 않은 사람에게 하루 한 번.
-// 실제 알림톡은 미연결이며, 같은 회원·날짜에는 한 번만 기록한다.
-export function replyReminderTargets(book: LetterBook, agreement: AgreementState, now: Date) {
-  if (book.status !== "active" || agreement.status !== "started") return [] as { day: number; memberId: string }[];
-  return book.days.flatMap((row, index) => {
-    if (!published(row, agreement.members, now) || now.getTime() < Date.parse(replyReminderAt(row)) || now.getTime() >= Date.parse(replyClosesAt(row))) return [];
-    return agreement.members
-      .filter(id => book.access[id] && !row.replies?.[id] && !book.events.some(event => event.type === "reply-reminder" && event.actor === id && event.day === index))
-      .map(memberId => ({ day: index, memberId }));
-  });
+// 편지 알림 (실제 알림톡은 미연결, 회원·날짜·종류별 한 번만 기록).
+// 제때 편지·답장을 한 사람에게는 보내지 않는다.
+//  - letter-reminder: 15:00까지 그날 편지를 보내지 않은 사람
+//  - reply-reminder: 편지가 18:00 전에 열렸으면 18:00, 18:00~21:00에 열렸으면 21:00. 21:00 이후에 열렸으면 보내지 않는다.
+//  - reply-opened: 두 답장이 함께 열렸을 때, 먼저 답장하고 기다리던 사람에게만
+export const LETTER_NOTICE_TIMES = { letter: "15:00", reply: "18:00", lateReply: "21:00" } as const
+export type LetterNotice = { kind: "letter-reminder" | "reply-reminder" | "reply-opened"; day: number; memberId: string }
+const at = (date: string, time: string) => Date.parse(`${date}T${time}:00+09:00`)
+export function dueLetterNotices(book: LetterBook, agreement: AgreementState, now: Date): LetterNotice[] {
+  if (book.status !== "active" || agreement.status !== "started") return []
+  const sent = (kind: string, id: string, day: number) => book.events.some(event => event.type === `notice:${kind}` && event.actor === id && event.day === day)
+  const t = now.getTime()
+  const out: LetterNotice[] = []
+  book.days.forEach((row, index) => {
+    const end = Date.parse(replyClosesAt(row))
+    if (t >= at(row.date, LETTER_NOTICE_TIMES.letter) && t < end && !published(row, agreement.members, now))
+      for (const id of agreement.members) if (book.access[id] && !row.submissions[id] && !sent("letter-reminder", id, index)) out.push({ kind: "letter-reminder", day: index, memberId: id })
+    if (published(row, agreement.members, now)) {
+      const openedAt = Date.parse(row.publishedAt!)
+      const remindAt = openedAt < at(row.date, LETTER_NOTICE_TIMES.reply) ? at(row.date, LETTER_NOTICE_TIMES.reply) : openedAt < at(row.date, LETTER_NOTICE_TIMES.lateReply) ? at(row.date, LETTER_NOTICE_TIMES.lateReply) : null
+      if (remindAt !== null && t >= remindAt && t < end)
+        for (const id of agreement.members) if (book.access[id] && !row.replies?.[id] && !sent("reply-reminder", id, index)) out.push({ kind: "reply-reminder", day: index, memberId: id })
+      if (repliesOpen(row, agreement.members, now)) {
+        const first = [...agreement.members].sort((a, b) => Date.parse(row.replies![a].at) - Date.parse(row.replies![b].at))[0]
+        if (!sent("reply-opened", first, index)) out.push({ kind: "reply-opened", day: index, memberId: first })
+      }
+    }
+  })
+  return out
 }
-export function recordReplyReminders(book: LetterBook, agreement: AgreementState, now: Date) {
-  const targets = replyReminderTargets(book, agreement, now);
-  if (!targets.length) return { book, sent: [] as { day: number; memberId: string }[] };
-  const next = structuredClone(book);
-  for (const target of targets) {
-    next.revision += 1;
-    next.events.push({ type: "reply-reminder", actor: target.memberId, at: now.toISOString(), revision: next.revision, day: target.day });
+export function recordLetterNotices(book: LetterBook, agreement: AgreementState, now: Date) {
+  const notices = dueLetterNotices(book, agreement, now)
+  if (!notices.length) return { book, sent: notices }
+  const next = structuredClone(book)
+  for (const notice of notices) {
+    next.revision += 1
+    next.events.push({ type: `notice:${notice.kind}`, actor: notice.memberId, at: now.toISOString(), revision: next.revision, day: notice.day })
   }
-  return { book: next, sent: targets };
-}
-
-export type ScheduleResetProof = {
-  policyVersion: string;
-  disclosedAt: string;
-  operatorRecordId: string;
-  dates: [string, string, string];
-  consents: Record<string, string>;
-};
-export function resetLetterSchedule(book: LetterBook, agreement: AgreementState, proof: ScheduleResetProof, configuredPolicy: string | null, expectedRevision: number, now: Date) {
-  const valid = (at: string) => Number.isFinite(Date.parse(at)) && Date.parse(at) <= now.getTime();
-  if (!configuredPolicy || configuredPolicy !== proof.policyVersion || !proof.operatorRecordId || !valid(proof.disclosedAt) || book.revision !== expectedRevision || baseGate(agreement, agreement.members[0], now) || agreement.status !== "started" || book.status !== "active" || book.programId !== agreement.sessions[0].program?.id || !agreement.members.every(id => proof.consents[id] && valid(proof.consents[id]) && Date.parse(proof.consents[id]) >= Date.parse(proof.disclosedAt))) return { book, error: "고지한 재설정 정책·양쪽 동의·운영 기록이 필요합니다. 현재 정책은 미확정입니다." };
-  if (proof.dates.some((date, index) => !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(`${date}T09:00:00+09:00`)) || seoulDay(new Date(`${date}T09:00:00+09:00`)) !== date || (index > 0 && date <= proof.dates[index - 1]) || (date !== book.days[index].date && (Object.keys(book.days[index].submissions).length > 0 || date <= seoulDay(now))))) return { book, error: "이미 보낸 편지의 날짜는 바꾸지 않습니다. 미제출 일정만 유효한 새 날짜로 양쪽 재확인해야 합니다." };
-  const next = structuredClone(book);
-  next.days.forEach((row, index) => { row.date = proof.dates[index]; });
-  next.scheduleVersion += 1; next.revision += 1;
-  next.events.push({ type: `schedule-reset:${proof.policyVersion}:${proof.operatorRecordId}`, actor: "both-consented", at: now.toISOString(), revision: next.revision, day: null });
-  return { book: next, error: null };
+  return { book: next, sent: notices }
 }
