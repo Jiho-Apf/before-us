@@ -3,7 +3,7 @@ import { introductionView, publishDemoIntroduction, type IntroductionBook } from
 import { TODAY_STATES, type TodayStage } from "./today-state";
 
 export const STATUS_MESSAGES = {
-  waiting: "[비포어스] 소개 진행 안내\n오늘 정오 기준, 새롭게 소개드릴 상대는 아직 준비되지 않았습니다.\n소개가 준비되면 안내드리겠습니다. 추가 소개비는 발생하지 않습니다.",
+  waiting: "[비포어스] 소개 진행 안내\n오늘 정오 기준, 새롭게 소개드릴 상대는 아직 준비되지 않았습니다.\n소개가 준비되면 안내드리겠습니다. 이용 중인 혜택 안에서는 추가 소개비가 발생하지 않습니다.",
   introduction: "[비포어스] 새로운 소개가 도착했어요. 홈페이지에서 소개 내용과 응답 기한을 확인해 주세요.",
   mutual: "[비포어스] 두 분 모두 알아가고 싶다고 선택했어요. 다음 진행 절차를 확인해 주세요.",
 } as const;

@@ -731,7 +731,7 @@ export default function AdminDemo({ embedded = false }: { embedded?: boolean }) 
                   </h2>
                   <p className="mt-4 text-sm leading-7 text-muted-foreground">
                     소개 준비만으로 상대에게 프로필을 보내지 않습니다. 첫 교류가
-                    실제 시작되기 전에는 소개 횟수 제한·추가 소개비가 없으며,
+                    실제 시작되기 전 혜택은 결제 시점에 따라 달라요(2026. 12. 31.까지 결제분은 30일 동안 횟수 제한 없음, 이후는 최대 5번),
                     상호 선택·결제만으로 권리가 끝나지 않습니다.
                   </p>
                 </div>

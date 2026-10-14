@@ -38,7 +38,7 @@ export function CurrentNoonStatus({ snapshot }: CurrentStatusProps) {
   return <section className="mt-6 border border-border bg-card p-5" aria-label="정오 진행 안내">
     <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 text-sm font-semibold"><Clock3 size={16} className="text-primary" />정오 진행 안내</div><span className="text-xs text-muted-foreground">12:00 · Asia/Seoul</span></div>
     <p className="mt-4 text-sm font-medium">현재 상태 · {currentStatus(input)}</p>
-    <p className="mt-2 text-xs leading-6 text-muted-foreground">새 소개가 없어도 이곳에서 현재 진행 상태를 확인할 수 있습니다. 매일 새 소개는 보장되지 않으며 추가 소개비는 발생하지 않습니다.</p>
+    <p className="mt-2 text-xs leading-6 text-muted-foreground">새 소개가 없어도 이곳에서 현재 진행 상태를 확인할 수 있습니다. 매일 새 소개는 보장되지 않으며 이용 중인 혜택 안에서는 추가 소개비가 발생하지 않습니다.</p>
     <p className="mt-3 text-xs text-muted-foreground">정오 자동 작업: 미연결 · 실행 완료 기록 없음</p>
     {followUp?.needsReview && <p className="mt-3 text-xs leading-6">새 소개 없는 7일 경과 · 담당자 실제 검토가 필요합니다. 검토 완료 기록은 아직 확인되지 않았습니다.</p>}
     {followUp?.counseling && <p className="mt-3 text-xs leading-6">14일 대기 안내 · 대기 지속·일시정지·취소 상담을 선택할 수 있어요. 권리 만료나 환불 신청 제한이 아닙니다.</p>}

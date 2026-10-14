@@ -1,3 +1,4 @@
+import { planFor } from "./introduction-plan"
 import { BEFORE_US } from "./config"
 import type { TodaySnapshot } from "./today-state"
 import { emptyRefundOperations, REFUND_NOTICE, recordDayAvailability, refundDeadlines, refundQuote, waitingRefundAvailable, type RefundOperations, type RefundReason } from "./refund-policy"
@@ -234,7 +235,7 @@ export function requestDemoPayment(
         : session.policy.exchange,
     attempts: (previous?.attempts || 0) + 1,
     status: "requested",
-    disclosure: { at: now.toISOString(), policyVersion: session.policy.version, scope: kind === "introduction" ? "이번 신청의 첫 A/B 실제 시작 전 소개 횟수 제한 없음 · 하루 최대 한 명 · 매일 미보장 · 대기·미시작·취소·환불 안내 확인" : "상호 선택한 한 쌍의 A/B 3일 교류 · 1인 교류비 · 현장 비용 별도 · 미시작·취소·환불 안내 확인", vatIncluded: session.policy.vatIncluded, refundPolicy: session.policy.refund, demo: true },
+    disclosure: { at: now.toISOString(), policyVersion: session.policy.version, scope: kind === "introduction" ? `${planFor(now).label} · ${planFor(now).summary}` + " · 하루 최대 한 명 · 매일 미보장 · 대기·미시작·취소·환불 안내 확인" : "상호 선택한 한 쌍의 A/B 3일 교류 · 1인 교류비 · 현장 비용 별도 · 미시작·취소·환불 안내 확인", vatIncluded: session.policy.vatIncluded, refundPolicy: session.policy.refund, demo: true },
     confirmedAt: null,
     cancelRequestedAt: null,
     refundedAt: null,

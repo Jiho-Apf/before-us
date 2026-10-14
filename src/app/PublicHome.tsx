@@ -211,7 +211,7 @@ function InitialOperation() {
   return (
     <section className="relative isolate -mx-5 overflow-clip bg-accent px-5 py-14 text-accent-foreground sm:-mx-8 sm:px-8 sm:py-16 lg:-mx-12 lg:px-12" aria-labelledby="initial-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
-      <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 text-[11px] font-semibold tracking-[0.15em] opacity-85 dark:opacity-100">FOR OUR FIRST MEMBERS</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">첫 교류가 시작될 때까지,<br />추가 소개비 없이.</h2></div><div className="space-y-4 text-sm leading-[1.95]"><p>기다림도 알아가는 과정의 일부라고 생각해요. 첫 교류를 시작하기 전까지는 몇 번을 소개받아도 소개비가 다시 들지 않아요.</p><p className="opacity-85">소개가 없는 날에도 내 상태는 홈페이지에서 언제든 확인할 수 있고, 정오 상태 알림은 원하는 분만 받아요.</p><p className="border-t border-current/20 pt-4 text-xs opacity-85 dark:opacity-100">데모에서는 실제 소개와 상태 알림이 발송되지 않습니다.</p></div></div>
+      <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 text-[11px] font-semibold tracking-[0.15em] opacity-85 dark:opacity-100">FOR OUR FIRST MEMBERS</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">처음 함께하는 분들께,<br />한 달은 추가 소개비 없이.</h2><p className="mt-5 inline-block border border-current/30 px-3 py-1 text-xs">초기 신청 혜택 · 2026. 12. 31. 결제분까지</p></div><div className="space-y-4 text-sm leading-[1.95]"><p>기다림도 알아가는 과정의 일부라고 생각해요. 서비스 초기에는 소개비를 낸 날부터 30일 동안, 첫 교류를 시작하기 전까지 몇 번을 소개받아도 소개비가 다시 들지 않아요.</p><p className="opacity-85">30일이 지나거나 첫 교류가 시작되면, 먼저 오는 때에 혜택이 끝나요. 그때 진행 중인 소개는 그대로 이어가요. 평생 무제한 소개는 아니에요.</p><p className="opacity-85">2027년 1월 1일부터는 소개비 5,000원으로 하루 최대 1명, 최대 5번 소개받아요.</p><p className="opacity-85">소개가 없는 날에도 내 상태는 홈페이지에서 언제든 확인할 수 있고, 정오 상태 알림은 원하는 분만 받아요.</p><p className="border-t border-current/20 pt-4 text-xs opacity-85 dark:opacity-100">데모에서는 실제 소개와 상태 알림이 발송되지 않습니다.</p></div></div>
     </section>
   );
 }
@@ -302,7 +302,7 @@ function TwoVoices() {
     <section className="border-t border-border py-16 sm:py-24" aria-labelledby="story-title">
       <div className="mx-auto max-w-2xl text-center">
         <div className="flex justify-center"><SectionLabel number="04" ko="이야기">A STORY IN TWO VOICES</SectionLabel></div>
-        <h2 id="story-title" className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">두 사람의 3일은,<br />이렇게 흘러가요.</h2>
+        <h2 id="story-title" className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">한 사람을 알아가는 데 필요한,<br />사흘이라는 시간.</h2>
         <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-muted-foreground">정오에 도착한 한 사람과의 3일을, 두 사람의 시점으로 나란히 적었어요.</p>
         <div role="group" aria-label="이야기 시점" className="mx-auto mt-8 flex w-fit rounded-full bg-muted p-1 text-xs">
           {([["both", "함께 읽기"], ["left", `${STORY_PEOPLE.left}의 시점`], ["right", `${STORY_PEOPLE.right}의 시점`]] as const).map(([id, label]) => (
@@ -361,10 +361,12 @@ const PROMISES = [
   "후보와 참여 시점이 맞기까지 기다림이 생길 수 있어요. 신청·검토·첫 소개 준비 전 대기는 무료예요.",
   "3일 교류는 상호 선택, 양쪽 결제, 같은 방식과 시작일 합의 뒤에 시작돼요. 소개를 기다린 기간과는 별개예요.",
   "3일 안에 친밀함이나 연애를 완성하라고, 만나라고 강요하지 않아요. 4일째에 각자 만남 의사를 선택해요.",
-  "이번 첫 교류 전에는 소개 횟수 추가 과금·자동 갱신이 없어요.",
+  "2026년 12월 31일까지 소개비를 낸 분은 결제일부터 30일 동안, 첫 교류 전까지 소개 횟수 제한이 없어요. 30일이 지나거나 첫 교류가 시작되면 끝나요.",
+  "2027년 1월 1일부터는 소개비 5,000원으로 하루 최대 1명, 최대 5번 소개받아요. 자동 갱신은 없어요.",
   "평생 무제한 소개, 매일 소개, 연애 성공, 약속 예약을 보장하지는 않아요.",
 ];
 const FAQ = [
+  { id: "early-benefit", title: "‘소개 횟수 제한 없음’은 언제까지인가요?", text: "서비스 초기 혜택이에요. 2026년 12월 31일까지 소개비 5,000원을 결제한 분에게만 적용되고, 결제일부터 30일 동안 첫 교류가 시작되기 전까지 소개 횟수 제한이 없어요. 30일이 지나거나 첫 교류가 실제 시작되면 먼저 오는 때에 끝나요. 끝나는 순간 진행 중인 소개나 서로 선택한 교류는 그대로 이어가고, 이후 새 소개를 원하면 소개비를 다시 결제해요. 2027년 1월 1일부터는 소개비 5,000원으로 하루 최대 1명, 최대 5번 소개받아요(소개가 없는 날은 횟수에서 빼지 않아요). 하루 최대 한 명이며 매일 소개를 보장하지는 않아요." },
   { id: "waiting", title: "후보를 기다리는 동안은 어떻게 되나요?", text: "신청·검토·첫 소개 준비 전 대기는 무료입니다. 첫 소개를 제공할 준비와 현재 참여 가능성을 확인한 뒤 소개 이용료를 안내합니다. 준비된 날 정오 12시에 하루 최대 한 명을 소개하며, 매일 새 소개를 보장하지 않습니다. 활성 소개는 회원당 한 건이고, 상호 선택 뒤에는 새 소개를 멈춥니다." },
   { id: "three-days", title: "3일 동안 꼭 무언가를 해야 하나요?", text: "3일은 상호 선택·양쪽 결제·같은 방식과 시작일 합의 뒤 교류를 시작한 기간이며, 소개 대기 기간은 별도입니다. 그 안에 친밀함·연애를 완성하거나 만남을 강제하지 않습니다. 4일째에 두 분이 각자 만남 의사를 선택하고, 양쪽 모두 희망할 때만 시간과 장소를 조율합니다." },
   { id: "not-started", title: "상호 선택 후 교류가 시작되지 못하면요?", text: "상호 선택 후 기본 결제 기한은 24시간입니다. 한쪽만 결제하고 상대가 미결제면 결제자의 교류비 24,000원 전액 환불과 소개 권리 복원 대상입니다. 양쪽 결제 뒤 A/B·시작일 합의는 기본 48시간, 양쪽 동의 시 24시간 한 번 연장할 수 있습니다. 끝내 실제 교류가 시작되지 않으면 교류비 전액 환불과 소개 권리 유지입니다. 기한 도래·요청 클릭이 실제 환불 완료를 뜻하지 않으며 현재 실제 PG는 미연결입니다." },

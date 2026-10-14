@@ -1,3 +1,4 @@
+import { PLAN_NOTICE, planFor, planIfPaidNow } from "./introduction-plan"
 import { DemoDock } from "./DemoDock"
 import { useState } from "react"
 import { Link, useSearchParams } from "react-router"
@@ -102,6 +103,7 @@ export function PaymentFlow({
     )
   }
   const mutual = hasMutualSelection(session, now)
+  const introPlan = session.introduction?.confirmedAt ? planFor(new Date(session.introduction.confirmedAt)) : planIfPaidNow(now)
   const introductionReady =
     readyForIntroduction(session, now) ||
     validOwnPayment(session.introduction, now)
@@ -137,7 +139,7 @@ export function PaymentFlow({
           </p>
           {!introductionReady && <p className="mt-3 text-sm font-semibold text-accent">지금은 무료 대기</p>}
           <p className="mt-3 text-sm font-medium leading-7">
-            해당 신청에서 첫 A/B 교류를 실제 시작하기 전까지 횟수 제한 없는 소개
+            {introPlan.label} · {introPlan.summary}
           </p>
           <p className="mt-2 text-xs leading-6 text-muted-foreground">
             신청·검토·첫 소개 준비 전 대기는 무료입니다. 실제 준비와 현재 참여
@@ -208,8 +210,7 @@ export function PaymentFlow({
             새 소개를 보장하지 않습니다.
           </li>
           <li>
-            소개가 없는 날 추가금·이용권 차감·자동 만료는 없습니다. 첫 교류 전의
-            혜택이며 평생 재소개나 모든 데이트·프로그램 제공이 아닙니다.
+            {PLAN_NOTICE.early} {PLAN_NOTICE.standard} {PLAN_NOTICE.carryOver} 평생 재소개나 모든 데이트·프로그램 제공이 아닙니다.
           </li>
           <li>
             상호 선택 뒤 새 소개는 잠시 멈춥니다. 상호 선택·결제·A/B 합의만으로

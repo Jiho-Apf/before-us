@@ -1,3 +1,4 @@
+import { benefitIssue, planFor, planIfPaidNow } from "./introduction-plan"
 import { Eyebrow, Sheet, TwoDots } from "./editorial"
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
@@ -296,6 +297,8 @@ export default function MemberProfile() {
     setKind(value)
     setParentId(undefined)
   }
+  const plan = payment.introduction?.confirmedAt ? planFor(new Date(payment.introduction.confirmedAt)) : planIfPaidNow(new Date())
+  const benefitEnded = benefitIssue(payment.introduction?.confirmedAt, 0, rights === "first-program-started" || !!service.startedAt, new Date())
   return (
     <section className="space-y-9 pb-8">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-7">
@@ -313,21 +316,20 @@ export default function MemberProfile() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Sheet className="space-y-5 p-6 sm:p-8 lg:col-span-2">
           <p className="text-[10px] font-semibold tracking-[0.2em] text-accent">
-            MY INTRODUCTION / {payment.policy.version}
+            {plan.label} · {payment.introduction?.confirmedAt ? "결제 기준" : "지금 결제하면"} / {payment.policy.version}
           </p>
           <h2 className="max-w-xl text-2xl font-semibold leading-[1.5] sm:text-[28px]">
-            첫 교류 시작 전,
-            <br />
-            소개 횟수 제한 없음
+            {plan.kind === "early" ? <>첫 교류 시작 전,<br />소개 횟수 제한 없음</> : <>소개비 한 번에,<br />최대 {plan.introductions}번 소개</>}
           </h2>
           <p className="max-w-xl text-sm leading-7 text-muted-foreground">
-            이번 신청에서 첫 A/B가 실제 시작되기 전까지의 초기 혜택입니다. 하루
-            최대 한 명, 매일 새 소개는 보장하지 않아요. 평생 재소개·실제
+            {plan.kind === "early" ? `서비스 초기 혜택이에요. ${plan.summary.split(" · ")[0]}, 첫 A/B가 실제 시작되기 전까지 적용되고 먼저 오는 때에 끝나요.` : `하루 최대 한 명, 최대 ${plan.introductions}번이에요. 소개가 없는 날은 횟수에서 빼지 않아요.`} 매일 새 소개는 보장하지 않아요. 평생 재소개·실제
             만남·연애 보장은 아닙니다.
           </p>
           <div className="flex items-center gap-3 border-t border-border pt-4 text-sm font-medium"><TwoDots />
-            {rights === "valid"
-              ? "소개 이용 권리 유지 · 첫 교류 실제 시작 전"
+            {benefitEnded
+              ? benefitEnded
+              : rights === "valid"
+              ? `소개 이용 권리 유지 · ${plan.summary}`
               : rights === "first-program-started" || service.startedAt
                 ? "첫 교류 실제 시작 기록 · 이번 소개 혜택 종료, 재이용 정책 확인 필요"
                 : payment.introduction ? `소개 결제 ${RECEIPT_LABELS[payment.introduction.status]} · 권리·후속 처리는 별도 확인` : "소개 결제 기록 없음 · 신청·검토·소개 준비 대기는 무료"}

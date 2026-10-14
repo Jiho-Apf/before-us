@@ -1,3 +1,4 @@
+import { benefitIssue } from "./introduction-plan"
 import { BEFORE_US } from "./config"
 import { reservationIssues, type AdminState } from "./admin-model"
 import { clonePublicProfile, type PublicProfile } from "./review-state"
@@ -90,6 +91,8 @@ export function publicationIssues(book: IntroductionBook, record: IntroductionRe
     const other = record.pair.find(item => item !== id)!
     if (!member) { issues.push(`${id}: 회원 확인 필요`); continue }
     if (!member.ready || !member.participationConfirmed || !member.scopeConfirmed || !member.available || member.activity !== "idle" || member.rights !== "valid") issues.push(`${id}: 양쪽 공개 준비·참여·이용 권리 확인 필요`)
+    const benefit = benefitIssue(member.receipt?.confirmedAt, member.previousIds.length, member.rights === "first-program-started", publication)
+    if (benefit) issues.push(`${id}: ${benefit}`)
     if (member.profile.version !== record.versions[id] || member.policyVersion !== record.policyVersions[id] || member.paymentPolicy.version !== member.policyVersion) issues.push(`${id}: 준비 후 버전 재확인 필요`)
     if (member.blockedIds.includes(other) || member.previousIds.includes(other)) issues.push(`${id}: 차단·동일 상대 재제안 금지`)
     if (book.records.some(item => item.id !== record.id && item.pair.includes(id) && item.status !== "closed")) issues.push(`${id}: 다른 활성 소개·결제·합의와 동시 진행 불가`)

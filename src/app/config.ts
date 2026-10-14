@@ -7,6 +7,7 @@ export const BEFORE_US = {
   capabilities: { collection: false, payments: false, sending: false, autoDeploy: false },
   pricing: { currency: "KRW", introduction: 5000, exchangePerPerson: 24000, firstExchangeTotalPerPerson: 29000, vatIncluded: true, recurring: false, extraIntroductionFeeBeforeFirstStart: 0 },
   introduction: { timezone: "Asia/Seoul", readyAt: "12:00", responseDeadlineNextDayAt: "11:00", dailyMaximum: 1, activeMaximum: 1, guaranteedDaily: false, stopNewOnMutualSelection: true, countLimitBeforeFirstStart: null, rightsEndAt: "actual-program-start" },
+  introductionPlans: { version: "V6-intro-plan-01", early: { label: "초기 신청 혜택", applyBy: "2026-12-31", validDays: 30, endsOnFirstStart: true }, standard: { label: "기본 소개", introductions: 5, dailyMaximum: 1, endsOnFirstStart: true } },
   exchange: { plans: ["A", "B"], durationDays: 3, meetingDecisionDay: 4, requiresBothPayments: true, requiresSharedPlanAndStartDate: true },
   unstartedExchange: { preserveIntroductionRights: true, manageExchangePaymentSeparately: true },
   refund: { version: "V6-refund-01", introductionBeforeView: 5000, exchangeDayPrice: 8000, paymentHours: 24, agreementHours: 48, extensionHours: 24, extensionMaximum: 1, activeWaitingDays: 30 },

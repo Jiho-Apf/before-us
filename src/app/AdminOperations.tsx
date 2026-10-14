@@ -606,7 +606,7 @@ export function AdminOperations({
               ))}
             </Table>
             <p className="mt-4 text-xs leading-6 text-muted-foreground">
-              초기 신청의 첫 교류 실제 시작 전에는 소개 횟수 제한이 없습니다.
+              2026. 12. 31.까지 소개비를 낸 초기 신청은 결제일부터 30일 동안, 첫 교류 실제 시작 전까지 소개 횟수 제한이 없습니다. 이후 결제분은 최대 5번입니다.
               누적 소개는 본인 이력이며 상대 프로필 재열람 목록이 아닙니다.
             </p>
           </section>
@@ -1000,7 +1000,7 @@ export function AdminMemberHistory({ memberId }: { memberId: string }) {
       </div>
       <p className="mb-5 text-xs leading-6 text-muted-foreground">
         본인 이력 요약입니다. 과거 상대의 전체 프로필 재열람 목록은 제공하지
-        않습니다. 첫 교류 시작 전 소개 횟수 제한·추가 과금은 없습니다.
+        않습니다. 혜택 기간·횟수 안에서는 추가 과금이 없습니다(초기 혜택 30일 · 기본 최대 5번).
       </p>
       <label
         htmlFor={`operator-note-${memberId}`}
