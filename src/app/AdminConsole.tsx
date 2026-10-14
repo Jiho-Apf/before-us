@@ -36,7 +36,7 @@ import {
 } from "./components/ui/select"
 import { BEFORE_US } from "./config"
 import { seoulDate } from "./admin-model"
-import { GenderBalancePanel } from "./MatchingAssist"
+import { GenderBalancePanel, OperationsCapacityPanel } from "./MatchingAssist"
 import {
   ADMIN_ACCESS,
   TODO_ITEMS,
@@ -591,6 +591,7 @@ export function AdminDashboard() {
           </Link>
         ))}
       </section>
+      <OperationsCapacityPanel state={data.admin} today={today} />
       <GenderBalancePanel state={data.admin} today={today} onChange={() => {}} />
       <section className="rounded-lg border border-border bg-card p-5">
         <SectionTitle
@@ -1308,8 +1309,8 @@ export function AdminSettings() {
             ],
             [
               "환불 / 제공·보유 기간 / 재이용",
-              "미확정 · 검토 필요",
-              "임의 정책 생성 없음",
+              "V6-refund-01 / V6-provision-01·V6-privacy-01 초안 / V6-conduct-01",
+              "운영 기준 · 실제 약관 법률 검토 필요",
             ],
           ]}
         />

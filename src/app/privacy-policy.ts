@@ -18,6 +18,8 @@ export const RETENTION_ITEMS: { id: string; data: string; period: string; basis:
   { id: "photos", data: "사진", period: "이용 중 · 사진 삭제·탈퇴 후 활성 저장소 7일 이내 삭제", basis: "service" },
   { id: "letters", data: "A/B 편지·공동 장면", period: "교류 종료 후 30일 뒤 자동 삭제", basis: "service" },
   { id: "appointment", data: "약속 날짜·시간·장소 상세", period: "약속일 후 90일", basis: "service" },
+  { id: "profile-view", data: "소개받은 상대 프로필 열람", period: "정오 공개~다음 날 11:00 응답 마감 · 상호 선택 시 교류·약속 종료까지 · 종료 즉시 닫힘", basis: "service" },
+  { id: "profile-snapshot", data: "제공된 프로필 사본(버전 기록)", period: "소개·교류 종료 후 30일 뒤 삭제 · 분쟁 증거만 분리 보존", basis: "service" },
   { id: "phone", data: "상대 전화번호 화면", period: "만남 당일 00:00부터 다음 날 23:59까지만 표시", basis: "service" },
   { id: "audit", data: "관리자·접근 감사 로그", period: "1년", basis: "internal" },
   { id: "backup", data: "일반 백업", period: "순환 보관 최대 30일", basis: "internal" },

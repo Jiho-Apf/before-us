@@ -140,7 +140,6 @@ function Hero() {
     <section className="relative isolate -mx-5 overflow-clip bg-primary text-primary-foreground sm:-mx-8 lg:-mx-12" aria-labelledby="home-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-20" style={{ backgroundImage: part.tint }} />
       <Texture />
-      <p aria-hidden="true" className="pointer-events-none absolute top-1/2 right-4 hidden -translate-y-1/2 text-[11px] tracking-[0.5em] text-white/60 [writing-mode:vertical-rl] xl:block">천천히 알아갑니다</p>
       <div className="grid gap-12 px-5 pt-14 pb-28 sm:px-8 sm:pt-20 sm:pb-32 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:px-12 lg:pt-20 lg:pb-32">
         <div className="relative z-10">
           <p className="mb-7 flex items-center gap-2.5 text-sm font-medium"><span aria-hidden="true" className="size-1.5 rounded-full bg-white" />운영진이 직접 고르는 일대일 소개</p>
@@ -371,8 +370,8 @@ const FAQ = [
   { id: "not-started", title: "상호 선택 후 교류가 시작되지 못하면요?", text: "상호 선택 후 기본 결제 기한은 24시간입니다. 한쪽만 결제하고 상대가 미결제면 결제자의 교류비 24,000원 전액 환불과 소개 권리 복원 대상입니다. 양쪽 결제 뒤 A/B·시작일 합의는 기본 48시간, 양쪽 동의 시 24시간 한 번 연장할 수 있습니다. 끝내 실제 교류가 시작되지 않으면 교류비 전액 환불과 소개 권리 유지입니다. 기한 도래·요청 클릭이 실제 환불 완료를 뜻하지 않으며 현재 실제 PG는 미연결입니다." },
   { id: "cancellation", title: "신청이나 교류를 취소할 수 있나요?", text: "결제 후 첫 상대 프로필을 실제로 열람하기 전 취소는 소개비 전액 환불입니다. 교류비는 해당 날짜 콘텐츠가 실제 이용 가능하게 열린 DAY별로 미제공분을 산정합니다. 취소·환불 요청과 검토·실제 환불 완료를 구분하며 실제 PG와 접수·발송은 미연결인 가상 자료 데모입니다." },
   { id: "refund", title: "환불과 보유기간, 재이용 기준은 무엇인가요?", text: `${REFUND_NOTICE} 정상 교류를 마친 뒤 새 소개를 원하면 새 회차 소개비 5,000원, 새 상대와 상호 선택 시 교류비 24,000원입니다. 교류 중단·약속 취소·노쇼 기준과 자료 보유·삭제 기간은 내 정보에서 확인할 수 있으며, 실제 약관의 법률 검토 완료를 의미하지 않습니다. 현재는 가상 정책 산정·요청 데모이고 실제 환불은 하지 않습니다.` },
-  { id: "visibility", title: "어떤 정보가 상대에게 공개되나요?", text: "공개 정보의 구체적인 범위와 동의 절차는 아직 확정되지 않았습니다. 화면에 등장하는 편지와 공동 선택은 서비스 화면 예시이며, 실제 회원 정보가 아닙니다. 이 데모에서는 실제 개인정보를 수집하지 않습니다." },
-  { id: "contact", title: "문의는 어디에서 할 수 있나요?", text: "현재 데모에는 실제 문의 접수·발송 기능이나 문의 채널이 연결되어 있지 않습니다. 문의 내용이나 연락처를 입력받지 않습니다." },
+  { id: "visibility", title: "어떤 정보가 상대에게 공개되나요?", text: "신청서 마지막 단계에서 상대에게 보일 항목을 직접 고르고, 특정 상대에게 제공하기 전에 한 번 더 동의를 받아요. 상대 프로필은 소개된 날 정오부터 다음 날 11:00 응답 마감까지 볼 수 있고, 서로 알아가기로 하면 교류와 약속이 끝날 때까지 이어져요. 끝난 소개를 다시 보는 보관함은 없어요. 화면에 등장하는 편지와 공동 선택은 서비스 화면 예시이며, 이 데모에서는 실제 개인정보를 수집하지 않습니다." },
+  { id: "contact", title: "문의는 어디에서 할 수 있나요?", text: "페이지 맨 아래의 ‘문의하기’에서 남길 수 있어요. 회원이라면 내 정보의 ‘문의·신고’에서 진행 중인 소개와 연결해 남기면 더 빨리 확인할 수 있어요. 데모에서는 실제로 메일이 발송되지 않아요." },
 ];
 
 function Pricing() {

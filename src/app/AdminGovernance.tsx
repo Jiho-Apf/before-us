@@ -9,6 +9,7 @@ import { AdminConductCases } from "./ConductPolicy"
 import { AdminPrivacyQueue } from "./PrivacyPanels"
 import { AdminMeetingFeedback } from "./MatchingAssist"
 import { MessageCenter } from "./MessageCenter"
+import { AdminInquiries } from "./InquiryPage"
 import { RELEASE_CHECKLIST } from "./MemberProfile"
 import { syncMemberReportStatus } from "./member-operations-model"
 import { Textarea } from "./components/ui/textarea"
@@ -271,6 +272,7 @@ export function AdminGovernance({ section }: { section: string }) {
         불변성은 구현되지 않았습니다. URL이나 메뉴를 숨기는 것은 접근 보안이
         아닙니다.
       </div>
+      {section === "safety" && <AdminInquiries />}
       {["safety","payments","settings"].includes(section) && <AdminMemberRequests />}
       {section === "safety" && <AdminConductCases />}
       {["safety","settings"].includes(section) && <AdminPrivacyQueue />}

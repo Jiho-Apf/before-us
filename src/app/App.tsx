@@ -21,6 +21,7 @@ import { SceneDemo } from "./SceneDemo";
 import { MeetingDemo } from "./MeetingDemo";
 import { ConductDemo } from "./ConductPolicy";
 import { PrivacyDemo } from "./PrivacyPanels";
+import InquiryPage from "./InquiryPage";
 import {
   Search, Bell, ChevronLeft, ChevronRight, Plus, Share2,
   Calendar, BookOpen, User, Home, ExternalLink, Star,
@@ -1587,7 +1588,7 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
         <div className="mx-auto flex max-w-7xl flex-col justify-between gap-5 px-5 py-7 text-xs sm:flex-row sm:items-center sm:px-8 lg:px-12">
           <span className="font-semibold tracking-[0.12em]">{BEFORE_US.brand.english}</span>
           <span className="text-muted-foreground">{BEFORE_US.brand.message}</span>
-          <span className="text-muted-foreground">성인 대상 일대일 소개</span>
+          <span className="flex items-center gap-4 text-muted-foreground"><Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link><span>성인 대상 일대일 소개</span></span>
         </div>
       </footer>
     </div>
@@ -1692,6 +1693,7 @@ const beforeUsRouter = createBrowserRouter([
     { path: "/how-it-works", element: <PublicInformation section="introduction" /> },
     { path: "/two-starts", element: <PublicInformation section="exchange" /> },
     { path: "/pricing", element: <PublicInformation section="pricing" /> },
+    { path: "/contact", element: <InquiryPage /> },
     { path: "/today", element: <MemberToday /> },
     { path: "/payments", element: <MemberPayments /> },
     { path: "/us", element: <MemberIntroduction /> },

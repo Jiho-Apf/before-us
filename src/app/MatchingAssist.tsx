@@ -2,7 +2,8 @@ import { useEffect, useState } from "react"
 import { Sparkles, Scale, AlertTriangle } from "lucide-react"
 import { Button } from "./components/ui/button"
 import { Input } from "./components/ui/input"
-import type { AdminState } from "./admin-model"
+import { seoulDate, type AdminState } from "./admin-model"
+import { BEFORE_US } from "./config"
 import {
   RECOMMENDATION_POLICY,
   loadMatchingFixtures,
@@ -271,6 +272,46 @@ export function AdminMeetingFeedback() {
       ) : (
         <p className="text-sm text-muted-foreground">아직 남겨진 만남 후 피드백이 없어요.</p>
       )}
+    </section>
+  )
+}
+
+// 오늘 운영 처리량 · V6-ops-01. 운영자 1명 기준 하루 신규 검토 20건, 소개 준비 10쌍을 넘지 않도록 본다.
+export function OperationsCapacityPanel({ state, today }: { state: AdminState; today: string }) {
+  useWaitlist()
+  const ops = BEFORE_US.operations
+  const reviewCapacity = ops.reviewersOnDuty * ops.newReviewsPerReviewerPerDay
+  const pairCapacity = ops.reviewersOnDuty * ops.pairsPerReviewerPerDay
+  const pending = state.members.filter((member) => member.draft.review.submission === "received" && member.draft.review.profileReview !== "reviewed" && !isWaitlisted(member.id)).length
+  const preparedToday = state.proposals.filter((proposal) => seoulDate(new Date(proposal.preparedAt)) === today).length
+  const days = Math.ceil(pending / reviewCapacity)
+  const Bar = ({ value, max }: { value: number; max: number }) => (
+    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"><div className={`h-full ${value > max ? "bg-destructive" : "bg-primary"}`} style={{ width: `${Math.min(100, Math.round((value / max) * 100))}%` }} /></div>
+  )
+  return (
+    <section className="space-y-4 border border-border bg-card p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg">오늘 운영 처리량 · {ops.version}</h2>
+        <span className="text-xs text-muted-foreground">근무 운영자 {ops.reviewersOnDuty}명 기준</span>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-xl bg-muted/50 p-4">
+          <p className="text-xs text-muted-foreground">신청서 검토 대기</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{pending}건 <span className="text-sm font-normal text-muted-foreground">/ 하루 {reviewCapacity}건</span></p>
+          <Bar value={pending} max={reviewCapacity} />
+          <p className="mt-2 text-xs text-muted-foreground">{pending ? `지금 속도면 약 ${days}일 안에 모두 검토해요.` : "검토 대기가 없어요."}</p>
+        </div>
+        <div className="rounded-xl bg-muted/50 p-4">
+          <p className="text-xs text-muted-foreground">오늘 준비한 소개</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{preparedToday}쌍 <span className="text-sm font-normal text-muted-foreground">/ 하루 {pairCapacity}쌍</span></p>
+          <Bar value={preparedToday} max={pairCapacity} />
+          <p className="mt-2 text-xs text-muted-foreground">{preparedToday >= pairCapacity ? "오늘 준비 한도에 도달했어요. 나머지는 내일 검토해요." : `오늘 ${pairCapacity - preparedToday}쌍 더 준비할 수 있어요.`}</p>
+        </div>
+      </div>
+      {days > 3 && <p className="text-xs leading-6 text-accent">검토 대기가 3일치를 넘었어요. 근무 인원을 늘리거나 새 모집을 잠시 늦추는 것을 검토해 주세요.</p>}
+      <p className="text-xs leading-6 text-muted-foreground">
+        신청서 1건 약 10분, 한 쌍 고르기 약 15~20분(추천 보조 포함)으로 잡은 운영 초안이에요. 1기는 성별당 {ops.firstCohortPerGender}명, 베타는 성별당 {ops.betaPerGender}명으로 시작해요. 회원 화면에는 예상 날짜나 인원을 보여 주지 않아요.
+      </p>
     </section>
   )
 }

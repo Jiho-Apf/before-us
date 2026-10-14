@@ -373,8 +373,10 @@ export default function ApplicationReviewStep({
                       <div>
                         <dt className="font-semibold text-foreground">기간</dt>
                         <dd>
-                          제공·보유 기간은 정책 검토 중입니다. 실제 제공 전에
-                          기간과 상대를 안내하고 별도로 동의를 확인해야 합니다.
+                          소개된 날 정오부터 다음 날 11:00 응답 마감까지예요.
+                          서로 알아가기로 하면 교류·약속이 끝날 때까지(최대 약속일
+                          다음 날 23:59) 이어지고, 종료·중단·차단·탈퇴 시 바로
+                          닫혀요. 끝난 소개를 다시 보는 보관함은 없어요.
                         </dd>
                       </div>
                     </dl>
@@ -423,8 +425,8 @@ export default function ApplicationReviewStep({
           Asia/Seoul에 소개를 공개합니다.
         </p>
         <p className="mt-3 text-[11px] leading-7 text-muted-foreground">
-          현재는 상대 미정 · 제공 기간 정책 검토 중 · 별도 제공 동의 전이며 실제
-          공개하지 않습니다. 매일 새 소개를 보장하지 않습니다.
+          현재는 상대 미정 · 별도 제공 동의 전이며 실제 공개하지 않습니다.
+          매일 새 소개를 보장하지 않습니다.
         </p>
       </details>
       <section className="rounded-xl border border-border p-5">
