@@ -319,6 +319,7 @@ export default function MemberPayments() {
   const payment=account && account.payment.activity!=="active" ? {...sourcePayment,activity:account.payment.activity} : sourcePayment;
   return (
     <section className="mx-auto max-w-3xl py-8">
+      <h1 className="sr-only">결제 안내</h1>
       <PaymentFlow key={`${service.memberId}-${payment.applicationId}-${payment.activity}`} initial={payment} kind={params.get("kind")==="exchange" ? "exchange" : "introduction"} onSessionChange={value=>{if(service.connected)saveCurrentMemberPayment(value);saveMemberPayment(service.memberId,value,service.now);}} />
       <Button asChild variant="ghost" className="mt-6">
         <Link to="/today">오늘로 돌아가기</Link>
@@ -331,6 +332,7 @@ export function PaymentDemo() {
   const [linked,setLinked]=useState(false)
   return (
     <section className="mx-auto max-w-3xl space-y-8 py-8">
+      <h1 className="sr-only">개발용 결제 상태 미리보기</h1>
       <div className="rounded-xl border border-accent/30 bg-accent/5 p-5">
         <p className="text-sm font-semibold text-accent">
           개발용 결제 상태 미리보기 · 가상 기록만 사용

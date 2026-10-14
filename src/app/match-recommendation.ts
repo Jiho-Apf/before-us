@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react"
 import { BEFORE_US } from "./config"
 import { accountAge, emptyApplication } from "./application-model"
-import { compareMembers, applicationMember, type AdminMember, type AdminState } from "./admin-model"
+import { compareMembers, applicationMember, memberVersions, type AdminMember, type AdminState } from "./admin-model"
 import { REVIEW_CONSENTS } from "./review-state"
 import { MOCK_PHOTO_FILES, PHOTO_SLOTS, registerMockPhoto } from "./photo-model"
 
@@ -183,7 +183,10 @@ export function loadMatchingFixtures(state: AdminState, now = new Date()): Admin
       }
     draft.review.submission = "received"
     draft.review.receivedAt = now.toISOString()
-    return { ...applicationMember(draft), id: `match-${index + 1}`, account: { verifiedAge: age, verifiedAt: now.toISOString() }, participation: { available: true, confirmedAt: now.toISOString() }, rights: "valid", policyVersion: BEFORE_US.policyVersion }
+    draft.review.profileReview = "reviewed"
+    const member: AdminMember = { ...applicationMember(draft), id: `match-${index + 1}`, account: { verifiedAge: age, verifiedAt: now.toISOString() }, participation: { available: true, confirmedAt: now.toISOString() }, rights: "valid", policyVersion: BEFORE_US.policyVersion, disposition: "reviewed", lastReviewedAt: now.toISOString(), operatorId: "가상 Owner" }
+    // 시연용 신청자는 운영자 직접 검토를 마친 상태로 둔다.
+    return { ...member, reviewedVersion: JSON.stringify(memberVersions(member)) }
   }).filter((member) => !existing.has(member.id))
   return { ...state, revision: state.revision + 1, members: [...state.members, ...members], stateUpdatedAt: now.toISOString() }
 }

@@ -1513,6 +1513,7 @@ const PUBLIC_NAV = [
   { to: "/how-it-works", label: "진행 방식", number: "01" },
   { to: "/two-starts", label: "두 가지 시작", number: "02" },
   { to: "/pricing", label: "이용 요금", number: "03" },
+  { to: "/contact", label: "문의하기", number: "04" },
 ];
 
 const MEMBER_NAV = [

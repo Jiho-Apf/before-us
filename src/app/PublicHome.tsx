@@ -448,7 +448,8 @@ function Together() {
 }
 
 export function PublicInformation({ section }: { section: "introduction" | "exchange" | "pricing" }) {
-  return <div className="break-keep [overflow-wrap:anywhere]">{section === "introduction" && <><Introduction /><FounderLetter /><InitialOperation /></>}{section === "exchange" && <><TwoVoices /><Exchange /></>}{section === "pricing" && <><Pricing /><Faq /></>}</div>;
+  const title = { introduction: "진행 방식", exchange: "두 가지 시작", pricing: "이용 요금" }[section];
+  return <div className="break-keep [overflow-wrap:anywhere]"><h1 className="sr-only">{title}</h1>{section === "introduction" && <><Introduction /><FounderLetter /><InitialOperation /></>}{section === "exchange" && <><TwoVoices /><Exchange /></>}{section === "pricing" && <><Pricing /><Faq /></>}</div>;
 }
 
 export default function PublicHome() {
