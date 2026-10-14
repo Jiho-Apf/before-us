@@ -1,3 +1,4 @@
+import { DemoDock } from "./DemoDock"
 import { useEffect, useState, useSyncExternalStore } from "react"
 import { MeetingAftercare } from "./MemberTrust";
 import { Link, useSearchParams, useLocation } from "react-router"
@@ -27,6 +28,8 @@ import { saveMemberFeedback, saveMemberPayment, submitMemberRequest, type Reques
 import type { Feedback } from "./admin-governance-model"
 import { requestPaymentCancellation, type PaymentSession } from "./payment-model"
 import { LetterFlow } from "./LetterFlow"
+import { PageHeader, Sheet, Timeline, TwoDots, QuietNote } from "./editorial"
+import { QUESTIONS } from "./home-story"
 import {
   createLetterBook,
   letterAction,
@@ -268,24 +271,15 @@ export function AgreementFlow({
     !!view && ["started", "interrupted", "withdrawn"].includes(view.status)
   return (
     <section aria-labelledby="agreement-title" className="py-8">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <p className="text-xs font-semibold tracking-widest text-accent">
-          OUR FIRST THREE DAYS
-        </p>
-        <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
-          서버 시간·두 계정 동기화 미연결 · 데모
-        </span>
-      </div>
-      <h1
-        id="agreement-title"
-        className="text-3xl font-semibold leading-relaxed"
-      >
-        우리, 어떤 방식으로 시작할까요?
-      </h1>
-      <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
-        마음을 서두르지 않고 알아갈 수 있도록, 두 사람이 편한 방식을 함께
-        골라요.
-      </p>
+      <PageHeader
+        mark="교류"
+        label="함께 시작"
+        en="OUR FIRST THREE DAYS"
+        titleId="agreement-title"
+        title={<>우리, 어떤 방식으로<br />시작할까요?</>}
+        lead="마음을 서두르지 않고 알아갈 수 있도록, 두 사람이 편한 방식을 함께 골라요."
+        aside={<span className="rounded-full border border-border px-3 py-1 text-[11px] text-muted-foreground">서버 시간·두 계정 동기화 미연결 · 데모</span>}
+      />
       {state?.members.includes(memberId) && <div className="mt-6">
         <RefundPolicyPanel session={state.sessions[state.members.indexOf(memberId)]} kind="exchange" now={now} onChange={value => { const error = saveCurrentMemberPayment(value); setMessage(error || "환불 계산·요청만 기록했습니다. 실제 환불 완료가 아닙니다."); }} />
         {view?.canExtend && <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -296,20 +290,7 @@ export function AgreementFlow({
         </div>}
       </div>}
       {!view ? (
-        <div className="mt-7 border border-border bg-muted p-6">
-          <p className="text-sm font-semibold">
-            {agreementGate(state, now) || "당사자 확인이 필요합니다."}
-          </p>
-          <p className="mt-3 text-xs leading-6 text-muted-foreground">
-            상호 선택과 양쪽 교류비 결제 완료 전에는 A/B를 공유하거나 시작할 수
-            없습니다. 한쪽 선택·결제만으로 상대의 응답을 만들지 않습니다.
-          </p>
-          <Button asChild variant="outline" className="mt-4">
-            <Link to="/demo/agreement">
-              분리된 가상 합의 데모 보기 <ArrowUpRight size={15} />
-            </Link>
-          </Button>
-        </div>
+        <ExchangePreview gate={agreementGate(state, now) || "당사자 확인이 필요합니다."} />
       ) : (
         <>
           <div className="mt-7 flex flex-wrap gap-3 border-y border-border py-4 text-xs">
@@ -785,11 +766,8 @@ export function AgreementDemo() {
   }
   return (
     <main className="mx-auto max-w-6xl px-5 py-8">
-      <div className="border border-accent/20 bg-accent/5 p-5">
-        <p className="text-sm font-semibold text-accent">
-          개발용 A/B 합의 · 가상 두 계정 데모
-        </p>
-        <p className="mt-2 text-xs leading-6">
+      <DemoDock title="A/B 합의 · 두 가상 계정" defaultOpen={!demo.state}>
+        <p className="text-xs leading-6">
           실제 결제 승인·서버 시간·두 계정 동기화는 없습니다. 제어 버튼은 회원
           화면과 분리됩니다. 상대 선택은 아래에서 계정을 직접 전환해 공유한
           경우에만 생깁니다.
@@ -894,7 +872,7 @@ export function AgreementDemo() {
             </Link>
           ))}
         </div>
-      </div>
+      </DemoDock>
       <AgreementFlow
         key={demo.memberId}
         state={demo.state}
@@ -1002,6 +980,67 @@ export function Day04Panel({ contactOnly = false }: { contactOnly?: boolean }) {
 export function MemberMeeting({ contactOnly = false }: { contactOnly?: boolean }) {
   const [params] = useSearchParams()
   const demo = useAgreementDemo()
-  if (params.get("demo") !== "agreement") return <section className="py-8"><p className="text-xs text-accent">약속</p><h1 className="mt-5 text-3xl">함께 나눈 이야기, 그다음 장면으로.</h1><p className="mt-5 max-w-xl text-sm leading-7 text-muted-foreground">3일 교류 정상 완료 뒤 DAY 04에 만남 의사를 선택합니다. 양쪽 모두 만나기를 선택하면 약속 방식을 정할 수 있어요. 현재 확인된 교류·만남 의사·약속은 없습니다.</p></section>
+  if (params.get("demo") !== "agreement") return <MeetingPreview />
   return <div><p className="text-xs text-accent">가상 두 계정 데모 · 서버 동기화·시간 검증 미연결</p><Link to="/demo/meeting" className="mt-3 inline-block text-xs text-primary underline">분리된 개발용 제어</Link><Day04Panel key={`${demo.generation}-${demo.memberId}`} contactOnly={contactOnly} /></div>
+}
+
+// 교류가 아직 열리지 않았을 때: 무엇을 고르게 될지 두 방식을 미리 보여준다.
+function ExchangePreview({ gate }: { gate: string }) {
+  const days = ["DAY 01", "DAY 02", "DAY 03"]
+  return (
+    <div className="mt-8">
+      <div className="flex flex-wrap items-center gap-3 border-l-2 border-accent pl-4">
+        <p className="text-sm font-semibold">{gate}</p>
+        <p className="w-full text-xs leading-6 text-muted-foreground">서로 더 알아가고 싶다고 고르고, 두 분 모두 교류비를 확인하면 이곳에서 방식을 함께 정해요. 한쪽 선택만으로 상대의 응답을 만들지 않아요.</p>
+      </div>
+      <p className="mt-12 text-[10px] font-semibold tracking-[0.2em] text-muted-foreground">두 가지 방식 · 가격은 같아요</p>
+      <div className="mt-4 grid gap-6 md:grid-cols-2">
+        <Sheet className="flex flex-col p-6 sm:p-8">
+          <div className="flex items-baseline justify-between"><span className="text-5xl font-extralight leading-none text-primary">A</span><span className="text-[10px] tracking-[0.18em] text-muted-foreground">THREE LETTERS</span></div>
+          <h2 className="mt-6 text-xl font-semibold">편지 나누기</h2>
+          <p className="mt-2 text-sm leading-7 text-muted-foreground">{plans.A.description}</p>
+          <blockquote className="mt-6 border-l-2 border-primary/50 pl-4 text-sm leading-7">“{QUESTIONS[0]}”<span className="mt-1 block text-[11px] text-muted-foreground">오늘의 질문 예시</span></blockquote>
+          <ol className="mt-6 space-y-2 border-t border-border pt-5 text-xs leading-6 text-muted-foreground">{days.map((day, index) => <li key={day} className="flex gap-3"><span className="w-12 shrink-0 font-semibold text-foreground">{day}</span>{["질문 하나, 각자 한 통", "두 사람이 모두 보내면 함께 열림", "답장은 그날 23:59까지, 선택"][index]}</li>)}</ol>
+        </Sheet>
+        <Sheet className="flex flex-col p-6 sm:p-8">
+          <div className="flex items-baseline justify-between"><span className="text-5xl font-extralight leading-none text-accent">B</span><span className="text-[10px] tracking-[0.18em] text-muted-foreground">ONE FIRST SCENE</span></div>
+          <h2 className="mt-6 text-xl font-semibold">첫 장면 만들기</h2>
+          <p className="mt-2 text-sm leading-7 text-muted-foreground">{plans.B.description}</p>
+          <div className="mt-6 grid grid-cols-3 gap-2 text-center text-xs">{["활동", "분위기", "대화 소재"].map((item, index) => <div key={item} className={`border px-2 py-4 ${index === 0 ? "border-accent/40 bg-accent/5" : "border-border"}`}>{item}</div>)}</div>
+          <ol className="mt-6 space-y-2 border-t border-border pt-5 text-xs leading-6 text-muted-foreground">{days.map((day, index) => <li key={day} className="flex gap-3"><span className="w-12 shrink-0 font-semibold text-foreground">{day}</span>{["함께 할 활동 고르기", "그날의 분위기 고르기", "꺼내고 싶은 이야기 고르기"][index]}</li>)}</ol>
+        </Sheet>
+      </div>
+      <div className="mt-10 flex flex-wrap items-center justify-between gap-4">
+        <QuietNote>어느 쪽이든 3일 뒤, DAY 04에 만남 의사를 물어요.</QuietNote>
+        <Button asChild variant="outline"><Link to="/demo/agreement">가상 합의 데모 보기 <ArrowUpRight size={15} /></Link></Button>
+      </div>
+    </div>
+  )
+}
+
+// 약속이 아직 없을 때: DAY 04 이후 흐름을 미리 보여준다.
+function MeetingPreview() {
+  return (
+    <section className="py-8" aria-labelledby="meeting-title">
+      <PageHeader mark="약속" label="DAY 04 이후" en="THE NEXT SCENE" titleId="meeting-title" title={<>함께 나눈 이야기,<br />그다음 장면으로.</>} lead="지금은 확인된 교류·만남 의사·약속이 없어요. 3일 교류를 마치면 이곳에서 이렇게 이어져요." aside={<TwoDots apart faded />} />
+      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <Sheet className="p-6 sm:p-10">
+          <Timeline items={[
+            { meta: "DAY 01 — 03", title: "3일 교류", body: "편지 또는 첫 장면으로 사흘을 함께 보내요. 답장을 쓰지 않은 날이 있어도 교류는 그대로 완료돼요." },
+            { meta: "DAY 04 · 09:00", title: "만남 의사 선택", body: "직접 만나보고 싶은지 각자 골라요. 상대의 선택은 두 사람 모두 고른 뒤에만 알 수 있고, ‘여기까지’를 골라도 이유는 묻지 않아요." },
+            { meta: "두 사람 모두 ‘만나고 싶어요’일 때", title: "약속 정하기", body: "날짜·시간·장소를 제안하고 두 분 모두 최종 승인해야 약속이 정해져요." },
+            { meta: "만나는 날 00:00", title: "연락처 공개", body: "두 분이 각자 따로 동의했을 때만, 만나는 날 자정에 연락처가 열려요. 취소·중단·안전 검토 중에는 열리지 않아요." },
+            { meta: "만난 뒤", title: "짧은 피드백", body: "만남이 어땠는지 운영자에게만 남겨요. 상대에게는 공개되지 않아요." },
+          ]} />
+        </Sheet>
+        <aside className="border-t-2 border-foreground pt-5">
+          <h2 className="text-sm font-semibold">첫 만남 전에 알아두면 좋은 것</h2>
+          <ul className="mt-5 divide-y divide-border text-sm leading-7">
+            {["사람이 많은 낮 시간, 공개된 장소에서 만나요.", "이동 수단과 귀가 시간은 스스로 정해 두세요.", "불편하면 언제든 자리를 떠나도 괜찮아요.", "문제가 생기면 약속 화면의 신고·문의를 이용해 주세요."].map((tip) => <li key={tip} className="py-3 text-muted-foreground">{tip}</li>)}
+          </ul>
+          <Button asChild variant="outline" className="mt-6 w-full"><Link to="/today">오늘로 돌아가기 <ArrowRight size={15} /></Link></Button>
+        </aside>
+      </div>
+    </section>
+  )
 }

@@ -1,3 +1,4 @@
+import { DemoDock } from "./DemoDock"
 import { Link } from "react-router"
 import { useState } from "react"
 import { Button } from "./components/ui/button"
@@ -26,14 +27,8 @@ export function LetterDemo() {
   )
   return (
     <main className="mx-auto w-full min-w-0 max-w-5xl px-5 py-8">
-      <section
-        className="border border-accent/20 bg-accent/5 p-5"
-        aria-label="개발용 편지 제어"
-      >
-        <p className="text-sm font-semibold text-accent">
-          개발용 A 편지 · 두 가상 계정의 메모리 데모
-        </p>
-        <p className="mt-2 text-xs leading-6">
+      <DemoDock title="A 편지 · 두 가상 계정" defaultOpen={!demo.state}>
+        <p className="text-xs leading-6">
           실제 결제·회원·서버 시간·두 계정 동기화·영구 저장은 없습니다. 가상
           개시 기록만 불러오며 편지·답장은 생성하지 않습니다. 각 계정으로 직접
           작성하고 전송해야 합니다.
@@ -111,7 +106,7 @@ export function LetterDemo() {
             기존 A/B 합의 제어
           </Link>
         </div>
-      </section>
+      </DemoDock>
       <LetterFlow
         key={`${demo.generation}-${demo.memberId}-${view?.programId || "empty"}`}
         view={view}

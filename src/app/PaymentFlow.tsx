@@ -1,3 +1,4 @@
+import { DemoDock } from "./DemoDock"
 import { useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import { useOwnMemberAccount, saveMemberPayment } from "./member-operations-model"
@@ -129,10 +130,12 @@ export function PaymentFlow({
         </p>
       </div>
       {kind === "introduction" ? (
-        <div className="border-l-2 border-primary bg-secondary p-5">
-          <p className="text-3xl font-semibold">
-            {introductionReady ? amount(session.policy.introduction) : "지금은 무료 대기"}
+        <div className="border-y-2 border-foreground py-7">
+          <p className="text-[10px] font-semibold tracking-[0.2em] text-muted-foreground">{introductionReady ? "소개 이용료 · 1인" : "지금 내는 비용"}</p>
+          <p className="mt-3 text-4xl font-extralight leading-none tabular-nums sm:text-5xl">
+            {introductionReady ? amount(session.policy.introduction) : "0원"}
           </p>
+          {!introductionReady && <p className="mt-3 text-sm font-semibold text-accent">지금은 무료 대기</p>}
           <p className="mt-3 text-sm font-medium leading-7">
             해당 신청에서 첫 A/B 교류를 실제 시작하기 전까지 횟수 제한 없는 소개
           </p>
@@ -199,7 +202,7 @@ export function PaymentFlow({
       )}
       <div className="space-y-3 text-sm leading-7">
         <h3 className="font-semibold">결제 전 꼭 확인해 주세요</h3>
-        <ul className="space-y-2 text-muted-foreground">
+        <ul className="divide-y divide-border border-y border-border text-muted-foreground [&>li]:py-3">
           <li>
             준비된 날 정오 12시, Asia/Seoul에 하루 최대 한 명을 소개합니다. 매일
             새 소개를 보장하지 않습니다.
@@ -333,11 +336,8 @@ export function PaymentDemo() {
   return (
     <section className="mx-auto max-w-3xl space-y-8 py-8">
       <h1 className="sr-only">개발용 결제 상태 미리보기</h1>
-      <div className="rounded-xl border border-accent/30 bg-accent/5 p-5">
-        <p className="text-sm font-semibold text-accent">
-          개발용 결제 상태 미리보기 · 가상 기록만 사용
-        </p>
-        <p className="mt-2 text-xs leading-6 text-muted-foreground">
+      <DemoDock title="결제 상태 미리보기" defaultOpen>
+        <p className="text-xs leading-6 text-muted-foreground">
           상태 선택은 가상 사례를 불러올 뿐 실제 결제·회원·관리자 원장을
           변경하지 않습니다. 완료 상태는 가상 기록 예시이며 버튼으로 실제
           승인·환불하지 않습니다.
@@ -356,9 +356,9 @@ export function PaymentDemo() {
             ))}
           </select>
         </label>
-      </div>
-      <Button variant="outline" onClick={()=>{saveMemberPayment("current-member",makePaymentFixture(scenario));setLinked(true);}}>선택한 가상 결제 기록을 내 정보에 연결</Button>
-      {linked && <p className="text-xs text-primary">가상 기록만 연결했습니다. 실제 거래·PG·개인정보는 생성하지 않았습니다.</p>}
+        <Button variant="outline" onClick={()=>{saveMemberPayment("current-member",makePaymentFixture(scenario));setLinked(true);}}>선택한 가상 결제 기록을 내 정보에 연결</Button>
+        {linked && <p className="text-xs text-primary">가상 기록만 연결했습니다. 실제 거래·PG·개인정보는 생성하지 않았습니다.</p>}
+      </DemoDock>
       <PaymentFlow
         key={scenario}
         initial={makePaymentFixture(scenario)}

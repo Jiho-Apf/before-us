@@ -1,3 +1,4 @@
+import { DemoDock } from "./DemoDock"
 import { useState } from "react"
 import { Link } from "react-router"
 import { Button } from "./components/ui/button"
@@ -16,10 +17,7 @@ export function SceneDemo() {
   const [clock, setClock] = useState("2026-10-08T09:00")
   return (
     <main className="mx-auto max-w-6xl px-5 py-8">
-      <section className="space-y-4 border border-accent/20 bg-accent/5 p-5">
-        <h1 className="text-lg text-accent">
-          개발용 B 교류 · 가상 두 계정 데모
-        </h1>
+      <DemoDock title="B 교류 · 두 가상 계정" defaultOpen={!demo.scene}>
         <p className="text-xs leading-6">
           빈 B 개시 예시는 가상 결제·양쪽 동의·개시 기록을 불러옵니다.
           활동·이유·상대 응답은 만들지 않습니다. 새로고침 시 사라집니다.
@@ -60,7 +58,7 @@ export function SceneDemo() {
           ))}
           <Link to="/demo/agreement">A/B 합의 제어</Link>
         </div>
-      </section>
+      </DemoDock>
       <SceneFlow
         key={`${demo.generation}-${demo.memberId}`}
         view={sceneView(

@@ -1,3 +1,4 @@
+import { DemoDock } from "./DemoDock"
 import { useState } from "react"
 import { Link } from "react-router"
 import { Button } from "./components/ui/button"
@@ -18,8 +19,7 @@ export function MeetingDemo() {
   const [clock, setClock] = useState("2026-10-11T09:00")
   return (
     <main className="mx-auto max-w-5xl px-5 py-8">
-      <section className="space-y-4 border border-accent/20 bg-accent/5 p-5">
-        <h1 className="text-lg text-accent">개발용 DAY04 · 약속 조율</h1>
+      <DemoDock title="DAY04 · 약속 조율">
         <p className="text-xs leading-6">
           기존 A/B 가상 교류에서 정상 3일을 완료한 기록을 사용합니다. 완료·상대
           응답·제안자를 자동 생성하지 않습니다. 제어는 회원 화면과 분리되어
@@ -92,7 +92,7 @@ export function MeetingDemo() {
           <Link to="/today?demo=agreement">오늘</Link>
           <Link to="/meeting?demo=agreement">약속</Link>
         </div>
-      </section>
+      </DemoDock>
       <Day04Panel key={`${demo.generation}-${demo.memberId}`} />
       <section className="mt-10 space-y-3 border border-accent/20 bg-accent/5 p-5">
         <h2 className="text-lg text-accent">만남 전후 화면 미리보기 · 가상</h2>

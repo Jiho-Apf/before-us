@@ -1,6 +1,9 @@
+import { DemoDock } from "./DemoDock"
 import { useState, useEffect } from "react"
 import { Link, useSearchParams } from "react-router"
 import { MemberAgreement } from "./AgreementFlow"
+import { PageHeader, Sheet, TwoDots } from "./editorial"
+import { NoonClock } from "./PublicHome"
 import { ArrowRight, Clock3, LockKeyhole, Users, Image } from "lucide-react"
 import { Button } from "./components/ui/button"
 import { Checkbox } from "./components/ui/checkbox"
@@ -90,18 +93,8 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
   }
   return (
     <section className="space-y-7 py-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="mb-3 text-xs font-semibold tracking-widest text-accent">
-            THIS INTRODUCTION / BEFORE US
-          </p>
-          <h1 className="text-3xl font-semibold leading-relaxed">{title}</h1>
-        </div>
-        <span className="rounded-full border border-border px-3 py-2 text-xs text-muted-foreground">
-          가상 상태 · 실서버 공개 미연결
-        </span>
-      </header>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border py-4 text-xs">
+      <PageHeader mark="두 사람" label="이번 소개" en="THIS INTRODUCTION" title={title} aside={<span className="rounded-full border border-border px-3 py-1 text-[11px] text-muted-foreground">가상 상태 · 실서버 공개 미연결</span>} />
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4 text-xs text-muted-foreground">
         <span>이번 소개 · {view.id || "아직 공개된 건 없음"}</span>
         {view.dueAt && (
           <span className="flex items-center gap-2 text-accent">
@@ -202,10 +195,10 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
         </div>
         </PrivateProfile>
       ) : (
-        <div className="flex items-start gap-4 border border-border bg-secondary p-6">
-          <LockKeyhole className="mt-1 shrink-0 text-accent" size={22} />
+        <Sheet className="grid gap-10 p-6 sm:p-10 md:grid-cols-[minmax(0,1fr)_auto]">
           <div>
-            <p className="text-sm font-semibold">
+            <div className="flex items-center gap-4"><TwoDots apart faded /><LockKeyhole className="text-muted-foreground" size={15} /></div>
+            <p className="mt-6 text-xl font-semibold leading-[1.6]">
               {view.expired
                 ? "응답 기한이 지났어요. 종료 상태를 확인하고 있습니다."
                 : view.status === "closed"
@@ -214,13 +207,14 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
                     ? "양쪽 공개 준비가 확인된 한 쌍을 정오에 동시에 공개합니다."
                     : "현재 조건과 참여 시점이 맞는 상대를 준비하고 있어요."}
             </p>
-            <p className="mt-3 text-sm leading-7 text-muted-foreground">
-              공개 전·기한 후·종료된 상대의 사진은 이 화면에 포함하지 않습니다.
-              새 후보가 없으면 추가금 없이 기다립니다. 매일 새 후보를 생성하거나
-              소개를 보장하지 않습니다.
-            </p>
+            <ul className="mt-6 divide-y divide-border border-y border-border text-sm leading-7 text-muted-foreground">
+              <li className="py-3">공개 전·기한 후·종료된 상대의 사진은 이 화면에 두지 않아요.</li>
+              <li className="py-3">새 후보가 없으면 추가금 없이 기다려요.</li>
+              <li className="py-3">매일 새 후보를 만들거나 소개를 보장하지 않아요.</li>
+            </ul>
           </div>
-        </div>
+          <div className="md:border-l md:border-border md:pl-10"><NoonClock tone="plain" /></div>
+        </Sheet>
       )}
       {view.status === "published" &&
         !view.expired &&
@@ -313,8 +307,8 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
           <PaymentFlow key={view.id} initial={payment} kind="exchange" nowOverride={now} onSessionChange={session => { const result = recordDemoExchangeRequest(book, memberId, session, book.revision, now); if (result.errors.length) setMessage(result.errors.join(" ")); else onChange?.(result.book) }} />
         </div>
       )}
-      <div className="grid gap-4 text-sm sm:grid-cols-2">
-        <div className="rounded-xl border border-border p-5">
+      <div className="grid gap-8 text-sm sm:grid-cols-2">
+        <div className="border-t-2 border-foreground pt-5">
           <p className="mb-3 flex items-center gap-2 font-semibold">
             <Users size={16} />
             현재 참여 상태
@@ -329,7 +323,7 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
             소개 이용 권리 종료와 다릅니다.
           </p>
         </div>
-        <div className="rounded-xl border border-border p-5">
+        <div className="border-t-2 border-foreground pt-5">
           <p className="mb-3 font-semibold">소개 이용 권리</p>
           <p>
             {view.rights === "valid"
@@ -453,10 +447,7 @@ export function IntroductionDemo() {
   }
   return (
     <div className="py-6">
-      <div className="space-y-4 rounded-xl border border-accent/30 bg-accent/5 p-5">
-        <p className="text-sm font-semibold text-accent">
-          개발용 한 쌍 소개 시연 · 가상 운영/회원 전환
-        </p>
+      <DemoDock title="한 쌍 소개 시연 · 운영/회원 전환" defaultOpen>
         <p className="text-xs leading-6 text-muted-foreground">
           가상 기준 시각 {formatTime(now.toISOString())} · 실제 서버 스케줄·동시
           공개·운영자 권한·발송은 연결하지 않았습니다. 양쪽 회원 전환과 종료
@@ -537,7 +528,7 @@ export function IntroductionDemo() {
         >
           기존 운영자 후보 검토 · 실제 준비 검사 재사용
         </Link>
-      </div>
+      </DemoDock>
       <IntroductionView
         key={`${id}-${memberId}-${book.records[0].status}`}
         book={book}

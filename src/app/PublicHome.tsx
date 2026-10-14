@@ -77,7 +77,7 @@ function untilNoon(now: Date) {
   const left = Math.max(0, Math.floor((target - now.getTime()) / 1000));
   return { left, atNoon: now.getTime() >= noon && now.getTime() < noon + 60000 };
 }
-function NoonClock({ tone = "light" }: { tone?: "light" | "plain" }) {
+export function NoonClock({ tone = "light" }: { tone?: "light" | "plain" }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 1000); return () => window.clearInterval(timer); }, []);
   const { left, atNoon } = untilNoon(now);

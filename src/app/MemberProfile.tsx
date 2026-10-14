@@ -1,3 +1,4 @@
+import { Eyebrow, Sheet, TwoDots } from "./editorial"
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import {
@@ -299,8 +300,8 @@ export default function MemberProfile() {
     <section className="space-y-9 pb-8">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-7">
         <div>
-          <p className="text-xs tracking-widest text-primary">MY / BEFORE US</p>
-          <h1 className="mt-3 text-3xl">내 정보</h1>
+          <Eyebrow mark="내 정보" label="나의 기록" en="MY, BEFORE US" />
+          <h1 className="mt-5 text-3xl font-semibold leading-[1.4] sm:text-[34px]">내 정보</h1>
           <p className="mt-3 text-sm text-muted-foreground">
             내가 알려 준 정보와, 지금의 참여 상태를 살펴보세요.
           </p>
@@ -310,33 +311,33 @@ export default function MemberProfile() {
         </span>
       </header>
       <div className="grid gap-6 lg:grid-cols-3">
-        <section className="space-y-5 rounded-xl bg-primary p-6 text-primary-foreground lg:col-span-2">
-          <p className="text-xs tracking-widest">
+        <Sheet className="space-y-5 p-6 sm:p-8 lg:col-span-2">
+          <p className="text-[10px] font-semibold tracking-[0.2em] text-accent">
             MY INTRODUCTION / {payment.policy.version}
           </p>
-          <h2 className="max-w-xl text-2xl leading-relaxed">
+          <h2 className="max-w-xl text-2xl font-semibold leading-[1.5] sm:text-[28px]">
             첫 교류 시작 전,
             <br />
             소개 횟수 제한 없음
           </h2>
-          <p className="max-w-xl text-sm leading-7 opacity-90 dark:opacity-100">
+          <p className="max-w-xl text-sm leading-7 text-muted-foreground">
             이번 신청에서 첫 A/B가 실제 시작되기 전까지의 초기 혜택입니다. 하루
             최대 한 명, 매일 새 소개는 보장하지 않아요. 평생 재소개·실제
             만남·연애 보장은 아닙니다.
           </p>
-          <div className="border-t border-primary-foreground/20 pt-4 text-sm">
+          <div className="flex items-center gap-3 border-t border-border pt-4 text-sm font-medium"><TwoDots />
             {rights === "valid"
               ? "소개 이용 권리 유지 · 첫 교류 실제 시작 전"
               : rights === "first-program-started" || service.startedAt
                 ? "첫 교류 실제 시작 기록 · 이번 소개 혜택 종료, 재이용 정책 확인 필요"
                 : payment.introduction ? `소개 결제 ${RECEIPT_LABELS[payment.introduction.status]} · 권리·후속 처리는 별도 확인` : "소개 결제 기록 없음 · 신청·검토·소개 준비 대기는 무료"}
           </div>
-          <p className="text-xs leading-6 opacity-90 dark:opacity-100">
+          <p className="text-xs leading-6 text-muted-foreground">
             소개 정지·마케팅 해제·정오 대기 알림 해제로 이 권리가 소멸하지
             않습니다. 숨은 만료·추가 소개권 구매는 없습니다.
           </p>
-        </section>
-        <section className="space-y-4 rounded-xl border border-border bg-background p-6">
+        </Sheet>
+        <section className="space-y-4 border-t-2 border-foreground pt-5">
           <div className="flex items-center gap-2 text-sm">
             <Pause className="size-4 text-primary" />
             일시정지
