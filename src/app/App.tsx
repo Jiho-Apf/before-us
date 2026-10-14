@@ -1,14 +1,14 @@
-import { PrivacyPage, TermsPage } from "./LegalPages";
 import { Suspense, lazy, useState, useEffect, type ComponentType } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { createBrowserRouter, RouterProvider, NavLink, Link, Outlet, useLocation } from "react-router";
 import { Button } from "./components/ui/button";
 import { BEFORE_US } from "./config";
+import { Calendar, User, Home, ArrowRight, X, Sun, Moon, Users, MessageCircle, Menu, LogOut } from "lucide-react";
 import PublicHome, { PublicInformation } from "./PublicHome";
 
 // 공개 홈만 바로 불러오고, 회원·데모·관리자 화면은 그 화면을 열 때 따로 불러온다.
-const later = <T extends Record<string, unknown>, K extends keyof T>(load: () => Promise<T>, name: K) =>
-  lazy(() => load().then(module => ({ default: module[name] as ComponentType<any> })));
+const later = <T, K extends keyof T>(load: () => Promise<T>, name: K) =>
+  lazy(async () => ({ default: (await load())[name] as T[K] extends ComponentType<any> ? T[K] : never }));
 const MemberToday = later(() => import("./MemberToday"), "default");
 const TodayDemo = later(() => import("./MemberToday"), "TodayDemo");
 const ApplicationForm = later(() => import("./ApplicationForm"), "default");
@@ -40,14 +40,12 @@ function RouteFallback() {
   return <div role="status" aria-live="polite" className="flex flex-1 items-center justify-center py-24"><span className="sr-only">화면을 불러오는 중</span><span aria-hidden="true" className="flex gap-1.5"><span className="size-2 animate-pulse rounded-full bg-primary" /><span className="size-2 animate-pulse rounded-full bg-accent [animation-delay:150ms]" /></span></div>;
 }
 
-import { Calendar, User, Home, ArrowRight, X, Sun, Moon, Users, MessageCircle, Menu, LogOut } from "lucide-react";
 
 const PUBLIC_NAV = [
   { to: "/how-it-works", label: "진행 방식", number: "01" },
   { to: "/two-starts", label: "두 가지 시작", number: "02" },
   { to: "/pricing", label: "이용 요금", number: "03" },
-  { to: "/faq", label: "자주 묻는 질문", number: "04" },
-  { to: "/contact", label: "문의하기", number: "05" },
+  { to: "/contact", label: "문의하기", number: "04" },
 ];
 
 const MEMBER_NAV = [
@@ -120,18 +118,10 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
         <PageTransition />
       </main>
       <footer className="border-t border-border">
-        <div className="mx-auto max-w-7xl px-5 py-8 text-xs sm:px-8 lg:px-12">
-          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-            <span className="font-semibold tracking-[0.12em]">{BEFORE_US.brand.english}</span>
-            <span className="text-muted-foreground">{BEFORE_US.brand.message}</span>
-            <nav aria-label="정책과 문의" className="flex flex-wrap items-center gap-x-4 gap-y-2 text-muted-foreground">
-              <Link to="/terms" className="underline-offset-4 hover:text-primary hover:underline">이용약관</Link>
-              <Link to="/privacy" className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">개인정보처리방침</Link>
-              <Link to="/faq" className="underline-offset-4 hover:text-primary hover:underline">자주 묻는 질문</Link>
-              <Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
-            </nav>
-          </div>
-          <p className="mt-6 border-t border-border pt-5 leading-6 text-muted-foreground">상호 · 대표자 · 사업자등록번호 · 통신판매업 신고번호는 서비스를 열기 전에 등록해 이곳에 표시해요. · 만 19세 이상 대상 일대일 소개</p>
+        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-5 px-5 py-7 text-xs sm:flex-row sm:items-center sm:px-8 lg:px-12">
+          <span className="font-semibold tracking-[0.12em]">{BEFORE_US.brand.english}</span>
+          <span className="text-muted-foreground">{BEFORE_US.brand.message}</span>
+          <span className="flex items-center gap-4 text-muted-foreground"><Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link><span>성인 대상 일대일 소개</span></span>
         </div>
       </footer>
     </div>
@@ -237,9 +227,6 @@ const beforeUsRouter = createBrowserRouter([
     { path: "/how-it-works", element: <PublicInformation section="introduction" /> },
     { path: "/two-starts", element: <PublicInformation section="exchange" /> },
     { path: "/pricing", element: <PublicInformation section="pricing" /> },
-    { path: "/faq", element: <PublicInformation section="faq" /> },
-    { path: "/terms", element: <TermsPage /> },
-    { path: "/privacy", element: <PrivacyPage /> },
     { path: "/contact", element: <InquiryPage /> },
     { path: "/today", element: <MemberToday /> },
     { path: "/payments", element: <MemberPayments /> },

@@ -84,8 +84,8 @@ export const STORY_PLAIN: typeof STORY = [
 export const STORY_PLAIN_ENDING = "약속은 일요일 오전 열한 시, 준호의 동네 빵집 앞으로 정했다. 특별한 계획은 없다. 빵을 사서 근처를 조금 걷기로 했다. 이야기는 여기까지예요. 그다음은 두 사람이 정할 일이니까요."
 
 export const STORIES = [
-  { id: "plain", number: "01", people: STORY_PLAIN_PEOPLE, chapters: STORY_PLAIN, ending: STORY_PLAIN_ENDING },
-  { id: "lyrical", number: "02", people: STORY_PEOPLE, chapters: STORY, ending: STORY_ENDING },
+  { id: "plain", number: "1", people: STORY_PLAIN_PEOPLE, chapters: STORY_PLAIN, ending: STORY_PLAIN_ENDING },
+  { id: "lyrical", number: "2", people: STORY_PEOPLE, chapters: STORY, ending: STORY_ENDING },
 ] as const
 export const STORY_NOTE = "모든 소개가 이렇게 흘러가지는 않아요. 4일째에 한 사람이라도 ‘여기까지’를 고르면, 이유를 묻지 않고 조용히 마무리돼요."
 
