@@ -302,14 +302,14 @@ function TwoVoices() {
     <section className="border-t border-border py-16 sm:py-24" aria-labelledby="story-title">
       <div className="mx-auto max-w-2xl text-center">
         <div className="flex justify-center"><SectionLabel number="04" ko="이야기">A STORY IN TWO VOICES</SectionLabel></div>
-        <h2 id="story-title" className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">지어낸 이야기예요.<br />하지만, 이렇게 흘러가요.</h2>
-        <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-muted-foreground">정오에 도착한 한 사람과의 3일을, 두 사람의 시점으로 나란히 적었어요. 실제 회원의 기록이 아닌 가상의 이야기예요.</p>
+        <h2 id="story-title" className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">두 사람의 3일은,<br />이렇게 흘러가요.</h2>
+        <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-muted-foreground">정오에 도착한 한 사람과의 3일을, 두 사람의 시점으로 나란히 적었어요.</p>
         <div role="group" aria-label="이야기 시점" className="mx-auto mt-8 flex w-fit rounded-full bg-muted p-1 text-xs">
           {([["both", "함께 읽기"], ["left", `${STORY_PEOPLE.left}의 시점`], ["right", `${STORY_PEOPLE.right}의 시점`]] as const).map(([id, label]) => (
             <button key={id} type="button" aria-pressed={voice === id} onClick={() => setVoice(id)} className={`rounded-full px-4 py-2 ${interaction} ${voice === id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
           ))}
         </div>
-        <p className="mt-4 text-[11px] text-muted-foreground">약 3분</p>
+        <p className="mt-4 text-[11px] text-muted-foreground">약 3분 · 예시 이야기</p>
       </div>
       <ol className="relative mx-auto mt-16 max-w-4xl">
         <span aria-hidden="true" className="absolute top-2 bottom-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-border to-transparent md:block" />

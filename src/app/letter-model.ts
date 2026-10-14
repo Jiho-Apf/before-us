@@ -9,7 +9,10 @@ export const LETTER_DAYS = [
   { title: "만나면 이어가고 싶은 이야기", question: "직접 만나게 된다면 어떤 시간을 보내고 싶나요?" },
 ] as const;
 type Submission = { body: string; at: string };
-type LetterDay = { date: string; drafts: Record<string, string>; submissions: Record<string, Submission>; publishedAt: string | null };
+// replies: 그날 함께 열린 상대 편지에 보내는 답장. 키는 답장을 쓴 사람.
+type LetterDay = { date: string; drafts: Record<string, string>; submissions: Record<string, Submission>; publishedAt: string | null; replies?: Record<string, Submission> };
+// 답장은 하루 한 번, 보내는 즉시 상대가 읽을 수 있다. 답장에 대한 답장은 없다. 다음 날 편지가 열리는 09:00까지 쓸 수 있다.
+export const LETTER_REPLY = { maxLength: 600, closesAt: "09:00" } as const;
 export type LetterBook = {
   programId: string;
   revision: number;
@@ -32,6 +35,7 @@ export function createLetterBook(agreement: AgreementState, now: Date): LetterBo
 export type LetterCommand =
   | { type: "save"; day: number; body: string }
   | { type: "submit"; day: number; body: string; confirmed: boolean }
+  | { type: "reply"; day: number; body: string; confirmed: boolean }
   | { type: "meeting-choice"; choice: "positive" | "negative"; confirmed: boolean }
   | { type: "report" | "contact" | "interrupt" | "block" };
 const published = (row: LetterDay, members: string[], now: Date) => !!row.publishedAt && Number.isFinite(Date.parse(row.publishedAt)) && Date.parse(row.publishedAt) <= now.getTime() && members.every(id => row.submissions[id] && !!row.submissions[id].body.trim() && Number.isFinite(Date.parse(row.submissions[id].at)) && Date.parse(row.submissions[id].at) >= Date.parse(`${row.date}T09:00:00+09:00`) && Date.parse(row.submissions[id].at) < Date.parse(`${shiftDay(row.date, 1)}T00:00:00+09:00`) && Date.parse(row.submissions[id].at) <= Date.parse(row.publishedAt!));
@@ -47,6 +51,16 @@ function rowGate(book: LetterBook, agreement: AgreementState, memberId: string, 
   const closes = Date.parse(`${shiftDay(row.date, 1)}T00:00:00+09:00`);
   if (now.getTime() < opens || now.getTime() >= closes || seoulDay(now) !== row.date) return "오늘의 작성 시간은 09:00~23:59, Asia/Seoul입니다. 다른 날짜 편지는 보낼 수 없습니다.";
   if (index === 1 && !published(book.days[0], agreement.members, now)) return "어제 실제로 공개된 편지가 없습니다. 없는 편지에 답장을 요청하지 않습니다. 교류 지연 상담이 필요합니다.";
+  return null;
+}
+const replyClosesAt = (row: LetterDay) => `${shiftDay(row.date, 1)}T${LETTER_REPLY.closesAt}:00+09:00`;
+function replyGate(book: LetterBook, agreement: AgreementState, memberId: string, index: number, now: Date) {
+  if (agreementGate(agreement, now) || agreement.status !== "started" || book.status !== "active" || !book.access[memberId]) return "교류가 중단되었거나 이용 확인이 필요합니다. 문의해 주세요.";
+  const row = book.days[index];
+  if (!row) return "유효한 DAY를 확인해 주세요.";
+  if (!published(row, agreement.members, now)) return "그날의 편지가 두 사람 모두에게 열린 뒤에 답장할 수 있어요.";
+  if (row.replies?.[memberId]) return "답장은 하루에 한 번만 보낼 수 있어요.";
+  if (now.getTime() >= Date.parse(replyClosesAt(row))) return "답장은 다음 편지가 열리는 09:00까지 쓸 수 있어요.";
   return null;
 }
 export function letterAction(book: LetterBook, agreement: AgreementState, memberId: string, command: LetterCommand, expectedRevision: number, now: Date) {
@@ -66,6 +80,15 @@ export function letterAction(book: LetterBook, agreement: AgreementState, member
       delete row.drafts[memberId];
       if (agreement.members.every(id => row.submissions[id]) && !row.publishedAt) row.publishedAt = now.toISOString();
     }
+  } else if (command.type === "reply") {
+    if (!Number.isInteger(command.day) || command.day < 0 || command.day > 2 || typeof command.body !== "string") return reject("유효한 답장 정보를 확인해 주세요.");
+    const gate = replyGate(book, agreement, memberId, command.day, now);
+    if (gate) return reject(gate);
+    const body = command.body.trim();
+    if (!command.confirmed || !body.replace(/[\s\u200B-\u200D\uFEFF]/g, "").length) return reject("빈 답장은 보낼 수 없어요. 내용을 확인하고 전송에 동의해 주세요.");
+    if (body.length > LETTER_REPLY.maxLength) return reject(`답장은 ${LETTER_REPLY.maxLength}자 이하로 써 주세요.`);
+    const row = next.days[command.day];
+    row.replies = { ...(row.replies || {}), [memberId]: { body, at: now.toISOString() } };
   } else if (command.type === "meeting-choice") {
     if (!letterView(book, agreement, memberId, now)?.canRespond || agreementGate(agreement, now) || !command.confirmed || !["positive", "negative"].includes(command.choice) || book.meetingChoices[memberId]) return reject("정상 3일 교환·DAY04 오픈·본인 확인과 응답 기한을 확인해 주세요. 마감 후 미응답은 자동 선택하지 않으며 문의가 필요합니다. 이미 제출한 선택은 중복 제출하지 않습니다.");
     next.meetingChoices[memberId] = command.choice;
@@ -96,7 +119,15 @@ export function letterView(book: LetterBook | null, agreement: AgreementState | 
       lockedReason: permitted ? rowGate(book, agreement, memberId, index, now) : "접근 권한 재검토 중 · 본문을 제공하지 않습니다.",
       status: !permitted ? "access-review" : released ? "published" : own ? "own-submitted" : past ? "delayed" : row.date > seoulDay(now) ? "future" : "not-submitted",
       publishedAt: released ? row.publishedAt : null,
-      exchange: released ? { own: row.submissions[memberId].body, peer: row.submissions[peer].body } : null,
+      exchange: released ? {
+        own: row.submissions[memberId].body,
+        peer: row.submissions[peer].body,
+        // 내가 상대 편지에 쓴 답장과, 상대가 내 편지에 쓴 답장. 상대 답장은 보내진 즉시 보인다.
+        ownReply: row.replies?.[memberId] || null,
+        peerReply: row.replies?.[peer] || null,
+        canReply: !replyGate(book, agreement, memberId, index, now),
+        replyClosesAt: replyClosesAt(row),
+      } : null,
     };
   });
   const complete = book.days.every(row => published(row, agreement.members, now));

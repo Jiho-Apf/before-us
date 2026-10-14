@@ -12,7 +12,7 @@ import {
 import { Button } from "./components/ui/button"
 import { Textarea } from "./components/ui/textarea"
 import { Checkbox } from "./components/ui/checkbox"
-import { type LetterCommand, type LetterView } from "./letter-model"
+import { LETTER_REPLY, type LetterCommand, type LetterView } from "./letter-model"
 
 const formatTime = (value: string) => Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false }) : "확인된 시각 없음"
 
@@ -21,6 +21,35 @@ type LetterFlowProps = {
   nowLabel: string
   onCommand?: (command: LetterCommand, revision: number) => string | null
 }
+function ReplyBox({ closesAt, onSend }: { closesAt: string; onSend: (body: string, confirmed: boolean) => void }) {
+  const [body, setBody] = useState("")
+  const [ok, setOk] = useState(false)
+  return (
+    <div className="mt-6 space-y-3 rounded-xl border border-border p-4">
+      <p className="text-xs font-semibold">이 편지에 답장하기 · 한 번만</p>
+      <Textarea
+        aria-label="상대 편지에 답장"
+        value={body}
+        maxLength={LETTER_REPLY.maxLength}
+        onChange={(event) => { setBody(event.target.value); setOk(false) }}
+        placeholder="편지를 읽고 떠오른 마음을 짧게 전해 보세요."
+        className="min-h-28 bg-background leading-7"
+      />
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <span>{body.length}/{LETTER_REPLY.maxLength}</span>
+        <span>{formatTime(closesAt)}까지 · 보내면 상대가 바로 읽을 수 있어요</span>
+      </div>
+      <label className="flex items-start gap-3 text-xs leading-6">
+        <Checkbox checked={ok} onCheckedChange={(value) => setOk(value === true)} />
+        답장은 한 번만 보낼 수 있고, 보낸 뒤에는 고칠 수 없어요. 상대는 이 답장에 다시 답장할 수 없어요.
+      </label>
+      <Button size="sm" disabled={!body.trim() || !ok} onClick={() => onSend(body, ok)}>
+        답장 보내기
+      </Button>
+    </div>
+  )
+}
+
 export function LetterFlow({ view, nowLabel, onCommand }: LetterFlowProps) {
   const [selected, setSelected] = useState(() =>
     view?.todayIndex !== undefined && view.todayIndex >= 0
@@ -53,6 +82,8 @@ export function LetterFlow({ view, nowLabel, onCommand }: LetterFlowProps) {
           ? "가상 초안을 임시 저장했어요. 작성자만 확인할 수 있습니다."
           : command.type === "submit"
             ? "오늘의 편지를 보냈어요. 양쪽 제출이 확인되면 함께 공개합니다. 실제 발송·저장은 연결되지 않았습니다."
+            : command.type === "reply"
+              ? "답장을 보냈어요. 상대가 바로 읽을 수 있어요."
             : command.type === "meeting-choice"
               ? "만남 의사를 전달했어요. 상대의 응답을 임의로 만들지 않습니다."
               : command.type === "block"
@@ -208,6 +239,22 @@ export function LetterFlow({ view, nowLabel, onCommand }: LetterFlowProps) {
                       <p className="mt-4 whitespace-pre-wrap break-words text-base leading-8">
                         {row.exchange.peer}
                       </p>
+                      {row.exchange.ownReply ? (
+                        <div className="mt-6 border-l-2 border-primary/40 pl-4">
+                          <p className="text-xs text-muted-foreground">
+                            내 답장 · {formatTime(row.exchange.ownReply.at)} · 상대가 바로 읽을 수 있어요
+                          </p>
+                          <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-7">
+                            {row.exchange.ownReply.body}
+                          </p>
+                        </div>
+                      ) : row.exchange.canReply ? (
+                        <ReplyBox
+                          key={`${row.index}-${view.revision}`}
+                          closesAt={row.exchange.replyClosesAt}
+                          onSend={(body, ok) => send({ type: "reply", day: row.index, body, confirmed: ok })}
+                        />
+                      ) : null}
                     </section>
                     <section
                       className="border-t border-border pt-6"
@@ -217,6 +264,19 @@ export function LetterFlow({ view, nowLabel, onCommand }: LetterFlowProps) {
                       <p className="mt-4 whitespace-pre-wrap break-words text-base leading-8">
                         {row.exchange.own}
                       </p>
+                      {row.exchange.peerReply ? (
+                        <div className="mt-6 rounded-xl bg-primary/5 p-4">
+                          <p className="text-xs font-semibold text-primary">
+                            상대의 답장이 도착했어요 · {formatTime(row.exchange.peerReply.at)}
+                          </p>
+                          <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-7">
+                            {row.exchange.peerReply.body}
+                          </p>
+                          <p className="mt-3 text-[11px] text-muted-foreground">
+                            답장에는 다시 답장할 수 없어요. 이어지는 이야기는 다음 편지에 담아 주세요.
+                          </p>
+                        </div>
+                      ) : null}
                     </section>
                   </div>
                 ) : row.ownSubmittedAt ? (
