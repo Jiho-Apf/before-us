@@ -718,3 +718,12 @@ export function betaMetrics(data: ConsoleData, range: DateRange | null, now = ne
     sources: sort(sources), declines: sort(declines),
   }
 }
+
+// 운영진의 회원 정보 열람 기록(개인정보처리방침 12번). 같은 회원을 같은 날 여러 번 열면 한 번만 남긴다.
+export function recordMemberView(memberId: string, actor = "가상 Owner", now = new Date()) {
+  if (!memberId) return
+  const day = now.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })
+  const data = getConsoleData()
+  if (data.audits.some((entry) => entry.action === "회원 정보 열람" && entry.target === memberId && entry.at.startsWith(day))) return
+  replaceConsoleData({ ...data, audits: [...data.audits, { id: `audit-view-${data.audits.length + 1}`, at: now.toISOString(), actor, action: "회원 정보 열람", target: memberId, reason: "신청 검토·소개 준비" }] })
+}

@@ -1,3 +1,4 @@
+import { recordMemberView } from "./admin-console-data"
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import { loadReviewFixtures, recordCandidateView, useSharedAdmin } from "./admin-console-data"
@@ -138,6 +139,7 @@ export default function AdminDemo({ embedded = false }: { embedded?: boolean }) 
   const [params] = useSearchParams()
   const [state, setState] = useSharedAdmin()
   const [selectedId, setSelectedId] = useState(params.get("member") || "")
+  useEffect(() => { if (selectedId) recordMemberView(selectedId) }, [selectedId])
   const [counterpartId, setCounterpartId] = useState("")
   const [tab, setTab] = useState("review")
   const [considered, setConsidered] = useState(false)

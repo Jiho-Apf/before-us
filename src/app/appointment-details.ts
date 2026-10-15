@@ -1,4 +1,4 @@
-export const APPOINTMENT_ACTIVITIES = ["카페·디저트", "식사·맛집", "전시·미술관", "산책·공원", "서점·책방", "공연·문화", "공방·체험", "가벼운 액티비티", "직접 정할게요", "비포어스 추천받기"];
+export const APPOINTMENT_ACTIVITIES = ["카페·디저트", "식사·맛집", "전시·미술관", "산책·공원", "서점·책방", "공연·문화", "공방·체험", "가벼운 액티비티", "직접 정할게요"];
 export const EXAMPLE_SPACES = [{ id: "space-a", label: "공간 A · 예시" }, { id: "space-b", label: "공간 B · 예시" }];
 export const VERIFIED_SPACES: { id: string; label: string }[] = [];
 export const QUICK_TIMES = [{ label: "오전", start: "09:00", end: "11:00" }, { label: "점심", start: "12:00", end: "14:00" }, { label: "오후", start: "14:00", end: "17:00" }, { label: "저녁", start: "18:00", end: "21:00" }];

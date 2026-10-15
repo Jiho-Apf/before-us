@@ -1,3 +1,4 @@
+import { guardMemberText } from "./message-safety";
 import { getMeetingPolicy, meetingResponseView, type MeetingPolicy } from "./meeting-policy";
 import { agreementGate, agreementView, shiftDay, type AgreementState } from "./agreement-model";
 import { canOpenMeeting, exchangeDay, meetingDecisionAt, startedExchangeGate } from "./exchange-common";
@@ -74,6 +75,7 @@ function valuesValid(values: BoardValues) {
 }
 export function sceneAction(book: SceneBook, agreement: AgreementState, memberId: string, command: SceneCommand, expectedRevision: number, now: Date) {
   const reject = (error: string) => ({ book, error });
+  if (!/save|draft|report|contact|interrupt/.test(command.type)) { const unsafe = guardMemberText(command, memberId, "첫 장면"); if (unsafe) return reject(unsafe); }
   if (startedExchangeGate(agreement, memberId, "B", now) || !validBook(book, agreement) || expectedRevision !== book.revision || (!book.access[memberId] && !["report", "contact"].includes(command.type))) return reject("당사자 권한·B 프로그램·최신 버전을 확인해 주세요.");
   const next = structuredClone(book);
   let day: number | null = null;

@@ -553,7 +553,6 @@ export function loadAdminFixtures(now = new Date()): AdminState {
         "self.pledge": true,
         "self.smoking": index === 2 ? "자주" : "안 함",
         "self.work": "디자인·콘텐츠",
-        "self.workTitle": "가상 콘텐츠 기획자",
         "desired.regions": ["서울"],
         "desired.meetingRegions": ["서울", "경기"],
         "desired.travelTime": "60분",

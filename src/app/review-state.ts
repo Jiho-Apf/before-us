@@ -17,7 +17,6 @@ export const OPTIONAL_PUBLIC_FIELDS = [
   "self.available",
   "self.interests",
   "self.work",
-  "self.workTitle",
   "self.question",
   "self.answer",
 ] as const

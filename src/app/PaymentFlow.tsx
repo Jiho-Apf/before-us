@@ -230,6 +230,23 @@ export function PaymentFlow({
         </ul>
       </div>
       <RefundPolicyPanel session={session} kind={kind} now={now} onChange={value => { setSession(value); onSessionChange?.(value); setMessage("정책에 따른 가상 요청·선택만 기록했어요. 실제 환불 완료·PG 처리는 하지 않았어요."); }} />
+      <div role="note" className="rounded-xl border border-border bg-muted/50 p-4 text-sm leading-7">
+        <p className="font-semibold">청약철회·환불 안내</p>
+        {kind === "introduction" ? (
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+            <li>첫 상대 프로필을 열기 전에는 언제든 전액 환불돼요.</li>
+            <li>첫 상대 프로필을 연 뒤에는 이미 제공된 서비스라 <strong className="font-semibold text-foreground">단순 변심 환불이 어려워요.</strong></li>
+            <li>서비스 오류나 운영 측 잘못이 있으면 전액 환불해요. 30일 동안 새 소개가 없으면 환불 종료를 고를 수 있어요.</li>
+          </ul>
+        ) : (
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+            <li>3일 교류는 하루 단위로 나뉘는 서비스예요. <strong className="font-semibold text-foreground">이미 열린 날은 환불되지 않고</strong>, 열리지 않은 날만큼 돌려드려요(하루 10,000원, 낸 금액 이내).</li>
+            <li>교류가 시작되기 전이나 상대가 결제하지 않으면 전액 환불해요.</li>
+            <li>상대나 운영 측 사정으로 멈추면 열리지 않은 날을 환불하고 다음 소개비를 면제해요.</li>
+          </ul>
+        )}
+        <p className="mt-2 text-xs text-muted-foreground">법에서 정한 청약철회 권리와 약관상 더 유리한 권리는 그대로 보장돼요.</p>
+      </div>
       <Label
         htmlFor={`payment-notice-${kind}`}
         className="items-start leading-6"
@@ -241,8 +258,7 @@ export function PaymentFlow({
           onCheckedChange={(value) => setAcknowledged(value === true)}
         />
         <span>
-          제공 범위·매일 미보장·대기·미시작·취소·환불 안내와 현재 데모 상태를
-          확인했어요.
+          위 청약철회·환불 안내와 제공 범위(하루 최대 한 명, 매일 소개 미보장)를 확인했어요.
         </span>
       </Label>
       {kind === "exchange" && mutual && (

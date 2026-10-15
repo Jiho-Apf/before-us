@@ -162,8 +162,21 @@ export function MeetingAftercare({ memberId, partnerId, programId, meetingAt, no
   const [concern, setConcern] = useState(false)
   const [note, setNote] = useState("")
   const [message, setMessage] = useState("")
+  const kstDate = (value: Date) => value.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })
+  const meetingDay = Number.isFinite(Date.parse(meetingAt)) && kstDate(now) === kstDate(new Date(meetingAt)) && !open
   return (
     <section className="mt-8 space-y-6 border-t border-border pt-6">
+      {meetingDay && (
+        <div role="note" className="rounded-xl border border-primary/25 bg-primary/5 p-5 text-sm leading-7">
+          <p className="flex items-center gap-2 font-semibold"><ShieldCheck className="size-4 text-primary" />오늘은 만나는 날이에요</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+            <li>사람이 많은 공공장소에서, 가능하면 낮이나 이른 저녁에 만나요.</li>
+            <li>만나는 장소와 시간을 가까운 사람에게 알려 두세요.</li>
+            <li>불편하면 언제든 자리를 떠나도 괜찮아요. 위급하면 112에 먼저 연락해 주세요.</li>
+          </ul>
+          <Link to="/support?demo=agreement" className="mt-2 inline-block text-xs text-primary underline underline-offset-4">문제가 생기면 바로 신고·진행 멈추기</Link>
+        </div>
+      )}
       <details open={!open} className="rounded-xl border border-border p-5">
         <summary className="flex cursor-pointer items-center gap-2 text-lg">
           <ShieldCheck className="size-4 text-primary" />
@@ -200,6 +213,11 @@ export function MeetingAftercare({ memberId, partnerId, programId, meetingAt, no
           <p className="text-sm text-muted-foreground">약속 시작 {FEEDBACK_OPENS_AFTER_MINUTES}분 뒤부터 남길 수 있어요.</p>
         ) : (
           <>
+            <div className="flex flex-wrap gap-2 border-b border-border pb-4">
+              <Button size="sm" variant={!concern ? "default" : "outline"} onClick={() => { setConcern(false); setMet("met") }}>잘 마쳤어요</Button>
+              <Button size="sm" variant={concern ? "default" : "outline"} onClick={() => setConcern(true)}>문제가 있었어요</Button>
+              {concern && <Link to="/support?demo=agreement" className="self-center text-xs text-primary underline underline-offset-4">지금 바로 신고하기</Link>}
+            </div>
             <div className="flex flex-wrap gap-2">
               {([["met", "만났어요"], ["not-met", "만나지 못했어요"], ["partner-absent", "상대가 오지 않았어요"]] as const).map(([value, label]) => (
                 <Button key={value} size="sm" variant={met === value ? "default" : "outline"} onClick={() => setMet(value)}>{label}</Button>

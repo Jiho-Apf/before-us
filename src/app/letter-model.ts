@@ -1,3 +1,4 @@
+import { guardMemberText } from "./message-safety";
 import { getMeetingPolicy, meetingResponseView, type MeetingPolicy } from "./meeting-policy";
 import { BEFORE_US } from "./config";
 import { agreementGate, agreementView, shiftDay, type AgreementState } from "./agreement-model";
@@ -70,6 +71,7 @@ function replyGate(book: LetterBook, agreement: AgreementState, memberId: string
 }
 export function letterAction(book: LetterBook, agreement: AgreementState, memberId: string, command: LetterCommand, expectedRevision: number, now: Date) {
   const reject = (error: string) => ({ book, error });
+  if (command.type === "submit" || command.type === "reply") { const unsafe = guardMemberText(command.body, memberId, command.type === "reply" ? "답장" : "편지"); if (unsafe) return reject(unsafe); }
   if (baseGate(agreement, memberId, now) || !validBook(book, agreement) || book.programId !== agreement.sessions[0].program?.id || expectedRevision !== book.revision || (!book.access[memberId] && !["report", "contact"].includes(command.type))) return reject("당사자 권한·프로그램·최신 버전을 확인해 주세요.");
   const next = structuredClone(book);
   const index = "day" in command ? command.day : null;

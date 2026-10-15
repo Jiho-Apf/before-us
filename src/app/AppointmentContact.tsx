@@ -219,6 +219,11 @@ export function AppointmentContact({ view, onCommand, recheckContact }: ContactP
                 <Copy className="size-4" />
                 복사하기
               </Button>
+              <div className="border-t border-primary/15 pt-4 text-xs leading-6 text-muted-foreground">
+                <p className="flex items-start gap-2"><ShieldCheck className="mt-1 size-3.5 shrink-0 text-primary" />처음 만날 때는 사람이 많은 공공장소에서, 일정은 가까운 사람에게 알려 두세요.</p>
+                <p className="mt-1 pl-5">만남 뒤 연락을 원하지 않거나 불편한 연락을 받으면, 비포어스에서 바로 차단·신고할 수 있어요. 상대에게 이유를 알리지 않아요.</p>
+                <Link to="/support?demo=agreement" className="mt-2 inline-block pl-5 text-primary underline underline-offset-4">차단·신고하러 가기</Link>
+              </div>
             </div>
           )}
         </div>

@@ -2,32 +2,117 @@ import { Link } from "react-router"
 import { BEFORE_US } from "./config"
 import { PageHeader } from "./editorial"
 
-// 이용약관·개인정보처리방침 자리. 법률 검토(사용자 결정으로 보류) 전이라 확정 문서가 아니라는 점을 분명히 하고,
-// 지금 서비스가 따르는 핵심 기준만 요약한다. 숫자는 config.ts 값을 그대로 쓴다.
+// 이용약관·개인정보처리방침 초안. 법률 검토(guidelines/LegalReview.md 체크리스트) 전이라 ‘초안’임을 분명히 밝힌다.
+// 숫자는 config.ts 값을 그대로 쓴다. 사업자 정보·위탁 업체·보호책임자는 사업자등록과 계약 뒤 채운다.
 const P = BEFORE_US.privacy
+const won = (value: number) => `${value.toLocaleString("ko-KR")}원`
 
-const PRIVACY_POINTS = [
-  { title: "필요한 만큼만 받아요", body: "소개에 꼭 필요한 정보만 받고, 본인 인증 결과의 원본(이름·전화번호·생년월일)은 저장하지 않아요." },
-  { title: "상대에게는 고른 항목만", body: "신청서 마지막 단계에서 직접 고른 항목만, 특정 상대에게 제공하기 전에 한 번 더 동의를 받아 보여 드려요." },
-  { title: "끝난 소개는 다시 열리지 않아요", body: `상대 프로필은 소개·교류 기간에만 볼 수 있고, 제공된 사본은 종료 ${BEFORE_US.provision.snapshotDeleteDaysAfterEnd}일 뒤 지워요. 편지는 교류가 끝나고 ${P.letterDaysAfterExchangeEnd}일, 약속 상세는 만난 날부터 ${P.appointmentDetailDaysAfterMeeting}일 뒤 지워요.` },
-  { title: "탈퇴하면 바로 멈추고 지워요", body: `탈퇴를 요청하면 상대 노출과 알림을 즉시 멈추고, 일반 자료는 ${P.activeDeleteDays}일 안에, 백업은 최대 ${P.backupMaxDays}일 안에 지워요. 법으로 보관해야 하는 거래·분쟁·광고 기록과 안전 신고에 필요한 자료만, 정해진 기간 동안 일반 자료와 분리해 보관해요.` },
-]
-const TERMS_POINTS = [
+type Article = { title: string; body: (string | string[])[] }
+
+const TERMS_SUMMARY = [
   { title: "한 번에 한 사람", body: "준비된 날 정오에 하루 최대 한 명을 소개해요. 매일 소개나 연애 성공을 약속하지 않아요." },
-  { title: "요금과 환불", body: `소개비는 ${BEFORE_US.pricing.introduction.toLocaleString("ko-KR")}원이고, 첫 상대 프로필을 열람하기 전 취소하면 전액 돌려드려요. 교류비는 서로 선택한 뒤 결제 전에 안내하고, 아직 열리지 않은 날만큼 환불해요.` },
+  { title: "요금과 환불", body: `소개비는 ${won(BEFORE_US.pricing.introduction)}이고, 첫 상대 프로필을 열기 전 취소하면 전액 돌려드려요. 교류비는 서로 선택한 뒤 결제 전에 안내하고, 열리지 않은 날만큼 환불해요.` },
   { title: "서로를 존중하는 약속", body: "기혼·사실혼·교제 중인 사실이 확인되거나, 노쇼·괴롭힘 등 상대를 해치는 행동이 확인되면 이용이 제한될 수 있어요. 모든 제한에는 다시 검토를 요청할 길이 있어요." },
   { title: "언제든 멈출 수 있어요", body: "소개 일시정지, 교류 중단, 신고·차단, 탈퇴를 내 정보에서 직접 할 수 있어요." },
+]
+const PRIVACY_SUMMARY = [
+  { title: "필요한 만큼만 받아요", body: "소개에 꼭 필요한 정보만 받고, 본인 인증 결과의 원본(이름·전화번호·생년월일)은 저장하지 않아요. 종교·건강 같은 민감정보는 받지 않아요." },
+  { title: "상대에게는 고른 항목만", body: "신청서에서 직접 고른 항목만, 특정 상대에게 제공하기 전에 한 번 더 동의를 받아 보여 드려요." },
+  { title: "운영진은 편지를 읽지 않아요", body: "회원끼리 주고받은 편지와 답장은 신고가 들어온 교류에 한해, 확인에 필요한 범위에서만 열람해요." },
+  { title: "탈퇴하면 바로 멈추고 지워요", body: `상대 노출과 알림을 즉시 멈추고, 일반 자료는 ${P.activeDeleteDays}일 안에, 백업은 최대 ${P.backupMaxDays}일 안에 지워요. 법으로 보관해야 하는 기록만 정해진 기간 동안 분리해 보관해요.` },
+]
+
+const TERMS: Article[] = [
+  { title: "제1조 (목적)", body: ["이 약관은 비포어스(이하 ‘서비스’)가 제공하는 일대일 소개와 3일 교류 서비스의 이용 조건과 절차, 회원과 서비스의 권리·의무를 정합니다."] },
+  { title: "제2조 (정의)", body: [[
+    "회원: 이 약관에 동의하고 계정을 만든 만 19세 이상의 개인",
+    "소개: 운영진이 신청서를 검토해 고른 상대 한 명의 공개 허용 프로필을 두 사람에게 같은 시각(정오)에 보여 주는 것",
+    "교류: 두 회원이 서로 선택하고 각자 교류비를 낸 뒤, 함께 정한 방식(편지 나누기 또는 첫 장면 만들기)으로 3일 동안 서비스 안에서 이야기를 나누는 것",
+    "만남 의사: 교류 4일째에 각 회원이 직접 만나고 싶은지 고르는 것",
+    "큐레이션: 운영진이 회원이 직접 입력한 정보를 바탕으로 소개할 상대를 고르고, 안전 기준을 검토하는 일. 서비스는 결혼을 위한 상담이나 중개를 하지 않습니다",
+  ]] },
+  { title: "제3조 (약관의 게시와 변경)", body: ["서비스는 약관을 사이트 첫 화면 아래에 게시합니다.", "약관을 바꿀 때는 시행 7일 전에, 회원에게 불리한 변경은 30일 전에 사이트와 이메일로 알립니다. 변경에 동의하지 않으면 시행 전까지 탈퇴할 수 있고, 진행 중인 결제는 환불 기준에 따라 처리합니다."] },
+  { title: "제4조 (이용 자격)", body: [[
+    "만 19세 이상으로, 소개 신청 때 휴대폰 본인 인증을 마친 분",
+    "현재 혼인·사실혼 관계가 없고 교제 중인 사람이 없다고 서약한 분. 서비스는 이 서약을 서류로 확인하지 않으며, 사실과 다르면 이용이 종료될 수 있습니다",
+    "한 사람이 하나의 계정만 쓸 수 있습니다",
+  ]] },
+  { title: "제5조 (서비스 내용)", body: [[
+    "소개는 준비된 날 정오에 하루 최대 한 명이며, 매일 소개를 보장하지 않습니다. 응답 마감은 다음 날 오전 11시입니다",
+    "두 회원이 모두 ‘알아가고 싶어요’를 고르면 각자 교류비를 낸 뒤, 방식과 시작일을 함께 정해 3일 교류를 시작합니다",
+    "편지와 답장은 두 사람이 모두 보내야 함께 열립니다",
+    "4일째 두 회원이 모두 만나고 싶다고 하면, 두 회원이 직접 날짜·시간·장소를 정합니다. 서비스는 장소를 추천하거나 예약하지 않습니다",
+    "전화번호는 두 회원이 각자 동의한 경우에만 만나는 날 0시에 서로에게 보여 주며, 다음 날 23:59 이후에는 보여 주지 않습니다",
+  ]] },
+  { title: "제6조 (요금)", body: [`소개비는 ${won(BEFORE_US.pricing.introduction)}, 교류비는 1인 ${won(BEFORE_US.pricing.exchangePerPerson)}이며 모두 부가세를 포함합니다. 자동 결제나 자동 갱신은 없습니다.`, "2026년 12월 31일까지 소개비를 낸 회원은 결제일부터 30일 동안, 첫 교류가 시작되기 전까지 추가 소개비 없이 소개받습니다. 그 이후 결제분은 하루 최대 1명, 최대 5번 소개받습니다."] },
+  { title: "제7조 (청약철회와 환불)", body: [[
+    "소개비: 첫 상대 프로필을 열기 전에는 전액 환불합니다. 연 뒤에는 이미 제공된 서비스로 보아 단순 변심 환불이 제한되며, 이 사실은 결제 전에 따로 안내합니다",
+    "활성 상태에서 30일 동안 유효한 새 소개가 없으면, 회원은 소개비 전액 환불을 받고 이용을 끝낼 수 있습니다",
+    `교류비: 하루 단위로 나뉘는 서비스입니다. 시작 전에는 전액, 시작 뒤에는 열리지 않은 날만큼(하루 ${won(BEFORE_US.refund.exchangeDayPrice)}, 낸 금액 이내) 환불합니다`,
+    `상대가 ${BEFORE_US.refund.paymentHours}시간 안에 교류비를 내지 않거나, 합의 기한 안에 교류가 시작되지 않으면 낸 교류비를 전액 환불합니다`,
+    "서비스 오류나 운영 측 잘못, 상대의 귀책으로 멈춘 경우에는 열리지 않은 날을 환불하고 다음 소개비를 면제합니다",
+    "이 조항은 전자상거래법 등 법에서 정한 청약철회 권리와 약관상 더 유리한 권리를 제한하지 않습니다",
+  ]] },
+  { title: "제8조 (회원의 의무와 금지 행위)", body: [[
+    "거짓 정보 입력, 다른 사람의 사진·명의 사용, 혼인·교제 여부에 대한 거짓 서약",
+    "연락처·SNS 아이디·외부 링크·계좌번호를 서비스 안에서 전달하거나 외부로 유도하는 행위(연락처는 제5조의 방식으로만 공개됩니다)",
+    "금전·투자·대출 요구, 상업적 홍보",
+    "성적 괴롭힘, 위협, 차별·혐오 표현, 상대의 사진·편지·연락처를 동의 없이 저장·유포하는 행위",
+    "약속 노쇼(시작 30분이 지나도록 사전 취소·연락 없이 나타나지 않음)",
+  ]] },
+  { title: "제9조 (이용 제한과 재검토)", body: ["제8조를 어기면 사실을 확인한 뒤 경고, 소개 정지(노쇼는 14일), 이용 종료 중에서 정합니다. 긴급한 안전 위험이 있으면 확인 전이라도 교류·연락처 공개를 먼저 멈출 수 있습니다.", "모든 제한은 이유와 함께 알리며, 회원은 한 번 재검토를 요청할 수 있습니다. 상대 회원에게는 제한 사유를 자세히 알리지 않습니다."] },
+  { title: "제10조 (신고와 안전)", body: ["회원은 언제든 신고·차단·교류 중단을 할 수 있습니다. 서비스는 신고된 교류에 한해, 확인에 필요한 범위에서만 편지와 기록을 열람하고 증빙을 보관합니다.", "서비스는 연락처·링크·계좌번호 전달을 자동으로 막고, 금전 관련 표현을 운영진에게 알립니다. 첫 만남 전에는 공공장소 이용 등 안전 안내를 제공합니다."] },
+  { title: "제11조 (책임의 범위)", body: ["회원끼리의 만남과 연락에서 생긴 문제는 원칙적으로 당사자에게 책임이 있습니다. 다만 서비스의 고의나 과실로 생긴 손해에 대해서는 책임을 지며, 이 조항이 고의·중과실 책임을 면제하지는 않습니다."] },
+  { title: "제12조 (탈퇴)", body: [`회원은 내 정보에서 언제든 탈퇴할 수 있습니다. 탈퇴하면 상대 노출과 알림이 바로 멈추고, 진행 중인 소개·교류는 종료되며, 결제는 제7조에 따라 처리합니다. 개인정보는 개인정보처리방침에 따라 ${P.activeDeleteDays}일 안에 지웁니다.`] },
+  { title: "제13조 (분쟁 해결)", body: ["분쟁이 생기면 먼저 문의하기로 협의합니다. 협의가 되지 않으면 한국소비자원 등 분쟁조정기관에 조정을 신청할 수 있으며, 소송은 민사소송법에 따른 관할 법원에서 진행합니다."] },
+]
+
+const PRIVACY: Article[] = [
+  { title: "1. 처리 목적", body: [["회원가입과 본인·성인 확인, 중복 가입 방지", "소개 신청 검토와 큐레이션, 소개·교류·만남 의사 진행", "결제·환불, 고객 문의 응대", "신고 처리와 안전 대응, 부정 이용 방지", "서비스 알림(정오 소개·편지·결제 기한) 발송, 동의한 경우에만 광고성 안내"]] },
+  { title: "2. 처리 항목", body: [[
+    "계정(필수): 이메일, 비밀번호(암호화해 저장)",
+    "본인 인증(필수): 만 나이, 인증 시각, 중복 가입 확인값. 이름·전화번호·생년월일 원본은 저장하지 않습니다",
+    "소개 신청(필수): 활동용 이름, 생년월일(만 나이 계산용, 상대 비공개), 성별, 활동 지역(시·군·구), 관계 목적, 한 줄 소개, 사진 3장, 소개받을 상대 조건",
+    "소개 신청(선택): 사진 1장 추가, 키·체형·스타일, 흡연·음주, 생활·편한 시간, 관심사, 직업 분야, 성격·대화 성향, 질문 답변, 유입 경로",
+    "서비스 이용: 편지·답장·첫 장면 선택, 약속 날짜·시간·장소, 만남 뒤 소감, 신고 내용, 접속 기록",
+    "결제: 결제·환불 기록(카드 정보는 결제대행사가 처리하며 서비스는 저장하지 않습니다)",
+    "문의: 이메일, 부를 이름(선택), 문의 내용",
+  ]] },
+  { title: "3. 보유 기간", body: [[
+    `탈퇴 후 일반 자료 ${P.activeDeleteDays}일 안에 삭제, 백업은 최대 ${P.backupMaxDays}일`,
+    `상대에게 제공된 프로필 사본: 소개·교류 종료 ${BEFORE_US.provision.snapshotDeleteDaysAfterEnd}일 뒤 삭제`,
+    `편지·답장: 교류 종료 ${P.letterDaysAfterExchangeEnd}일 뒤 삭제, 약속 상세: 만난 날부터 ${P.appointmentDetailDaysAfterMeeting}일 뒤 삭제`,
+    `법에 따라 보관: 계약·결제 기록 ${P.legal.contractYears}년, 소비자 불만·분쟁 ${P.legal.complaintYears}년, 표시·광고 ${P.legal.advertisingMonths}개월(전자상거래법)`,
+    `안전 신고 증빙: 사건 종결 뒤 ${P.legal.safetyEvidenceYearsAfterClose}년(재발 방지와 분쟁 대응 목적, 해당 자료만 분리 보관)`,
+  ]] },
+  { title: "4. 파기 절차와 방법", body: ["보유 기간이 끝나거나 목적을 이룬 정보는 지체 없이 파기합니다. 전자 파일은 복구할 수 없는 방법으로 지우고, 법에 따라 보관하는 정보는 다른 정보와 분리해 목적 외로 쓰지 않습니다."] },
+  { title: "5. 제3자 제공 (상대 회원)", body: [[
+    "프로필: 소개된 상대 회원에게, 회원이 공개를 허용한 항목과 사진만, 제공 직전 별도 동의를 받아 소개 기간 동안 보여 줍니다",
+    "전화번호: 두 회원이 각자 동의한 경우에만, 만나는 날 0시부터 다음 날 23:59까지 상대 회원에게 보여 줍니다",
+    "회원은 제공 전이라면 언제든 동의를 철회할 수 있습니다",
+  ]] },
+  { title: "6. 처리 위탁", body: ["결제대행, 휴대폰 본인 인증, 카카오 알림톡 발송, 웹 호스팅(Vercel Inc.), 데이터베이스·파일 보관을 외부 업체에 맡깁니다. 업체명과 위탁 내용은 계약을 마친 뒤 이곳에 기재합니다."] },
+  { title: "7. 국외 이전", body: ["웹 호스팅 업체(Vercel Inc., 미국)를 거쳐 접속 정보가 처리될 수 있습니다. 데이터베이스 보관 국가와 이전 항목·시기·방법·보유 기간·거부 방법은 서버 위치를 정한 뒤 이곳에 기재합니다."] },
+  { title: "8. 민감정보와 자동화된 결정", body: ["종교·건강·성생활·사상 같은 민감정보는 받지 않습니다. 사진으로 얼굴을 인식하거나 외모를 점수화하지 않습니다.", "추천 보조 도구는 회원이 입력한 정보로 후보를 정리할 뿐이며, 누구를 소개할지는 운영진이 직접 정합니다."] },
+  { title: "9. 편지 열람", body: ["운영진은 회원끼리 주고받은 편지와 답장을 읽지 않습니다. 신고가 들어온 교류에 한해, 확인에 필요한 범위에서만 열람하고 그 기록을 남깁니다."] },
+  { title: "10. 쿠키", body: ["현재 쿠키나 분석 도구를 쓰지 않습니다. 도입하면 설치·운영·거부 방법을 이곳에 미리 알립니다."] },
+  { title: "11. 정보주체의 권리", body: ["회원은 언제든 자신의 정보를 열람·정정·삭제하거나 처리 정지·동의 철회를 요청할 수 있습니다. 내 정보의 ‘정보 정정·자료 삭제·처리정지 요청’이나 문의하기로 요청하면 지체 없이 처리합니다."] },
+  { title: "12. 안전성 확보 조치", body: ["접근 권한을 운영 역할별로 나누고 최소화합니다. 비밀번호와 중요 정보는 암호화하고, 운영진의 회원 정보 열람 기록을 남깁니다. 사진에는 열람용 표시를 넣고 저장을 억제합니다."] },
+  { title: "13. 개인정보 보호책임자", body: ["사업자등록 뒤 성명과 연락처를 기재합니다. 그전에는 문의하기로 연락해 주세요."] },
+  { title: "14. 권익 침해 구제", body: [["개인정보분쟁조정위원회 1833-6972", "개인정보침해신고센터(한국인터넷진흥원) 118", "대검찰청 사이버수사과 1301", "경찰청 사이버수사국 182"]] },
 ]
 
 function LegalPage({ kind }: { kind: "terms" | "privacy" }) {
   const privacy = kind === "privacy"
-  const points = privacy ? PRIVACY_POINTS : TERMS_POINTS
+  const summary = privacy ? PRIVACY_SUMMARY : TERMS_SUMMARY
+  const articles = privacy ? PRIVACY : TERMS
   return (
     <section className="mx-auto w-full max-w-3xl break-keep py-12 sm:py-16">
-      <PageHeader mark={privacy ? "개인정보" : "약관"} label={privacy ? "개인정보처리방침" : "이용약관"} en={privacy ? "PRIVACY" : "TERMS"} title={privacy ? "개인정보처리방침" : "이용약관"} lead="정식 문서는 서비스를 열기 전, 법률 검토를 마친 뒤 이곳에 게시해요. 그전까지 비포어스가 지키는 기준을 먼저 적어 둘게요." />
-      <ol className="mt-10 divide-y divide-border border-y border-border">
-        {points.map((item, index) => (
-          <li key={item.title} className="flex gap-5 py-6">
+      <PageHeader mark={privacy ? "개인정보" : "약관"} label={privacy ? "개인정보처리방침" : "이용약관"} en={privacy ? "PRIVACY" : "TERMS"} title={privacy ? "개인정보처리방침" : "이용약관"} lead="아래는 법률 검토 전 초안이에요. 정식 문서는 서비스를 열기 전에 검토를 마친 뒤 시행일과 함께 게시해요." />
+      <h2 className="mt-10 text-sm font-semibold">한눈에 보기</h2>
+      <ol className="mt-3 divide-y divide-border border-y border-border">
+        {summary.map((item, index) => (
+          <li key={item.title} className="flex gap-5 py-5">
             <span className="text-xs font-semibold tabular-nums text-accent">0{index + 1}</span>
             <div>
               <p className="font-semibold">{item.title}</p>
@@ -36,7 +121,18 @@ function LegalPage({ kind }: { kind: "terms" | "privacy" }) {
           </li>
         ))}
       </ol>
-      <p className="mt-8 text-sm leading-7 text-muted-foreground">궁금한 점은 <Link to="/contact" className="text-foreground underline underline-offset-4 hover:text-primary">문의하기</Link>로 남겨 주세요.</p>
+      <div className="mt-12 flex items-baseline justify-between gap-3"><h2 className="text-sm font-semibold">전문</h2><span className="text-xs text-muted-foreground">초안 · 시행일 미정</span></div>
+      <div className="mt-3 space-y-7 border-t border-border pt-6 text-sm leading-7">
+        {articles.map((article) => (
+          <article key={article.title}>
+            <h3 className="font-semibold">{article.title}</h3>
+            {article.body.map((part, index) => Array.isArray(part)
+              ? <ul key={index} className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">{part.map((line) => <li key={line}>{line}</li>)}</ul>
+              : <p key={index} className="mt-2 text-muted-foreground">{part}</p>)}
+          </article>
+        ))}
+      </div>
+      <p className="mt-10 text-sm leading-7 text-muted-foreground">궁금한 점은 <Link to="/contact" className="text-foreground underline underline-offset-4 hover:text-primary">문의하기</Link>로 남겨 주세요.</p>
     </section>
   )
 }

@@ -137,7 +137,7 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
               <Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
             </nav>
           </div>
-          <div className="mt-6 space-y-1 border-t border-border pt-5 leading-6 text-muted-foreground"><p>상호 · 대표자 · 사업자등록번호 · 통신판매업 신고번호 · 준비 중</p><p>만 19세 이상 대상 일대일 소개</p></div>
+          <div className="mt-6 space-y-1 border-t border-border pt-5 leading-6 text-muted-foreground"><p>상호 · 대표자 · 사업자등록번호 · 통신판매업 신고번호 · 준비 중</p><p><span className="font-semibold text-foreground">19세 미만 이용 불가</span> · 만 19세 이상 대상 일대일 소개</p></div>
         </div>
       </footer>
     </div>

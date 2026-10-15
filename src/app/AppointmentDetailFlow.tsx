@@ -850,12 +850,6 @@ export function AppointmentDetailFlow({ view, onCommand }: DetailFlowProps) {
                     }
                   />
                 )}
-                {draft.activity === "비포어스 추천받기" && (
-                  <p className="text-xs leading-6 text-muted-foreground">
-                    실제 추천 데이터는 미연결이에요. 추천 요청 취향만 기록하며
-                    예시 공간을 실제 예약 가능한 장소로 표시하지 않아요.
-                  </p>
-                )}
                 <Regions
                   value={draft.regions}
                   disabled={!enabled("지역")}

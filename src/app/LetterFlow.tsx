@@ -1,8 +1,9 @@
+import { SAFETY_COMPOSE_NOTE } from "./message-safety"
 import { kstDateTime } from "./dates"
 import { MeetingChoice } from "./MeetingChoice"
 import { useEffect, useState } from "react"
 import { Link } from "react-router"
-import { ArrowRight, ChevronDown, Eye, LifeBuoy, LockKeyhole, PenLine } from "lucide-react"
+import { ArrowRight, ChevronDown, Eye, LifeBuoy, LockKeyhole, PenLine, ShieldCheck } from "lucide-react"
 import { Button } from "./components/ui/button"
 import { Textarea } from "./components/ui/textarea"
 import { Checkbox } from "./components/ui/checkbox"
@@ -88,6 +89,7 @@ function ReplyBox({ onSend }: { onSend: (body: string, confirmed: boolean) => vo
       <Button className="rounded-full px-6" disabled={!body.trim() || !ok} onClick={() => onSend(body, ok)}>
         답장 봉하기 <ArrowRight size={15} />
       </Button>
+      <p className="flex items-start gap-2 text-xs leading-6 text-muted-foreground"><ShieldCheck size={14} className="mt-1 shrink-0" />{SAFETY_COMPOSE_NOTE}</p>
     </div>
   )
 }
@@ -378,6 +380,7 @@ export function LetterFlow({ view, nowLabel, onCommand }: LetterFlowProps) {
                       >
                         오늘의 편지 봉하기 <ArrowRight size={16} />
                       </Button>
+                      <p className="mt-4 flex items-start gap-2 text-xs leading-6 text-muted-foreground"><ShieldCheck size={14} className="mt-1 shrink-0" />{SAFETY_COMPOSE_NOTE}</p>
                     </div>
                   ) : (
                     <div className="mt-10 py-6 text-center">
