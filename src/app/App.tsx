@@ -5,6 +5,7 @@ import { Button } from "./components/ui/button";
 import { BEFORE_US } from "./config";
 import { Calendar, User, Home, ArrowRight, X, Sun, Moon, Users, MessageCircle, Menu, LogOut } from "lucide-react";
 import PublicHome, { PublicInformation } from "./PublicHome";
+import RouteError from "./RouteError";
 
 // 공개 홈만 바로 불러오고, 회원·데모·관리자 화면은 그 화면을 열 때 따로 불러온다.
 const later = <T, K extends keyof T>(load: () => Promise<T>, name: K) =>
@@ -35,6 +36,9 @@ const MeetingDemo = later(() => import("./MeetingDemo"), "MeetingDemo");
 const ConductDemo = later(() => import("./ConductPolicy"), "ConductDemo");
 const PrivacyDemo = later(() => import("./PrivacyPanels"), "PrivacyDemo");
 const InquiryPage = later(() => import("./InquiryPage"), "default");
+const LoginPage = later(() => import("./AuthPages"), "LoginPage");
+const SignupPage = later(() => import("./AuthPages"), "SignupPage");
+const ResetPasswordPage = later(() => import("./AuthPages"), "ResetPasswordPage");
 const TermsPage = later(() => import("./LegalPages"), "TermsPage");
 const PrivacyPage = later(() => import("./LegalPages"), "PrivacyPage");
 
@@ -188,22 +192,6 @@ function ContentFrame({ title, publicHome = false }: { title: string; publicHome
   );
 }
 
-function AccessFrame({ application = false }: { application?: boolean }) {
-  return (
-    <section className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center py-16 sm:py-24">
-      <p className="mb-5 text-xs font-semibold tracking-[0.15em] text-accent">{BEFORE_US.brand.english}</p>
-      <h1 className="text-3xl font-semibold">{application ? "소개 신청하기" : "로그인"}</h1>
-      <div className="mt-8 rounded-2xl border border-border bg-muted p-7">
-        <p className="text-base font-semibold">지금은 데모로 둘러볼 수 있어요.</p>
-        <p className="mt-3 text-sm leading-7 text-muted-foreground">실제 계정 생성, 소개 신청과 결제는 진행되지 않아요.</p>
-        {!application && <p className="mt-3 text-xs leading-7 text-muted-foreground">계정 단계에는 사진이나 이상형 입력이 없어요. 소개 신청은 별도의 4단계로 진행해요.</p>}
-        <Button asChild className={`mt-7 h-12 w-full rounded-xl ${CONTROL_MOTION}`}><Link to="/today">회원 공간 둘러보기 <ArrowRight size={16} /></Link></Button>
-      </div>
-      <Link to="/" className={`mt-6 w-fit rounded-sm text-sm text-muted-foreground outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring ${CONTROL_MOTION}`}>공개 홈으로 돌아가기</Link>
-    </section>
-  );
-}
-
 function MissingFrame() {
   return <section className="py-24"><h1 className="text-3xl font-semibold">페이지를 찾을 수 없어요.</h1><Button asChild className="mt-8 rounded-full"><Link to="/">공개 홈으로</Link></Button></section>;
 }
@@ -213,7 +201,7 @@ function BeforeUsRoot() {
   const location = useLocation();
   const isMember = ["/payments","/support","/meeting/contact"].includes(location.pathname) || MEMBER_NAV.some(item => item.to === location.pathname);
   useEffect(() => {
-    const label = [...PUBLIC_NAV, ...MEMBER_NAV, { to: "/login", label: "로그인" }, { to: "/apply", label: "소개 신청하기" }, { to: "/terms", label: "이용약관" }, { to: "/privacy", label: "개인정보처리방침" }, { to: "/how-it-works", label: "진행 방식" }].find(item => item.to === location.pathname)?.label;
+    const label = [...PUBLIC_NAV, ...MEMBER_NAV, { to: "/login", label: "로그인" }, { to: "/apply", label: "소개 신청하기" }, { to: "/terms", label: "이용약관" }, { to: "/privacy", label: "개인정보처리방침" }, { to: "/how-it-works", label: "진행 방식" }, { to: "/signup", label: "회원가입" }, { to: "/reset-password", label: "비밀번호 다시 설정" }].find(item => item.to === location.pathname)?.label;
     document.title = label ? `${label} · ${BEFORE_US.brand.name}` : `${BEFORE_US.brand.name} · ${BEFORE_US.brand.english}`;
   }, [location.pathname]);
   return (
@@ -225,7 +213,7 @@ function BeforeUsRoot() {
 }
 
 const beforeUsRouter = createBrowserRouter([
-  { path: "/admin", element: <Suspense fallback={<RouteFallback />}><AdminLayout /></Suspense>, children: [
+  { path: "/admin", errorElement: <RouteError />, element: <Suspense fallback={<RouteFallback />}><AdminLayout /></Suspense>, children: [
     { index: true, element: <Suspense fallback={<RouteFallback />}><AdminDashboard /></Suspense> },
     ...(["applicants", "members", "introductions", "exchange"] as const).map(section => ({ path: section, element: <Suspense fallback={<RouteFallback />}><AdminOperations section={section} /></Suspense> })),
     { path: "meetings", element: <Suspense fallback={<RouteFallback />}><AdminList section="meetings" /></Suspense> },
@@ -234,7 +222,7 @@ const beforeUsRouter = createBrowserRouter([
     { path: "*", element: <Suspense fallback={<RouteFallback />}><AdminList section="unknown" /></Suspense> },
   ] },
   { path: "/demo/admin", element: <Suspense fallback={<RouteFallback />}><AdminDemo /></Suspense> },
-  { Component: BeforeUsRoot, children: [
+  { Component: BeforeUsRoot, errorElement: <RouteError />, children: [
     { index: true, element: <PublicHome /> },
     { path: "/how-it-works", element: <PublicInformation section="introduction" /> },
     { path: "/two-starts", element: <PublicInformation section="exchange" /> },
@@ -263,7 +251,9 @@ const beforeUsRouter = createBrowserRouter([
     ...MEMBER_NAV.filter(item => !["/today", "/meeting", "/us", "/exchange", "/profile"].includes(item.to)).map(item => ({ path: item.to, element: <ContentFrame title={item.label} /> })),
     { path: "/demo/today", element: <TodayDemo /> },
     { path: "/demo/photos", element: <PhotoDemo /> },
-    { path: "/login", element: <AccessFrame /> },
+    { path: "/login", element: <LoginPage /> },
+    { path: "/signup", element: <SignupPage /> },
+    { path: "/reset-password", element: <ResetPasswordPage /> },
     { path: "/apply", element: <ApplicationForm /> },
     { path: "*", element: <MissingFrame /> },
   ] },

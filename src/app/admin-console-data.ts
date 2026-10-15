@@ -102,6 +102,7 @@ export type ConsoleData = {
   payments: DemoPayment[]
   reports: DemoReport[]
   audits: AuditEntry[]
+  declines: { id: string; memberId: string; reason: string; at: string }[]
   source: "empty" | "virtual"
 }
 export const emptyConsole = (): ConsoleData => ({
@@ -117,6 +118,7 @@ export const emptyConsole = (): ConsoleData => ({
   payments: [],
   reports: [],
   audits: [],
+  declines: [],
   source: "empty",
 })
 let snapshot = emptyConsole()
@@ -574,6 +576,15 @@ export function loadConsoleFixtures(now = new Date()): ConsoleData {
       stage,
       at: ago(1),
     })
+  // 베타 지표 예시: 유입 경로와 거절 이유(상대에게는 보이지 않는 운영 참고 기록)
+  const SOURCES = ["지인 소개", "인스타그램", "스레드", "지인 소개", "검색", "인스타그램", "제휴·오프라인 행사", "지인 소개", "블로그·커뮤니티", "인스타그램", "스레드", "지인 소개"]
+  data.admin.members.forEach((member, index) => { member.draft.values["self.source"] = SOURCES[index % SOURCES.length] })
+  data.declines = [
+    { id: "virtual-decline-1", memberId: "virtual-01", reason: "거리", at: ago(3) },
+    { id: "virtual-decline-2", memberId: "virtual-02", reason: "관심사·대화 결", at: ago(6) },
+    { id: "virtual-decline-3", memberId: "virtual-03", reason: "그냥 느낌", at: ago(12) },
+    { id: "virtual-decline-4", memberId: "virtual-07", reason: "거리", at: ago(2) },
+  ]
   data.reports = [
     {
       id: "virtual-report-1",
@@ -684,5 +695,26 @@ function seedOperations(data: ConsoleData, now: Date): OperationsData {
         reportIds: ["virtual-report-3"],
       },
     ],
+  }
+}
+
+// 베타에서 꼭 볼 세 숫자. 회원 단위로 센다(소개받은 회원 중 서로 선택까지 간 회원, 서로 선택한 회원 중 교류비를 낸 회원).
+export function betaMetrics(data: ConsoleData, range: DateRange | null, now = new Date()) {
+  const ids = (stage: string) => new Set(data.events.filter(event => event.stage === stage && inRange(event.at, range, now)).flatMap(event => event.memberIds))
+  const introduced = ids("introduction"), mutual = ids("mutual")
+  const paid = new Set(data.payments.filter(payment => payment.kind === "exchange" && mutual.has(payment.memberId) && payment.refundAmount < payment.amount).map(payment => payment.memberId))
+  const rate = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : null)
+  const sources = new Map<string, number>()
+  for (const member of data.admin.members) {
+    const source = String(member.draft.values["self.source"] || "응답 없음")
+    sources.set(source, (sources.get(source) || 0) + 1)
+  }
+  const declines = new Map<string, number>()
+  for (const item of data.declines || []) if (inRange(item.at, range, now)) declines.set(item.reason, (declines.get(item.reason) || 0) + 1)
+  const sort = (map: Map<string, number>) => [...map.entries()].sort((a, b) => b[1] - a[1])
+  return {
+    mutualRate: rate(mutual.size, introduced.size), mutualCount: mutual.size, introducedCount: introduced.size,
+    paymentRate: rate(paid.size, mutual.size), paidCount: paid.size,
+    sources: sort(sources), declines: sort(declines),
   }
 }

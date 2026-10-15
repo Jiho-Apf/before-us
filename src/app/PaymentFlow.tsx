@@ -1,3 +1,5 @@
+import { questionForDay, kstDayNumber } from "./home-story"
+import { BEFORE_US } from "./config"
 import { kstDateTime } from "./dates"
 import { PLAN_NOTICE, planFor, planIfPaidNow } from "./introduction-plan"
 import { DemoDock } from "./DemoDock"
@@ -5,7 +7,7 @@ import { useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import { useOwnMemberAccount, saveMemberPayment } from "./member-operations-model"
 import { useMemberServiceContext, saveCurrentMemberPayment } from "./AgreementFlow"
-import { ArrowRight, LockKeyhole, CircleCheck, Info } from "lucide-react"
+import { ArrowRight, LockKeyhole, CircleCheck, Info, ShieldCheck } from "lucide-react"
 import { Button } from "./components/ui/button"
 import { Checkbox } from "./components/ui/checkbox"
 import { Label } from "./components/ui/label"
@@ -155,7 +157,7 @@ export function PaymentFlow({
               </dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt>이번 교류비 · 1인</dt>
+              <dt>이번 교류비 · 1인 <span className="block text-xs font-normal text-muted-foreground">3일 동안, 하루 약 {amount(Math.round(session.policy.exchange / 3 / 100) * 100)}</span></dt>
               <dd className="font-semibold">
                 {amount(session.policy.exchange)}
               </dd>
@@ -170,6 +172,10 @@ export function PaymentFlow({
           <p className="bg-secondary px-5 py-3 text-xs text-muted-foreground">
             각자 1인 · 부가세 포함 · A/B 동일 가격 · 현장 비용 별도
           </p>
+          <div className="border-t border-border px-5 py-4 text-sm">
+            <p className="text-xs font-semibold text-accent">DAY 01, 이 질문으로 시작해요</p>
+            <p className="mt-2 leading-7">“{questionForDay(kstDayNumber(now) + 1)}”</p>
+          </div>
         </div>
       ) : null}
       {blocked && (
@@ -239,6 +245,12 @@ export function PaymentFlow({
           확인했어요.
         </span>
       </Label>
+      {kind === "exchange" && mutual && (
+        <p className="flex items-start gap-2 text-sm leading-7">
+          <ShieldCheck size={16} className="mt-1.5 shrink-0 text-primary" />
+          상대가 {BEFORE_US.refund.paymentHours}시간 안에 결제하지 않으면, 낸 교류비는 전액 환불되고 소개 권리도 돌아와요.
+        </p>
+      )}
       <div className="flex flex-wrap gap-3">
         <Button
           disabled={

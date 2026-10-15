@@ -68,7 +68,7 @@ export default function InquiryPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-3"><span className="text-xs font-semibold text-accent">CONTACT</span><span aria-hidden="true" className="h-px w-8 bg-accent/40" /><span className="text-xs font-semibold">문의하기</span></div>
         <h1 className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">궁금한 점을<br />남겨 주세요.</h1>
-        <p className="text-sm leading-7 text-muted-foreground">운영진이 순서대로 읽고, 남겨 주신 이메일로 답변드려요. 신청하지 않은 분도 문의할 수 있어요.</p>
+        <p className="text-sm leading-7 text-muted-foreground">운영진이 순서대로 읽고, 남겨 주신 이메일로 답변드려요. 신청하지 않은 분도 문의할 수 있어요.</p><p className="mt-2 text-sm leading-7 text-muted-foreground">평일 오전 10시부터 오후 6시까지 답해요. 보통 1영업일 안에 첫 답변을 드리고, 안전·신고와 관련된 문의는 가장 먼저 확인해요.</p>
         <ul className="space-y-3 text-sm leading-7">
           <li className="flex gap-3"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-primary" /><span>자주 묻는 질문은 <Link to="/pricing#faq" className="whitespace-nowrap text-primary underline underline-offset-4">이용 요금 · FAQ</Link>에서 먼저 확인할 수 있어요.</span></li>
           <li className="flex gap-3"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-primary" /><span>회원이라면 <Link to="/support" className="whitespace-nowrap text-primary underline underline-offset-4">문의·신고</Link> 화면에서 진행 중인 소개와 연결해 남기면 더 빨리 확인할 수 있어요.</span></li>

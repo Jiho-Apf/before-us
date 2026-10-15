@@ -140,7 +140,7 @@ export function dayPart(now: Date): DayPart {
 }
 export const DAY_PARTS: Record<DayPart, { phrase: string; tint: string }> = {
   morning: { phrase: "정오를 기다리는, 조용한 아침이에요.", tint: "linear-gradient(135deg, transparent 35%, color-mix(in oklch, var(--accent) 55%, transparent) 120%)" },
-  noon: { phrase: "지금은, 준비된 소개가 도착하는 시간이에요.", tint: "radial-gradient(60% 70% at 78% 30%, color-mix(in oklch, white 22%, transparent), transparent 70%)" },
+  noon: { phrase: "지금은, 준비된 소개가 도착하는 시간이에요.", tint: "radial-gradient(60% 70% at 78% 30%, color-mix(in oklch, white 8%, transparent), transparent 70%)" },
   afternoon: { phrase: "도착한 이야기를 천천히 다시 읽기 좋은 오후예요.", tint: "linear-gradient(160deg, transparent 50%, color-mix(in oklch, var(--accent) 25%, transparent) 130%)" },
   evening: { phrase: "하루 한 통, 편지를 쓰기 좋은 저녁이에요.", tint: "linear-gradient(180deg, transparent 10%, color-mix(in oklch, #2a1a8f 45%, transparent) 110%)" },
   night: { phrase: "답장을 서두르지 않아도 되는 밤이에요.", tint: "linear-gradient(180deg, color-mix(in oklch, #2a1a8f 30%, transparent), color-mix(in oklch, #23167a 55%, transparent))" },

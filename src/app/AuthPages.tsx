@@ -1,0 +1,203 @@
+import { useState, type FormEvent, type ReactNode } from "react"
+import { Link, useNavigate, useSearchParams } from "react-router"
+import { ArrowRight } from "lucide-react"
+import { Button } from "./components/ui/button"
+import { Input } from "./components/ui/input"
+import { Label } from "./components/ui/label"
+import { Checkbox } from "./components/ui/checkbox"
+import { BEFORE_US } from "./config"
+import { kstDay } from "./dates"
+import { PASSWORD_RULE, requestPasswordReset, resetPassword, signIn, signOut, signUp, useAuth, withdraw } from "./auth-service"
+
+// 계정 화면: 로그인 · 회원가입 · 비밀번호 재설정. 계정에는 사진이나 이상형을 받지 않는다(소개 신청은 따로 4단계).
+const motion = "transition-colors duration-200 motion-reduce:transition-none"
+
+function Frame({ title, lead, children, foot }: { title: string; lead?: string; children: ReactNode; foot?: ReactNode }) {
+  return (
+    <section className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center break-keep py-16 sm:py-24">
+      <p className="mb-5 text-xs font-semibold tracking-[0.15em] text-accent">{BEFORE_US.brand.english}</p>
+      <h1 className="text-3xl font-semibold">{title}</h1>
+      {lead && <p className="mt-3 text-sm leading-7 text-muted-foreground">{lead}</p>}
+      <div className="mt-8 rounded-2xl border border-border bg-card p-6 sm:p-7">{children}</div>
+      {foot && <div className="mt-6 space-y-2 text-sm text-muted-foreground">{foot}</div>}
+      <p className="mt-6 text-xs leading-6 text-muted-foreground">데모 화면이에요. 계정은 이 탭에만 잠시 저장되고, 새로고침하면 사라져요.</p>
+    </section>
+  )
+}
+function Field({ id, label, type = "text", value, onChange, autoComplete, hint }: { id: string; label: string; type?: string; value: string; onChange: (value: string) => void; autoComplete?: string; hint?: string }) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} type={type} value={value} autoComplete={autoComplete} onChange={(event) => onChange(event.target.value)} aria-describedby={hint ? `${id}-hint` : undefined} className="h-11 rounded-xl" />
+      {hint && <p id={`${id}-hint`} className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  )
+}
+const ErrorText = ({ text }: { text: string }) => (text ? <p role="alert" className="text-sm text-destructive">{text}</p> : null)
+
+export function LoginPage() {
+  const navigate = useNavigate()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [busy, setBusy] = useState(false)
+  const submit = async (event: FormEvent) => {
+    event.preventDefault(); setBusy(true)
+    const result = await signIn(email, password)
+    setBusy(false)
+    if (result.error) return setError(result.error)
+    navigate("/today")
+  }
+  return (
+    <Frame title="로그인" foot={<><p>처음이신가요? <Link to="/signup" className="text-foreground underline underline-offset-4 hover:text-primary">회원가입</Link></p><p><Link to="/reset-password" className="underline underline-offset-4 hover:text-primary">비밀번호를 잊으셨나요?</Link></p></>}>
+      <form className="space-y-5" onSubmit={submit} noValidate>
+        <Field id="login-email" label="이메일" type="email" autoComplete="email" value={email} onChange={(value) => { setEmail(value); setError("") }} />
+        <Field id="login-password" label="비밀번호" type="password" autoComplete="current-password" value={password} onChange={(value) => { setPassword(value); setError("") }} />
+        <ErrorText text={error} />
+        <Button type="submit" disabled={busy} className={`h-12 w-full rounded-xl ${motion}`}>로그인 <ArrowRight size={16} /></Button>
+      </form>
+      <Link to="/today" className="mt-5 block text-center text-xs text-muted-foreground underline-offset-4 hover:text-primary hover:underline">로그인 없이 회원 공간 둘러보기</Link>
+    </Frame>
+  )
+}
+
+export function SignupPage() {
+  const navigate = useNavigate()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [again, setAgain] = useState("")
+  const [adult, setAdult] = useState(false)
+  const [terms, setTerms] = useState(false)
+  const [privacy, setPrivacy] = useState(false)
+  const [error, setError] = useState("")
+  const [busy, setBusy] = useState(false)
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (password !== again) return setError("비밀번호가 서로 달라요.")
+    setBusy(true)
+    const result = await signUp({ email, password, adult, terms, privacy })
+    setBusy(false)
+    if (result.error) return setError(result.error)
+    navigate("/apply")
+  }
+  const check = (id: string, checked: boolean, set: (value: boolean) => void, label: ReactNode) => (
+    <label htmlFor={id} className="flex items-start gap-3 text-sm leading-6"><Checkbox id={id} className="mt-1" checked={checked} onCheckedChange={(value) => { set(value === true); setError("") }} />{label}</label>
+  )
+  return (
+    <Frame title="회원가입" lead="계정에는 이메일과 비밀번호만 받아요. 사진과 이야기는 가입 뒤 소개 신청에서 천천히 적어요." foot={<p>이미 계정이 있나요? <Link to="/login" className="text-foreground underline underline-offset-4 hover:text-primary">로그인</Link></p>}>
+      <form className="space-y-5" onSubmit={submit} noValidate>
+        <Field id="signup-email" label="이메일" type="email" autoComplete="email" value={email} onChange={(value) => { setEmail(value); setError("") }} />
+        <Field id="signup-password" label="비밀번호" type="password" autoComplete="new-password" value={password} onChange={(value) => { setPassword(value); setError("") }} hint={PASSWORD_RULE} />
+        <Field id="signup-again" label="비밀번호 확인" type="password" autoComplete="new-password" value={again} onChange={(value) => { setAgain(value); setError("") }} />
+        <div className="space-y-3 border-t border-border pt-5">
+          {check("signup-adult", adult, setAdult, <span>만 19세 이상이에요. <span className="text-muted-foreground">(필수 · 소개 신청 때 휴대폰 본인 인증으로 다시 확인해요)</span></span>)}
+          {check("signup-terms", terms, setTerms, <span><Link to="/terms" className="underline underline-offset-4">이용약관</Link>에 동의해요. <span className="text-muted-foreground">(필수)</span></span>)}
+          {check("signup-privacy", privacy, setPrivacy, <span><Link to="/privacy" className="underline underline-offset-4">개인정보 수집·이용</Link>에 동의해요. <span className="text-muted-foreground">(필수 · 이메일, 비밀번호)</span></span>)}
+        </div>
+        <ErrorText text={error} />
+        <Button type="submit" disabled={busy} className={`h-12 w-full rounded-xl ${motion}`}>가입하고 소개 신청으로 <ArrowRight size={16} /></Button>
+      </form>
+    </Frame>
+  )
+}
+
+export function ResetPasswordPage() {
+  const [params] = useSearchParams()
+  const token = params.get("token")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [again, setAgain] = useState("")
+  const [error, setError] = useState("")
+  const [sent, setSent] = useState<{ devLink: string | null } | null>(null)
+  const [done, setDone] = useState(false)
+  if (token) {
+    const submit = async (event: FormEvent) => {
+      event.preventDefault()
+      if (password !== again) return setError("비밀번호가 서로 달라요.")
+      const result = await resetPassword(token, password)
+      if (result.error) return setError(result.error)
+      setDone(true)
+    }
+    return (
+      <Frame title="새 비밀번호 정하기">
+        {done ? (
+          <div className="space-y-4"><p className="text-sm leading-7">비밀번호를 바꿨어요. 다른 기기의 로그인도 함께 끊었어요.</p><Button asChild className={`h-12 w-full rounded-xl ${motion}`}><Link to="/login">로그인하기 <ArrowRight size={16} /></Link></Button></div>
+        ) : (
+          <form className="space-y-5" onSubmit={submit} noValidate>
+            <Field id="reset-password" label="새 비밀번호" type="password" autoComplete="new-password" value={password} onChange={(value) => { setPassword(value); setError("") }} hint={PASSWORD_RULE} />
+            <Field id="reset-again" label="새 비밀번호 확인" type="password" autoComplete="new-password" value={again} onChange={(value) => { setAgain(value); setError("") }} />
+            <ErrorText text={error} />
+            <Button type="submit" className={`h-12 w-full rounded-xl ${motion}`}>비밀번호 바꾸기</Button>
+          </form>
+        )}
+      </Frame>
+    )
+  }
+  const request = (event: FormEvent) => {
+    event.preventDefault()
+    const result = requestPasswordReset(email)
+    if (result.error) return setError(result.error)
+    setSent({ devLink: result.devLink })
+  }
+  return (
+    <Frame title="비밀번호 다시 설정하기" lead="가입한 이메일을 적어 주시면, 30분 동안 쓸 수 있는 재설정 링크를 보내 드려요." foot={<p><Link to="/login" className="underline underline-offset-4 hover:text-primary">로그인으로 돌아가기</Link></p>}>
+      {sent ? (
+        <div className="space-y-4 text-sm leading-7">
+          <p>입력하신 이메일이 가입되어 있다면, 재설정 링크를 보냈어요. 메일이 오지 않으면 스팸함을 확인해 주세요.</p>
+          {sent.devLink && <p className="rounded-xl bg-muted p-4 text-xs leading-6">데모라 메일을 보내지 않아요. 대신 <Link to={sent.devLink} className="text-primary underline underline-offset-4">여기에서 재설정 링크를 열 수 있어요</Link>.</p>}
+        </div>
+      ) : (
+        <form className="space-y-5" onSubmit={request} noValidate>
+          <Field id="reset-email" label="이메일" type="email" autoComplete="email" value={email} onChange={(value) => { setEmail(value); setError("") }} />
+          <ErrorText text={error} />
+          <Button type="submit" className={`h-12 w-full rounded-xl ${motion}`}>재설정 링크 받기</Button>
+        </form>
+      )}
+    </Frame>
+  )
+}
+
+// 내 정보 아래쪽 ‘계정’: 로그인 상태, 로그아웃, 탈퇴(비밀번호 재확인).
+export function AccountPanel() {
+  const user = useAuth()
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState("")
+  const [agree, setAgree] = useState(false)
+  const [error, setError] = useState("")
+  const [result, setResult] = useState<string | null>(null)
+  if (result) return <section className="border-t border-border pt-6 text-sm leading-7" aria-label="계정"><p className="font-semibold">탈퇴 요청을 받았어요.</p><p className="mt-1 text-muted-foreground">상대 노출과 알림은 바로 멈췄고, 일반 자료는 {result}까지 지워요.</p></section>
+  if (!user) return (
+    <section className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6 text-sm" aria-label="계정">
+      <p className="text-muted-foreground">로그인하지 않고 둘러보는 중이에요.</p>
+      <div className="flex gap-2"><Button asChild variant="outline" className="rounded-xl"><Link to="/login">로그인</Link></Button><Button asChild className="rounded-xl"><Link to="/signup">회원가입</Link></Button></div>
+    </section>
+  )
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!agree) return setError("안내를 확인했다고 체크해 주세요.")
+    const outcome = await withdraw(password)
+    if (outcome.error) return setError(outcome.error)
+    setResult(kstDay(outcome.deletionDueAt))
+  }
+  return (
+    <section className="space-y-4 border-t border-border pt-6 text-sm" aria-label="계정">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p><span className="text-muted-foreground">로그인 계정</span> <span className="ml-2 font-medium">{user.email}</span></p>
+        <div className="flex gap-2">
+          <Button variant="outline" className="rounded-xl" onClick={() => { signOut(); navigate("/") }}>로그아웃</Button>
+          <Button variant="ghost" className="rounded-xl text-muted-foreground" aria-expanded={open} onClick={() => setOpen((value) => !value)}>회원 탈퇴</Button>
+        </div>
+      </div>
+      {open && (
+        <form onSubmit={submit} className="space-y-4 rounded-xl border border-border p-5" noValidate>
+          <p className="leading-7">탈퇴하면 상대 노출과 알림이 바로 멈추고, 진행 중인 소개·교류는 종료돼요. 일반 자료는 {BEFORE_US.privacy.activeDeleteDays}일 안에, 백업은 최대 {BEFORE_US.privacy.backupMaxDays}일 안에 지워요. 결제 환불은 환불 기준에 따라 따로 안내해요.</p>
+          <Field id="withdraw-password" label="비밀번호 다시 입력" type="password" autoComplete="current-password" value={password} onChange={(value) => { setPassword(value); setError("") }} />
+          <label htmlFor="withdraw-agree" className="flex items-start gap-3 leading-6"><Checkbox id="withdraw-agree" className="mt-1" checked={agree} onCheckedChange={(value) => { setAgree(value === true); setError("") }} />위 내용을 확인했어요.</label>
+          <ErrorText text={error} />
+          <Button type="submit" variant="outline" className="rounded-xl border-destructive/40 text-destructive hover:bg-destructive/5">탈퇴 요청하기</Button>
+        </form>
+      )}
+    </section>
+  )
+}

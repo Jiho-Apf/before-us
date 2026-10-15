@@ -1,3 +1,4 @@
+import { AccountPanel } from "./AuthPages"
 import { kstDateTime } from "./dates"
 import { benefitIssue, planFor, planIfPaidNow } from "./introduction-plan"
 import { Eyebrow, PageHeader, Sheet, TwoDots } from "./editorial"
@@ -730,6 +731,7 @@ export default function MemberProfile() {
         </section>
       )}
       <ExperienceFeedback key={`feedback-${service.memberId}`} service={service} />
+      <AccountPanel />
     </section>
   )
 }

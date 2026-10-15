@@ -29,6 +29,8 @@ import {
   paymentForOwnIntroduction,
   recordIntroductionPaymentRequest,
   type IntroductionBook,
+  DECLINE_REASONS,
+  type DeclineReason,
 } from "./introduction-model"
 
 const formatTime = (at: string | null) =>
@@ -55,6 +57,7 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
   useEffect(()=>{saveMemberIntroductionHistory(memberId,view.history.map(item=>({id:item.id,publishedAt:item.publishedAt,ownResponseAt:item.ownResponseAt,endReason:item.reason})));},[book,memberId]);
   const [choice, setChoice] = useState<"positive" | "negative" | null>(null)
   const [confirmed, setConfirmed] = useState(false)
+  const [declineReason, setDeclineReason] = useState<DeclineReason | null>(null)
   const [message, setMessage] = useState("")
   const [opened, setOpened] = useState<string | null>(null)
   const own = book.members.find(member => member.id === memberId)
@@ -77,6 +80,7 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
       confirmed,
       book.revision,
       now,
+      choice === "negative" ? declineReason || undefined : undefined,
     )
     if (result.errors.length) {
       setMessage(result.errors.join(" "))
@@ -251,6 +255,17 @@ export function IntroductionView({ book, memberId, now, onChange }: ViewProps) {
                     ? "‘알아가고 싶어요’로 최종 응답할까요?"
                     : "‘다음 소개를 기다릴게요’로 최종 응답할까요?"}
                 </p>
+                {choice === "negative" && (
+                  <fieldset className="mb-5">
+                    <legend className="text-xs font-medium">다음 소개에 참고할 이유가 있다면 하나만 골라 주세요 <span className="text-muted-foreground">· 선택</span></legend>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {DECLINE_REASONS.map((reason) => (
+                        <button key={reason} type="button" aria-pressed={declineReason === reason} onClick={() => setDeclineReason(declineReason === reason ? null : reason)} className={`rounded-full border px-3 py-1.5 text-xs transition-colors duration-200 motion-reduce:transition-none ${declineReason === reason ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}>{reason}</button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">상대에게는 절대 전달되지 않고, 운영진이 다음 소개를 고를 때만 참고해요.</p>
+                  </fieldset>
+                )}
                 <Label
                   htmlFor="introduction-response-confirm"
                   className="items-start leading-6"

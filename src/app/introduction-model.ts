@@ -6,6 +6,9 @@ import { emptyPaymentSession, validOwnPayment, type OwnReceipt, type PaymentSess
 import { emptyRefundOperations, refundQuote, type RefundOperations } from "./refund-policy"
 
 type Choice = "positive" | "negative"
+// 거절할 때 고를 수 있는 이유(선택). 상대에게는 절대 보이지 않고, 운영진이 다음 소개에만 참고한다.
+export const DECLINE_REASONS = ["거리", "나이", "관심사·대화 결", "사진·첫인상", "그냥 느낌", "말하고 싶지 않아요"] as const
+export type DeclineReason = typeof DECLINE_REASONS[number]
 type EndReason = "rejected" | "nonresponse" | "withdrawn" | "access-failure" | "admin-cancel" | "partner-unpaid" | "agreement-timeout"
 export type IntroductionMember = {
   id: string
@@ -41,7 +44,7 @@ export type IntroductionRecord = {
   publishedAt: string | null
   publishedFor: Record<string, string>
   responseDueAt: string
-  responses: Record<string, { choice: Choice, at: string } | null>
+  responses: Record<string, { choice: Choice, at: string, reason?: DeclineReason } | null>
   mutualAt: string | null
   closedAt: string | null
   endReason: EndReason | null
@@ -152,7 +155,7 @@ function close(book: IntroductionBook, record: IntroductionRecord, reason: EndRe
   }
   event(book, record, `종료:${reason}`, now)
 }
-export function respondToIntroduction(book: IntroductionBook, id: string, memberId: string, choice: Choice, confirmed: boolean, expectedRevision: number, now: Date) {
+export function respondToIntroduction(book: IntroductionBook, id: string, memberId: string, choice: Choice, confirmed: boolean, expectedRevision: number, now: Date, reason?: DeclineReason) {
   const record = book.records.find(item => item.id === id)
   const member = book.members.find(item => item.id === memberId);
   if (member?.refundOperations && !member.refundOperations.introductionOpenedAt)
@@ -161,7 +164,7 @@ export function respondToIntroduction(book: IntroductionBook, id: string, member
   if (!confirmed || record.status !== "published" || !record.publishedAt || now < new Date(record.publishedAt) || now >= new Date(record.responseDueAt) || record.responses[memberId] || !introductionView(book, memberId, now).profile) return { book, errors: ["공개된 소개의 기한 내 최초 응답을 확인한 뒤 제출해 주세요. 제출한 응답은 덮어쓰지 않아요."] }
   const next = structuredClone(book)
   const target = next.records.find(item => item.id === id)!
-  target.responses[memberId] = { choice, at: now.toISOString() }
+  target.responses[memberId] = { choice, at: now.toISOString(), ...(choice === "negative" && reason ? { reason } : {}) }
   event(next, target, "본인 최종 응답", now, memberId)
   if (target.pair.every(member => target.responses[member])) {
     if (target.pair.every(member => target.responses[member]!.choice === "positive")) { target.status = "mutual"; target.mutualAt = now.toISOString(); event(next, target, "상호 선택", now) }

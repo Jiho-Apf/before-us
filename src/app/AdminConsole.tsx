@@ -43,6 +43,7 @@ import {
   consoleMembers,
   emptyConsole,
   funnelCounts,
+  betaMetrics,
   loadConsoleFixtures,
   paymentTotals,
   periodRange,
@@ -52,6 +53,7 @@ import {
   waitingBucket,
   inRange,
   type DateRange,
+  type ConsoleData,
   type MemberSummary,
   type Period,
 } from "./admin-console-data"
@@ -590,6 +592,7 @@ export function AdminDashboard() {
           </div>
         ))}
       </section>
+      <BetaMetricsPanel data={data} range={range} now={now} />
       <OperationsCapacityPanel state={data.admin} today={today} />
       <GenderBalancePanel state={data.admin} today={today} onChange={() => {}} />
       <section className="rounded-lg border border-border bg-card p-5">
@@ -1335,5 +1338,38 @@ export function AdminSettings() {
         </p>
       </section>
     </div>
+  )
+}
+
+// 베타에서 꼭 볼 세 숫자: 서로 선택 비율, 교류비 결제율, 유입 경로. 거절 이유는 상대에게 보이지 않는 운영 참고 기록이다.
+function BetaMetricsPanel({ data, range, now }: { data: ConsoleData; range: DateRange | null; now: Date }) {
+  const m = betaMetrics(data, range, now)
+  const pct = (value: number | null) => (value === null ? "—" : `${value}%`)
+  const tile = (label: string, value: string, detail: string, goal: string, ok: boolean | null) => (
+    <div className="bg-card p-4">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={`my-2 text-3xl font-semibold tabular-nums ${ok === false ? "text-accent" : ""}`}>{value}</p>
+      <p className="text-xs text-muted-foreground">{detail}</p>
+      <p className="mt-1 text-xs text-muted-foreground">베타 목표 {goal}</p>
+    </div>
+  )
+  const list = (title: string, rows: [string, number][], empty: string) => (
+    <div className="bg-card p-4">
+      <p className="text-xs text-muted-foreground">{title}</p>
+      {rows.length ? <ul className="mt-3 space-y-2 text-sm">{rows.map(([name, count]) => <li key={name} className="flex justify-between gap-3"><span>{name}</span><span className="tabular-nums text-muted-foreground">{count}</span></li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">{empty}</p>}
+    </div>
+  )
+  return (
+    <section aria-labelledby="beta-metrics-title" className="space-y-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2"><h2 id="beta-metrics-title" className="text-xs font-semibold text-muted-foreground">베타 핵심 지표 · 선택 기간</h2><p className="text-xs text-muted-foreground">회원 단위 · 표본이 작을 때는 비율보다 건수를 함께 보세요</p></div>
+      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-3">
+        {tile("서로 선택 비율", pct(m.mutualRate), `소개받은 ${m.introducedCount}명 중 ${m.mutualCount}명`, "15% 이상", m.mutualRate === null ? null : m.mutualRate >= 15)}
+        {tile("교류비 결제율", pct(m.paymentRate), `서로 선택한 ${m.mutualCount}명 중 ${m.paidCount}명 결제`, "70% 이상", m.paymentRate === null ? null : m.paymentRate >= 70)}
+        {list("유입 경로 · 전체 신청자", m.sources, "아직 응답이 없어요")}
+      </div>
+      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border">
+        {list("거절 이유 · 선택 응답, 상대에게 비공개", m.declines, "선택 기간에 남긴 거절 이유가 없어요")}
+      </div>
+    </section>
   )
 }
