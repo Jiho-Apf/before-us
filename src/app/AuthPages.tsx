@@ -101,7 +101,7 @@ export function SignupPage() {
         <Field id="signup-password" label="비밀번호" type="password" autoComplete="new-password" value={password} onChange={(value) => { setPassword(value); setError("") }} hint={PASSWORD_RULE} />
         <Field id="signup-again" label="비밀번호 확인" type="password" autoComplete="new-password" value={again} onChange={(value) => { setAgain(value); setError("") }} />
         <div className="space-y-3 border-t border-border pt-5">
-          {check("signup-adult", adult, setAdult, <span>만 19세 이상이에요. <span className="text-muted-foreground">(필수 · 소개 신청 때 휴대폰 본인 인증으로 다시 확인해요)</span></span>)}
+          {check("signup-adult", adult, setAdult, <span>만 19세 이상이에요. <span className="text-muted-foreground">{LIVE ? "(필수 · 소개 신청서의 생년월일로 다시 확인해요)" : "(필수 · 소개 신청 때 휴대폰 본인 인증으로 다시 확인해요)"}</span></span>)}
           {check("signup-terms", terms, setTerms, <span><Link to="/terms" className="underline underline-offset-4">이용약관</Link>에 동의해요. <span className="text-muted-foreground">(필수)</span></span>)}
           {check("signup-privacy", privacy, setPrivacy, <span><Link to="/privacy" className="underline underline-offset-4">개인정보 수집·이용</Link>에 동의해요. <span className="text-muted-foreground">(필수 · 이메일, 비밀번호)</span></span>)}
         </div>
@@ -151,7 +151,7 @@ export function ResetPasswordPage() {
     setSent({ devLink: result.devLink })
   }
   return (
-    <Frame title="비밀번호 다시 설정하기" lead="가입한 이메일을 적어 주시면, 30분 동안 쓸 수 있는 재설정 링크를 보내 드려요." foot={<p><Link to="/login" className="underline underline-offset-4 hover:text-primary">로그인으로 돌아가기</Link></p>}>
+    <Frame title="비밀번호 다시 설정하기" lead={`가입한 이메일을 적어 주시면, ${LIVE ? "1시간" : "30분"} 동안 쓸 수 있는 재설정 링크를 보내 드려요.`} foot={<p><Link to="/login" className="underline underline-offset-4 hover:text-primary">로그인으로 돌아가기</Link></p>}>
       {sent ? (
         <div className="space-y-4 text-sm leading-7">
           <p>입력하신 이메일이 가입되어 있다면, 재설정 링크를 보냈어요. 메일이 오지 않으면 스팸함을 확인해 주세요.</p>

@@ -6,6 +6,7 @@ import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./components/ui/accordion";
 import { BEFORE_US } from "./config";
+import { LIVE } from "./backend/client";
 import DirectIntroduction from "./DirectIntroduction";
 import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
@@ -149,7 +150,7 @@ function Hero() {
           </div>
           <p className="mt-12 text-sm text-white/95">{part.phrase}</p>
           <div className="mt-5"><NoonClock /></div>
-          <p className="mt-5 text-[11px] text-white/95 dark:text-white">데모 둘러보기 · 실제 신청이나 결제는 진행되지 않아요.</p>
+          <p className="mt-5 text-[11px] text-white/95 dark:text-white">{LIVE ? "베타 운영 중 · 지금은 결제 없이 진행해요." : "데모 둘러보기 · 실제 신청이나 결제는 진행되지 않아요."}</p>
         </div>
         <ServiceCollage />
       </div>

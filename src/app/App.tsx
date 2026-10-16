@@ -219,7 +219,7 @@ function BeforeUsRoot() {
     document.title = label ? `${label} · ${BEFORE_US.brand.name}` : `${BEFORE_US.brand.name} · ${BEFORE_US.brand.english}`;
   }, [location.pathname]);
   return (
-    <div className={isDark ? "dark font-sans" : "font-sans"}>
+    <div className={isDark ? "dark overflow-x-clip font-sans" : "overflow-x-clip font-sans"}>
       <a href="#main-content" className="fixed top-3 left-3 z-50 -translate-y-24 rounded-xl bg-primary px-5 py-3 text-sm text-primary-foreground focus:translate-y-0">본문으로 건너뛰기</a>
       {isMember ? <MemberShell isDark={isDark} toggle={() => setIsDark(value => !value)} /> : <PublicShell isDark={isDark} toggle={() => setIsDark(value => !value)} />}
     </div>

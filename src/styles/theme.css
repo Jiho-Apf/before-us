@@ -198,4 +198,4 @@
   margin-inline: calc(50% - var(--page-width, 100vw) / 2);
   padding-inline: calc(var(--page-width, 100vw) / 2 - 50%);
 }
-html, body { overflow-x: clip; }
+/* 가로 넘침은 앱 바깥 틀(BeforeUsRoot)에서 자른다. html·body에 두면 선택 상자를 열 때 화면이 맨 위로 튄다. */

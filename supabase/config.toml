@@ -14,6 +14,16 @@ enable_signup = true
 enable_confirmations = true
 double_confirm_changes = true
 secure_password_change = true
+otp_expiry = 3600
+
+# 비포어스 메일(라벤더 안개 톤). {{ .ConfirmationURL }}은 Supabase가 채운다.
+[auth.email.template.confirmation]
+subject = "[비포어스] 가입을 마치고 소개 신청을 시작해 주세요"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "[비포어스] 새 비밀번호를 정해 주세요"
+content_path = "./supabase/templates/recovery.html"
 
 [auth.mfa]
 max_enrolled_factors = 10

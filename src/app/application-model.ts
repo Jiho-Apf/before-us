@@ -25,22 +25,22 @@ const APPLICATION_FIELD_SOURCE: readonly FieldDefinition[] = [
   { id: "self.gender", label: "본인 성별", step: 0, group: "core", format: "single", purpose: "본인이 직접 확인한 소개 정보", required: true, scope: "operator", options: ["여성", "남성", "직접 확인이 필요해요"] },
   { id: "desired.gender", label: "소개받을 상대", step: 0, alsoOn: 2, group: "core", format: "single", purpose: "본인이 확인한 상대 조건 · 나의 성별과 별도 저장", required: true, scope: "operator", options: ["여성", "남성", "선호 없음", "직접 확인이 필요해요"] },
   { id: "self.province", label: "주 활동 지역 · 시·도", step: 0, group: "core", format: "single", purpose: "내 주 활동 지역 · 상대 선호/만남 가능 지역과 별도", required: true, scope: "partner", options: ["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"] },
-  { id: "self.area", label: "주 활동 지역 · 시·군·구", step: 0, group: "core", format: "text", purpose: "시·군·구 수준만 · 집·직장 주소·GPS 수집 안 함", required: true, scope: "partner", min: 2, max: 40, rule: "broad-area", placeholder: "가상구 · 가상 시·군·구만 입력해 주세요" },
+  { id: "self.area", label: "주 활동 지역 · 시·군·구·동", step: 0, group: "core", format: "text", purpose: "시·군·구나 동까지만 · 집·직장 주소·번지·GPS는 받지 않아요", required: true, scope: "partner", min: 2, max: 40, rule: "broad-area", placeholder: "예: 의정부시 신곡동" },
   { id: "self.purpose", label: "관계 목적", step: 0, group: "core", format: "single", purpose: "나의 관계 기준 참고", required: true, scope: "partner", options: ["진지한 연애", "천천히 알아가며 연애", "아직 정리 중"] },
   { id: "self.bio", label: "한 줄 소개", step: 0, group: "core", format: "text", purpose: "나를 소개하는 짧은 글", required: true, scope: "partner", min: 20, max: 150, placeholder: "가상 인물에 대한 소개를 20~150자로 적어주세요." },
   { id: "self.statement", label: "현재 다른 사람과 교제·혼인 관계가 없고 성실히 참여할 의사가 있어요.", step: 0, group: "core", format: "boolean", purpose: "본인 진술 · 인증 아님", required: true, scope: "operator" },
   { id: "self.pledge", label: "기혼·사실혼이거나 다른 사람과 교제 중인 사실이 확인되면 이용이 종료되고, 상대 보호에 필요한 조치가 이뤄질 수 있음을 이해했어요.", step: 0, group: "core", format: "boolean", purpose: "허위 진술 시 조치 고지 확인 · 미혼 인증 아님", required: true, scope: "operator" },
-  { id: "self.height", label: "키", step: 0, group: "optional", format: "number", purpose: "본인이 입력한 키 · cm", required: false, scope: "partner", rule: "positive-cm", placeholder: "cm 직접 입력" },
-  { id: "self.body", label: "체형", step: 0, group: "optional", format: "single", purpose: "본인이 선택한 표현", required: false, scope: "operator", options: ["마른 편", "보통", "탄탄한 편", "체격 있는 편", "미선택"] },
-  { id: "self.style", label: "스타일", step: 0, group: "optional", format: "multi", purpose: "나의 평소 스타일 참고", required: false, scope: "operator", limit: 3, options: ["단정한", "캐주얼", "미니멀", "스포티", "개성 있는"] },
-  { id: "self.smoking", label: "흡연", step: 0, group: "optional", format: "single", purpose: "나의 생활 성향 참고", required: false, scope: "partner", options: ["안 함", "가끔", "자주", "답하지 않음"] },
-  { id: "self.drinking", label: "음주", step: 0, group: "optional", format: "single", purpose: "나의 생활 성향 참고", required: false, scope: "partner", options: ["안 함", "월 1~2회", "주 1회 이상", "상황에 따라", "답하지 않음"] },
-  { id: "self.schedule", label: "생활", step: 0, group: "optional", format: "single", purpose: "생활 시간대 참고", required: false, scope: "partner", options: ["주간", "야간", "교대·불규칙", "답하지 않음"] },
-  { id: "self.available", label: "편한 시간", step: 0, group: "optional", format: "single", purpose: "참여 가능한 시간대 참고", required: false, scope: "partner", options: ["평일 저녁", "주말 낮", "주말 저녁", "일정에 따라"] },
-  { id: "self.interests", label: "관심사", step: 0, group: "optional", format: "multi", purpose: "넓은 관심 분야 참고", required: false, scope: "partner", limit: 5, options: ["음악", "산책", "영화", "책", "여행", "운동", "음식", "전시", "게임", "자연"] },
-  { id: "self.source", label: "비포어스를 어떻게 알게 되셨나요?", step: 0, group: "optional", format: "single", purpose: "운영 통계 참고 · 상대에게 보이지 않아요", required: false, scope: "operator", options: ["지인 소개", "인스타그램", "스레드", "검색", "블로그·커뮤니티", "제휴·오프라인 행사", "기타"] },
-  { id: "self.work", label: "직업/직무 · 넓은 분야", step: 0, group: "optional", format: "single", purpose: "동의한 매칭 참고 범위에서만 운영자 확인 · 회사명·직장 주소·소득 수집 안 함 · 미입력은 무직으로 판단하지 않음", required: false, scope: "partner", options: ["기획·사무", "개발·기술", "디자인·콘텐츠", "교육·연구", "서비스·영업", "현장·생산", "기타", "답하지 않음"] },
-  { id: "self.question", label: "질문형 소개 01", step: 0, section: "expression", group: "optional", format: "single", purpose: "기존 대화 질문을 그대로 사용해요 · 선택하지 않아도 신청 가능", required: false, scope: "partner", options: ["어떤 사람과 있을 때 편안한가요?"] },
+  { id: "self.height", label: "키", step: 0, group: "optional", format: "number", purpose: "본인이 입력한 키 · cm", required: true, scope: "partner", rule: "positive-cm", placeholder: "cm 직접 입력" },
+  { id: "self.body", label: "체형", step: 0, group: "optional", format: "single", purpose: "본인이 선택한 표현", required: true, scope: "operator", options: ["마른 편", "보통", "탄탄한 편", "체격 있는 편", "미선택"] },
+  { id: "self.style", label: "스타일", step: 0, group: "optional", format: "multi", purpose: "나의 평소 스타일 참고", required: true, scope: "operator", limit: 3, options: ["단정한", "캐주얼", "미니멀", "스포티", "개성 있는"] },
+  { id: "self.smoking", label: "흡연", step: 0, group: "optional", format: "single", purpose: "나의 생활 성향 참고", required: true, scope: "partner", options: ["안 함", "가끔", "자주", "답하지 않음"] },
+  { id: "self.drinking", label: "음주", step: 0, group: "optional", format: "single", purpose: "나의 생활 성향 참고", required: true, scope: "partner", options: ["안 함", "월 1~2회", "주 1회 이상", "상황에 따라", "답하지 않음"] },
+  { id: "self.schedule", label: "생활", step: 0, group: "optional", format: "single", purpose: "생활 시간대 참고", required: true, scope: "partner", options: ["주간", "야간", "교대·불규칙", "답하지 않음"] },
+  { id: "self.available", label: "편한 시간", step: 0, group: "optional", format: "single", purpose: "참여 가능한 시간대 참고", required: true, scope: "partner", options: ["평일 저녁", "주말 낮", "주말 저녁", "일정에 따라"] },
+  { id: "self.interests", label: "관심사", step: 0, group: "optional", format: "multi", purpose: "넓은 관심 분야 참고", required: true, scope: "partner", limit: 5, options: ["음악", "산책", "영화", "책", "여행", "운동", "음식", "전시", "게임", "자연"] },
+  { id: "self.source", label: "비포어스를 어떻게 알게 되셨나요?", step: 0, group: "optional", format: "single", purpose: "운영 통계 참고 · 상대에게 보이지 않아요", required: true, scope: "operator", options: ["지인 소개", "인스타그램", "스레드", "검색", "블로그·커뮤니티", "제휴·오프라인 행사", "기타"] },
+  { id: "self.work", label: "직업/직무 · 넓은 분야", step: 0, group: "optional", format: "single", purpose: "동의한 매칭 참고 범위에서만 운영자 확인 · 회사명·직장 주소·소득 수집 안 함 · 미입력은 무직으로 판단하지 않음", required: true, scope: "partner", options: ["기획·사무", "개발·기술", "디자인·콘텐츠", "교육·연구", "서비스·영업", "현장·생산", "기타", "답하지 않음"] },
+  { id: "self.question", label: "질문형 소개", step: 0, section: "expression", group: "optional", format: "single", purpose: "고른 질문에만 답해요 · 선택하지 않아도 신청 가능", required: false, scope: "partner", options: ["어떤 사람과 있을 때 편안한가요?"] },
   { id: "self.answer", label: "어떤 사람과 있을 때 편안한가요? · 답변", step: 0, section: "expression", group: "optional", format: "text", purpose: "기존 대화 답변 재사용 · 연락처·SNS·민감정보는 적지 마세요", required: false, scope: "partner", min: 100, max: 300, placeholder: "가상 답변을 100~300자로 적어주세요." },
   ...EXPRESSION_FIELDS,
   ...PHOTO_SLOTS.map(slot => ({ ...slot, step: 1, group: slot.required ? "core" as const : "optional" as const })),
@@ -90,7 +90,7 @@ function rawFieldError(field: FieldDefinition, value: AnswerValue | undefined, t
   if (field.min && length < field.min || field.max && length > field.max) return `${field.min || 0}~${field.max}자로 입력해 주세요.`;
   if (field.rule === "no-contact" && /(?:@|https?:|www\.|\d[\d\s-]{6,}|카톡|카카오톡|인스타|instagram|sns|연락처|전화번호|아이디)/i.test(value)) return field.id === "desired.appearance.note" ? "타인의 연락처·SNS·아이디 등 개인정보는 설명에 넣지 마세요." : "연락처·SNS·아이디는 이름에 넣을 수 없어요.";
   if (field.rule === "broad-area" && /(?:\d+\s*(?:번지|호|층)|(?:로|길)\s*\d|(?:집|직장)\s*주소|\d{1,3}\.\d+\s*[,/]\s*\d{1,3}\.\d+)/.test(value)) return "주소·GPS 대신 넓은 생활권만 입력해 주세요.";
-  if (field.id === "self.area" && !/^[가-힣]+(?:시|군|구)(?:\s+[가-힣]+구)?$/.test(value.trim())) return "주 활동 지역은 시·군·구 수준으로 입력해 주세요. 기존 생활권 답변은 보존되며 보완이 필요해요.";
+  if (field.id === "self.area" && !/^[가-힣]+(?:\s+[가-힣0-9]+){0,3}$/.test(value.trim())) return "‘의정부시 신곡동’처럼 지역 이름만 적어 주세요. 번지·도로명·숫자 주소는 적지 않아요.";
   if (field.rule === "positive-cm" && (!/^\d+$/.test(value) || Number(value) <= 0)) return "키는 양의 정수로 직접 입력해 주세요. 단위는 cm예요.";
   if (field.rule === "adult-draft") {
     const age = ageOn(value, today);
@@ -105,11 +105,8 @@ export function validateApplication(draft: ApplicationDraft, today: string, acco
     const error = fieldError(field, draft.values[field.id], today, account, draft.photos);
     if (error) errors[field.id] = error;
   }
-  if (step === undefined || step === 0) {
-    const hasQuestion = answerState(draft.values["self.question"]) === "answered";
-    const hasAnswer = answerState(draft.values["self.answer"]) === "answered";
-    if (hasQuestion !== hasAnswer) errors[hasQuestion ? "self.answer" : "self.question"] = "선택한 질문과 100~300자 답변을 함께 확인해 주세요.";
-  }
+  // 질문형 소개는 선택이에요. 질문을 골랐는데 답이 비어 있을 때만 알려 줘요.
+  if ((step === undefined || step === 0) && answerState(draft.values["self.question"]) === "answered" && answerState(draft.values["self.answer"]) === "unanswered") errors["self.answer"] = "고른 질문에 답을 적거나, 질문 선택을 풀어 주세요.";
   if (step === undefined || step === 2) Object.assign(errors, validatePreferences(draft.values, draft.preferences || emptyPreferences()));
   if (step === undefined || step === 2) Object.assign(errors, validateRelationshipPreferences(draft.values));
   if (step === undefined || step === 3) {

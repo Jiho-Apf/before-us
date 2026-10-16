@@ -80,7 +80,7 @@ const draft = (name, gender, desired, birth) => ({
     "self.name": name, "self.birthDate": birth, "self.gender": gender, "desired.gender": desired, "self.province": "서울", "self.area": "마포구",
     "self.purpose": "천천히 알아가며 연애", "self.bio": "산책과 음악을 좋아해요. 천천히 알아가고 싶어요.", "self.statement": true, "self.pledge": true,
     "self.height": "170", "self.smoking": "안 함",
-    "consent.collection": true, "consent.matching": true, "consent.provision": true, "consent.review": true,
+    "consent.collection": true, "consent.matching": true, "consent.provision": true, "consent.review": true, "consent.noon": true,
   },
   sharing: { "self.name": true, "self.age": true, "self.province": true, "self.area": true, "self.purpose": true, "self.bio": true, "self.height": false, "self.smoking": true },
   photos: { ignored: true }, step: 3, visited: [0, 1, 2, 3],
@@ -104,6 +104,7 @@ await fails("같은 사진을 다른 칸에 올리면 막힌다", "select public
 await fails("남의 폴더 경로로는 사진을 등록할 수 없다", "select public.register_photo('photo.daily', $1, 'image/jpeg', 1000, 800, 1000, $2, true, true)", [`${B}/x.jpg`, hex(99)], /본인 폴더/)
 await q("select public.submit_application()")
 eq("제출하면 submitted", (await one("select status from public.applications where member_id = $1", [A])).status, "submitted")
+eq("신청서의 정오 알림 동의가 내 설정에 반영된다", (await one("select notice_daily_waiting from public.profiles where id = $1", [A])).notice_daily_waiting, true)
 await fails("제출한 신청서는 고칠 수 없다", "select public.save_application_draft($1)", [draft("바꿈", "여성", "남성", "1995-03-01")], /고칠 수 없/)
 await fails("표를 직접 고칠 수 없다", "update public.applications set status = 'approved' where member_id = $1", [A])
 
