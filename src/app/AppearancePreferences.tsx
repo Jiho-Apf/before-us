@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react"
+import { LIVE } from "./backend/client"
 import { ChevronDown, LockKeyhole } from "lucide-react"
 import { Button } from "./components/ui/button"
 import { Input } from "./components/ui/input"
@@ -267,7 +268,7 @@ export default function AppearancePreferences({
       </div>
       <p className="text-xs leading-6 text-muted-foreground">
         필수 항목이 아니에요. 미입력·선호 없음·나중에 작성은 따로 기록하며,
-        작성하지 않아도 신청할 수 있어요. 가상 선호로만 시연해 주세요.
+        작성하지 않아도 신청할 수 있어요.{LIVE ? "" : " 가상 선호로만 시연해 주세요."}
       </p>
       {errors[`${APPEARANCE_PREFIX}mode`] && (
         <p role="alert" className="text-xs text-destructive">

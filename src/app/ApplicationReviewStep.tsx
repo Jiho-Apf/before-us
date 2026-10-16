@@ -11,6 +11,7 @@ import {
   type ApplicationDraft,
 } from "./application-model"
 import { publicApplicationProfile } from "./application-review"
+import { LIVE } from "./backend/client"
 import { PHOTO_SLOTS, photoError } from "./photo-model"
 import {
   BASE_PUBLIC_FIELDS,
@@ -65,7 +66,7 @@ export function PublicProfilePreview({ profile }: { profile: PublicProfile }) {
               <p className="text-xs leading-5 text-muted-foreground">
                 {PHOTO_SLOTS.find((slot) => slot.id === slotId)?.label}
                 <br />
-                  {photo ? "기준 확인된 가상 사진" : "제공할 사진 없음"}
+                  {photo ? LIVE ? "운영진이 확인한 사진" : "기준 확인된 가상 사진" : LIVE ? "운영진 확인 뒤 표시" : "제공할 사진 없음"}
               </p>
             </div>
           )
@@ -90,8 +91,7 @@ export function PublicProfilePreview({ profile }: { profile: PublicProfile }) {
             ))}
         </dl>
         <p className="mt-6 border-t border-border pt-4 text-xs leading-6 text-muted-foreground">
-          선택 정보는 공개를 켠 항목만 표시해요. 가상 프로필 예시이며 실제
-          회원에게 제공되지 않아요.
+          {LIVE ? "선택 정보는 공개를 켠 항목만 표시해요. 소개가 열리면 상대에게 이렇게 보여요." : "선택 정보는 공개를 켠 항목만 표시해요. 가상 프로필 예시이며 실제 회원에게 제공되지 않아요."}
         </p>
       </div>
     </aside>
@@ -243,7 +243,7 @@ export default function ApplicationReviewStep({
                         </p>
                         <p className="mt-1 text-xs leading-5 text-muted-foreground">
                           {photo.file
-                            ? `${photo.review} · 가상 사진 초안 v${photo.revision}`
+                            ? LIVE ? `${photo.review === "대기" ? "검토 대기" : photo.review}` : `${photo.review} · 가상 사진 초안 v${photo.revision}`
                             : "미등록"}
                           {photo.review !== "기준 확인" &&
                             " · 제공용 데이터에 포함되지 않음"}
@@ -440,14 +440,14 @@ export default function ApplicationReviewStep({
             [
               "신청",
               review.submission === "received"
-                ? "데모 접수 · 검토 대기"
+                ? LIVE ? "접수 · 검토 대기" : "데모 접수 · 검토 대기"
                 : review.submission === "held"
-                  ? "신청 보류 · 데모"
+                  ? LIVE ? "신청 보류" : "신청 보류 · 데모"
                   : review.submission === "withdrawn"
-                    ? "신청 철회 · 데모"
+                    ? LIVE ? "신청 철회" : "신청 철회 · 데모"
                     : "아직 접수 전",
             ],
-            ["필수 사진", `기준 확인 ${checkedPhotos}/3 · 가상 검토`],
+            ["필수 사진", LIVE ? `운영진 확인 ${checkedPhotos}/3` : `기준 확인 ${checkedPhotos}/3 · 가상 검토`],
             [
               "본인 확인",
               verifiedAge === null
@@ -457,7 +457,7 @@ export default function ApplicationReviewStep({
             [
               "핵심 프로필",
               review.profileReview === "reviewed"
-                ? "가상 검토 확인"
+                ? LIVE ? "검토 확인" : "가상 검토 확인"
                 : "운영자 검토 전",
             ],
             ["소개 제공", "준비 미완료 · 아직 전달 안 함"],
@@ -484,21 +484,21 @@ export default function ApplicationReviewStep({
           진행 중 제안을 덮어쓰지 않아요.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button
+          {!LIVE && <Button
             type="button"
             variant="outline"
             onClick={() => setPendingAction("held")}
             className="rounded-xl text-xs"
           >
             신청 보류 · 데모
-          </Button>
+          </Button>}
           <Button
             type="button"
             variant="ghost"
             onClick={() => setPendingAction("withdrawn")}
             className="rounded-xl text-xs"
           >
-            신청 철회 · 데모
+            {LIVE ? "신청 철회" : "신청 철회 · 데모"}
           </Button>
           {(review.submission === "held" ||
             review.submission === "withdrawn") && (
@@ -515,10 +515,7 @@ export default function ApplicationReviewStep({
         {pendingAction && (
           <div role="alert" className="mt-4 rounded-xl bg-muted p-4">
             <p className="text-xs leading-7">
-              {pendingAction === "held" ? "신청을 보류" : "신청을 철회"}하는
-              의사를 데모에만 기록해요. 실제 운영 처리는 하지 않아요. 새
-              제안 중단·기존 접근 재검토 상태로 연결하며, 이미 본 화면이나
-              캡처까지 회수한다고 약속하지 않아요.
+              {LIVE ? "신청을 철회하면 소개 준비가 멈추고, 다시 신청하려면 문의하기로 요청해야 해요. 이미 본 화면이나 캡처까지 회수한다고 약속하지 않아요." : <>{pendingAction === "held" ? "신청을 보류" : "신청을 철회"}하는 의사를 데모에만 기록해요. 실제 운영 처리는 하지 않아요. 새 제안 중단·기존 접근 재검토 상태로 연결하며, 이미 본 화면이나 캡처까지 회수한다고 약속하지 않아요.</>}
             </p>
             <div className="mt-3 flex gap-2">
               <Button

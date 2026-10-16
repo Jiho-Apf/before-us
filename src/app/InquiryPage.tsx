@@ -16,8 +16,21 @@ import {
   markInquiryChecking,
   submitInquiry,
   useInquiries,
+  type Inquiry,
   type InquiryType,
 } from "./inquiry-model"
+import { LIVE, rpc } from "./backend/client"
+
+// 실제 서버 모드: 문의 접수·조회를 서버 함수로 한다(비회원도 가능, 접수 번호 + 이메일이 모두 맞아야 보인다).
+type Found = Pick<Inquiry, "id" | "type" | "body" | "at" | "status" | "answer">
+async function findLive(id: string, email: string) {
+  const { data } = await rpc<Found | null>("find_inquiry", { p_id: id, p_email: email })
+  return data
+}
+async function submitLive(input: { type: string; name: string; email: string; body: string; consent: boolean; website: string }) {
+  const { data, error } = await rpc<{ id?: string; error?: string }>("submit_inquiry", { p_type: input.type, p_name: input.name, p_email: input.email, p_body: input.body, p_consent: input.consent, p_website: input.website })
+  return { error: error || data?.error || null, id: data?.id || null }
+}
 
 const time = (at: string) => kstDateTime(at)
 const chip = "rounded-full border px-4 py-2 text-xs transition-colors duration-200 motion-reduce:transition-none"
@@ -27,14 +40,16 @@ function InquiryLookup() {
   const [id, setId] = useState("")
   const [email, setEmail] = useState("")
   const [searched, setSearched] = useState(false)
-  const found = searched ? findInquiry(id, email) : null
+  const [remote, setRemote] = useState<Found | null>(null)
+  const found = searched ? LIVE ? remote : findInquiry(id, email) : null
+  const search = async () => { if (LIVE) setRemote(await findLive(id, email)); setSearched(true) }
   return (
     <div className="space-y-4 border-t border-border pt-8">
       <h2 className="flex items-center gap-2 text-lg font-semibold"><Search className="size-4 text-primary" />남긴 문의 확인하기</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]">
         <Input aria-label="접수 번호" value={id} onChange={(event) => { setId(event.target.value); setSearched(false) }} placeholder="접수 번호 · Q-…" />
         <Input aria-label="문의할 때 적은 이메일" type="email" value={email} onChange={(event) => { setEmail(event.target.value); setSearched(false) }} placeholder="문의할 때 적은 이메일" />
-        <Button variant="outline" disabled={!id.trim() || !email.trim()} onClick={() => setSearched(true)}>확인</Button>
+        <Button variant="outline" disabled={!id.trim() || !email.trim()} onClick={() => void search()}>확인</Button>
       </div>
       {searched && !found && <p className="text-sm text-muted-foreground">일치하는 문의가 없어요. 접수 번호와 이메일을 다시 확인해 주세요.</p>}
       {found && (
@@ -74,19 +89,19 @@ export default function InquiryPage() {
           <li className="flex gap-3"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-primary" /><span>회원이라면 <Link to="/support" className="whitespace-nowrap text-primary underline underline-offset-4">문의·신고</Link> 화면에서 진행 중인 소개와 연결해 남기면 더 빨리 확인할 수 있어요.</span></li>
           <li className="flex gap-3"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-accent" /><span>위급한 상황이라면 이 양식보다 먼저 112에 연락해 주세요.</span></li>
         </ul>
-        <p className="rounded-xl bg-accent/5 p-4 text-xs leading-6 text-accent">데모 화면이에요. 문의는 이 브라우저에만 임시로 저장되고 실제 메일은 발송되지 않아요.</p>
+        {!LIVE && <p className="rounded-xl bg-accent/5 p-4 text-xs leading-6 text-accent">데모 화면이에요. 문의는 이 브라우저에만 임시로 저장되고 실제 메일은 발송되지 않아요.</p>}
       </div>
       <div className="space-y-8">
         {receipt ? (
           <div className="space-y-4 rounded-2xl border border-primary/20 bg-primary/5 p-7" aria-live="polite">
             <MailCheck className="size-6 text-primary" />
             <h2 className="text-xl font-semibold">문의를 잘 받았어요.</h2>
-            <p className="text-sm leading-7 text-muted-foreground">접수 번호로 진행 상태와 답변을 확인할 수 있어요. 답변은 남겨 주신 이메일로도 보내 드려요.</p>
+            <p className="text-sm leading-7 text-muted-foreground">{LIVE ? "접수 번호와 이메일로 이 화면 아래에서 진행 상태와 답변을 확인할 수 있어요. 접수 번호를 메모해 두세요." : "접수 번호로 진행 상태와 답변을 확인할 수 있어요. 답변은 남겨 주신 이메일로도 보내 드려요."}</p>
             <p className="text-2xl font-semibold tracking-wide tabular-nums">{receipt}</p>
             <Button variant="outline" onClick={() => { setReceipt(null); setType(""); setBody(""); setConsent(false) }}>다른 문의 남기기</Button>
           </div>
         ) : (
-          <form className="space-y-7" onSubmit={(event) => { event.preventDefault(); const result = submitInquiry({ type, name, email, body, consent, website }); setError(result.error || ""); if (result.id) setReceipt(result.id) }}>
+          <form className="space-y-7" onSubmit={async (event) => { event.preventDefault(); const result = LIVE ? await submitLive({ type, name, email, body, consent, website }) : submitInquiry({ type, name, email, body, consent, website }); setError(result.error || ""); if (result.id) setReceipt(result.id) }}>
             <fieldset className="space-y-3">
               <legend className="text-sm font-semibold">문의 유형</legend>
               <div className="flex flex-wrap gap-2">

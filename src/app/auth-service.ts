@@ -1,12 +1,12 @@
 import { useSyncExternalStore } from "react"
 import { BEFORE_US } from "./config"
 import { submitMemberRequest } from "./member-operations-model"
+import { LIVE, friendlyError, rpc, supabase } from "./backend/client"
 
 // 계정(회원가입·로그인·비밀번호 재설정·탈퇴).
-// 지금은 탭 메모리에서만 동작하는 데모 구현이다. 서버(Supabase Auth)를 붙일 때 이 파일의 함수 이름과 반환 모양을
-// 그대로 두고 내부만 바꾼다(signUp → auth.signUp, signIn → auth.signInWithPassword, requestPasswordReset →
-// auth.resetPasswordForEmail, resetPassword → auth.updateUser, withdraw → 서버 함수로 탈퇴 요청 + 세션 종료).
-// 비밀번호는 데모에서도 원문을 저장하지 않고 SHA-256 해시만 남긴다(실서버에서는 Supabase가 bcrypt로 처리).
+//  - 데모: 탭 메모리에서만 동작한다. 비밀번호는 원문 대신 SHA-256 해시만 남긴다.
+//  - 실제 서버(LIVE): 같은 함수 이름과 반환 모양으로 Supabase Auth를 쓴다(비밀번호는 Supabase가 bcrypt로 처리).
+//    가입 확인 메일 → /apply, 비밀번호 재설정 메일 → /reset-password?token=recovery 로 돌아온다.
 
 export type AuthUser = { id: string; email: string; createdAt: string; status: "active" | "withdrawal-requested"; deletionDueAt: string | null }
 type Stored = AuthUser & { passwordHash: string; failed: number; lockedUntil: number | null }
@@ -14,14 +14,20 @@ type ResetToken = { token: string; email: string; expiresAt: number; used: boole
 
 const users = new Map<string, Stored>()
 const resetTokens = new Map<string, ResetToken>()
+const attempts = new Map<string, { failed: number; lockedUntil: number | null }>()
 let session: AuthUser | null = null
+let ready = !LIVE
 const listeners = new Set<() => void>()
 const emit = () => listeners.forEach((listener) => listener())
 
 export const PASSWORD_RULE = "8자 이상, 영문과 숫자를 함께 써 주세요."
+export const LEGAL_VERSION = "draft-2026-10-15"
 const LOCK_AFTER = 5
 const LOCK_MINUTES = 5
 const RESET_MINUTES = 30
+const WRONG = "이메일 또는 비밀번호가 맞지 않아요."
+const LOCKED = `로그인 시도가 많아 ${LOCK_MINUTES}분 동안 잠겼어요. 잠시 뒤 다시 시도하거나 비밀번호를 다시 설정해 주세요.`
+const WITHDRAWN = "탈퇴를 요청한 계정이에요. 다시 이용하려면 문의하기로 남겨 주세요."
 
 const normalize = (email: string) => email.trim().toLowerCase()
 const validEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)
@@ -33,12 +39,36 @@ async function hash(text: string) {
 const publicUser = (user: Stored): AuthUser => ({ id: user.id, email: user.email, createdAt: user.createdAt, status: user.status, deletionDueAt: user.deletionDueAt })
 const randomToken = () => [...crypto.getRandomValues(new Uint8Array(16))].map((byte) => byte.toString(16).padStart(2, "0")).join("")
 
-export async function signUp(input: { email: string; password: string; adult: boolean; terms: boolean; privacy: boolean }) {
+// 실제 서버: 로그인 상태가 바뀔 때마다 회원 상태(탈퇴 요청 여부)를 함께 읽는다.
+if (LIVE) {
+  void supabase().then(async (db) => {
+    const apply = async (current: { user: { id: string; email?: string; created_at: string } } | null) => {
+      if (!current) { session = null; ready = true; emit(); return }
+      const { data } = await db.from("profiles").select("status, deletion_due_at").eq("id", current.user.id).maybeSingle()
+      session = { id: current.user.id, email: current.user.email ?? "", createdAt: current.user.created_at, status: data?.status === "withdrawal_requested" ? "withdrawal-requested" : "active", deletionDueAt: data?.deletion_due_at ?? null }
+      ready = true
+      emit()
+    }
+    const { data } = await db.auth.getSession()
+    await apply(data.session)
+    // 콜백 안에서 바로 Supabase를 다시 부르면 멈출 수 있어 한 박자 뒤에 처리한다.
+    db.auth.onAuthStateChange((_event, current) => { window.setTimeout(() => void apply(current), 0) })
+  }).catch(() => { ready = true; emit() })
+}
+
+export async function signUp(input: { email: string; password: string; adult: boolean; terms: boolean; privacy: boolean }): Promise<{ error: string | null; confirm?: boolean }> {
   const email = normalize(input.email)
   if (!validEmail(email)) return { error: "이메일 주소를 확인해 주세요." }
   if (!validPassword(input.password)) return { error: `비밀번호는 ${PASSWORD_RULE}` }
   if (!input.adult) return { error: "만 19세 이상만 가입할 수 있어요." }
   if (!input.terms || !input.privacy) return { error: "이용약관과 개인정보 수집·이용에 동의해 주세요." }
+  if (LIVE) {
+    const db = await supabase()
+    const { data, error } = await db.auth.signUp({ email, password: input.password, options: { emailRedirectTo: `${window.location.origin}/apply`, data: { adult: true, terms_version: LEGAL_VERSION, privacy_version: LEGAL_VERSION, marketing: false } } })
+    if (error) return { error: /password/i.test(error.message) ? `비밀번호는 ${PASSWORD_RULE}` : /rate|too many/i.test(error.message) ? "잠시 뒤 다시 시도해 주세요." : friendlyError(error) }
+    // 가입 여부를 알려 주지 않도록, 이미 가입된 이메일이어도 같은 안내(메일 확인)를 보여 준다.
+    return { error: null, confirm: !data.session }
+  }
   if (users.has(email)) return { error: "이미 가입된 이메일이에요. 로그인하거나 비밀번호를 다시 설정해 주세요." }
   const user: Stored = { id: `member-${randomToken().slice(0, 8)}`, email, createdAt: new Date().toISOString(), status: "active", deletionDueAt: null, passwordHash: await hash(input.password), failed: 0, lockedUntil: null }
   users.set(email, user)
@@ -49,29 +79,57 @@ export async function signUp(input: { email: string; password: string; adult: bo
 
 export async function signIn(emailInput: string, password: string, now = Date.now()) {
   const email = normalize(emailInput)
+  if (LIVE) {
+    const tries = attempts.get(email) ?? { failed: 0, lockedUntil: null }
+    if (tries.lockedUntil && now < tries.lockedUntil) return { error: LOCKED }
+    const db = await supabase()
+    const { data, error } = await db.auth.signInWithPassword({ email, password })
+    if (error) {
+      if (/not confirmed/i.test(error.message)) return { error: "메일함에서 가입 확인 링크를 먼저 눌러 주세요." }
+      if (/rate|too many/i.test(error.message)) return { error: LOCKED }
+      if (!/invalid/i.test(error.message)) return { error: friendlyError(error) }
+      tries.failed += 1
+      if (tries.failed >= LOCK_AFTER) { tries.lockedUntil = now + LOCK_MINUTES * 60000; tries.failed = 0 }
+      attempts.set(email, tries)
+      return { error: WRONG }
+    }
+    attempts.delete(email)
+    const { data: profile } = await db.from("profiles").select("status").eq("id", data.user.id).maybeSingle()
+    if (profile?.status === "withdrawal_requested") { await db.auth.signOut(); return { error: WITHDRAWN } }
+    return { error: null }
+  }
   const user = users.get(email)
   // 가입 여부를 알려 주지 않도록, 없는 계정과 틀린 비밀번호는 같은 문구를 쓴다.
-  const wrong = { error: "이메일 또는 비밀번호가 맞지 않아요." }
-  if (!user) return wrong
-  if (user.lockedUntil && now < user.lockedUntil) return { error: `로그인 시도가 많아 ${LOCK_MINUTES}분 동안 잠겼어요. 잠시 뒤 다시 시도하거나 비밀번호를 다시 설정해 주세요.` }
+  if (!user) return { error: WRONG }
+  if (user.lockedUntil && now < user.lockedUntil) return { error: LOCKED }
   if (user.passwordHash !== (await hash(password))) {
     user.failed += 1
     if (user.failed >= LOCK_AFTER) { user.lockedUntil = now + LOCK_MINUTES * 60000; user.failed = 0 }
-    return wrong
+    return { error: WRONG }
   }
-  if (user.status === "withdrawal-requested") return { error: "탈퇴를 요청한 계정이에요. 다시 이용하려면 문의하기로 남겨 주세요." }
+  if (user.status === "withdrawal-requested") return { error: WITHDRAWN }
   user.failed = 0; user.lockedUntil = null
   session = publicUser(user)
   emit()
   return { error: null }
 }
 
-export function signOut() { session = null; emit() }
+export function signOut() {
+  session = null
+  emit()
+  if (LIVE) void supabase().then((db) => db.auth.signOut())
+}
 
 // 가입 여부와 관계없이 같은 안내를 보여 준다. 데모에서는 메일 대신 화면에 재설정 링크를 돌려준다(devLink).
-export function requestPasswordReset(emailInput: string, now = Date.now()) {
+export async function requestPasswordReset(emailInput: string, now = Date.now()): Promise<{ error: string | null; devLink: string | null }> {
   const email = normalize(emailInput)
   if (!validEmail(email)) return { error: "이메일 주소를 확인해 주세요.", devLink: null }
+  if (LIVE) {
+    const db = await supabase()
+    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password?token=recovery` })
+    if (error && /rate|too many/i.test(error.message)) return { error: "잠시 뒤 다시 시도해 주세요.", devLink: null }
+    return { error: null, devLink: null }
+  }
   let devLink: string | null = null
   if (users.has(email)) {
     const token = randomToken()
@@ -82,11 +140,23 @@ export function requestPasswordReset(emailInput: string, now = Date.now()) {
 }
 
 export async function resetPassword(token: string, password: string, now = Date.now()) {
+  const expired = { error: "링크가 만료됐거나 이미 사용됐어요. 다시 요청해 주세요." }
+  if (LIVE) {
+    if (!validPassword(password)) return { error: `비밀번호는 ${PASSWORD_RULE}` }
+    const db = await supabase()
+    const { data } = await db.auth.getSession()
+    if (!data.session) return expired
+    const { error } = await db.auth.updateUser({ password })
+    if (error) return { error: /different|same/i.test(error.message) ? "이전과 다른 비밀번호를 정해 주세요." : friendlyError(error) }
+    // 다른 기기의 로그인도 함께 끊는다.
+    await db.auth.signOut({ scope: "global" })
+    return { error: null }
+  }
   const record = resetTokens.get(token)
-  if (!record || record.used || now > record.expiresAt) return { error: "링크가 만료됐거나 이미 사용됐어요. 다시 요청해 주세요." }
+  if (!record || record.used || now > record.expiresAt) return expired
   if (!validPassword(password)) return { error: `비밀번호는 ${PASSWORD_RULE}` }
   const user = users.get(record.email)
-  if (!user) return { error: "링크가 만료됐거나 이미 사용됐어요. 다시 요청해 주세요." }
+  if (!user) return expired
   user.passwordHash = await hash(password); user.failed = 0; user.lockedUntil = null
   record.used = true
   // 다른 기기의 로그인도 끊는 것이 원칙이라, 데모에서도 세션을 비운다.
@@ -96,9 +166,18 @@ export async function resetPassword(token: string, password: string, now = Date.
 }
 
 // 탈퇴: 비밀번호를 다시 확인한 뒤 탈퇴 요청을 기록하고 바로 로그아웃한다. 상대 노출·알림은 즉시 멈추고,
-// 일반 자료는 개인정보 기준(activeDeleteDays) 안에 지운다. 운영 기록 쪽 처리는 기존 ‘회원 탈퇴’ 요청 흐름을 그대로 쓴다.
-export async function withdraw(password: string, now = new Date()) {
+// 일반 자료는 개인정보 기준(activeDeleteDays) 안에 지운다.
+export async function withdraw(password: string, now = new Date()): Promise<{ error: string | null; deletionDueAt?: string | null }> {
   if (!session) return { error: "로그인한 뒤 진행해 주세요." }
+  if (LIVE) {
+    const db = await supabase()
+    const { error: wrong } = await db.auth.signInWithPassword({ email: session.email, password })
+    if (wrong) return { error: "비밀번호가 맞지 않아요." }
+    const { data, error } = await rpc<{ deletionDueAt: string }>("request_withdrawal")
+    if (error || !data) return { error: error || "탈퇴 요청을 저장하지 못했어요. 다시 시도해 주세요." }
+    signOut()
+    return { error: null, deletionDueAt: data.deletionDueAt }
+  }
   const user = users.get(session.email)
   if (!user || user.passwordHash !== (await hash(password))) return { error: "비밀번호가 맞지 않아요." }
   user.status = "withdrawal-requested"
@@ -109,6 +188,11 @@ export async function withdraw(password: string, now = new Date()) {
   return { error: null, deletionDueAt: user.deletionDueAt }
 }
 
+const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }
 export function useAuth() {
-  return useSyncExternalStore((listener) => { listeners.add(listener); return () => listeners.delete(listener) }, () => session, () => session)
+  return useSyncExternalStore(subscribe, () => session, () => session)
+}
+// 실제 서버에서 처음 로그인 상태를 읽기 전에는 ready가 false다(로그인 안내가 잠깐 깜빡이지 않도록).
+export function useAuthReady() {
+  return useSyncExternalStore(subscribe, () => ready, () => ready)
 }

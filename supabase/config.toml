@@ -1,0 +1,26 @@
+# 비포어스 Supabase 설정(로그인·메일·2단계 인증). `npx supabase config push` 로 실제 프로젝트에 반영한다.
+project_id = "mmrqcefipllmcqztksqm"
+
+[auth]
+site_url = "https://before-us-3jr4.vercel.app"
+additional_redirect_urls = ["https://before-us-3jr4.vercel.app/**", "http://localhost:8443/**", "http://localhost:8444/**"]
+jwt_expiry = 3600
+enable_signup = true
+minimum_password_length = 8
+password_requirements = "letters_digits"
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+double_confirm_changes = true
+secure_password_change = true
+
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[functions.storage-cleanup]
+verify_jwt = false

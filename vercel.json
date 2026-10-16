@@ -1,5 +1,10 @@
 {
-  "buildCommand": "pnpm build",
+  "buildCommand": "if [ \"$VERCEL_GIT_COMMIT_REF\" = \"beta\" ]; then VITE_BACKEND=supabase pnpm build; else pnpm build; fi",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }

@@ -4,6 +4,7 @@ import { EXPRESSION_FIELDS, validateRelationshipPreferences } from "./personalit
 import { BASE_PUBLIC_FIELDS, PUBLIC_FIELD_IDS, REQUIRED_PUBLIC_PHOTOS, REVIEW_CONSENTS, cloneReview, emptyReview, type ReviewState } from "./review-state";
 import { PREFERENCE_FIELDS, clonePreferences, emptyPreferences, validatePreferences, type PreferenceSettings } from "./preference-model";
 import { PHOTO_SLOTS, clonePhotos, emptyPhotos, photoError, type ApplicationPhotos, type PhotoSlotId } from "./photo-model";
+import { copy } from "./live-copy";
 
 export const APPLICATION_STEPS = ["나에 대해", "사진", "원하는 만남", "공개·동의 확인"] as const;
 export type AnswerValue = string | string[] | boolean;
@@ -18,7 +19,7 @@ type FieldDefinition = {
   alsoOn?: number;
   section?: "expression" | "relationship";
 };
-export const APPLICATION_FIELDS: readonly FieldDefinition[] = [
+const APPLICATION_FIELD_SOURCE: readonly FieldDefinition[] = [
   { id: "self.name", label: "활동용 이름", step: 0, group: "core", format: "text", purpose: "소개에서 사용할 이름", required: true, scope: "partner", min: 2, max: 12, rule: "no-contact", placeholder: "가상 활동용 이름" },
   { id: "self.birthDate", label: "생년월일 · 가상 정보만", step: 0, group: "core", format: "date", purpose: "만 나이 계산 · 원값은 상대 비공개", required: true, scope: "private", rule: "adult-draft" },
   { id: "self.gender", label: "본인 성별", step: 0, group: "core", format: "single", purpose: "본인이 직접 확인한 소개 정보", required: true, scope: "operator", options: ["여성", "남성", "직접 확인이 필요해요"] },
@@ -46,6 +47,8 @@ export const APPLICATION_FIELDS: readonly FieldDefinition[] = [
   ...PREFERENCE_FIELDS,
   ...REVIEW_CONSENTS,
 ];
+// 실제 서버 모드에서는 항목 이름·안내의 데모 표기를 걷어 낸다.
+export const APPLICATION_FIELDS: readonly FieldDefinition[] = APPLICATION_FIELD_SOURCE.map(field => ({ ...field, label: copy(field.label), purpose: copy(field.purpose), ...(field.placeholder ? { placeholder: copy(field.placeholder) } : {}) }));
 
 export type ApplicationDraft = { values: Record<string, AnswerValue>; photos: ApplicationPhotos; sharing: Record<string, boolean>; preferences: PreferenceSettings; review: ReviewState; step: number; visited: number[]; savedAt: string | null; completedDemo: boolean };
 export const emptyApplication = (): ApplicationDraft => ({ values: {}, review: emptyReview(), preferences: emptyPreferences(), photos: emptyPhotos(), sharing: { ...Object.fromEntries(APPLICATION_FIELDS.filter(field => field.scope === "partner").map(field => [field.id, field.group !== "optional"])), [PUBLIC_AGE_FIELD.id]: true }, step: 0, visited: [0], savedAt: null, completedDemo: false });
@@ -68,6 +71,10 @@ export function accountAge(account: AccountFacts, today: string) {
   return account.verifiedBirthDate ? ageOn(account.verifiedBirthDate, today) : Number.isInteger(account.verifiedAge) && account.verifiedAge! >= 0 ? account.verifiedAge! : null;
 }
 export function fieldError(field: FieldDefinition, value: AnswerValue | undefined, today: string, account: AccountFacts = {}, photos: ApplicationPhotos = emptyPhotos()) {
+  const error = rawFieldError(field, value, today, account, photos);
+  return error && copy(error);
+}
+function rawFieldError(field: FieldDefinition, value: AnswerValue | undefined, today: string, account: AccountFacts, photos: ApplicationPhotos) {
   if (field.format === "photo") return photoError(photos, field.id as PhotoSlotId);
   if (field.id === "self.birthDate" && accountAge(account, today) !== null) return accountAge(account, today)! < BEFORE_US.operatingDraft.minimumAge ? "운영 초안의 만 19세 이상 기준을 충족하지 않아요." : null;
   const state = answerState(value);

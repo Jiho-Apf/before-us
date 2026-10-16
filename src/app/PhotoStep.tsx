@@ -7,7 +7,7 @@ import { MOCK_PHOTO_FILES, PHOTO_REVIEW_REASONS, PHOTO_SLOTS, deletePhoto, empty
 
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
 
-function Composition({ number, file, crop = false }: { number: number; file?: MockPhotoFile | null; crop?: boolean }) {
+export function Composition({ number, file, crop = false }: { number: number; file?: MockPhotoFile | null; crop?: boolean }) {
   const width = file?.width || 1000;
   const height = file?.height || 1250;
   const headSize = Math.min(width, height) * (number === 1 ? 0.19 : number === 3 ? 0.07 : 0.11);

@@ -1,4 +1,5 @@
 import { BEFORE_US } from "./config";
+import { copy } from "./live-copy";
 
 export const PHOTO_SLOTS = [
   { id: "photo.face", number: 1, label: "대표 얼굴", required: true, description: "혼자, 정면 또는 가까운 구도, 얼굴이 또렷함. 마스크·선글라스·과한 보정 없음.", composition: "얼굴이 또렷한 가까운 구도", purpose: "대표 사진 · 얼굴 확인", format: "photo", scope: "partner", rule: "three-required-unique-files-and-self-confirmation" },
@@ -53,6 +54,10 @@ export function deletePhoto(photos: ApplicationPhotos, id: PhotoSlotId): Applica
   return { ...photos, [id]: { ...emptyPhoto(), revision: photos[id].revision + 1, activeProposalPhoto: photos[id].activeProposalPhoto } };
 }
 export function photoError(photos: ApplicationPhotos, id: PhotoSlotId) {
+  const error = rawPhotoError(photos, id);
+  return error && copy(error);
+}
+function rawPhotoError(photos: ApplicationPhotos, id: PhotoSlotId) {
   const slot = PHOTO_SLOTS.find(slot => slot.id === id)!;
   const record = photos[id];
   if (!record || record.status === "empty") return slot.required ? `${slot.number}번 ${slot.label} 사진이 필요해요. (가상 등록)` : null;

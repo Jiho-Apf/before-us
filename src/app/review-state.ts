@@ -1,4 +1,5 @@
 import { EXPRESSION_PUBLIC_IDS } from "./personality-fields"
+import { copy } from "./live-copy"
 
 export const BASE_PUBLIC_FIELDS = [
   "self.name",
@@ -36,8 +37,8 @@ const consent = (
   required: boolean,
 ) => ({
   id: `consent.${id}`,
-  label,
-  purpose,
+  label: copy(label),
+  purpose: copy(purpose),
   required,
   step: 3,
   group: "consent" as const,

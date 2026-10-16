@@ -1,0 +1,329 @@
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router";
+import { Bell, ClipboardList, FileClock, LayoutDashboard, ListChecks, LogOut, Settings2, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
+import { Textarea } from "./components/ui/textarea";
+import { signIn, signOut, useAuth, useAuthReady } from "./auth-service";
+import { friendlyError, rpc, supabase } from "./backend/client";
+import { photoUrl } from "./backend/applications";
+import { APPLICATION_FIELDS } from "./application-model";
+import { PHOTO_REVIEW_REASONS, PHOTO_SLOTS } from "./photo-model";
+import { INQUIRY_STATUS } from "./inquiry-model";
+import { REQUEST_LABELS } from "./member-operations-model";
+import { kstDateTime, kstDay } from "./dates";
+
+// 실제 서버 모드의 운영진 화면. 데모 운영 콘솔과 같은 틀을 쓰고, 모든 자료는 서버 권한(RLS·역할·2단계 인증)을 거쳐 온다.
+// 화면에서 메뉴를 숨기는 것은 보안이 아니다. 권한은 서버 함수와 표 정책이 막는다.
+type Role = "owner" | "operator" | "counselor" | "finance";
+const ROLE_LABEL: Record<Role, string> = { owner: "대표", operator: "운영", counselor: "상담", finance: "정산" };
+const NAV = [
+  { path: "/admin", label: "대시보드", icon: LayoutDashboard },
+  { path: "/admin/applicants", label: "신청자", icon: ClipboardList },
+  { path: "/admin/introductions", label: "소개·매칭", icon: ListChecks },
+  { path: "/admin/safety", label: "신고·문의", icon: ShieldAlert },
+  { path: "/admin/audit", label: "감사로그", icon: FileClock },
+  { path: "/admin/settings", label: "운영진", icon: Settings2 },
+] as const;
+const box = "rounded-lg border border-border bg-card";
+const STATUS_LABEL: Record<string, string> = { draft: "작성 중", submitted: "접수", reviewing: "검토 중", needs_changes: "보완 요청", approved: "승인", held: "보류", withdrawn: "철회", rejected: "소개 어려움" };
+const INTRO_LABEL: Record<string, string> = { reserved: "정오 예약", published: "공개", mutual: "서로 선택", closed: "종료", cancelled: "취소" };
+const END_LABEL: Record<string, string> = { rejected: "한쪽 거절", nonresponse: "미응답", withdrawn: "탈퇴", blocked: "차단", "admin-cancel": "운영 취소", "missed-window": "정오 놓침" };
+
+function useLoad<T>(load: () => Promise<T>, deps: unknown[] = []) {
+  const [state, setState] = useState<{ data: T | null; error: string | null; loading: boolean }>({ data: null, error: null, loading: true });
+  const reload = async () => { try { setState({ data: await load(), error: null, loading: false }); } catch (error) { setState({ data: null, error: friendlyError(error as Error), loading: false }); } };
+  useEffect(() => { void reload(); }, deps);
+  return { ...state, reload };
+}
+async function call<T>(name: string, args?: Record<string, unknown>) { const { data, error } = await rpc<T>(name, args); if (error) throw new Error(error); return data as T; }
+async function table<T>(name: string, build: (query: any) => any) { const db = await supabase(); const { data, error } = await build(db.from(name)); if (error) throw new Error(friendlyError(error)); return (data ?? []) as T[]; }
+
+function Title({ children, lead }: { children: ReactNode; lead?: ReactNode }) {
+  return <div className="mb-6"><h1 className="text-2xl font-semibold">{children}</h1>{lead && <p className="mt-2 text-sm leading-6 text-muted-foreground">{lead}</p>}</div>;
+}
+function Notice({ text }: { text: string }) { return text ? <p role="status" className="rounded-lg bg-muted px-4 py-3 text-xs leading-6">{text}</p> : null; }
+function Gate({ title, children }: { title: string; children: ReactNode }) {
+  return <main className="flex min-h-screen items-center justify-center bg-secondary p-6 text-foreground"><section className="w-full max-w-md rounded-xl border border-border bg-card p-6 sm:p-8"><p className="text-xs font-semibold tracking-widest text-primary">BEFORE US · OPERATIONS</p><h1 className="mt-4 text-2xl font-semibold">{title}</h1><div className="mt-6 space-y-4 text-sm">{children}</div></section></main>;
+}
+
+// ─────────────────────────────────────────────
+// 입장: 로그인 → 운영진 역할 확인 → 2단계 인증(인증 앱 6자리)
+export function LiveAdminLayout() {
+  const user = useAuth();
+  const ready = useAuthReady();
+  const [role, setRole] = useState<Role | null | undefined>(undefined);
+  const [aal, setAal] = useState<string | null>(null);
+  const check = async () => {
+    const db = await supabase();
+    const { data } = await db.from("admin_roles").select("role").eq("user_id", user!.id).maybeSingle();
+    setRole((data?.role as Role) ?? null);
+    const level = await db.auth.mfa.getAuthenticatorAssuranceLevel();
+    setAal(level.data?.currentLevel ?? null);
+  };
+  useEffect(() => { if (user) void check(); else { setRole(undefined); setAal(null); } }, [user?.id]);
+  if (!ready) return <Gate title="확인하고 있어요.">{null}</Gate>;
+  if (!user) return <AdminLogin />;
+  if (role === undefined) return <Gate title="권한을 확인하고 있어요.">{null}</Gate>;
+  if (role === null) return <Gate title="운영진 권한이 없는 계정이에요."><p className="leading-7 text-muted-foreground">대표가 운영진 화면에서 역할을 줘야 들어올 수 있어요.</p><Button variant="outline" onClick={signOut}>로그아웃</Button></Gate>;
+  if (aal !== "aal2") return <SecondFactor onDone={check} />;
+  return <AdminShell role={role} />;
+}
+
+function AdminLogin() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const submit = async (event: FormEvent) => { event.preventDefault(); const result = await signIn(email, password); setError(result.error || ""); };
+  return <Gate title="운영진 로그인"><form onSubmit={submit} className="space-y-4" noValidate><Input type="email" aria-label="이메일" autoComplete="email" placeholder="이메일" value={email} onChange={event => setEmail(event.target.value)} /><Input type="password" aria-label="비밀번호" autoComplete="current-password" placeholder="비밀번호" value={password} onChange={event => setPassword(event.target.value)} />{error && <p role="alert" className="text-destructive">{error}</p>}<Button type="submit" className="w-full">로그인</Button></form><p className="text-xs leading-6 text-muted-foreground">로그인한 뒤 인증 앱(Google Authenticator 등)의 6자리 번호로 한 번 더 확인해요.</p><Link to="/" className="text-xs underline underline-offset-4">서비스 화면으로</Link></Gate>;
+}
+
+function SecondFactor({ onDone }: { onDone: () => Promise<void> }) {
+  const [factorId, setFactorId] = useState<string | null>(null);
+  const [qr, setQr] = useState<string | null>(null);
+  const [secret, setSecret] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => { void (async () => {
+    const db = await supabase();
+    const { data } = await db.auth.mfa.listFactors();
+    const verified = data?.totp?.find(factor => factor.status === "verified");
+    if (verified) { setFactorId(verified.id); return; }
+    // 등록하다 만 인증 수단은 지우고 새로 만든다.
+    for (const factor of data?.all ?? []) if (factor.status !== "verified") await db.auth.mfa.unenroll({ factorId: factor.id });
+    const { data: enrolled, error } = await db.auth.mfa.enroll({ factorType: "totp", friendlyName: `before-us-${Date.now().toString(36)}` });
+    if (error || !enrolled) { setError(friendlyError(error, "인증 앱 등록을 시작하지 못했어요.")); return; }
+    setFactorId(enrolled.id); setQr(enrolled.totp.qr_code); setSecret(enrolled.totp.secret);
+  })(); }, []);
+  const verify = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!factorId) return;
+    const db = await supabase();
+    const { error } = await db.auth.mfa.challengeAndVerify({ factorId, code: code.trim() });
+    if (error) { setError("번호가 맞지 않아요. 인증 앱의 지금 번호를 다시 넣어 주세요."); return; }
+    await onDone();
+  };
+  return <Gate title={qr ? "인증 앱을 연결해 주세요." : "2단계 인증"}>
+    {qr && <><p className="leading-7 text-muted-foreground">휴대폰의 인증 앱으로 아래 QR 코드를 찍어 주세요. 처음 한 번만 하면 돼요.</p><img src={qr} alt="인증 앱 등록 QR 코드" className="mx-auto size-44 rounded-lg border border-border bg-white p-2" />{secret && <p className="break-all text-center text-[11px] text-muted-foreground">직접 입력 키 · {secret}</p>}</>}
+    <form onSubmit={verify} className="space-y-3"><Input inputMode="numeric" autoComplete="one-time-code" aria-label="인증 앱 6자리 번호" placeholder="6자리 번호" maxLength={6} value={code} onChange={event => { setCode(event.target.value.replace(/\D/g, "")); setError(""); }} />{error && <p role="alert" className="text-destructive">{error}</p>}<Button type="submit" disabled={code.length !== 6} className="w-full">확인</Button></form>
+    <Button variant="ghost" size="sm" onClick={signOut}>다른 계정으로 로그인</Button>
+  </Gate>;
+}
+
+function AdminShell({ role }: { role: Role }) {
+  const location = useLocation();
+  const user = useAuth();
+  const [dark, setDark] = useState(false);
+  const active = NAV.find(item => item.path === location.pathname) || NAV[0];
+  return (
+    <div className={`${dark ? "dark " : ""}min-h-screen bg-secondary font-sans text-foreground`}>
+      <a href="#admin-content" className="fixed left-3 top-3 z-50 -translate-y-24 rounded-lg bg-primary px-4 py-3 text-sm text-primary-foreground focus:translate-y-0">관리자 본문으로</a>
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r border-border bg-card lg:flex">
+        <div className="border-b border-border px-6 py-6"><Link to="/admin" className="text-xl font-bold">비포어스<span className="ml-2 inline-flex gap-1 align-middle"><span className="h-2 w-2 rounded-full bg-primary" /><span className="h-2 w-2 rounded-full bg-accent" /></span></Link><p className="mt-1 text-xs tracking-widest text-muted-foreground">BEFORE US · OPERATIONS</p></div>
+        <nav aria-label="관리자 메뉴" className="grid flex-1 content-start gap-1 overflow-y-auto p-3">{NAV.map(({ path, label, icon: Icon }) => <NavLink key={path} to={path} end={path === "/admin"} className={({ isActive }) => `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-200 motion-reduce:transition-none ${isActive ? "bg-primary/10 font-semibold text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}><Icon size={17} strokeWidth={1.7} />{label}</NavLink>)}</nav>
+        <div className="border-t border-border p-5"><div className="mb-2 flex items-center gap-2 text-xs font-semibold"><ShieldCheck size={15} className="text-primary" />{ROLE_LABEL[role]} · 2단계 인증</div><p className="break-all text-xs leading-5 text-muted-foreground">{user?.email}</p></div>
+      </aside>
+      <div className="lg:pl-56">
+        <header className="sticky top-0 z-20 border-b border-border bg-card">
+          <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-5 py-3 lg:px-8">
+            <div className="flex items-center gap-2 text-xs"><span className="text-muted-foreground">ADMIN</span><span className="text-border">/</span><span className="font-semibold">{active.label}</span></div>
+            <div className="flex flex-wrap items-center gap-2"><Button size="sm" variant="ghost" onClick={() => setDark(value => !value)}>{dark ? "라이트" : "다크"}</Button><Button size="sm" variant="outline" onClick={signOut}><LogOut size={14} />로그아웃</Button></div>
+          </div>
+          <nav aria-label="관리자 메뉴" className="flex gap-1 overflow-x-auto px-5 pb-3 lg:hidden">{NAV.map(({ path, label }) => <NavLink key={path} to={path} end={path === "/admin"} className={({ isActive }) => `shrink-0 rounded-lg px-3 py-2 text-xs ${isActive ? "bg-primary/10 font-semibold text-primary" : "text-muted-foreground"}`}>{label}</NavLink>)}</nav>
+        </header>
+        <main id="admin-content" className="mx-auto max-w-7xl px-5 py-7 lg:px-8"><Outlet context={{ role }} /></main>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// 대시보드: 오늘 처리할 일
+export function LiveAdminHome() {
+  const { data, error } = useLoad(async () => {
+    const [applications, ready, intros, reports, inquiries, requests, jobs] = await Promise.all([
+      call<{ status: string }[]>("admin_list_applications"),
+      call<unknown[]>("admin_ready_members").catch(() => []),
+      call<{ status: string; reveal_at: string }[]>("admin_list_introductions"),
+      table<{ status: string; urgent: boolean }>("reports", query => query.select("status, urgent").neq("status", "closed")),
+      table<{ status: string }>("inquiries", query => query.select("status").neq("status", "answered")),
+      table<{ status: string }>("member_requests", query => query.select("status").neq("status", "decided")),
+      table<{ job: string; started_at: string; ok: boolean | null; detail: Record<string, unknown> | null }>("job_runs", query => query.select("job, started_at, ok, detail").order("started_at", { ascending: false }).limit(6)),
+    ]);
+    return { applications, ready, intros, reports, inquiries, requests, jobs };
+  });
+  if (error) return <Notice text={error} />;
+  if (!data) return <p className="text-sm text-muted-foreground">불러오고 있어요.</p>;
+  const waiting = data.applications.filter(item => item.status === "submitted" || item.status === "reviewing").length;
+  const tiles: [string, number, string][] = [
+    ["검토할 신청서", waiting, "/admin/applicants"],
+    ["소개 가능한 회원", data.ready.length, "/admin/introductions"],
+    ["정오 예약", data.intros.filter(item => item.status === "reserved").length, "/admin/introductions"],
+    ["응답 기다리는 소개", data.intros.filter(item => item.status === "published").length, "/admin/introductions"],
+    ["처리할 신고", data.reports.length, "/admin/safety"],
+    ["답변 대기 문의", data.inquiries.length, "/admin/safety"],
+    ["회원 요청", data.requests.length, "/admin/safety"],
+  ];
+  const urgent = data.reports.filter(item => item.urgent).length;
+  return <>
+    <Title lead="실제 회원 자료예요. 열람과 처리는 모두 감사 기록에 남아요.">오늘 처리할 일</Title>
+    {urgent > 0 && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-semibold text-destructive">긴급 신고 {urgent}건 · 먼저 확인해 주세요.</p>}
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{tiles.map(([label, count, to]) => <Link key={label} to={to} className={`${box} p-5 transition-colors hover:border-primary/40`}><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-3xl font-light tabular-nums text-primary">{count}</p></Link>)}</div>
+    <section className={`${box} mt-6 p-5`}><h2 className="flex items-center gap-2 text-sm font-semibold"><Bell size={15} className="text-accent" />예약 작업 기록</h2>{data.jobs.length ? <ul className="mt-3 divide-y divide-border text-xs">{data.jobs.map((job, index) => <li key={index} className="flex flex-wrap justify-between gap-2 py-2"><span>{({ noon: "정오 공개", deadlines: "응답 마감", retention: "보존 기간 정리" } as Record<string, string>)[job.job] ?? job.job} · {job.ok === false ? <span className="font-semibold text-destructive">실패</span> : "완료"}</span><span className="text-muted-foreground">{kstDateTime(job.started_at)} · {JSON.stringify(job.detail ?? {})}</span></li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">아직 실행 기록이 없어요. 정오 작업은 매일 12:00에 돌아요.</p>}</section>
+  </>;
+}
+
+// ─────────────────────────────────────────────
+// 신청자: 목록 → 열람(감사 기록) → 사진 확인 → 결정
+type ApplicationRow = { member_id: string; status: string; submitted_at: string | null; name: string | null; gender: string | null; desired: string | null; province: string | null; area: string | null; age: number | null; source: string | null; photo_count: number; photo_requests: number };
+type ApplicationDetail = { memberId: string; status: string; profileVersion: number; submittedAt: string | null; decisionNote: string | null; draft: { values: Record<string, unknown>; sharing: Record<string, boolean>; preferences?: unknown }; photos: { slot: string; path: string; review: string; reason: string | null; width: number; height: number }[] };
+const show = (value: unknown) => Array.isArray(value) ? value.join(" · ") : typeof value === "boolean" ? value ? "예" : "아니요" : String(value ?? "");
+
+export function LiveApplicants() {
+  const [filter, setFilter] = useState<"open" | "all">("open");
+  const list = useLoad(() => call<ApplicationRow[]>("admin_list_applications"), []);
+  const [selected, setSelected] = useState<string | null>(null);
+  const rows = (list.data ?? []).filter(row => filter === "all" || ["submitted", "reviewing"].includes(row.status));
+  return <>
+    <Title lead="생년월일 원값은 보이지 않고 만 나이만 보여요. 신청서를 열면 회원별로 하루 한 번 열람 기록이 남아요.">신청자</Title>
+    <div className="mb-4 flex gap-2">{(["open", "all"] as const).map(value => <Button key={value} size="sm" variant={filter === value ? "default" : "outline"} onClick={() => setFilter(value)}>{value === "open" ? "검토할 신청서" : "전체"}</Button>)}</div>
+    {list.error && <Notice text={list.error} />}
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <div className={`${box} divide-y divide-border`}>{rows.length ? rows.map(row => <button key={row.member_id} type="button" onClick={() => setSelected(row.member_id)} className={`block w-full px-4 py-3 text-left text-sm ${selected === row.member_id ? "bg-primary/5" : "hover:bg-secondary"}`}><span className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold">{row.name || "이름 미입력"} <span className="font-normal text-muted-foreground">· {row.gender} · {row.age ?? "?"}세 · {row.province} {row.area}</span></span><span className="text-xs text-primary">{STATUS_LABEL[row.status]}</span></span><span className="mt-1 block text-xs text-muted-foreground">사진 {row.photo_count}/4{row.photo_requests ? ` · 재등록 요청 ${row.photo_requests}` : ""} · 접수 {row.submitted_at ? kstDateTime(row.submitted_at) : "—"}{row.source ? ` · 유입 ${row.source}` : ""}</span></button>) : <p className="p-5 text-sm text-muted-foreground">{list.loading ? "불러오고 있어요." : "해당하는 신청서가 없어요."}</p>}</div>
+      {selected ? <ApplicantDetail key={selected} memberId={selected} onChanged={list.reload} /> : <p className={`${box} p-5 text-sm text-muted-foreground`}>왼쪽에서 신청서를 골라 주세요.</p>}
+    </div>
+  </>;
+}
+
+function AdminPhoto({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => { let alive = true; void photoUrl(path).then(next => { if (alive) setUrl(next); }); return () => { alive = false; }; }, [path]);
+  return <div className="aspect-[4/5] overflow-hidden rounded-md border border-border bg-muted">{url && <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="" className="h-full w-full object-cover" /></a>}</div>;
+}
+
+function ApplicantDetail({ memberId, onChanged }: { memberId: string; onChanged: () => Promise<void> }) {
+  const detail = useLoad(() => call<ApplicationDetail>("admin_get_application", { p_member: memberId }), [memberId]);
+  const [note, setNote] = useState("");
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState("");
+  if (detail.error) return <Notice text={detail.error} />;
+  if (!detail.data) return <p className={`${box} p-5 text-sm text-muted-foreground`}>불러오고 있어요.</p>;
+  const data = detail.data;
+  const values = data.draft.values ?? {};
+  const fields = APPLICATION_FIELDS.filter(field => field.format !== "photo" && field.scope !== "private" && values[field.id] !== undefined && values[field.id] !== "" && !(Array.isArray(values[field.id]) && (values[field.id] as unknown[]).length === 0));
+  const act = async (task: () => Promise<unknown>, done: string) => { try { await task(); setMessage(done); await detail.reload(); await onChanged(); } catch (error) { setMessage((error as Error).message); } };
+  const decide = (status: string, label: string) => act(() => call("admin_decide_application", { p_member: memberId, p_status: status, p_note: note || null }), `${label}(으)로 기록했어요.`);
+  return <section className={`${box} space-y-6 p-5`}>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs text-muted-foreground">프로필 버전 {data.profileVersion} · 접수 {data.submittedAt ? kstDateTime(data.submittedAt) : "—"}</p><h2 className="mt-1 text-xl font-semibold">{show(values["self.name"]) || "이름 미입력"} · 만 {show(values["self.age"])}세</h2></div><span className="rounded-full border border-primary/30 px-3 py-1 text-xs text-primary">{STATUS_LABEL[data.status]}</span></div>
+    {data.decisionNote && <p className="rounded-lg bg-muted p-3 text-xs leading-6">회원에게 보낸 안내 · {data.decisionNote}</p>}
+    <div><h3 className="text-sm font-semibold">사진</h3><div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">{PHOTO_SLOTS.map(slot => { const photo = data.photos.find(item => item.slot === slot.id); return <div key={slot.id} className="space-y-2 text-xs"><p className="font-semibold">{slot.number}. {slot.label}</p>{photo ? <><AdminPhoto path={photo.path} /><p className="text-muted-foreground">{photo.width}×{photo.height} · {photo.review}{photo.reason ? ` · ${photo.reason}` : ""}</p><div className="flex flex-wrap gap-1"><Button size="sm" variant={photo.review === "기준 확인" ? "default" : "outline"} className="h-7 px-2 text-[11px]" onClick={() => void act(() => call("admin_review_photo", { p_member: memberId, p_slot: slot.id, p_review: "기준 확인" }), `${slot.label} 기준 확인`)}>기준 확인</Button><select aria-label={`${slot.label} 재등록 사유`} value={reasons[slot.id] ?? ""} onChange={event => setReasons(current => ({ ...current, [slot.id]: event.target.value }))} className="h-7 rounded-md border border-border bg-card px-1 text-[11px]"><option value="">재등록 사유</option>{PHOTO_REVIEW_REASONS.map(reason => <option key={reason}>{reason}</option>)}</select><Button size="sm" variant="outline" disabled={!reasons[slot.id]} className="h-7 px-2 text-[11px]" onClick={() => void act(() => call("admin_review_photo", { p_member: memberId, p_slot: slot.id, p_review: "재등록 요청", p_reason: reasons[slot.id] }), `${slot.label} 재등록 요청`)}>재등록 요청</Button></div></> : <p className="text-muted-foreground">{slot.required ? "미등록 · 필수" : "미등록"}</p>}</div>; })}</div></div>
+    <div><h3 className="text-sm font-semibold">신청 내용</h3><dl className="mt-3 divide-y divide-border text-sm">{fields.map(field => <div key={field.id} className="grid gap-1 py-2 sm:grid-cols-[180px_1fr]"><dt className="text-xs text-muted-foreground">{field.label}{field.scope === "partner" ? data.draft.sharing?.[field.id] ? " · 상대 공개" : " · 비공개" : " · 운영 참고"}</dt><dd className="whitespace-pre-wrap break-words text-xs leading-6">{show(values[field.id])}</dd></div>)}</dl></div>
+    <div className="space-y-3 border-t border-border pt-5"><h3 className="text-sm font-semibold">결정</h3><Textarea aria-label="회원에게 보낼 안내" value={note} maxLength={500} onChange={event => setNote(event.target.value)} placeholder="보완·보류·소개 어려움일 때 회원에게 보일 안내를 적어 주세요. 평가하는 말은 쓰지 않아요." className="min-h-20" /><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void decide("reviewing", "검토 시작")}>검토 시작</Button><Button size="sm" onClick={() => void decide("approved", "승인")}>승인</Button><Button size="sm" variant="outline" onClick={() => void decide("needs_changes", "보완 요청")}>보완 요청</Button><Button size="sm" variant="outline" onClick={() => void decide("held", "보류")}>보류</Button><Button size="sm" variant="ghost" onClick={() => void decide("rejected", "소개 어려움")}>소개 어려움</Button></div><Notice text={message} /></div>
+  </section>;
+}
+
+// ─────────────────────────────────────────────
+// 소개·매칭: 소개할 수 있는 회원 중 두 사람을 골라 정오 공개를 예약한다.
+type ReadyMember = { member_id: string; name: string | null; gender: string | null; desired: string | null; age: number | null; province: string | null; area: string | null; purpose: string | null; last_published_at: string | null; introductions: number; blocked: string[]; previous: string[] };
+type IntroRow = { id: string; status: string; reveal_at: string; respond_by: string; name_a: string | null; name_b: string | null; response_a: string | null; response_b: string | null; opened_a: boolean; opened_b: boolean; end_reason: string | null; note: string };
+const nextNoonDate = () => { const now = new Date(); const kst = new Date(now.getTime() + 9 * 3600000); const date = kst.toISOString().slice(0, 10); return kst.getUTCHours() < 12 ? date : new Date(Date.parse(`${date}T00:00:00Z`) + 86400000).toISOString().slice(0, 10); };
+const ANSWER: Record<string, string> = { positive: "알아가고 싶어요", negative: "넘길게요" };
+
+export function LiveIntroductions() {
+  const ready = useLoad(() => call<ReadyMember[]>("admin_ready_members"), []);
+  const intros = useLoad(() => call<IntroRow[]>("admin_list_introductions"), []);
+  const [pair, setPair] = useState<string[]>([]);
+  const [date, setDate] = useState(nextNoonDate);
+  const [note, setNote] = useState("");
+  const [message, setMessage] = useState("");
+  const members = ready.data ?? [];
+  const chosen = pair.map(id => members.find(member => member.member_id === id)).filter(Boolean) as ReadyMember[];
+  const toggle = (id: string) => setPair(current => current.includes(id) ? current.filter(item => item !== id) : current.length < 2 ? [...current, id] : [current[1], id]);
+  const warnings = chosen.length === 2 ? [
+    chosen[0].blocked.includes(chosen[1].member_id) && "차단 관계예요.",
+    chosen[0].previous.includes(chosen[1].member_id) && "이미 소개한 적 있어요.",
+    !([chosen[1].gender, "선호 없음"].includes(chosen[0].desired) && [chosen[0].gender, "선호 없음"].includes(chosen[1].desired)) && "서로 원하는 상대 성별이 맞지 않아요.",
+  ].filter(Boolean) as string[] : [];
+  const reserve = async () => { const { error } = await rpc("admin_reserve_introduction", { p_a: pair[0], p_b: pair[1], p_date: date, p_note: note }); setMessage(error || `${kstDay(`${date}T12:00:00+09:00`)} 정오 공개로 예약했어요.`); if (!error) { setPair([]); setNote(""); await ready.reload(); await intros.reload(); } };
+  const cancel = async (id: string) => { const reason = window.prompt("취소 사유를 적어 주세요(감사 기록에 남아요)."); if (!reason) return; const { error } = await rpc("admin_cancel_introduction", { p_id: id, p_reason: reason }); setMessage(error || "소개를 취소했어요."); await intros.reload(); await ready.reload(); };
+  return <>
+    <Title lead="승인된 회원 중 진행 중인 소개가 없는 분만 보여요. 예약한 소개는 그날 12:00에 두 사람에게 동시에 공개되고, 다음 날 11:00에 응답이 마감돼요.">소개·매칭</Title>
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+      <section className={`${box} divide-y divide-border`} aria-label="소개 가능한 회원">{members.length ? members.map(member => <button key={member.member_id} type="button" aria-pressed={pair.includes(member.member_id)} onClick={() => toggle(member.member_id)} className={`block w-full px-4 py-3 text-left text-sm ${pair.includes(member.member_id) ? "bg-primary/10" : "hover:bg-secondary"}`}><span className="font-semibold">{member.name}</span> <span className="text-muted-foreground">· {member.gender} → {member.desired} · {member.age}세 · {member.province} {member.area}</span><span className="mt-1 block text-xs text-muted-foreground">{member.purpose} · 소개 {member.introductions}번{member.last_published_at ? ` · 최근 ${kstDay(member.last_published_at)}` : " · 첫 소개 전"}</span></button>) : <p className="p-5 text-sm text-muted-foreground">{ready.loading ? "불러오고 있어요." : ready.error || "지금 소개할 수 있는 회원이 없어요."}</p>}</section>
+      <section className={`${box} space-y-4 p-5`} aria-label="정오 소개 예약">
+        <h2 className="text-sm font-semibold">정오 소개 예약</h2>
+        <p className="text-sm">{chosen.length ? chosen.map(member => member.name).join(" · ") : "왼쪽에서 두 사람을 골라 주세요."}</p>
+        {warnings.map(text => <p key={text} role="alert" className="text-xs text-destructive">{text}</p>)}
+        <label className="block text-xs">공개 날짜(그날 12:00)<Input type="date" value={date} min={nextNoonDate()} onChange={event => setDate(event.target.value)} className="mt-1" /></label>
+        <label className="block text-xs">두 분에게 함께 보일 소개 이유<Textarea value={note} maxLength={300} onChange={event => setNote(event.target.value)} placeholder="예: 두 분 모두 천천히 알아가는 연애를 원하셨고, 주말 산책을 좋아하셨어요." className="mt-1 min-h-24" /></label>
+        <p className="text-[11px] leading-5 text-muted-foreground">공개 동의한 항목만 상대에게 보여요. 외모 평가나 점수, 비공개 항목은 소개 이유에 쓰지 않아요.</p>
+        <Button disabled={pair.length !== 2 || note.trim().length < 10} onClick={() => void reserve()}>예약하기</Button>
+        <Notice text={message} />
+      </section>
+    </div>
+    <section className={`${box} mt-6 overflow-x-auto`} aria-label="소개 기록"><table className="w-full min-w-[720px] text-left text-xs"><thead className="border-b border-border text-muted-foreground"><tr><th className="p-3">공개</th><th className="p-3">두 사람</th><th className="p-3">상태</th><th className="p-3">응답</th><th className="p-3" /></tr></thead><tbody className="divide-y divide-border">{(intros.data ?? []).map(item => <tr key={item.id}><td className="p-3">{kstDateTime(item.reveal_at)}</td><td className="p-3">{item.name_a} · {item.name_b}</td><td className="p-3">{INTRO_LABEL[item.status]}{item.end_reason ? ` · ${END_LABEL[item.end_reason] ?? item.end_reason}` : ""}</td><td className="p-3">{[[item.name_a, item.opened_a, item.response_a], [item.name_b, item.opened_b, item.response_b]].map(([name, opened, answer]) => `${name}: ${answer ? ANSWER[answer as string] : opened ? "열람" : "미열람"}`).join(" / ")}</td><td className="p-3 text-right">{["reserved", "published", "mutual"].includes(item.status) && <Button size="sm" variant="ghost" onClick={() => void cancel(item.id)}>취소</Button>}</td></tr>)}</tbody></table>{!intros.data?.length && <p className="p-5 text-sm text-muted-foreground">아직 소개 기록이 없어요.</p>}</section>
+  </>;
+}
+
+// ─────────────────────────────────────────────
+// 신고·문의: 신고(자동 감지 포함) · 고객 문의 · 회원 요청
+type Report = { id: string; source: string; type: string; description: string | null; urgent: boolean; status: string; created_at: string; resolution: string | null };
+type InquiryRow = { id: string; type: string; name: string; email: string; body: string; status: keyof typeof INQUIRY_STATUS; answer_body: string | null; created_at: string };
+type RequestRow = { id: string; kind: keyof typeof REQUEST_LABELS; description: string | null; status: string; decision: string | null; urgent: boolean; created_at: string };
+const REPORT_STATUS: Record<string, string> = { new: "새 신고", reviewing: "검토 중", checking: "사실 확인", action: "조치", closed: "종결" };
+const REQUEST_STATUS: Record<string, string> = { requested: "접수", protection: "보호 조치", checking: "확인 중", decided: "처리 완료", reconsidering: "재검토" };
+
+export function LiveSafety() {
+  const [tab, setTab] = useState<"reports" | "inquiries" | "requests">("reports");
+  return <>
+    <Title lead="안전 신고를 가장 먼저 봐요. 문의 본문과 이메일은 감사 기록에 남기지 않아요. 답변은 회원이 접수 번호로 확인해요(메일 발송은 연결 전).">신고·문의</Title>
+    <div className="mb-5 flex gap-2">{([["reports", "신고"], ["inquiries", "고객 문의"], ["requests", "회원 요청"]] as const).map(([value, label]) => <Button key={value} size="sm" variant={tab === value ? "default" : "outline"} onClick={() => setTab(value)}>{label}</Button>)}</div>
+    {tab === "reports" ? <ReportsPanel /> : tab === "inquiries" ? <InquiriesPanel /> : <RequestsPanel />}
+  </>;
+}
+function ReportsPanel() {
+  const list = useLoad(() => table<Report>("reports", query => query.select("id, source, type, description, urgent, status, created_at, resolution").order("urgent", { ascending: false }).order("created_at", { ascending: false }).limit(100)), []);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState("");
+  const update = async (id: string, status: string) => { const { error } = await rpc("admin_update_report", { p_id: id, p_status: status, p_resolution: notes[id] || null }); setMessage(error || "기록했어요."); await list.reload(); };
+  return <div className="space-y-3"><Notice text={message || list.error || ""} />{(list.data ?? []).map(report => <article key={report.id} className={`${box} p-4 text-sm ${report.urgent ? "border-destructive/40" : ""}`}><p className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{report.urgent && <span className="mr-2 text-destructive">긴급</span>}{report.type}<span className="ml-2 text-xs font-normal text-muted-foreground">{report.source === "auto" ? "자동 감지" : "회원 신고"}</span></span><span className="text-xs text-muted-foreground">{REPORT_STATUS[report.status]} · {kstDateTime(report.created_at)}</span></p>{report.description && <p className="mt-2 whitespace-pre-wrap text-xs leading-6">{report.description}</p>}{report.resolution && <p className="mt-2 text-xs text-muted-foreground">처리 메모 · {report.resolution}</p>}{report.status !== "closed" && <div className="mt-3 flex flex-wrap items-center gap-2"><Input aria-label="처리 메모" value={notes[report.id] ?? ""} onChange={event => setNotes(current => ({ ...current, [report.id]: event.target.value }))} placeholder="처리 메모(선택)" className="h-8 max-w-xs text-xs" />{["reviewing", "checking", "action", "closed"].map(status => <Button key={status} size="sm" variant="outline" className="h-8 text-xs" onClick={() => void update(report.id, status)}>{REPORT_STATUS[status]}</Button>)}</div>}</article>)}{!list.loading && !list.data?.length && <p className="text-sm text-muted-foreground">신고가 없어요.</p>}</div>;
+}
+function InquiriesPanel() {
+  const list = useLoad(() => table<InquiryRow>("inquiries", query => query.select("id, type, name, email, body, status, answer_body, created_at").order("created_at", { ascending: false }).limit(100)), []);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [message, setMessage] = useState("");
+  const item = list.data?.find(entry => entry.id === selected);
+  const save = async (withAnswer: boolean) => { const { error } = await rpc("admin_inquiry_status", { p_id: selected, p_answer: withAnswer ? answer : null }); setMessage(error || (withAnswer ? "답변을 기록했어요. 회원은 접수 번호와 이메일로 확인해요." : "확인 중으로 바꿨어요.")); await list.reload(); };
+  return <div className="grid gap-4 lg:grid-cols-2"><div className={`${box} divide-y divide-border`}>{(list.data ?? []).map(entry => <button key={entry.id} type="button" onClick={() => { setSelected(entry.id); setAnswer(entry.answer_body || ""); setMessage(""); }} className={`flex w-full flex-wrap justify-between gap-2 px-4 py-3 text-left text-sm ${entry.id === selected ? "bg-primary/5" : "hover:bg-secondary"}`}><span>{entry.id} · {entry.type}{entry.name && ` · ${entry.name}`}</span><span className="text-xs text-muted-foreground">{INQUIRY_STATUS[entry.status]} · {kstDateTime(entry.created_at)}</span></button>)}{!list.loading && !list.data?.length && <p className="p-5 text-sm text-muted-foreground">문의가 없어요.</p>}</div>{item ? <div className={`${box} space-y-3 p-4 text-sm`}><p className="text-xs text-muted-foreground">{item.id} · {item.email}</p><p className="whitespace-pre-wrap leading-7">{item.body}</p><Textarea aria-label="답변" value={answer} maxLength={1500} onChange={event => setAnswer(event.target.value)} className="min-h-28" placeholder="회원에게 보일 답변" /><div className="flex gap-2">{item.status === "received" && <Button size="sm" variant="outline" onClick={() => void save(false)}>확인 중으로</Button>}<Button size="sm" onClick={() => void save(true)}>{item.answer_body ? "답변 수정" : "답변 기록"}</Button></div><Notice text={message} /></div> : <p className={`${box} p-5 text-sm text-muted-foreground`}>문의를 골라 주세요.</p>}</div>;
+}
+function RequestsPanel() {
+  const list = useLoad(() => table<RequestRow>("member_requests", query => query.select("id, kind, description, status, decision, urgent, created_at").order("created_at", { ascending: false }).limit(100)), []);
+  const [decisions, setDecisions] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState("");
+  const decide = async (id: string, status: string) => { const { error } = await rpc("admin_decide_request", { p_id: id, p_status: status, p_decision: decisions[id] || null }); setMessage(error || "기록했어요."); await list.reload(); };
+  return <div className="space-y-3"><Notice text={message || list.error || ""} />{(list.data ?? []).map(request => <article key={request.id} className={`${box} p-4 text-sm`}><p className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{REQUEST_LABELS[request.kind] ?? request.kind}</span><span className="text-xs text-muted-foreground">{REQUEST_STATUS[request.status]} · {kstDateTime(request.created_at)}</span></p>{request.description && <p className="mt-2 whitespace-pre-wrap text-xs leading-6">{request.description}</p>}{request.decision && <p className="mt-2 text-xs text-muted-foreground">회원에게 보인 답변 · {request.decision}</p>}{request.status !== "decided" && <div className="mt-3 flex flex-wrap items-center gap-2"><Input aria-label="회원에게 보일 답변" value={decisions[request.id] ?? ""} onChange={event => setDecisions(current => ({ ...current, [request.id]: event.target.value }))} placeholder="회원에게 보일 답변" className="h-8 max-w-sm text-xs" />{["checking", "protection", "decided"].map(status => <Button key={status} size="sm" variant="outline" className="h-8 text-xs" onClick={() => void decide(request.id, status)}>{REQUEST_STATUS[status]}</Button>)}</div>}</article>)}{!list.loading && !list.data?.length && <p className="text-sm text-muted-foreground">회원 요청이 없어요.</p>}</div>;
+}
+
+// ─────────────────────────────────────────────
+// 감사로그(대표만) · 운영진 역할
+export function LiveAudit() {
+  const list = useLoad(() => table<{ id: number; at: string; actor_role: string; action: string; target: string | null; reason: string | null }>("audit_log", query => query.select("id, at, actor_role, action, target, reason").order("id", { ascending: false }).limit(200)), []);
+  return <>
+    <Title lead="고치거나 지울 수 없는 기록이에요. 대표만 볼 수 있고, 365일이 지나면 정리돼요.">감사로그</Title>
+    <section className={`${box} overflow-x-auto`}><table className="w-full min-w-[640px] text-left text-xs"><thead className="border-b border-border text-muted-foreground"><tr><th className="p-3">시각</th><th className="p-3">역할</th><th className="p-3">기록</th><th className="p-3">대상</th></tr></thead><tbody className="divide-y divide-border">{(list.data ?? []).map(entry => <tr key={entry.id}><td className="p-3">{kstDateTime(entry.at)}</td><td className="p-3">{ROLE_LABEL[entry.actor_role as Role] ?? entry.actor_role}</td><td className="p-3">{entry.action}{entry.reason ? ` · ${entry.reason}` : ""}</td><td className="p-3 font-mono text-[11px] text-muted-foreground">{entry.target?.slice(0, 13)}</td></tr>)}</tbody></table>{!list.loading && !list.data?.length && <p className="p-5 text-sm text-muted-foreground">볼 수 있는 기록이 없어요. 대표 역할만 볼 수 있어요.</p>}</section>
+  </>;
+}
+export function LiveSettings() {
+  const list = useLoad(() => table<{ user_id: string; role: Role; granted_at: string }>("admin_roles", query => query.select("user_id, role, granted_at")), []);
+  const emails = useLoad(async () => { const ids = (list.data ?? []).map(row => row.user_id); return ids.length ? table<{ id: string; email: string }>("profiles", query => query.select("id, email").in("id", ids)) : []; }, [list.data]);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<Role>("operator");
+  const [message, setMessage] = useState("");
+  const grant = async (target: string, next: Role | null) => { const { error } = await rpc("grant_admin_role", { p_email: target, p_role: next }); setMessage(error || (next ? "역할을 줬어요. 그 사람도 처음 들어올 때 인증 앱을 연결해야 해요." : "역할을 거뒀어요.")); await list.reload(); };
+  return <>
+    <Title lead="역할은 대표만 주고 거둘 수 있어요. 먼저 그 이메일로 회원가입을 해야 해요.">운영진</Title>
+    <section className={`${box} space-y-3 p-5`}><div className="flex flex-wrap gap-2"><Input type="email" aria-label="운영진 이메일" value={email} onChange={event => setEmail(event.target.value)} placeholder="이메일" className="max-w-xs" /><select aria-label="역할" value={role} onChange={event => setRole(event.target.value as Role)} className="h-9 rounded-md border border-border bg-card px-2 text-sm">{(Object.keys(ROLE_LABEL) as Role[]).map(key => <option key={key} value={key}>{ROLE_LABEL[key]}</option>)}</select><Button onClick={() => void grant(email, role)} disabled={!email.trim()}>역할 주기</Button></div><Notice text={message} /></section>
+    <section className={`${box} mt-5 divide-y divide-border`}>{(list.data ?? []).map(row => { const mail = emails.data?.find(item => item.id === row.user_id)?.email; return <div key={row.user_id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"><span>{mail ?? row.user_id.slice(0, 8)} · {ROLE_LABEL[row.role]}</span><span className="flex items-center gap-2 text-xs text-muted-foreground">{kstDay(row.granted_at)}{mail && row.role !== "owner" && <Button size="sm" variant="ghost" onClick={() => void grant(mail, null)}>거두기</Button>}</span></div>; })}</section>
+  </>;
+}

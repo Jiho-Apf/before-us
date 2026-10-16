@@ -7,6 +7,7 @@ import AppearancePreferences, {
   AppearanceSummary,
 } from "./AppearancePreferences"
 import { BEFORE_US } from "./config"
+import { LIVE } from "./backend/client"
 import { RELATIONSHIP_FIELDS, RELATIONSHIP_PREFIX } from "./personality-fields"
 import type { ApplicationDraft, AnswerValue } from "./application-model"
 import {
@@ -85,7 +86,7 @@ export function PreferenceSummary({ draft }: { draft: ApplicationDraft }) {
           {settings.request === "hold"
             ? "신청 보류 의사"
             : "운영자 추가 기준 요청"}{" "}
-          · 데모 임시 기록만 · 발송되지 않음
+          {LIVE ? " · 신청서와 함께 운영진이 확인해요" : " · 데모 임시 기록만 · 발송되지 않음"}
           {settings.requestNote ? ` / ${settings.requestNote}` : ""}
         </p>
       )}
@@ -584,12 +585,10 @@ export default function PreferencesStep({
             내 기준을 그대로 두고, 요청하기
           </h3>
           <p className="text-xs leading-7 text-muted-foreground">
-            조건을 자동으로 완화하지 않아요. 가상 기준만 적어 주세요. 아래
-            선택은 데모 초안에만 기록되고 실제 요청이나 신청 보류 처리는 하지
-            않아요.
+            {LIVE ? "조건을 자동으로 완화하지 않아요. 적어 준 기준은 신청서와 함께 운영진이 확인해요. 연락처나 다른 사람의 정보는 적지 말아 주세요." : "조건을 자동으로 완화하지 않아요. 가상 기준만 적어 주세요. 아래 선택은 데모 초안에만 기록되고 실제 요청이나 신청 보류 처리는 하지 않아요."}
           </p>
           <Textarea
-            aria-label="운영자에게 요청할 추가 기준 · 가상 정보"
+            aria-label={LIVE ? "운영자에게 요청할 추가 기준" : "운영자에게 요청할 추가 기준 · 가상 정보"}
             maxLength={300}
             value={settings.requestNote}
             onChange={(event) =>
@@ -620,7 +619,7 @@ export default function PreferencesStep({
                     : ""
                 }`}
               >
-                {label} · 데모
+                {LIVE ? label : `${label} · 데모`}
               </Button>
             ))}
           </div>

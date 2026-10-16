@@ -6,6 +6,7 @@ import { BEFORE_US } from "./config";
 import { Calendar, User, Home, ArrowRight, X, Sun, Moon, Users, MessageCircle, Menu, LogOut } from "lucide-react";
 import PublicHome, { PublicInformation } from "./PublicHome";
 import RouteError from "./RouteError";
+import { LIVE } from "./backend/client";
 
 // 공개 홈만 바로 불러오고, 회원·데모·관리자 화면은 그 화면을 열 때 따로 불러온다.
 const later = <T, K extends keyof T>(load: () => Promise<T>, name: K) =>
@@ -41,6 +42,19 @@ const SignupPage = later(() => import("./AuthPages"), "SignupPage");
 const ResetPasswordPage = later(() => import("./AuthPages"), "ResetPasswordPage");
 const TermsPage = later(() => import("./LegalPages"), "TermsPage");
 const PrivacyPage = later(() => import("./LegalPages"), "PrivacyPage");
+// 실제 서버 모드(VITE_BACKEND=supabase)에서 쓰는 회원·운영진 화면
+const LiveToday = later(() => import("./LiveMember"), "LiveToday");
+const LiveIntroductionPage = later(() => import("./LiveMember"), "LiveIntroductionPage");
+const LiveProfilePage = later(() => import("./LiveMember"), "LiveProfilePage");
+const LiveSupportPage = later(() => import("./LiveMember"), "LiveSupportPage");
+const LiveLaterPage = later(() => import("./LiveMember"), "LiveLaterPage");
+const LiveAdminLayout = later(() => import("./LiveAdmin"), "LiveAdminLayout");
+const LiveAdminHome = later(() => import("./LiveAdmin"), "LiveAdminHome");
+const LiveApplicants = later(() => import("./LiveAdmin"), "LiveApplicants");
+const LiveIntroductions = later(() => import("./LiveAdmin"), "LiveIntroductions");
+const LiveSafety = later(() => import("./LiveAdmin"), "LiveSafety");
+const LiveAudit = later(() => import("./LiveAdmin"), "LiveAudit");
+const LiveSettings = later(() => import("./LiveAdmin"), "LiveSettings");
 
 function RouteFallback() {
   return <div role="status" aria-live="polite" className="flex flex-1 items-center justify-center py-24"><span className="sr-only">화면을 불러오는 중</span><span aria-hidden="true" className="flex gap-1.5"><span className="size-2 animate-pulse rounded-full bg-primary" /><span className="size-2 animate-pulse rounded-full bg-accent [animation-delay:150ms]" /></span></div>;
@@ -156,7 +170,7 @@ function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
           {MEMBER_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={memberPath(to)} className={({ isActive }) => `flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "bg-primary/8 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}><Icon size={18} strokeWidth={1.6} />{label}</NavLink>)}
         </nav>
         <div className="mt-auto border-t border-border pt-5">
-          <span className="block px-4 pb-3 text-xs text-muted-foreground">데모 둘러보기</span>
+          {!LIVE && <span className="block px-4 pb-3 text-xs text-muted-foreground">데모 둘러보기</span>}
           <Button asChild variant="ghost" className={`w-full justify-start gap-3 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground ${CONTROL_MOTION}`}><Link to="/"><LogOut size={16} />공개 홈으로</Link></Button>
         </div>
       </aside>
@@ -165,9 +179,9 @@ function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
           <div className="mx-auto flex h-20 max-w-[1120px] items-center justify-between px-5 sm:px-8 lg:px-10">
             <div className="md:hidden"><Brand compact /></div>
             <div className="hidden items-center gap-3 text-xs md:flex"><span className="text-muted-foreground">{BEFORE_US.brand.name}</span><span className="text-border">/</span><span>{current?.label}</span></div>
-            <div className="flex items-center gap-3"><span className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground">데모</span><ShellThemeToggle isDark={isDark} toggle={toggle} /></div>
+            <div className="flex items-center gap-3"><span className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground">{LIVE ? "베타" : "데모"}</span><ShellThemeToggle isDark={isDark} toggle={toggle} /></div>
           </div>
-          <p className="border-t border-border bg-muted/40 px-5 py-2 text-center text-xs text-muted-foreground">데모 화면이에요. 실제 신청·결제·발송은 일어나지 않고, 새로고침하면 입력한 내용이 지워져요.</p>
+          {!LIVE && <p className="border-t border-border bg-muted/40 px-5 py-2 text-center text-xs text-muted-foreground">데모 화면이에요. 실제 신청·결제·발송은 일어나지 않고, 새로고침하면 입력한 내용이 지워져요.</p>}
         </header>
         <main id="main-content" className="mx-auto w-full max-w-[1120px] flex-1 px-5 py-10 sm:px-8 lg:px-10 lg:py-14"><PageTransition /></main>
       </div>
@@ -212,8 +226,19 @@ function BeforeUsRoot() {
   );
 }
 
+const page = (element: React.ReactNode) => <Suspense fallback={<RouteFallback />}>{element}</Suspense>;
+// 실제 서버 모드의 운영진 화면: 로그인 + 운영진 역할 + 2단계 인증을 거친다.
+const liveAdmin = { path: "/admin", errorElement: <RouteError />, element: page(<LiveAdminLayout />), children: [
+  { index: true, element: page(<LiveAdminHome />) },
+  { path: "applicants", element: page(<LiveApplicants />) },
+  { path: "introductions", element: page(<LiveIntroductions />) },
+  { path: "safety", element: page(<LiveSafety />) },
+  { path: "audit", element: page(<LiveAudit />) },
+  { path: "settings", element: page(<LiveSettings />) },
+  { path: "*", element: page(<LiveAdminHome />) },
+] };
 const beforeUsRouter = createBrowserRouter([
-  { path: "/admin", errorElement: <RouteError />, element: <Suspense fallback={<RouteFallback />}><AdminLayout /></Suspense>, children: [
+  LIVE ? liveAdmin : { path: "/admin", errorElement: <RouteError />, element: <Suspense fallback={<RouteFallback />}><AdminLayout /></Suspense>, children: [
     { index: true, element: <Suspense fallback={<RouteFallback />}><AdminDashboard /></Suspense> },
     ...(["applicants", "members", "introductions", "exchange"] as const).map(section => ({ path: section, element: <Suspense fallback={<RouteFallback />}><AdminOperations section={section} /></Suspense> })),
     { path: "meetings", element: <Suspense fallback={<RouteFallback />}><AdminList section="meetings" /></Suspense> },
@@ -231,9 +256,9 @@ const beforeUsRouter = createBrowserRouter([
     { path: "/terms", element: <TermsPage /> },
     { path: "/privacy", element: <PrivacyPage /> },
     { path: "/contact", element: <InquiryPage /> },
-    { path: "/today", element: <MemberToday /> },
-    { path: "/payments", element: <MemberPayments /> },
-    { path: "/us", element: <MemberIntroduction /> },
+    { path: "/today", element: LIVE ? <LiveToday /> : <MemberToday /> },
+    { path: "/payments", element: LIVE ? <LiveLaterPage title="결제" /> : <MemberPayments /> },
+    { path: "/us", element: LIVE ? <LiveIntroductionPage /> : <MemberIntroduction /> },
     { path: "/demo/introduction", element: <IntroductionDemo /> },
     { path: "/demo/noon", element: <NoonDemo /> },
     { path: "/demo/agreement", element: <AgreementDemo /> },
@@ -242,12 +267,12 @@ const beforeUsRouter = createBrowserRouter([
     { path: "/demo/meeting", element: <MeetingDemo /> },
     { path: "/demo/conduct", element: <ConductDemo /> },
     { path: "/demo/privacy", element: <PrivacyDemo /> },
-    { path: "/exchange", element: <MemberAgreement /> },
+    { path: "/exchange", element: LIVE ? <LiveLaterPage title="교류" /> : <MemberAgreement /> },
     { path: "/demo/payments", element: <PaymentDemo /> },
-    { path: "/meeting", element: <MemberMeeting /> },
-    { path: "/meeting/contact", element: <MemberMeeting contactOnly /> },
-    { path: "/profile", element: <MemberProfile /> },
-    { path: "/support", element: <MemberSupport /> },
+    { path: "/meeting", element: LIVE ? <LiveLaterPage title="약속" /> : <MemberMeeting /> },
+    { path: "/meeting/contact", element: LIVE ? <LiveLaterPage title="연락처" /> : <MemberMeeting contactOnly /> },
+    { path: "/profile", element: LIVE ? <LiveProfilePage /> : <MemberProfile /> },
+    { path: "/support", element: LIVE ? <LiveSupportPage /> : <MemberSupport /> },
     ...MEMBER_NAV.filter(item => !["/today", "/meeting", "/us", "/exchange", "/profile"].includes(item.to)).map(item => ({ path: item.to, element: <ContentFrame title={item.label} /> })),
     { path: "/demo/today", element: <TodayDemo /> },
     { path: "/demo/photos", element: <PhotoDemo /> },

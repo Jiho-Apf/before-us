@@ -8,6 +8,7 @@ import { Checkbox } from "./components/ui/checkbox"
 import { BEFORE_US } from "./config"
 import { kstDay } from "./dates"
 import { PASSWORD_RULE, requestPasswordReset, resetPassword, signIn, signOut, signUp, useAuth, withdraw } from "./auth-service"
+import { LIVE } from "./backend/client"
 
 // 계정 화면: 로그인 · 회원가입 · 비밀번호 재설정. 계정에는 사진이나 이상형을 받지 않는다(소개 신청은 따로 4단계).
 const motion = "transition-colors duration-200 motion-reduce:transition-none"
@@ -20,7 +21,7 @@ function Frame({ title, lead, children, foot }: { title: string; lead?: string; 
       {lead && <p className="mt-3 text-sm leading-7 text-muted-foreground">{lead}</p>}
       <div className="mt-8 rounded-2xl border border-border bg-card p-6 sm:p-7">{children}</div>
       {foot && <div className="mt-6 space-y-2 text-sm text-muted-foreground">{foot}</div>}
-      <p className="mt-6 text-xs leading-6 text-muted-foreground">데모 화면이에요. 계정은 이 탭에만 잠시 저장되고, 새로고침하면 사라져요.</p>
+      {!LIVE && <p className="mt-6 text-xs leading-6 text-muted-foreground">데모 화면이에요. 계정은 이 탭에만 잠시 저장되고, 새로고침하면 사라져요.</p>}
     </section>
   )
 }
@@ -56,7 +57,7 @@ export function LoginPage() {
         <ErrorText text={error} />
         <Button type="submit" disabled={busy} className={`h-12 w-full rounded-xl ${motion}`}>로그인 <ArrowRight size={16} /></Button>
       </form>
-      <Link to="/today" className="mt-5 block text-center text-xs text-muted-foreground underline-offset-4 hover:text-primary hover:underline">로그인 없이 회원 공간 둘러보기</Link>
+      {!LIVE && <Link to="/today" className="mt-5 block text-center text-xs text-muted-foreground underline-offset-4 hover:text-primary hover:underline">로그인 없이 회원 공간 둘러보기</Link>}
     </Frame>
   )
 }
@@ -71,6 +72,7 @@ export function SignupPage() {
   const [privacy, setPrivacy] = useState(false)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const [sent, setSent] = useState(false)
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (password !== again) return setError("비밀번호가 서로 달라요.")
@@ -78,10 +80,19 @@ export function SignupPage() {
     const result = await signUp({ email, password, adult, terms, privacy })
     setBusy(false)
     if (result.error) return setError(result.error)
+    if (result.confirm) return setSent(true)
     navigate("/apply")
   }
   const check = (id: string, checked: boolean, set: (value: boolean) => void, label: ReactNode) => (
     <label htmlFor={id} className="flex items-start gap-3 text-sm leading-6"><Checkbox id={id} className="mt-1" checked={checked} onCheckedChange={(value) => { set(value === true); setError("") }} />{label}</label>
+  )
+  if (sent) return (
+    <Frame title="메일을 확인해 주세요" foot={<p><Link to="/login" className="underline underline-offset-4 hover:text-primary">로그인으로 가기</Link></p>}>
+      <div className="space-y-3 text-sm leading-7">
+        <p><span className="font-semibold">{email.trim().toLowerCase()}</span>(으)로 가입 확인 메일을 보냈어요. 메일의 링크를 누르면 가입이 끝나고 소개 신청으로 이어져요.</p>
+        <p className="text-muted-foreground">메일이 오지 않으면 스팸함을 확인해 주세요. 이미 가입한 이메일이라면 로그인하거나 비밀번호를 다시 설정해 주세요.</p>
+      </div>
+    </Frame>
   )
   return (
     <Frame title="회원가입" lead="계정에는 이메일과 비밀번호만 받아요. 사진과 이야기는 가입 뒤 소개 신청에서 천천히 적어요." foot={<p>이미 계정이 있나요? <Link to="/login" className="text-foreground underline underline-offset-4 hover:text-primary">로그인</Link></p>}>
@@ -133,9 +144,9 @@ export function ResetPasswordPage() {
       </Frame>
     )
   }
-  const request = (event: FormEvent) => {
+  const request = async (event: FormEvent) => {
     event.preventDefault()
-    const result = requestPasswordReset(email)
+    const result = await requestPasswordReset(email)
     if (result.error) return setError(result.error)
     setSent({ devLink: result.devLink })
   }
@@ -178,7 +189,7 @@ export function AccountPanel() {
     if (!agree) return setError("안내를 확인했다고 체크해 주세요.")
     const outcome = await withdraw(password)
     if (outcome.error) return setError(outcome.error)
-    setResult(kstDay(outcome.deletionDueAt))
+    setResult(outcome.deletionDueAt ? kstDay(outcome.deletionDueAt) : "7일 안")
   }
   return (
     <section className="space-y-4 border-t border-border pt-6 text-sm" aria-label="계정">
