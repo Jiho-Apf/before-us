@@ -3,7 +3,7 @@ project_id = "mmrqcefipllmcqztksqm"
 
 [auth]
 site_url = "https://before-us-3jr4.vercel.app"
-additional_redirect_urls = ["https://before-us-3jr4.vercel.app/**", "http://localhost:8443/**", "http://localhost:8444/**"]
+additional_redirect_urls = ["https://before-us-3jr4.vercel.app/**", "http://localhost:8443/**", "http://localhost:8444/**", "https://before-us-3jr4-git-beta-ji-ho-jung-s-projects.vercel.app/**"]
 jwt_expiry = 3600
 enable_signup = true
 minimum_password_length = 8
