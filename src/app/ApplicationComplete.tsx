@@ -30,8 +30,8 @@ export default function ApplicationComplete({ name }: { name?: string }) {
     <section aria-labelledby="complete-title" className="relative isolate mx-auto flex w-full max-w-3xl flex-col items-center py-12 text-center break-keep sm:py-16">
       {/* 뒤에서 천천히 번지는 빛 */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-[-30%] top-[-10%] -z-10 h-[620px]">
-        <span className="complete-glow absolute left-[18%] top-[6%] size-[420px] rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--primary)_22%,transparent),transparent)]" />
-        <span className="complete-glow complete-glow-late absolute right-[16%] top-[22%] size-[380px] rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--accent)_18%,transparent),transparent)]" />
+        <span className="complete-glow absolute left-[18%] top-[6%] size-[420px] rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--primary)_12%,transparent),transparent)]" />
+        <span className="complete-glow complete-glow-late absolute right-[16%] top-[22%] size-[380px] rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--accent)_9%,transparent),transparent)]" />
       </div>
 
       <div className="drop-in" style={delay(0)} aria-hidden="true">
@@ -47,8 +47,8 @@ export default function ApplicationComplete({ name }: { name?: string }) {
 
       {/* 기수 카드: 그라데이션 테두리 + 깊은 그림자 + 한 번 지나가는 빛 */}
       <div className="drop-in mt-11 w-full max-w-sm" style={delay(4)}>
-        <div className="complete-card rounded-[22px] bg-[linear-gradient(140deg,color-mix(in_oklch,var(--primary)_70%,transparent),color-mix(in_oklch,var(--accent)_45%,transparent)_45%,color-mix(in_oklch,var(--primary)_12%,transparent))] p-px shadow-[0_44px_80px_-28px_color-mix(in_oklch,var(--primary)_62%,transparent),0_18px_36px_-18px_color-mix(in_oklch,var(--accent)_40%,transparent)]">
-          <div className="relative overflow-hidden rounded-[21px] bg-[linear-gradient(180deg,var(--card),color-mix(in_oklch,var(--lilac)_55%,var(--card)))] px-7 py-7">
+        <div className="complete-card rounded-[22px] bg-[linear-gradient(140deg,color-mix(in_oklch,var(--primary)_42%,transparent),color-mix(in_oklch,var(--accent)_24%,transparent)_45%,color-mix(in_oklch,var(--primary)_8%,transparent))] p-px shadow-[0_40px_72px_-30px_color-mix(in_oklch,var(--primary)_38%,transparent),0_16px_32px_-20px_color-mix(in_oklch,var(--accent)_22%,transparent)]">
+          <div className="relative overflow-hidden rounded-[21px] bg-[linear-gradient(180deg,var(--card),color-mix(in_oklch,var(--lilac)_30%,var(--card)))] px-7 py-7">
             <span aria-hidden="true" className="complete-shine pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-[linear-gradient(100deg,transparent,rgba(255,255,255,0.65),transparent)]" />
             <div className="relative flex items-center justify-between">
               <p className="text-[11px] font-semibold tracking-[0.18em] text-accent">{cohort.number}기 · COHORT {String(cohort.number).padStart(2, "0")}</p>
@@ -61,12 +61,12 @@ export default function ApplicationComplete({ name }: { name?: string }) {
       </div>
 
       <div className="drop-in mt-11" style={delay(5)}>
-        <Button asChild className="group h-12 rounded-full px-8 text-[15px] shadow-[0_16px_32px_-16px_color-mix(in_oklch,var(--primary)_80%,transparent)] transition-transform duration-200 hover:-translate-y-0.5 motion-reduce:transition-none"><Link to="/profile">마이페이지로 가기 <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" /></Link></Button>
+        <Button asChild className="group h-12 rounded-full px-8 text-[15px] shadow-[0_14px_28px_-16px_color-mix(in_oklch,var(--primary)_55%,transparent)] transition-transform duration-200 hover:-translate-y-0.5 motion-reduce:transition-none"><Link to="/profile">마이페이지로 가기 <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" /></Link></Button>
       </div>
 
       {/* 다음 세 단계: 선이 왼쪽에서 오른쪽으로 그어지며 이어진다 */}
       <div className="drop-in relative mt-16 w-full pt-9" style={delay(6)}>
-        <span aria-hidden="true" className="complete-line absolute left-0 right-0 top-0 h-px origin-left bg-[linear-gradient(90deg,var(--primary),var(--accent),transparent)]" />
+        <span aria-hidden="true" className="complete-line absolute left-0 right-0 top-0 h-px origin-left bg-[linear-gradient(90deg,color-mix(in_oklch,var(--primary)_55%,transparent),color-mix(in_oklch,var(--accent)_35%,transparent),transparent)]" />
         <ol className="grid gap-7 text-left sm:grid-cols-3">
           {STEPS.map((step, index) => (
             <li key={step.title} className="drop-in" style={delay(7 + index)}>

@@ -189,6 +189,9 @@ export async function withdraw(password: string, now = new Date()): Promise<{ er
 }
 
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }
+// 공개 화면 머리(App.tsx)가 무겁지 않게 나중에 불러와 로그인 상태만 구독할 때 쓴다.
+export const subscribeAuth = subscribe
+export const getAuthUser = () => session
 export function useAuth() {
   return useSyncExternalStore(subscribe, () => session, () => session)
 }

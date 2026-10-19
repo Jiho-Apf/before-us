@@ -110,8 +110,26 @@ function PageTransition() {
   return <motion.div key={location.pathname} initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: reduceMotion ? 0 : 0.24 }} className="flex flex-1 flex-col"><Suspense fallback={<RouteFallback />}><Outlet /></Suspense></motion.div>;
 }
 
+// 공개 화면 머리에서 로그인 여부를 안다(계정 모듈은 나중에 불러와 첫 화면을 가볍게 둔다).
+function useSignedIn() {
+  const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => {
+    let unsubscribe = () => {};
+    let alive = true;
+    void import("./auth-service").then(auth => {
+      if (!alive) return;
+      const update = () => setSignedIn(!!auth.getAuthUser());
+      update();
+      unsubscribe = auth.subscribeAuth(update);
+    });
+    return () => { alive = false; unsubscribe(); };
+  }, []);
+  return signedIn;
+}
+
 function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const signedIn = useSignedIn();
   const location = useLocation();
   useEffect(() => setMenuOpen(false), [location.pathname]);
 
@@ -125,8 +143,8 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
           </nav>
           <div className="flex items-center gap-2 sm:gap-4">
             <ShellThemeToggle isDark={isDark} toggle={toggle} />
-            <Button asChild variant="ghost" className={`hidden hover:bg-muted hover:text-foreground sm:inline-flex ${CONTROL_MOTION}`}><Link to="/login">로그인</Link></Button>
-            <Button asChild className={`h-11 rounded-full px-4 text-[13px] sm:px-5 sm:text-sm ${CONTROL_MOTION}`}><Link to="/apply">소개 신청하기 <ArrowRight size={15} className="hidden sm:block" /></Link></Button>
+            <Button asChild variant="ghost" className={`hidden hover:bg-muted hover:text-foreground sm:inline-flex ${CONTROL_MOTION}`}>{signedIn ? <Link to="/profile">내 정보</Link> : <Link to="/login">로그인</Link>}</Button>
+            <Button asChild className={`h-11 rounded-full px-4 text-[13px] sm:px-5 sm:text-sm ${CONTROL_MOTION}`}>{signedIn ? <Link to="/today">내 소개 보기 <ArrowRight size={15} className="hidden sm:block" /></Link> : <Link to="/apply">소개 신청하기 <ArrowRight size={15} className="hidden sm:block" /></Link>}</Button>
             <Button variant="ghost" size="icon" aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"} aria-expanded={menuOpen} aria-controls="public-mobile-menu" onClick={() => setMenuOpen(open => !open)} className={`lg:hidden hover:bg-muted hover:text-foreground ${CONTROL_MOTION}`}>
               {menuOpen ? <X /> : <Menu />}
             </Button>
@@ -134,7 +152,7 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
         </div>
         {menuOpen && <nav id="public-mobile-menu" aria-label="모바일 공개 메뉴" className="grid gap-1 border-t border-border px-5 py-4 lg:hidden">
           {PUBLIC_NAV.map(item => <Button key={item.to} asChild variant="ghost" className={`justify-start rounded-xl hover:bg-muted hover:text-primary ${CONTROL_MOTION}`}><NavLink to={item.to}>{item.label}</NavLink></Button>)}
-          <Button asChild variant="ghost" className={`justify-start hover:bg-muted hover:text-primary ${CONTROL_MOTION}`}><Link to="/login">로그인</Link></Button>
+          <Button asChild variant="ghost" className={`justify-start hover:bg-muted hover:text-primary ${CONTROL_MOTION}`}>{signedIn ? <Link to="/profile">내 정보</Link> : <Link to="/login">로그인</Link>}</Button>
         </nav>}
       </header>
       <main id="main-content" className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 sm:px-8 lg:px-12">
