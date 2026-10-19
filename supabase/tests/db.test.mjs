@@ -78,7 +78,7 @@ await as("postgres")
 const draft = (name, gender, desired, birth) => ({
   values: {
     "self.name": name, "self.birthDate": birth, "self.gender": gender, "desired.gender": desired, "self.province": "서울", "self.area": "마포구",
-    "self.purpose": "천천히 알아가며 연애", "self.bio": "산책과 음악을 좋아해요. 천천히 알아가고 싶어요.", "self.statement": true, "self.pledge": true,
+    "self.purpose": "천천히 알아가며 연애", "self.bio": "산책과 음악을 좋아해요. 천천히 알아가고 싶어요.", "self.statement": true, "self.pledge": true, "self.phone": "010-1234-5678",
     "self.height": "170", "self.smoking": "안 함",
     "consent.collection": true, "consent.matching": true, "consent.provision": true, "consent.review": true, "consent.noon": true,
   },
@@ -99,19 +99,24 @@ await q("select public.save_application_draft($1)", [draft("하윤", "여성", "
 const savedA = await one("select draft from public.applications where member_id = $1", [A])
 ok("저장된 신청서에는 사진·검토 정보가 섞이지 않는다", !("photos" in savedA.draft))
 await fails("사진 없이 제출하면 막힌다", "select public.submit_application()", [], /사진/)
+await as("anon")
+await as(A)
 await photos(A, 1)
 await fails("같은 사진을 다른 칸에 올리면 막힌다", "select public.register_photo('photo.daily', $1, 'image/jpeg', 1000, 800, 1000, $2, true, true)", [`${A}/daily.jpg`, hex(1)], /같은 사진/)
 await fails("남의 폴더 경로로는 사진을 등록할 수 없다", "select public.register_photo('photo.daily', $1, 'image/jpeg', 1000, 800, 1000, $2, true, true)", [`${B}/x.jpg`, hex(99)], /본인 폴더/)
 await q("select public.submit_application()")
 eq("제출하면 submitted", (await one("select status from public.applications where member_id = $1", [A])).status, "submitted")
 eq("신청서의 정오 알림 동의가 내 설정에 반영된다", (await one("select notice_daily_waiting from public.profiles where id = $1", [A])).notice_daily_waiting, true)
-await fails("제출한 신청서는 고칠 수 없다", "select public.save_application_draft($1)", [draft("바꿈", "여성", "남성", "1995-03-01")], /고칠 수 없/)
+eq("검토 전에는 제출한 신청서를 고칠 수 있다(상태 그대로)", (await one("select public.save_application_draft($1) r", [draft("하윤", "여성", "남성", "1995-03-01")])).r.status, "submitted")
+eq("고친 뒤 다시 제출할 수 있다", (await one("select public.submit_application() r")).r.edited, true)
 await fails("표를 직접 고칠 수 없다", "update public.applications set status = 'approved' where member_id = $1", [A])
 
 await as(B)
 await q("select public.save_application_draft($1)", [draft("준", "남성", "여성", "2010-01-01")])
 await photos(B, 10)
 await fails("만 19세 미만은 제출할 수 없다", "select public.submit_application()", [], /19세/)
+await q("select public.save_application_draft($1)", [{ ...draft("준", "남성", "여성", "1993-07-15"), values: { ...draft("준", "남성", "여성", "1993-07-15").values, "self.phone": "02-123-4567" } }])
+await fails("휴대폰 번호가 아니면 제출할 수 없다", "select public.submit_application()", [], /휴대폰/)
 await q("select public.save_application_draft($1)", [draft("준", "남성", "여성", "1993-07-15")])
 await q("select public.submit_application()")
 eq("남의 신청서는 보이지 않는다", (await q("select * from public.applications where member_id = $1", [A])).length, 0)
@@ -223,6 +228,7 @@ ok("열람 기간에는 상대 사진을 볼 수 있다", (await one("select pub
 await as(C)
 ok("제3자는 그 사진을 볼 수 없다", !(await one("select public.can_view_partner_photo($1) v", [partnerPhoto])).v)
 await as(A)
+await fails("진행 중인 소개가 있으면 신청서를 고칠 수 없다", "select public.save_application_draft($1)", [draft("하윤", "여성", "남성", "1995-03-01")], /진행 중인 소개/)
 await fails("프로필을 열기 전에는 답할 수 없다", "select public.respond_introduction($1, 'positive')", [intro1], /확인한 뒤/)
 await q("select public.record_introduction_view($1)", [intro1])
 await q("select public.respond_introduction($1, 'positive')", [intro1])
@@ -234,6 +240,14 @@ await as(A)
 const closed = (await one("select public.my_introduction() v")).v
 ok("한쪽이 거절하면 닫히고 프로필이 사라진다", closed.status === "closed" && closed.profile === null && closed.note === null)
 ok("닫힌 뒤 상대 사진도 막힌다", !(await one("select public.can_view_partner_photo($1) v", [partnerPhoto])).v)
+
+// 승인된 회원이 고치면 다시 확인 받는다
+await as(C)
+const beforeEdit = (await one("select status, profile_version from public.applications where member_id = $1", [C]))
+eq("승인 상태에서 고치면 다시 확인으로 돌아간다", (await one("select public.save_application_draft($1) r", [draft("도윤", "남성", "여성", "1992-11-02")])).r.status, "submitted")
+await as("postgres")
+eq("다시 확인할 때 프로필 버전이 올라간다", (await one("select profile_version from public.applications where member_id = $1", [C])).profile_version, beforeEdit.profile_version + 1)
+await q("update public.applications set status = 'approved' where member_id = $1", [C])
 
 // 서로 선택 → 차단
 await as(O, "aal2")

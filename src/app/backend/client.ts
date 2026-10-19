@@ -14,7 +14,7 @@ let client: Promise<SupabaseClient> | null = null
 export function supabase() {
   if (!LIVE) throw new Error("데모 모드에서는 실제 서버를 쓰지 않아요.")
   return (client ??= import("@supabase/supabase-js").then(({ createClient }) =>
-    createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, { auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }),
+    createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, { auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }, global: { fetch: (...args: Parameters<typeof fetch>) => window.fetch(...args) } }),
   ))
 }
 

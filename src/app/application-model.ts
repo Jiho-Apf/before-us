@@ -22,6 +22,7 @@ type FieldDefinition = {
 const APPLICATION_FIELD_SOURCE: readonly FieldDefinition[] = [
   { id: "self.name", label: "활동용 이름", step: 0, group: "core", format: "text", purpose: "소개에서 사용할 이름", required: true, scope: "partner", min: 2, max: 12, rule: "no-contact", placeholder: "가상 활동용 이름" },
   { id: "self.birthDate", label: "생년월일 · 가상 정보만", step: 0, group: "core", format: "date", purpose: "만 나이 계산 · 원값은 상대 비공개", required: true, scope: "private", rule: "adult-draft" },
+  { id: "self.phone", label: "휴대폰 번호", step: 0, group: "core", format: "text", purpose: "운영진만 봐요 · 소개·만남 안내 연락과, 두 분이 동의한 만나는 날의 연락처 공개에만 써요", required: true, scope: "operator", max: 13, placeholder: "010-0000-0000" },
   { id: "self.gender", label: "본인 성별", step: 0, group: "core", format: "single", purpose: "본인이 직접 확인한 소개 정보", required: true, scope: "operator", options: ["여성", "남성", "직접 확인이 필요해요"] },
   { id: "desired.gender", label: "소개받을 상대", step: 0, alsoOn: 2, group: "core", format: "single", purpose: "본인이 확인한 상대 조건 · 나의 성별과 별도 저장", required: true, scope: "operator", options: ["여성", "남성", "선호 없음", "직접 확인이 필요해요"] },
   { id: "self.province", label: "주 활동 지역 · 시·도", step: 0, group: "core", format: "single", purpose: "내 주 활동 지역 · 상대 선호/만남 가능 지역과 별도", required: true, scope: "partner", options: ["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"] },
@@ -91,6 +92,7 @@ function rawFieldError(field: FieldDefinition, value: AnswerValue | undefined, t
   if (field.rule === "no-contact" && /(?:@|https?:|www\.|\d[\d\s-]{6,}|카톡|카카오톡|인스타|instagram|sns|연락처|전화번호|아이디)/i.test(value)) return field.id === "desired.appearance.note" ? "타인의 연락처·SNS·아이디 등 개인정보는 설명에 넣지 마세요." : "연락처·SNS·아이디는 이름에 넣을 수 없어요.";
   if (field.rule === "broad-area" && /(?:\d+\s*(?:번지|호|층)|(?:로|길)\s*\d|(?:집|직장)\s*주소|\d{1,3}\.\d+\s*[,/]\s*\d{1,3}\.\d+)/.test(value)) return "주소·GPS 대신 넓은 생활권만 입력해 주세요.";
   if (field.id === "self.area" && !/^[가-힣]+(?:\s+[가-힣0-9]+){0,3}$/.test(value.trim())) return "‘의정부시 신곡동’처럼 지역 이름만 적어 주세요. 번지·도로명·숫자 주소는 적지 않아요.";
+  if (field.id === "self.phone" && !/^01[016789]-?\d{3,4}-?\d{4}$/.test(value.replace(/\s/g, ""))) return "010-0000-0000처럼 휴대폰 번호를 적어 주세요.";
   if (field.rule === "positive-cm" && (!/^\d+$/.test(value) || Number(value) <= 0)) return "키는 양의 정수로 직접 입력해 주세요. 단위는 cm예요.";
   if (field.rule === "adult-draft") {
     const age = ageOn(value, today);

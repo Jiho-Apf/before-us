@@ -6,6 +6,8 @@ import { PHOTO_BUCKET, friendlyError, rpc, supabase } from "./client"
 // 실제 서버의 소개 신청서·사진.
 export type ApplicationStatus = "draft" | "submitted" | "reviewing" | "needs_changes" | "approved" | "held" | "withdrawn" | "rejected"
 export const EDITABLE: ApplicationStatus[] = ["draft", "needs_changes"]
+// 제출한 뒤에도 ‘고치기’로 열 수 있는 상태(검토 중·승인·보류는 고치면 다시 확인 받는다)
+export const EDIT_ALLOWED: ApplicationStatus[] = ["draft", "needs_changes", "submitted", "reviewing", "approved", "held"]
 export type PhotoRow = { slot: PhotoSlotId; path: string; mime: string; bytes: number; width: number; height: number; sha256: string; review: PhotoReview; reason: string | null; created_at: string }
 export type MyApplication = { draft: ApplicationDraft; status: ApplicationStatus; decisionNote: string | null; submittedAt: string | null; photoRows: PhotoRow[] }
 
@@ -61,7 +63,7 @@ export function saveMyDraft(draft: ApplicationDraft) {
   const { values, sharing, preferences, step, visited } = draft
   return rpc<{ savedAt: string }>("save_application_draft", { p_draft: { values, sharing, preferences, step, visited } })
 }
-export const submitMyApplication = () => rpc<{ status: string; submittedAt: string }>("submit_application")
+export const submitMyApplication = () => rpc<{ status: string; submittedAt: string; edited?: boolean }>("submit_application")
 export const withdrawMyApplication = () => rpc<null>("withdraw_application")
 
 // ─────────────────────────────────────────────
