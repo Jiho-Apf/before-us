@@ -8,6 +8,8 @@ import type { ApplicationDraft, AnswerValue } from "./application-model"
 import {
   APPEARANCE_FIELDS,
   APPEARANCE_PREFIX,
+  EYES_MEN,
+  EYES_WOMEN,
   HEIGHT_CRITERION,
   appearanceSummary,
   clonePreferences,
@@ -20,7 +22,8 @@ import {
 const interaction =
   "transition-colors duration-200 motion-reduce:transition-none"
 const basicNames = ["impression", "style", "body"]
-const detailNames = ["hair", "eyes", "glasses", "beard"]
+const detailNames = ["hair", "smile", "voice"]
+const REQUIRED_NAMES = ["impression", "style"]
 
 export function AppearanceSummary({ draft }: { draft: ApplicationDraft }) {
   const selected = appearanceSummary(draft.values)
@@ -74,7 +77,7 @@ export default function AppearancePreferences({
       setBasicOpen(true)
     if (
       Object.keys(errors).some((id) =>
-        [...detailNames, "note"].some(
+        [...detailNames, "eyes", "note"].some(
           (name) => id === `${APPEARANCE_PREFIX}${name}`,
         ),
       )
@@ -100,16 +103,13 @@ export default function AppearancePreferences({
     onChange(result.values, result.settings)
     setPendingMode(null)
   }
-  const choices = (name: string) => {
+  const chip = (name: string, option: string) => {
     const field = APPEARANCE_FIELDS.find(
       (item) => item.id === `${APPEARANCE_PREFIX}${name}`,
     )!
     const value = draft.values[field.id]
     const selected = Array.isArray(value) ? value : []
     const multi = field.format === "multi"
-    return (
-      <div className="mt-3 flex flex-wrap gap-2">
-        {field.options!.map((option) => {
           const active = multi ? selected.includes(option) : value === option
           return (
             <Button
@@ -141,10 +141,36 @@ export default function AppearancePreferences({
               {option}
             </Button>
           )
-        })}
+  }
+  const choices = (name: string) => {
+    const field = APPEARANCE_FIELDS.find(
+      (item) => item.id === `${APPEARANCE_PREFIX}${name}`,
+    )!
+    return (
+      <div className="mt-3 flex flex-wrap gap-2">
+        {field.options!.map((option) => chip(name, option))}
       </div>
     )
   }
+  // 눈매: 여성·남성 묶음을 같은 칸 안에 살짝 떨어뜨려 보여 준다. 소개받을 상대 성별의 묶음을 먼저.
+  const eyeGroups = [
+    { title: "여성의 눈매", options: EYES_WOMEN as readonly string[] },
+    { title: "남성의 눈매", options: EYES_MEN as readonly string[] },
+  ]
+  if (draft.values["desired.gender"] === "남성") eyeGroups.reverse()
+  const eyes = (
+    <div className="mt-3 space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {eyeGroups.map((group) => (
+          <div key={group.title} className="rounded-xl bg-muted/40 p-3">
+            <p className="mb-2 text-[11px] font-semibold text-muted-foreground">{group.title}</p>
+            <div className="flex flex-wrap gap-2">{group.options.map((option) => chip("eyes", option))}</div>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2">{chip("eyes", "선호 없음")}</div>
+    </div>
+  )
   const fieldFrame = (name: string, content?: ReactNode) => {
     const field = APPEARANCE_FIELDS.find(
       (item) => item.id === `${APPEARANCE_PREFIX}${name}`,
@@ -178,8 +204,8 @@ export default function AppearancePreferences({
                 : "선호 · 중요도 변경"}
             </Button>
           ) : (
-            <span className="text-xs text-muted-foreground">
-              선택 · 취향 참고
+            <span className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${REQUIRED_NAMES.includes(name) ? "bg-primary/8 text-primary" : "bg-muted text-muted-foreground"}`}>
+              {REQUIRED_NAMES.includes(name) ? "필수 · 하나 이상" : "선택"}
             </span>
           )}
         </div>
@@ -192,7 +218,7 @@ export default function AppearancePreferences({
         )}
         {field.format === "single" && (
           <p className="mt-3 text-[11px] text-muted-foreground">
-            다시 누르면 해제해요. 미입력도 괜찮아요.
+            다시 누르면 해제해요. 고르지 않아도 괜찮아요.
           </p>
         )}
         {errors[field.id] && (
@@ -234,7 +260,7 @@ export default function AppearancePreferences({
     <div className="space-y-6">
       <div className="border-l-2 border-primary pl-5">
         <p className="text-[11px] font-semibold text-primary">
-          취향을 이해하는 단서 · 모두 선택
+          취향을 이해하는 단서 · 필수
         </p>
         <h2 className="mt-3 text-xl font-semibold leading-8">
           어떤 인상과 스타일에 눈길이 가나요?
@@ -245,7 +271,7 @@ export default function AppearancePreferences({
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        {["작성", "선호 없음", "나중에 작성"].map((value) => (
+        {["작성", "선호 없음"].map((value) => (
           <Button
             key={value}
             type="button"
@@ -262,13 +288,12 @@ export default function AppearancePreferences({
                 : "border-border"
             }`}
           >
-            {value === "작성" ? "취향 작성하기" : value}
+            {value === "작성" ? "취향 고르기" : "선호 없음"}
           </Button>
         ))}
       </div>
       <p className="text-xs leading-6 text-muted-foreground">
-        필수 항목이 아니에요. 미입력·선호 없음·나중에 작성은 따로 기록하며,
-        작성하지 않아도 신청할 수 있어요.{LIVE ? "" : " 가상 선호로만 시연해 주세요."}
+        전체 인상과 스타일은 하나 이상 골라 주세요. 정해 둔 취향이 없다면 ‘선호 없음’을 눌러도 돼요. 상세 취향은 원하는 것만 골라요.{LIVE ? "" : " 가상 선호로만 시연해 주세요."}
       </p>
       {errors[`${APPEARANCE_PREFIX}mode`] && (
         <p role="alert" className="text-xs text-destructive">
@@ -303,7 +328,7 @@ export default function AppearancePreferences({
           </div>
         </div>
       )}
-      {editable ? (
+      {mode !== "선호 없음" ? (
         <>
           <div>
             {disclosure(
@@ -380,7 +405,7 @@ export default function AppearancePreferences({
           <div>
             {disclosure(
               "상세 취향",
-              "모두 선택 · 천천히 알려 주세요",
+              "선택 · 눈매 · 헤어 · 웃는 모습 · 목소리",
               detailOpen,
               () => setDetailOpen(!detailOpen),
               "appearance-detail",
@@ -391,9 +416,10 @@ export default function AppearancePreferences({
               className="mt-5 space-y-4"
             >
               <p className="text-xs leading-6 text-muted-foreground">
-                성별과 관계없이 원하는 항목에만 답해 주세요.
+                원하는 항목에만 답해 주세요. 눈매는 여성·남성 묶음을 나눠 두었어요.
               </p>
-              <div className="grid gap-4 sm:grid-cols-2">
+              {fieldFrame("eyes", eyes)}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {detailNames.map((name) => fieldFrame(name))}
               </div>
               {fieldFrame(
@@ -414,7 +440,7 @@ export default function AppearancePreferences({
                     }
                     aria-invalid={!!errors[`${APPEARANCE_PREFIX}note`]}
                     className="mt-3 rounded-xl text-sm leading-7"
-                    placeholder="단정한 옷차림과 편안한 표정이 좋아요. 안경과 머리 길이는 크게 상관없어요."
+                    placeholder="단정한 옷차림과 편안한 표정이 좋아요. 머리 길이는 크게 상관없어요."
                   />
                   <div className="mt-3 flex flex-wrap justify-between gap-2 text-[11px] text-muted-foreground">
                     <span>

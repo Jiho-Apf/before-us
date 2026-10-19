@@ -60,6 +60,8 @@ export const REGIONS = [
   "제주",
 ]
 export const APPEARANCE_PREFIX = "desired.appearance."
+export const EYES_WOMEN = ["부드럽고 둥근", "길고 또렷한", "맑고 큰", "고양이상", "강아지상", "웃을 때 편안한"] as const
+export const EYES_MEN = ["선하고 순한", "날렵하고 또렷한", "깊고 진한", "웃을 때 접히는", "차분하고 단정한", "담백한 무쌍"] as const
 export const HEIGHT_CRITERION = `${APPEARANCE_PREFIX}heightMode`
 export const APPEARANCE_FIELDS = [
   definition("appearance.mode", "외적인 취향 작성 상태", "single", [
@@ -75,9 +77,16 @@ export const APPEARANCE_FIELDS = [
       "부드러운",
       "또렷한",
       "단정한",
+      "따뜻한",
+      "차분한",
+      "밝은",
       "귀여운",
       "시크한",
       "성숙한",
+      "지적인",
+      "세련된",
+      "건강한",
+      "듬직한",
       "자연스러운",
     ],
     3,
@@ -86,7 +95,7 @@ export const APPEARANCE_FIELDS = [
     "appearance.style",
     "스타일",
     "multi",
-    ["미니멀", "캐주얼", "깔끔한 세미정장", "스포티", "개성 있는"],
+    ["미니멀", "캐주얼", "꾸안꾸", "깔끔한 세미정장", "클래식", "댄디", "페미닌", "스트릿", "스포티", "아웃도어", "빈티지", "개성 있는"],
     3,
   ),
   definition(
@@ -109,26 +118,26 @@ export const APPEARANCE_FIELDS = [
     rule: "positive-cm" as const,
   },
   definition("appearance.hair", "헤어", "single", [
-    "짧은",
-    "중간",
+    "짧고 단정한",
+    "자연스러운 중간 길이",
     "긴 머리",
+    "웨이브·펌",
+    "묶은 머리",
     "길이보다 전체 스타일",
   ]),
-  definition("appearance.eyes", "눈매 느낌", "single", [
-    "부드럽고 둥근",
-    "길고 또렷한",
-    "웃을 때 편안한",
-    "선호 없음",
+  // 눈매: 여성·남성의 눈매를 나눠 보여 준다(같은 칸 안에서 살짝 떨어진 두 묶음). 둘 다 골라도 된다.
+  definition("appearance.eyes", "눈매 느낌", "multi", [...EYES_WOMEN, ...EYES_MEN, "선호 없음"], 2),
+  definition("appearance.smile", "웃는 모습", "single", [
+    "환하게 크게 웃는",
+    "잔잔하게 미소 짓는",
+    "장난스럽게 웃는",
+    "상관없어요",
   ]),
-  definition("appearance.glasses", "안경", "single", [
-    "있는 모습",
-    "없는 모습",
-    "무관",
-  ]),
-  definition("appearance.beard", "수염", "single", [
-    "있는 스타일",
-    "없는 스타일",
-    "무관",
+  definition("appearance.voice", "목소리·말투", "single", [
+    "차분하고 낮은",
+    "밝고 경쾌한",
+    "부드럽고 다정한",
+    "상관없어요",
   ]),
   {
     ...definition("appearance.note", "자유 설명", "text"),
@@ -299,6 +308,15 @@ export function validatePreferences(
   )
     errors[`${APPEARANCE_PREFIX}mode`] =
       "외적인 취향의 상세 답변과 선호 없음·나중에 작성은 함께 저장할 수 없어요."
+  // ‘어떤 인상과 스타일에 눈길이 가나요?’는 필수: 인상·스타일을 하나 이상 고르거나 ‘선호 없음’
+  const appearanceMode = values[`${APPEARANCE_PREFIX}mode`]
+  if (appearanceMode !== "선호 없음") {
+    for (const name of ["impression", "style"]) {
+      const picked = values[`${APPEARANCE_PREFIX}${name}`]
+      if (!Array.isArray(picked) || picked.length === 0)
+        errors[`${APPEARANCE_PREFIX}${name}`] = name === "impression" ? "눈길이 가는 인상을 하나 이상 골라 주세요. 정해 둔 게 없다면 ‘선호 없음’을 눌러 주세요." : "눈길이 가는 스타일을 하나 이상 골라 주세요."
+    }
+  }
   const hasRange = values["desired.ageMode"] === "범위 지정"
   for (const id of ["desired.ageMin", "desired.ageMax"]) {
     const value = values[id]

@@ -211,3 +211,16 @@
   .greet-track { animation: none; }
   .greet-chip { transition: none; opacity: 1; transform: none; }
 }
+
+/* 신청 완료 화면: 위에서부터 한 줄씩 내려앉고, 두 점이 가운데로 모인다. */
+@keyframes drop-in { from { opacity: 0; transform: translateY(-22px); } to { opacity: 1; transform: none; } }
+.drop-in { opacity: 0; animation: drop-in 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) forwards; }
+@keyframes dot-meet-left { from { transform: translateX(-60px); } to { transform: translateX(-9px); } }
+@keyframes dot-meet-right { from { transform: translateX(60px); } to { transform: translateX(9px); } }
+.dot-meet-left { animation: dot-meet-left 1.4s cubic-bezier(0.22, 0.61, 0.36, 1) 0.3s both; }
+.dot-meet-right { animation: dot-meet-right 1.4s cubic-bezier(0.22, 0.61, 0.36, 1) 0.3s both; }
+@media (prefers-reduced-motion: reduce) {
+  .drop-in { animation: none; opacity: 1; }
+  .dot-meet-left { animation: none; transform: translateX(-9px); }
+  .dot-meet-right { animation: none; transform: translateX(9px); }
+}

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { Check, LockKeyhole, Pencil, ShieldCheck } from "lucide-react"
 import { Button } from "./components/ui/button"
 import { Checkbox } from "./components/ui/checkbox"
@@ -37,10 +37,10 @@ export function PublicProfilePreview({ profile }: { profile: PublicProfile }) {
   return (
     <aside
       aria-labelledby="public-preview-title"
-      className="self-start overflow-hidden border border-border bg-background lg:sticky lg:top-24"
+      className="order-first self-start overflow-hidden border border-border bg-background lg:sticky lg:top-6 lg:order-none lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto"
     >
       <div className="bg-accent px-5 py-3 text-[11px] text-accent-foreground">
-        SPECIFIC INTRODUCTION · DEMO
+        {LIVE ? "PREVIEW · 상대에게 보일 모습" : "SPECIFIC INTRODUCTION · DEMO"}
       </div>
       <div className="border-b border-border p-5">
         <h3 id="public-preview-title" className="text-sm font-semibold">
@@ -108,7 +108,9 @@ export default function ApplicationReviewStep({
   onEdit,
   onSuspend,
   onResume,
+  top,
 }: {
+  top?: ReactNode
   draft: ApplicationDraft
   today: string
   account: AccountFacts
@@ -191,9 +193,12 @@ export default function ApplicationReviewStep({
     })
   return (
     <div className="space-y-7">
+      <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,8fr)_minmax(260px,4fr)]">
+        <div className="min-w-0 space-y-7">
+          {top}
       <header>
         <p className="text-[11px] font-semibold text-accent">
-          FINAL CHECK · PROFILE V{review.profileVersion}
+          FINAL CHECK · 마지막 확인
         </p>
         <h2 className="mt-3 text-2xl font-semibold leading-9">
           상대에게 보일 내용을 확인해 주세요.
@@ -222,8 +227,6 @@ export default function ApplicationReviewStep({
           </p>
         </section>
       )}
-      <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,8fr)_minmax(260px,4fr)]">
-        <div className="min-w-0 space-y-7">
           <section>
             <h3 className="text-sm font-semibold">01 · 기본 소개 프로필</h3>
             <div className="mt-3">{rows(BASE_PUBLIC_FIELDS, true)}</div>
