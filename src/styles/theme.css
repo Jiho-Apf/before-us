@@ -199,3 +199,15 @@
   padding-inline: calc(var(--page-width, 100vw) / 2 - 50%);
 }
 /* 가로 넘침은 앱 바깥 틀(BeforeUsRoot)에서 자른다. html·body에 두면 선택 상자를 열 때 화면이 맨 위로 튄다. */
+
+/* 홈의 ‘첫 마디’ 띠: 문장이 아래에서 떠오른 뒤(세로) 옆으로 천천히 흐른다(가로). 마우스를 올리면 멈추고, 동작 줄이기 설정이면 멈춘 채로 보인다. */
+@keyframes greet-drift { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.greet-track { animation: greet-drift 70s linear infinite; }
+.greet-mask:hover .greet-track { animation-play-state: paused; }
+.greet-chip { opacity: 0; transform: translateY(18px); transition: opacity 0.7s ease, transform 0.9s cubic-bezier(0.22, 0.61, 0.36, 1); }
+.greet-chip[data-in="true"] { opacity: 1; transform: none; }
+.greet-mask { -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+@media (prefers-reduced-motion: reduce) {
+  .greet-track { animation: none; }
+  .greet-chip { transition: none; opacity: 1; transform: none; }
+}

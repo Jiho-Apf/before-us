@@ -4,7 +4,7 @@ import { friendlyError, rpc, supabase } from "./client"
 import type { ApplicationStatus } from "./applications"
 
 // 실제 서버의 회원 화면 자료: 신청 상태 · 지금의 소개 · 알림 · 회원 요청.
-export type LiveProfile = { version: number; items: { id: string; value: string | string[] }[]; photos: { slot: string; path: string }[] }
+export type LiveProfile = { version: number; items: { id: string; value: string | string[] }[]; photos: { slot: string; path: string }[]; greeting?: string | null }
 export type LiveIntroduction =
   | { status: "waiting" }
   | {
@@ -98,3 +98,15 @@ export async function loadMyRequests() {
   const { data } = await db.from("member_requests").select("id, kind, description, status, decision, created_at").order("created_at", { ascending: false }).limit(20)
   return (data ?? []) as { id: string; kind: string; description: string | null; status: string; decision: string | null; created_at: string }[]
 }
+
+// 첫 마디: 소개된 상대가 가장 먼저 보는 한마디. 홈 공개는 본인이 켜고 운영진이 확인한 뒤에만.
+export type Greeting = { body: string; showOnHome: boolean; homeStatus: "none" | "pending" | "approved" | "rejected"; homeReason: string | null }
+export async function loadGreeting(): Promise<Greeting | null> {
+  const db = await supabase()
+  const { data: auth } = await db.auth.getUser()
+  if (!auth.user) return null
+  const { data } = await db.from("greetings").select("body, show_on_home, home_status, home_reason").eq("member_id", auth.user.id).maybeSingle()
+  return data ? { body: data.body, showOnHome: data.show_on_home, homeStatus: data.home_status, homeReason: data.home_reason } : null
+}
+export const saveGreeting = (body: string, showOnHome: boolean) => rpc<{ body: string; showOnHome: boolean; homeStatus: Greeting["homeStatus"] }>("save_greeting", { p_body: body, p_show_on_home: showOnHome })
+export const deleteGreeting = () => rpc<null>("delete_greeting")

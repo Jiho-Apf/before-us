@@ -6,7 +6,7 @@ import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./components/ui/accordion";
 import { BEFORE_US } from "./config";
-import { LIVE } from "./backend/client";
+import { LIVE, rpc } from "./backend/client";
 import { useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
@@ -448,6 +448,38 @@ function useSectionProgress<T extends HTMLElement>() {
   }, []);
   return [ref, value] as const;
 }
+// 첫 마디 띠: 실제 서버 모드에서는 운영진이 확인한 회원의 첫 마디(12개 이상일 때만, 이름·사진 없이 문장만).
+// 데모에서는 ‘예시 문장’이라고 밝힌 문장을 보여 준다(실제 회원의 말처럼 보이게 하지 않는다).
+const EXAMPLE_GREETINGS = ["천천히 알아가고 싶어요. 반가워요!", "산책 좋아하시면 이야기가 잘 통할 것 같아요.", "오늘 하루는 어땠는지 먼저 묻고 싶어요.", "좋아하는 노래 하나씩 나눠 볼까요?", "말보다 잘 들어주는 사람이고 싶어요.", "주말 아침의 빵집을 좋아해요.", "서두르지 않아도 괜찮아요.", "작은 일에도 같이 웃고 싶어요.", "전시 보고 이야기 나누는 걸 좋아해요.", "요즘 아침 달리기를 시작했어요.", "커피보다 따뜻한 차를 좋아해요.", "편하게, 천천히 이야기 나눠요."];
+function GreetingStream() {
+  const [items, setItems] = useState<string[]>(LIVE ? [] : EXAMPLE_GREETINGS);
+  const [seen, setSeen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (LIVE) void rpc<string[]>("public_greetings").then(({ data }) => setItems(data ?? [])); }, []);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const observer = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) { setSeen(true); observer.disconnect(); } }, { threshold: 0.2 });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [items.length]);
+  if (items.length === 0) return null;
+  const rows = [items.filter((_, index) => index % 2 === 0), items.filter((_, index) => index % 2 === 1)];
+  return (
+    <div ref={ref} className="mt-12" aria-label={LIVE ? "먼저 신청한 분들의 첫 마디" : "첫 마디 예시 문장"}>
+      <p className="text-xs tracking-[0.15em] text-white/95">{LIVE ? "먼저 신청한 분들의 첫 마디" : "첫 마디 · 예시 문장"}</p>
+      <div className="greet-mask mt-5 space-y-3 overflow-hidden">
+        {rows.map((row, rowIndex) => (
+          <div key={rowIndex} className="greet-track flex w-max gap-3" style={{ animationDuration: `${70 + rowIndex * 14}s`, animationDirection: rowIndex ? "reverse" : "normal" }}>
+            {[...row, ...row].map((text, index) => <span key={`${text}-${index}`} aria-hidden={index >= row.length} data-in={seen} className="greet-chip whitespace-nowrap rounded-full border border-white/25 bg-white/10 px-4 py-2 text-sm text-white" style={{ transitionDelay: `${(index % row.length) * 70 + rowIndex * 120}ms` }}>“{text}”</span>)}
+          </div>
+        ))}
+      </div>
+      {!LIVE && <p className="mx-auto mt-4 max-w-md text-[11px] leading-5 text-white/90">예시 문장이에요. 실제 회원의 첫 마디가 모이면, 본인이 동의하고 운영진이 확인한 문장만 이 자리에 보여요.</p>}
+    </div>
+  );
+}
+
 function Together() {
   const reduced = useReducedMotion();
   const [ref, progress] = useSectionProgress<HTMLElement>();
@@ -462,6 +494,7 @@ function Together() {
       </div>
       <p className="mt-6 text-xs tracking-[0.15em] text-white/95">TWO DOTS, ONE SCENE</p>
       <h2 id="together-title" className="mt-4 text-3xl font-semibold leading-[1.5] sm:text-[38px]">이제, 한 사람을<br />만나볼 차례예요.</h2>
+      <GreetingStream />
       <div className="mt-9 flex flex-col items-center gap-6">
         <Button asChild className={`h-12 rounded-full bg-white px-7 text-primary hover:bg-white/90 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={17} /></Link></Button>
         <NoonClock />

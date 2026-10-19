@@ -329,13 +329,30 @@ const REPORT_STATUS: Record<string, string> = { new: "새 신고", reviewing: "�
 const REQUEST_STATUS: Record<string, string> = { requested: "접수", protection: "보호 조치", checking: "확인 중", decided: "처리 완료", reconsidering: "재검토" };
 
 export function LiveSafety() {
-  const [tab, setTab] = useState<"reports" | "inquiries" | "requests">("reports");
+  const [tab, setTab] = useState<"reports" | "inquiries" | "requests" | "greetings">("reports");
   return <>
     <Title lead="안전 신고를 가장 먼저 봐요. 문의 본문과 이메일은 감사 기록에 남기지 않아요. 답변은 회원이 접수 번호로 확인해요(메일 발송은 연결 전).">신고·문의</Title>
-    <div className="mb-5 flex gap-2">{([["reports", "신고"], ["inquiries", "고객 문의"], ["requests", "회원 요청"]] as const).map(([value, label]) => <Button key={value} size="sm" variant={tab === value ? "default" : "outline"} onClick={() => setTab(value)}>{label}</Button>)}</div>
-    {tab === "reports" ? <ReportsPanel /> : tab === "inquiries" ? <InquiriesPanel /> : <RequestsPanel />}
+    <div className="mb-5 flex gap-2">{([["reports", "신고"], ["inquiries", "고객 문의"], ["requests", "회원 요청"], ["greetings", "첫 마디 · 홈"]] as const).map(([value, label]) => <Button key={value} size="sm" variant={tab === value ? "default" : "outline"} onClick={() => setTab(value)}>{label}</Button>)}</div>
+    {tab === "reports" ? <ReportsPanel /> : tab === "inquiries" ? <InquiriesPanel /> : tab === "requests" ? <RequestsPanel /> : <GreetingsPanel />}
   </>;
 }
+// 홈 공개를 신청한 첫 마디: 문장만 보고 확인한다(홈에는 이름·사진 없이, 확인된 문장이 12개 이상일 때만 나간다).
+type GreetingRow = { memberId: string; body: string; homeStatus: string; reason: string | null; updatedAt: string; name: string | null; cohort: number | null };
+function GreetingsPanel() {
+  const [status, setStatus] = useState<"pending" | "approved" | "rejected">("pending");
+  const list = useLoad(() => call<GreetingRow[]>("admin_list_greetings", { p_status: status }), [status]);
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState("");
+  const review = async (member: string, next: "approved" | "rejected") => { const { error } = await rpc("admin_review_greeting", { p_member: member, p_status: next, p_reason: reasons[member] || null }); setMessage(error || (next === "approved" ? "홈 공개를 확인했어요." : "홈에 싣지 않기로 했어요. 회원에게 이유가 보여요.")); await list.reload(); };
+  return <div className="space-y-3">
+    <p className="text-xs leading-6 text-muted-foreground">연락처·링크는 저장 단계에서 이미 걸러져요. 특정인을 알아볼 수 있는 내용, 외모·조건 평가, 광고성 문구는 싣지 않아요. 확인된 문장이 12개 이상일 때부터 홈에 보여요.</p>
+    <div className="flex gap-2">{([["pending", "확인 대기"], ["approved", "공개 중"], ["rejected", "싣지 않음"]] as const).map(([value, label]) => <Button key={value} size="sm" variant={status === value ? "default" : "outline"} onClick={() => setStatus(value)}>{label}</Button>)}</div>
+    <Notice text={message || list.error || ""} />
+    {(list.data ?? []).map(row => <article key={row.memberId} className={`${box} p-4 text-sm`}><p className="text-base font-semibold leading-7">“{row.body}”</p><p className="mt-1 text-xs text-muted-foreground">{row.name ?? "이름 없음"}{row.cohort ? ` · ${row.cohort}기` : ""} · {kstDateTime(row.updatedAt)}{row.reason ? ` · ${row.reason}` : ""}</p>{status === "pending" && <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" onClick={() => void review(row.memberId, "approved")}>홈 공개 확인</Button><Input aria-label="싣지 않는 이유" value={reasons[row.memberId] ?? ""} onChange={event => setReasons(current => ({ ...current, [row.memberId]: event.target.value }))} placeholder="싣지 않는 이유(회원에게 보여요)" className="h-8 max-w-xs text-xs" /><Button size="sm" variant="outline" disabled={!reasons[row.memberId]?.trim()} onClick={() => void review(row.memberId, "rejected")}>싣지 않기</Button></div>}</article>)}
+    {!list.loading && !list.data?.length && <p className="text-sm text-muted-foreground">해당하는 첫 마디가 없어요.</p>}
+  </div>;
+}
+
 function ReportsPanel() {
   const list = useLoad(() => table<Report>("reports", query => query.select("id, source, type, description, urgent, status, created_at, resolution").order("urgent", { ascending: false }).order("created_at", { ascending: false }).limit(100)), []);
   const [notes, setNotes] = useState<Record<string, string>>({});

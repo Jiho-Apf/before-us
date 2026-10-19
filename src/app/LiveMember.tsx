@@ -15,7 +15,7 @@ import { DECLINE_REASONS } from "./introduction-model";
 import { REQUEST_LABELS } from "./member-operations-model";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
 import { photoUrl } from "./backend/applications";
-import { blockPartner, loadMyRequests, markNotificationsRead, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, submitMemberRequest, useMemberSnapshot, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
+import { blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, submitMemberRequest, useMemberSnapshot, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
 
 // 실제 서버 모드의 회원 화면(오늘 · 두 사람 · 내 정보 · 문의·요청). 데모 화면과 같은 편집 톤을 쓴다.
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -90,6 +90,7 @@ function LiveTodayView() {
           {data.notifications.length ? <ul className="mt-4 divide-y divide-border border-y border-border">{data.notifications.map(item => <li key={item.id} className="py-4"><p className={`text-sm ${item.read_at ? "" : "font-semibold"}`}>{item.link ? <Link to={item.link} className="hover:text-primary">{item.title}</Link> : item.title}</p>{item.body && <p className="mt-1 text-xs leading-6 text-muted-foreground">{item.body}</p>}<p className="mt-1 text-[11px] text-muted-foreground">{kstDateTime(item.created_at)}</p></li>)}</ul> : <p className="mt-4 border-y border-border py-6 text-xs leading-6 text-muted-foreground">아직 알림이 없어요. 소개가 준비되면 정오에 여기와 오늘 화면에서 알려 드려요.</p>}
         </aside>
       </div>
+      {data.application && data.application.status !== "draft" && data.introduction.status === "waiting" && <div className="mt-10"><FirstWordCard /></div>}
       <section className="mt-14 border-t border-border pt-8" aria-labelledby="status-title">
         <h2 id="status-title" className="mb-5 text-sm font-semibold">지금 알아두면 좋은 것</h2>
         <dl className="grid gap-5 text-xs sm:grid-cols-3"><div><dt className="mb-2 text-muted-foreground">신청 접수</dt><dd>{data.application?.submittedAt ? kstDay(data.application.submittedAt) : "아직 접수 전"}</dd></div><div><dt className="mb-2 text-muted-foreground">최근 소개</dt><dd>{data.introduction.status !== "waiting" && data.introduction.publishedAt ? kstDay(data.introduction.publishedAt) : "아직 없어요"}</dd></div><div><dt className="mb-2 text-muted-foreground">{data.cohort ? "내 기수" : "소개 방식"}</dt><dd>{data.cohort ? `${data.cohort.number}기 · ${noonOf(data.cohort.startsOn)} 정오 시작` : "준비된 날 정오 · 하루 최대 한 명"}</dd></div></dl>
@@ -97,6 +98,33 @@ function LiveTodayView() {
       </section>
     </section>
   );
+}
+
+// ─────────────────────────────────────────────
+// 첫 마디: 기다리는 동안 적어 두는 짧은 인사. 소개된 분이 가장 먼저 보고, 원하면(운영진 확인 뒤) 홈에도 문장만 보여요.
+const FIRST_WORD_IDEAS = ["천천히 알아가고 싶어요. 반가워요!", "산책 좋아하시면 이야기가 잘 통할 것 같아요.", "오늘 하루는 어땠는지 먼저 묻고 싶어요.", "좋아하는 노래 하나씩 나눠 볼까요?"];
+const HOME_STATUS: Record<Greeting["homeStatus"], string> = { none: "", pending: "홈 공개 · 운영진 확인 중", approved: "홈 공개 중 · 이름·사진 없이 문장만", rejected: "홈에는 싣지 않았어요" };
+export function FirstWordCard() {
+  const [loaded, setLoaded] = useState(false);
+  const [saved, setSaved] = useState<Greeting | null>(null);
+  const [body, setBody] = useState("");
+  const [home, setHome] = useState(false);
+  const [message, setMessage] = useState("");
+  useEffect(() => { void loadGreeting().then(greeting => { setSaved(greeting); setBody(greeting?.body ?? ""); setHome(greeting?.showOnHome ?? false); setLoaded(true); }); }, []);
+  const length = Array.from(body.trim()).length;
+  const changed = body.trim() !== (saved?.body ?? "") || home !== (saved?.showOnHome ?? false);
+  const save = async () => { const { data, error } = await saveGreeting(body, home); if (error || !data) { setMessage(error || "저장하지 못했어요."); return; } setSaved({ body: data.body, showOnHome: data.showOnHome, homeStatus: data.homeStatus, homeReason: null }); setBody(data.body); setMessage(data.homeStatus === "pending" ? "저장했어요. 홈 공개는 운영진이 확인한 뒤에 보여요." : "저장했어요."); };
+  const remove = async () => { const { error } = await deleteGreeting(); if (error) { setMessage(error); return; } setSaved(null); setBody(""); setHome(false); setMessage("첫 마디를 지웠어요."); };
+  if (!loaded) return null;
+  return <Sheet className="p-6 sm:p-8">
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold text-accent">첫 마디</p><h2 className="mt-3 text-xl font-semibold leading-[1.5]">소개된 분이 가장 먼저 보게 될 한마디예요.</h2></div>{saved?.showOnHome && <span className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${saved.homeStatus === "approved" ? "bg-primary/8 text-primary" : "bg-muted text-muted-foreground"}`}>{HOME_STATUS[saved.homeStatus]}</span>}</div>
+    <div className="relative mt-5"><span aria-hidden="true" className="pointer-events-none absolute left-4 top-3 text-2xl leading-none text-primary/40">“</span><Textarea aria-label="첫 마디" value={body} maxLength={60} onChange={event => { setBody(event.target.value); setMessage(""); }} placeholder="천천히 알아가고 싶어요. 반가워요!" className="min-h-20 rounded-xl bg-card py-3 pl-10 pr-4 text-[15px] leading-7" /></div>
+    <div className="mt-2 flex items-start justify-between gap-3 text-[11px] leading-5 text-muted-foreground"><p>5~60자 · 연락처·SNS 아이디·링크는 넣을 수 없어요</p><span className="shrink-0 tabular-nums">{length} / 60</span></div>
+    {!body.trim() && <div className="mt-3 flex flex-wrap gap-2">{FIRST_WORD_IDEAS.map(idea => <button key={idea} type="button" onClick={() => setBody(idea)} className={`rounded-full border border-border px-3 py-1.5 text-xs hover:border-primary/50 hover:text-primary ${interaction}`}>{idea}</button>)}</div>}
+    <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-sm leading-6"><Checkbox className="mt-1" checked={home} onCheckedChange={value => setHome(value === true)} /><span>홈에도 이 문장을 보여 줄게요. <span className="block text-xs text-muted-foreground">이름·사진 없이 문장만, 운영진이 확인한 뒤에 보여요. 언제든 끌 수 있어요.</span></span></label>
+    {saved?.homeStatus === "rejected" && saved.homeReason && <p className="mt-3 rounded-xl bg-muted p-3 text-xs leading-6">운영진 안내 · {saved.homeReason}</p>}
+    <div className="mt-5 flex flex-wrap items-center gap-2"><Button disabled={!changed || length < 5} onClick={() => void save()} className={`h-11 rounded-xl px-5 ${interaction}`}>첫 마디 저장</Button>{saved && <Button variant="ghost" onClick={() => void remove()} className={`h-11 rounded-xl text-xs text-muted-foreground ${interaction}`}>지우기</Button>}{message && <p role="status" className="text-xs text-primary">{message}</p>}</div>
+  </Sheet>;
 }
 
 // ─────────────────────────────────────────────
@@ -152,6 +180,7 @@ function LiveIntroductionView() {
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div className="space-y-8">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{intro.profile.photos.map(photo => <PartnerPhoto key={photo.path} path={photo.path} label={PHOTO_SLOTS.find(slot => slot.id === photo.slot)?.label ?? "사진"} />)}</div>
+          {intro.profile.greeting && <figure className="border-l-2 border-primary pl-5"><blockquote className="text-lg font-semibold leading-[1.6]">“{intro.profile.greeting}”</blockquote><figcaption className="mt-2 text-xs text-muted-foreground">{name ? `${valueOf(name.value)} 님의 첫 마디` : "첫 마디"}</figcaption></figure>}
           {intro.note && <Sheet tone="soft" className="p-6"><p className="text-xs font-semibold text-accent">운영진이 두 분을 소개한 이유</p><p className="mt-3 text-sm leading-7">{intro.note}</p></Sheet>}
           <dl className="divide-y divide-border border-y border-border">{intro.profile.items.filter(item => item.id !== "self.name").map(item => <div key={item.id} className="grid gap-1 py-4 sm:grid-cols-[140px_1fr]"><dt className="text-xs text-muted-foreground">{labelOf(item.id)}</dt><dd className="whitespace-pre-wrap break-words text-sm leading-7">{valueOf(item.value)}</dd></div>)}</dl>
           <p className="text-xs leading-6 text-muted-foreground">프로필과 사진은 응답 기한까지만 볼 수 있어요. 캡처하거나 다른 곳에 옮기지 말아 주세요.</p>
@@ -198,6 +227,7 @@ function LiveProfileView() {
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">소개 신청서</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{data?.application ? `현재 상태 · ${({ draft: "작성 중", submitted: "접수", reviewing: "검토 중", needs_changes: "보완 요청", approved: "소개 준비", held: "보류", withdrawn: "철회", rejected: "소개 어려움" } as Record<string, string>)[data.application.status]}` : "아직 작성하지 않았어요."}</p><Button asChild variant="outline" className={`mt-5 rounded-xl ${interaction}`}><Link to="/apply">신청서 보기 <ArrowRight size={14} /></Link></Button></Sheet>
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">알림 설정</p><div className="mt-4 space-y-3 text-sm"><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.notice_daily_waiting} onCheckedChange={value => void toggle("notice_daily_waiting", value === true)} />소개가 없는 날에도 정오에 알려 주세요. <span className="text-muted-foreground">(선택)</span></label><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.marketing_opt_in} onCheckedChange={value => void toggle("marketing_opt_in", value === true)} />새 소식과 혜택 안내를 받을게요. <span className="text-muted-foreground">(선택 · 광고성 정보)</span></label></div><p className="mt-4 text-[11px] leading-5 text-muted-foreground">새 소개 알림은 사이트 안에서 늘 보여 드려요. 카카오 알림톡은 정식 출시 때 연결돼요.</p>{message && <p role="status" className="mt-3 text-xs text-primary">{message}</p>}</Sheet>
       </div>
+      <FirstWordCard />
       <AccountPanel />
     </section>
   );

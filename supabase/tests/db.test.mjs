@@ -149,6 +149,25 @@ for (const m of [A, B, C]) {
 eq("소개 가능한 회원 3명", (await q("select * from public.admin_ready_members()")).length, 3)
 
 // ── 정오 소개
+// ── 첫 마디
+await as(A)
+await fails("첫 마디에 연락처는 넣을 수 없다", "select public.save_greeting('카톡 아이디 hayun123 추가해 주세요', false)", [], /연락처/)
+eq("첫 마디를 저장한다(홈 공개는 확인 대기)", (await one("select public.save_greeting('천천히 알아가고 싶어요. 반가워요!', true) g")).g.homeStatus, "pending")
+await as("anon")
+eq("확인 전·12개 미만이면 홈에 보이지 않는다", (await one("select public.public_greetings() g")).g, [])
+await as(O, "aal2")
+eq("운영진은 확인 대기 첫 마디를 본다", (await one("select public.admin_list_greetings() g")).g.length, 1)
+await q("select public.admin_review_greeting($1, 'approved')", [A])
+await as("postgres")
+for (let i = 0; i < 11; i++) { const id = await signup(`g${i}@example.test`); await q("insert into public.greetings (member_id, body, show_on_home, home_status) values ($1, $2, true, 'approved')", [id, `반가워요, 천천히 알아가요 ${i}`]) }
+await as("anon")
+eq("확인된 첫 마디가 12개가 되면 홈에 보인다", (await one("select public.public_greetings() g")).g.length, 12)
+await as(A)
+eq("같은 문장으로 다시 저장하면 확인 상태가 유지된다", (await one("select public.save_greeting('천천히 알아가고 싶어요. 반가워요!', true) g")).g.homeStatus, "approved")
+eq("문장을 바꾸면 다시 확인한다", (await one("select public.save_greeting('주말 산책을 좋아해요. 반가워요!', true) g")).g.homeStatus, "pending")
+await as("postgres")
+await q("delete from public.greetings where member_id <> $1", [A])
+
 // ── 기수제
 await as(A)
 eq("제출하면 1기에 배정된다", (await one("select public.my_cohort() c")).c.number, 1)
@@ -196,6 +215,7 @@ eq("정오 작업을 다시 돌려도 알림은 한 번", (await one("select cou
 await as(A)
 const view = (await one("select public.my_introduction() v")).v
 ok("공개 뒤 상대 프로필이 보인다", view.status === "published" && view.profile.items.some((item) => item.id === "self.name" && item.value === "준"))
+ok("상대 프로필에 첫 마디가 함께 담긴다(B는 첫 마디 없음)", "greeting" in view.profile)
 ok("상대 프로필에 생년월일은 없고 나이만 있다", !view.profile.items.some((item) => item.id === "self.birthDate") && view.profile.items.some((item) => item.id === "self.age" && item.value.endsWith("세")))
 ok("공개하지 않기로 한 항목은 빠진다", !view.profile.items.some((item) => item.id === "self.height"))
 const partnerPhoto = view.profile.photos[0].path
