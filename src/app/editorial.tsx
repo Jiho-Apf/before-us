@@ -91,3 +91,20 @@ export function Moment({ eyebrow, title, children, action }: { eyebrow: string; 
     </section>
   )
 }
+
+// 안내가 여러 줄일 때: 문단을 늘어놓지 않고 ‘짧은 제목 + 한두 줄 설명’ 목록으로 묶는다(넓은 화면에서는 두 칸).
+export function NoteList({ title, items, className = "" }: { title?: string; items: { title: string; body: ReactNode }[]; className?: string }) {
+  return (
+    <div className={`rounded-2xl border border-border bg-muted/30 p-5 sm:p-6 ${className}`}>
+      {title && <p className="mb-4 text-xs font-semibold text-accent">{title}</p>}
+      <ul className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+        {items.map((item) => (
+          <li key={item.title} className="flex gap-3">
+            <span aria-hidden="true" className="mt-[7px] size-1.5 shrink-0 rounded-full bg-primary/60" />
+            <div className="min-w-0"><p className="text-xs font-semibold leading-5">{item.title}</p><p className="mt-1 text-xs leading-6 text-muted-foreground">{item.body}</p></div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}

@@ -79,7 +79,7 @@ export default function InquiryPage() {
   const [error, setError] = useState("")
   const [receipt, setReceipt] = useState<string | null>(null)
   return (
-    <section className="grid gap-12 py-12 sm:py-16 lg:grid-cols-[5fr_7fr] lg:gap-16 break-keep">
+    <section className="grid gap-12 py-16 sm:py-20 lg:grid-cols-[5fr_7fr] lg:gap-16 break-keep">
       <div className="space-y-6">
         <div className="flex items-center gap-3"><span className="text-xs font-semibold text-accent">CONTACT</span><span aria-hidden="true" className="h-px w-8 bg-accent/40" /><span className="text-xs font-semibold">문의하기</span></div>
         <h1 className="text-3xl font-semibold leading-[1.5] sm:text-[38px]">궁금한 점을<br />남겨 주세요.</h1>

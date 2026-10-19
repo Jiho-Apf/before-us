@@ -30,7 +30,7 @@ function Member({ children }: { children: ReactNode }) {
   const user = useAuth();
   const ready = useAuthReady();
   if (!ready) return <Waiting />;
-  if (!user) return <section className="py-8"><PageHeader mark="회원" label="로그인이 필요해요" en="MEMBERS ONLY" title="로그인한 뒤에 볼 수 있어요." lead="소개와 교류는 본인만 볼 수 있어요. 로그인하거나 새로 가입해 주세요." /><div className="mt-8 flex flex-wrap gap-2"><Button asChild className={`h-12 rounded-xl px-6 ${interaction}`}><Link to="/login">로그인 <ArrowRight size={16} /></Link></Button><Button asChild variant="outline" className={`h-12 rounded-xl ${interaction}`}><Link to="/signup">회원가입</Link></Button></div></section>;
+  if (!user) return <section><PageHeader mark="회원" label="로그인이 필요해요" en="MEMBERS ONLY" title="로그인한 뒤에 볼 수 있어요." lead="소개와 교류는 본인만 볼 수 있어요. 로그인하거나 새로 가입해 주세요." /><div className="mt-8 flex flex-wrap gap-2"><Button asChild className={`h-12 rounded-xl px-6 ${interaction}`}><Link to="/login">로그인 <ArrowRight size={16} /></Link></Button><Button asChild variant="outline" className={`h-12 rounded-xl ${interaction}`}><Link to="/signup">회원가입</Link></Button></div></section>;
   return <>{children}</>;
 }
 
@@ -58,7 +58,7 @@ function LiveTodayView() {
   const unread = data?.notifications.filter(item => !item.read_at).length ?? 0;
   useEffect(() => { if (unread) { const timer = window.setTimeout(() => void markNotificationsRead(), 3000); return () => window.clearTimeout(timer); } }, [unread]);
   if (loading) return <Waiting />;
-  if (error || !data) return <section className="py-8"><p role="alert" className="text-sm text-destructive">{error || "불러오지 못했어요."}</p><Button variant="outline" className="mt-5 rounded-xl" onClick={() => void reload()}>다시 불러오기</Button></section>;
+  if (error || !data) return <section><p role="alert" className="text-sm text-destructive">{error || "불러오지 못했어요."}</p><Button variant="outline" className="mt-5 rounded-xl" onClick={() => void reload()}>다시 불러오기</Button></section>;
   const state = todayState(data);
   return (
     <section aria-labelledby="today-title">
@@ -118,9 +118,9 @@ function LiveIntroductionView() {
   useEffect(() => { if (data) setIntro(data.introduction); }, [data]);
   useEffect(() => { if (intro && intro.status !== "waiting" && intro.profile && !intro.opened) void recordIntroductionView(intro.id).then(() => setIntro(current => current && current.status !== "waiting" ? { ...current, opened: true } : current)); }, [intro?.status !== "waiting" && intro?.id]);
   if (loading || (!intro && !error)) return <Waiting />;
-  if (error || !intro) return <section className="py-8"><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="outline" className="mt-5 rounded-xl" onClick={() => void reload()}>다시 불러오기</Button></section>;
+  if (error || !intro) return <section><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="outline" className="mt-5 rounded-xl" onClick={() => void reload()}>다시 불러오기</Button></section>;
   if (intro.status === "waiting" || !intro.profile) return (
-    <section className="py-4">
+    <section>
       <PageHeader mark="두 사람" label={intro.status === "waiting" ? "소개 전" : "소개 마무리"} en="TWO OF US" title={intro.status === "waiting" ? "아직 소개된 분이 없어요." : "이번 소개는 여기서 마무리됐어요."} lead={intro.status === "waiting" ? "신청서 확인이 끝나고 잘 맞는 분이 준비되면, 정오에 이곳에서 소개해 드릴게요." : "끝난 소개의 프로필은 다시 볼 수 없어요. 누가 어떤 답을 했는지도 알려 드리지 않아요."} aside={<TwoDots apart faded />} />
       <div className="mt-8"><Button asChild variant="outline" className={`rounded-xl ${interaction}`}><Link to="/today">오늘로 돌아가기 <ArrowRight size={15} /></Link></Button></div>
     </section>
@@ -139,7 +139,7 @@ function LiveIntroductionView() {
     if (!result.error) { setSafety(null); setReportText(""); }
   };
   return (
-    <section aria-labelledby="us-title" className="py-4">
+    <section aria-labelledby="us-title">
       {intro.status === "mutual" && <div className="mb-10"><Moment eyebrow="WE BOTH SAID YES" title="두 분 모두 알아가고 싶다고 답했어요.">함께 시작하는 방법은 곧 이 화면에서 안내해 드릴게요.</Moment></div>}
       <PageHeader mark="두 사람" label={intro.status === "mutual" ? "서로 선택" : "오늘의 인연"} en="TWO OF US" titleId="us-title" title={name ? `${valueOf(name.value)} 님을 소개해요.` : "오늘의 인연을 소개해요."} lead={intro.status === "published" ? `${kstDateTime(intro.dueAt)}까지 답해 주세요.` : undefined} aside={<TwoDots apart={intro.status !== "mutual"} />} />
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
@@ -185,7 +185,7 @@ function LiveProfileView() {
   const notices = data?.notices;
   const toggle = async (key: "notice_daily_waiting" | "marketing_opt_in", value: boolean) => { const result = await saveNoticeSettings({ [key]: value }); setMessage(result.error || "저장했어요."); await reload(); };
   return (
-    <section className="space-y-10 py-4">
+    <section className="space-y-10">
       <PageHeader mark="내 정보" label="계정과 신청" en="ABOUT ME" title="내 정보" lead="신청서는 검토 전까지 고칠 수 있어요. 검토 뒤에 고칠 내용은 정정 요청으로 남겨 주세요." />
       <div className="grid gap-6 lg:grid-cols-2">
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">소개 신청서</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{data?.application ? `현재 상태 · ${({ draft: "작성 중", submitted: "접수", reviewing: "검토 중", needs_changes: "보완 요청", approved: "소개 준비", held: "보류", withdrawn: "철회", rejected: "소개 어려움" } as Record<string, string>)[data.application.status]}` : "아직 작성하지 않았어요."}</p><Button asChild variant="outline" className={`mt-5 rounded-xl ${interaction}`}><Link to="/apply">신청서 보기 <ArrowRight size={14} /></Link></Button></Sheet>
@@ -212,7 +212,7 @@ function LiveSupportView() {
   useEffect(() => { void refresh(); }, []);
   const submit = async () => { if (!kind) return; const result = await submitMemberRequest(kind, text); setMessage(result.error || "요청을 받았어요. 처리 결과는 이 화면에서 볼 수 있어요."); if (!result.error) { setKind(null); setText(""); await refresh(); } };
   return (
-    <section className="space-y-10 py-4">
+    <section className="space-y-10">
       <PageHeader mark="요청" label="문의·요청" en="SUPPORT" title="필요한 요청을 남겨 주세요." lead="상대와 관련된 신고는 두 사람 화면에서 하면 그 소개에 바로 연결돼요. 위급하면 112에 먼저 연락해 주세요." />
       <Sheet className="p-6 sm:p-8">
         <p className="text-xs font-semibold text-accent">요청 종류</p>
@@ -229,5 +229,5 @@ function LiveSupportView() {
 
 // 교류·약속·결제는 서버 5단계에서 연결한다. 그 전까지는 지금 단계를 안내한다.
 export function LiveLaterPage({ title }: { title: string }) {
-  return <Member><section className="py-4"><PageHeader mark={title} label="서로 선택한 뒤에 열려요" en="BEFORE US" title={`${title} 화면은 두 분이 서로 선택한 뒤에 열려요.`} lead="소개를 받고 두 분 모두 알아가고 싶다고 답하면, 이곳에서 함께 시작하는 방법을 안내해 드려요." aside={<TwoDots apart faded />} /><div className="mt-8 flex flex-wrap gap-2"><Button asChild className={`rounded-xl ${interaction}`}><Link to="/today">오늘로 돌아가기 <ArrowRight size={15} /></Link></Button><Button asChild variant="outline" className={`rounded-xl ${interaction}`}><Link to="/us">두 사람 화면</Link></Button></div></section></Member>;
+  return <Member><section><PageHeader mark={title} label="서로 선택한 뒤에 열려요" en="BEFORE US" title={`${title} 화면은 두 분이 서로 선택한 뒤에 열려요.`} lead="소개를 받고 두 분 모두 알아가고 싶다고 답하면, 이곳에서 함께 시작하는 방법을 안내해 드려요." aside={<TwoDots apart faded />} /><div className="mt-8 flex flex-wrap gap-2"><Button asChild className={`rounded-xl ${interaction}`}><Link to="/today">오늘로 돌아가기 <ArrowRight size={15} /></Link></Button><Button asChild variant="outline" className={`rounded-xl ${interaction}`}><Link to="/us">두 사람 화면</Link></Button></div></section></Member>;
 }

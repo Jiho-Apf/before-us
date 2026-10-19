@@ -170,7 +170,7 @@ function Philosophy() {
 
 function Introduction() {
   return (
-    <section id="how-it-works" className="bleed bg-mist py-16 sm:py-20" aria-labelledby="introduction-title">
+    <section id="how-it-works" className="bleed bg-mist py-20 sm:py-24" aria-labelledby="introduction-title">
       <div className="grid gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16">
         <div className="relative flex min-h-72 flex-col justify-between overflow-hidden bg-lilac p-8 sm:min-h-80 sm:p-10">
           <span className="text-[11px] font-semibold tracking-[0.13em] text-muted-foreground">ONE PAIR, AT A TIME</span>
@@ -185,7 +185,7 @@ function Introduction() {
 
 function FounderLetter() {
   return (
-    <section className="grid gap-10 py-16 sm:py-20 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="letter-title">
+    <section className="grid gap-10 py-20 sm:py-24 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="letter-title">
       <div>
         <SectionLabel number="03" ko="운영진의 편지">A LETTER FROM US</SectionLabel>
         <h2 id="letter-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">왜 하루에,<br />한 사람일까요?</h2>
@@ -208,7 +208,7 @@ function FounderLetter() {
 
 function InitialOperation({ detailsTo = "#faq-early-benefit" }: { detailsTo?: string }) {
   return (
-    <section className="bleed relative isolate overflow-clip bg-accent py-14 text-accent-foreground sm:py-16" aria-labelledby="initial-title">
+    <section className="bleed relative isolate overflow-clip bg-accent py-16 text-accent-foreground sm:py-20" aria-labelledby="initial-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
       <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 text-[11px] font-semibold tracking-[0.15em] opacity-95 dark:opacity-100">FOR OUR FIRST MEMBERS</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">처음 함께하는 분들께,<br />한 달은 추가 소개비 없이.</h2><p className="mt-5 inline-block border border-current/30 px-3 py-1 text-xs">초기 신청 혜택 · 2026년 12월 31일 결제분까지</p></div><div className="space-y-4 text-sm leading-[1.95]"><p>기다림도 알아가는 과정의 일부라고 생각해요. 서비스 초기에는 소개비를 낸 날부터 30일 동안, 첫 교류를 시작하기 전까지 몇 번을 소개받아도 소개비가 다시 들지 않아요.</p><p className="opacity-95">30일이 지나거나 첫 교류가 시작되면, 먼저 오는 때에 혜택이 끝나요. 평생 무제한 소개는 아니에요.</p><p className="border-t border-current/20 pt-4 text-xs"><Link to={detailsTo} className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline">2027년부터의 기준까지 자세히 <ArrowRight size={13} /></Link></p></div></div>
     </section>
@@ -301,7 +301,7 @@ function TwoVoices() {
   );
   const voiceClass = (side: "left" | "right") => `${show(side) ? "" : "hidden md:block md:opacity-25"} transition-opacity duration-200 motion-reduce:transition-none`;
   return (
-    <section className="bleed bg-mist py-16 sm:py-24" aria-labelledby="story-title">
+    <section className="bleed bg-mist py-20 sm:py-24" aria-labelledby="story-title">
       <div className="mx-auto max-w-2xl text-center">
         <div className="flex justify-center"><SectionLabel number="04" ko="이야기">A STORY IN TWO VOICES</SectionLabel></div>
         <h2 id="story-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[38px]">한 사람을 알아가는 데 필요한,<br />사흘이라는 시간.</h2>
@@ -388,7 +388,7 @@ const FAQ = [
 
 function Pricing() {
   return (
-    <section id="pricing" className="bleed bg-mist py-16 sm:py-20" aria-labelledby="pricing-title">
+    <section id="pricing" className="bleed bg-mist py-20 sm:py-24" aria-labelledby="pricing-title">
       <SectionLabel number="06" ko="이용 요금">CLEAR FROM THE BEGINNING</SectionLabel>
       <div className="grid gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16"><div><h2 id="pricing-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">시작하기 전에,<br />분명하게 안내해요.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청·검토·첫 소개 준비 전 대기는 무료.<br />첫 소개 준비와 현재 참여 가능성 확인 후 안내해요.</p></div><div>
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-7"><div><p className="mb-3 text-xs text-muted-foreground">소개 이용료 · 1인</p><strong className="text-5xl font-semibold tabular-nums text-primary">{money(BEFORE_US.pricing.introduction)}</strong></div><p className="text-xs text-muted-foreground">부가세 포함 · 자동 갱신 없음</p></div>
@@ -411,7 +411,7 @@ function Faq() {
     return () => cancelAnimationFrame(frame);
   }, [location.hash, location.key]);
   return (
-    <section id="faq" className="grid gap-8 py-16 sm:py-20 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="faq-title">
+    <section id="faq" className="grid gap-8 pt-20 pb-14 sm:pt-24 sm:pb-18 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="faq-title">
       <div><SectionLabel number="07" ko="자주 묻는 질문">BEFORE YOU BEGIN</SectionLabel><h2 id="faq-title" className="text-ink text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청하기 전에 많이 묻는 것들을 모았어요.<br />더 궁금한 건 <Link to="/contact" className="text-foreground underline underline-offset-4 hover:text-primary">문의하기</Link>로 남겨 주세요.</p></div>
       <Accordion type="single" collapsible value={open} onValueChange={setOpen} className="border-t border-border [&_[data-slot=accordion-content]]:motion-reduce:animate-none [&_svg]:motion-reduce:transition-none">
         {FAQ.map(item => <AccordionItem key={item.id} value={item.id} id={`faq-${item.id}`}><AccordionTrigger className={`py-6 text-[15px] hover:no-underline hover:text-primary ${interaction}`}>{item.title}</AccordionTrigger><AccordionContent className="pb-6 text-sm leading-7 text-muted-foreground">{item.text}</AccordionContent></AccordionItem>)}
@@ -448,7 +448,7 @@ function Together() {
   const near = reduced ? 1 : progress;
   const offset = Math.round(64 * (1 - near));
   return (
-    <section ref={ref} className="bleed relative isolate overflow-clip bg-primary py-20 text-center text-primary-foreground" aria-labelledby="together-title">
+    <section ref={ref} className="bleed relative isolate overflow-clip bg-primary pt-14 pb-20 text-center text-primary-foreground sm:pt-18 sm:pb-24" aria-labelledby="together-title">
       <Texture />
       <div className="flex items-center justify-center py-6" aria-hidden="true">
         <span className="size-12 rounded-full bg-white sm:size-14" style={{ transform: `translateX(${-offset}px)` }} />

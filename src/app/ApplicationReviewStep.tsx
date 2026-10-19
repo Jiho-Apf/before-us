@@ -353,7 +353,7 @@ export default function ApplicationReviewStep({
                     {field.purpose}
                   </p>
                   {field.id === "consent.provision" && (
-                    <dl className="ml-7 mt-3 space-y-2 text-xs leading-6 text-muted-foreground">
+                    <dl className="ml-7 mt-3 grid gap-x-4 gap-y-2 rounded-xl bg-muted/40 p-4 text-xs leading-6 text-muted-foreground sm:grid-cols-[64px_1fr] [&>div]:contents">
                       <div>
                         <dt className="font-semibold text-foreground">
                           항목·목적

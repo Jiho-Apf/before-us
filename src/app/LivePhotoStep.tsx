@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertCircle, Loader2, Trash2, Upload } from "lucide-react";
 import { Button } from "./components/ui/button";
+import { NoteList } from "./editorial";
 import { Checkbox } from "./components/ui/checkbox";
 import { BEFORE_US } from "./config";
 import { PHOTO_SLOTS, type PhotoSlotId } from "./photo-model";
@@ -42,7 +43,7 @@ export default function LivePhotoStep({ rows, editable, onChanged, errors = {} }
   };
   return <section aria-labelledby="photos-title">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 id="photos-title" className="text-2xl font-semibold">현재의 나를 보여 주세요.</h3><p className="mt-4 text-sm leading-7">특별히 촬영한 사진일 필요는 없어요. 최근의 모습을 솔직하게 보여 주세요.</p></div><span className="rounded-full border border-border px-3 py-1.5 text-[11px] text-muted-foreground">필수 {required}/3 · 총 {rows.length}/4</span></div>
-    <div className="mt-5 space-y-2 rounded-xl bg-muted p-4 text-xs leading-7 text-muted-foreground"><p>필수 3장 + 선택 1장, 최대 4장. 최근 {BEFORE_US.operatingDraft.photos.recentMonths}개월 안에 찍은 서로 다른 사진을 올려 주세요.</p><p>JPG·PNG·WebP, 한 장에 10MB 이하. 짧은 변 {BEFORE_US.photoFiles.recommendedShortSide}px 이상을 권해요. HEIC는 아직 받을 수 없어요.</p><p className="font-medium text-accent">사진은 올리기 전에 이 기기에서 다시 저장해 촬영 위치 같은 정보를 지워요. 운영진과, 소개가 열린 동안의 상대만 볼 수 있어요.</p></div>
+    <NoteList className="mt-5" items={[{ title: "필수 3장 + 선택 1장", body: <>최근 {BEFORE_US.operatingDraft.photos.recentMonths}개월 안에 찍은 서로 다른 사진을 올려 주세요.</> }, { title: "파일 형식", body: <>JPG·PNG·WebP, 한 장에 10MB 이하. 짧은 변 {BEFORE_US.photoFiles.recommendedShortSide}px 이상을 권해요. HEIC는 아직 받을 수 없어요.</> }, { title: "위치정보는 지워요", body: <span className="font-medium text-accent">올리기 전에 이 기기에서 다시 저장해 촬영 위치 같은 정보를 지워요.</span> }, { title: "볼 수 있는 사람", body: "운영진과, 소개가 열린 동안의 상대만 볼 수 있어요." }]} />
     <div className="mt-7 grid gap-5 lg:grid-cols-2">{PHOTO_SLOTS.map(slot => { const row = bySlot[slot.id]; const state = confirm[slot.id] || { recent: false, rights: false }; const ready = state.recent && state.rights; const loading = busy === slot.id; return <article key={slot.id} className="flex flex-col border border-border bg-card" aria-labelledby={`${slot.id}-title`}>
       <div className="flex items-center justify-between gap-3 border-b border-border p-5"><div className="flex items-center gap-3"><span className="text-3xl font-light text-primary">0{slot.number}</span><div><h4 id={`${slot.id}-title`} className="text-sm font-semibold">{slot.label}</h4><p className="mt-1 text-xs text-muted-foreground">{slot.required ? "필수" : "선택 · 없어도 신청 가능"}{slot.number === 1 ? " · 대표 사진" : ""}</p></div></div><span className="text-xs font-medium text-accent">{row ? row.review === "대기" ? "검토 대기" : row.review : "미등록"}</span></div>
       <div className="p-5"><div className="relative mx-auto aspect-[4/5] max-w-52 overflow-hidden border border-border"><Thumbnail path={row?.path ?? null} number={slot.number} />{!row && <span className="absolute inset-x-0 bottom-0 bg-card/90 px-3 py-2 text-center text-xs text-muted-foreground">이런 구도면 좋아요</span>}</div><p className="mt-4 min-h-12 text-xs leading-6 text-muted-foreground">{slot.description}</p>
@@ -57,6 +58,6 @@ export default function LivePhotoStep({ rows, editable, onChanged, errors = {} }
         {errors[slot.id] && <p role="alert" className="mt-4 text-xs leading-6 text-destructive">{errors[slot.id]}</p>}
       </div>
     </article>; })}</div>
-    <div className="mt-7 space-y-3 border-t border-border pt-6 text-xs leading-7 text-muted-foreground"><p>AI로 만든 인물·다른 사람의 사진·과한 보정·단체 사진·알아볼 수 있는 다른 사람·주소나 연락처가 담긴 사진은 피해 주세요.</p><p>사진 확인은 외모나 인성을 평가하거나 안전을 인증하는 일이 아니에요. 필수 3장으로 신청할 수 있고, 운영진이 확인한 뒤 소개가 준비돼요.</p></div>
+    <NoteList className="mt-7" title="사진을 고르기 전에" items={[{ title: "피해 주세요", body: "AI로 만든 인물·다른 사람의 사진·과한 보정·단체 사진·알아볼 수 있는 다른 사람·주소나 연락처가 담긴 사진" }, { title: "사진 확인의 의미", body: "외모나 인성을 평가하거나 안전을 인증하는 일이 아니에요. 필수 3장으로 신청할 수 있고, 운영진이 확인한 뒤 소개가 준비돼요." }]} />
   </section>;
 }

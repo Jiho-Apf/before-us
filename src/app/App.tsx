@@ -183,7 +183,8 @@ function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
           </div>
           {!LIVE && <p className="border-t border-border bg-muted/40 px-5 py-2 text-center text-xs text-muted-foreground">데모 화면이에요. 실제 신청·결제·발송은 일어나지 않고, 새로고침하면 입력한 내용이 지워져요.</p>}
         </header>
-        <main id="main-content" className="mx-auto w-full max-w-[1120px] flex-1 px-5 py-10 sm:px-8 lg:px-10 lg:py-14"><PageTransition /></main>
+        {/* 회원 화면의 위아래 여백은 이 틀이 맡는다. 화면마다 덧붙인 첫·마지막 여백은 지워 높이를 맞춘다. */}
+        <main id="main-content" className="mx-auto w-full max-w-[1120px] flex-1 px-5 py-10 sm:px-8 lg:px-10 lg:py-14 [&>div>*:first-child]:!mt-0 [&>div>*:first-child]:!pt-0 [&>div>*:last-child]:!mb-0 [&>div>*:last-child]:!pb-0 [&>div>div:only-child>*:first-child]:!pt-0 [&>div>div:only-child>*:last-child]:!pb-0"><PageTransition /></main>
       </div>
       <nav aria-label="모바일 회원 메뉴" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
         {MEMBER_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={memberPath(to)} className={({ isActive }) => `flex min-h-14 flex-col items-center justify-center gap-1.5 rounded-lg text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}><Icon size={20} strokeWidth={1.6} />{label}</NavLink>)}

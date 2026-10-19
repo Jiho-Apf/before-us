@@ -107,7 +107,7 @@ function LegalPage({ kind }: { kind: "terms" | "privacy" }) {
   const summary = privacy ? PRIVACY_SUMMARY : TERMS_SUMMARY
   const articles = privacy ? PRIVACY : TERMS
   return (
-    <section className="mx-auto w-full max-w-3xl break-keep py-12 sm:py-16">
+    <section className="mx-auto w-full max-w-3xl break-keep py-16 sm:py-20">
       <PageHeader mark={privacy ? "개인정보" : "약관"} label={privacy ? "개인정보처리방침" : "이용약관"} en={privacy ? "PRIVACY" : "TERMS"} title={privacy ? "개인정보처리방침" : "이용약관"} lead="아래는 법률 검토 전 초안이에요. 정식 문서는 서비스를 열기 전에 검토를 마친 뒤 시행일과 함께 게시해요." />
       <h2 className="mt-10 text-sm font-semibold">한눈에 보기</h2>
       <ol className="mt-3 divide-y divide-border border-y border-border">
