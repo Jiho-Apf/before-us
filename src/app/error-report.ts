@@ -1,7 +1,10 @@
 // 오류 알림. 화면에서 난 오류를 한 곳으로 모아 보낸다.
 // VITE_ERROR_ENDPOINT(예: Sentry·Slack 웹훅을 받는 서버 함수 주소)가 설정되면 그곳으로 보내고, 없으면 콘솔에만 남긴다.
 // 개인정보를 보내지 않는다: 주소의 쿼리·해시, 입력값, 이메일·전화번호 모양의 문자열은 지운다.
-const ENDPOINT = import.meta.env.VITE_ERROR_ENDPOINT as string | undefined
+import { LIVE, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./backend/client"
+// 실제 서버 모드: 따로 주소가 없으면 서버의 report_client_error 로 모은다(운영진 대시보드에서 확인).
+const ENDPOINT = (import.meta.env.VITE_ERROR_ENDPOINT as string | undefined) || (LIVE ? `${SUPABASE_URL}/rest/v1/rpc/report_client_error` : undefined)
+const TO_SERVER = LIVE && !import.meta.env.VITE_ERROR_ENDPOINT
 const RELEASE = (import.meta.env.VITE_RELEASE as string | undefined) || "dev"
 const sent = new Set<string>()
 
@@ -27,6 +30,7 @@ export function reportError(error: unknown, context: string) {
   console.error("[before-us]", payload)
   if (!ENDPOINT) return
   try {
+    if (TO_SERVER) { void fetch(ENDPOINT, { method: "POST", body: JSON.stringify({ p_payload: payload }), keepalive: true, headers: { "Content-Type": "application/json", apikey: SUPABASE_PUBLISHABLE_KEY } }).catch(() => {}); return }
     const body = JSON.stringify(payload)
     if (!navigator.sendBeacon?.(ENDPOINT, new Blob([body], { type: "application/json" }))) void fetch(ENDPOINT, { method: "POST", body, keepalive: true, headers: { "Content-Type": "application/json" } })
   } catch { /* 알림 실패가 화면을 깨지 않도록 무시 */ }

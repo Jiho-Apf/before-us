@@ -27,7 +27,7 @@ export type MemberSnapshot = {
   application: { status: ApplicationStatus; decisionNote: string | null; submittedAt: string | null } | null
   introduction: LiveIntroduction
   notifications: LiveNotification[]
-  notices: { notice_daily_waiting: boolean; notice_new_introduction: boolean; marketing_opt_in: boolean } | null
+  notices: { notice_daily_waiting: boolean; notice_new_introduction: boolean; marketing_opt_in: boolean; notify_kakao: boolean; notify_sms: boolean; notify_email: boolean; status: "active" | "withdrawal_requested" | "suspended"; paused_at: string | null; suspended_reason: string | null } | null
   cohort: { number: number; startsOn: string; applicationDeadline: string } | null
 }
 
@@ -40,7 +40,7 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
       db.from("applications").select("status, decision_note, submitted_at").eq("member_id", auth.user.id).maybeSingle(),
       db.rpc("my_introduction"),
       db.from("notifications").select("id, kind, title, body, link, created_at, read_at").order("created_at", { ascending: false }).limit(10),
-      db.from("profiles").select("notice_daily_waiting, notice_new_introduction, marketing_opt_in").eq("id", auth.user.id).maybeSingle(),
+      db.from("profiles").select("notice_daily_waiting, notice_new_introduction, marketing_opt_in, notify_kakao, notify_sms, notify_email, status, paused_at, suspended_reason").eq("id", auth.user.id).maybeSingle(),
       db.rpc("my_cohort"),
     ])
     const failed = application.error || introduction.error || notifications.error || profile.error
@@ -81,7 +81,12 @@ export const reportPartner = (introduction: string, type: string, description: s
   rpc<string>("report_partner", { p_introduction: introduction, p_type: type, p_description: description, p_urgent: urgent })
 export const submitMemberRequest = (kind: string, description: string) => rpc<string>("submit_member_request", { p_kind: kind, p_description: description })
 
-export async function saveNoticeSettings(values: Partial<NonNullable<MemberSnapshot["notices"]>>) {
+// 새 소개 잠시 쉬기 · 다시 받기(진행 중인 소개는 그대로)
+export const setPaused = (paused: boolean) => rpc<{ paused: boolean }>("set_paused", { p_paused: paused })
+// 알림 받을 방법: 카카오톡·문자 중 1개 이상, 메일은 선택
+export const setNotifyChannels = (kakao: boolean, sms: boolean, email: boolean) => rpc<null>("set_notify_channels", { p_kakao: kakao, p_sms: sms, p_email: email })
+
+export async function saveNoticeSettings(values: Partial<Pick<NonNullable<MemberSnapshot["notices"]>, "notice_daily_waiting" | "notice_new_introduction" | "marketing_opt_in">>) {
   try {
     const db = await supabase()
     const { data: auth } = await db.auth.getUser()

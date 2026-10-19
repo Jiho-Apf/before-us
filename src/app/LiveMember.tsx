@@ -15,7 +15,7 @@ import { DECLINE_REASONS } from "./introduction-model";
 import { REQUEST_LABELS } from "./member-operations-model";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
 import { photoUrl } from "./backend/applications";
-import { blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, submitMemberRequest, useMemberSnapshot, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
+import { blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
 
 // 실제 서버 모드의 회원 화면(오늘 · 두 사람 · 내 정보 · 문의·요청). 데모 화면과 같은 편집 톤을 쓴다.
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -40,6 +40,7 @@ const dayBefore = (date: string) => new Date(Date.parse(`${date}T00:00:00Z`) - 8
 const noonOf = (date: string) => kstDay(`${date}T12:00:00+09:00`);
 function todayState(data: MemberSnapshot) {
   const application = data.application, intro = data.introduction, cohort = data.cohort;
+  if (data.notices?.status === "suspended") return { label: "이용 정지", title: "지금은 소개를 받을 수 없어요.", action: "문의·요청 남기기", to: "/support", body: `운영진 안내 · ${(data.notices.suspended_reason || "운영 정책에 따라 이용이 잠시 멈췄어요").replace(/[.。\s]+$/, "")}. 다르게 생각되면 문의·요청에서 ‘결정 재검토 요청’을 남겨 주세요.` };
   const waitingForStart = !!cohort && kstToday() < cohort.startsOn && intro.status === "waiting";
   if (intro.status !== "waiting" && (intro.status === "published" || intro.status === "mutual" || intro.status === "expired" || intro.closedAt && Date.now() - Date.parse(intro.closedAt) < 86400000)) {
     if (intro.status === "mutual") return { label: "서로 선택", title: "두 분 모두 알아가고 싶다고 답했어요.", action: "두 사람 화면 보기", to: "/us", body: "함께 시작하는 방법은 곧 이 화면에서 안내해 드릴게요. 그동안 상대 프로필은 두 사람 화면에서 다시 볼 수 있어요." };
@@ -50,6 +51,7 @@ function todayState(data: MemberSnapshot) {
   if (!application || application.status === "draft") return { label: "신청 전", title: "소개 신청을 마저 적어 주세요.", action: application ? "이어서 작성하기" : "소개 신청하기", to: "/apply", body: "나에 대해 · 사진 · 원하는 만남 · 공개 확인, 네 단계예요. 단계마다 저장돼요." };
   if (application.status === "needs_changes") return { label: "보완 요청", title: "신청서에 보완할 부분이 있어요.", action: "보완하기", to: "/apply", body: application.decisionNote || "운영진 안내를 확인해 주세요." };
   if (application.status === "submitted" || application.status === "reviewing") return { label: "검토 중", title: "신청서를 확인하고 있어요.", action: "신청서 보기", to: "/apply", body: `운영진이 사진과 내용을 확인하고 있어요. 검토가 끝나면 이 화면에서 알려 드릴게요.${cohort ? ` ${cohort.number}기 첫 소개는 ${noonOf(cohort.startsOn)} 정오예요.` : ""}` };
+  if (application.status === "approved" && data.notices?.paused_at) return { label: "잠시 쉬는 중", title: "새 소개를 잠시 쉬고 있어요.", action: "내 정보에서 다시 받기", to: "/profile", body: "쉬는 동안에는 새 소개를 준비하지 않아요. 다시 받기를 누르면 다음 정오부터 다시 준비해요." };
   if (application.status === "approved" && waitingForStart && cohort) return kstToday() === dayBefore(cohort.startsOn)
     ? { label: `${cohort.number}기 · 내일 시작`, title: "내일 정오에 첫 소개가 도착해요.", action: "내 정보 확인하기", to: "/profile", body: "잘 맞는 분을 준비해 두었어요. 내일 정오에 이 화면과 두 사람 화면에서 확인해 주세요." }
     : { label: `${cohort.number}기 · 시작 전`, title: `${cohort.number}기 첫 소개는 ${noonOf(cohort.startsOn)} 정오에 도착해요.`, action: "내 정보 확인하기", to: "/profile", body: "같은 기수의 분들과 함께 첫 소개를 받아요. 시작 전날 한 번 더 알려 드릴게요. 시작 전에는 소개비를 언제든 전액 환불받을 수 있어요." };
@@ -217,9 +219,16 @@ export function LiveProfilePage() {
 function LiveProfileView() {
   const { data, loading, reload } = useMemberSnapshot();
   const [message, setMessage] = useState("");
+  const [pauseMessage, setPauseMessage] = useState("");
+  const [pausing, setPausing] = useState(false);
   if (loading) return <Waiting />;
   const notices = data?.notices;
   const toggle = async (key: "notice_daily_waiting" | "marketing_opt_in", value: boolean) => { const result = await saveNoticeSettings({ [key]: value }); setMessage(result.error || "저장했어요."); await reload(); };
+  const channels = { kakao: !!notices?.notify_kakao, sms: !!notices?.notify_sms, email: !!notices?.notify_email };
+  const channelText = [channels.kakao && "카카오톡", channels.sms && "문자", channels.email && "메일"].filter(Boolean).join(" · ");
+  const setChannel = async (key: keyof typeof channels, value: boolean) => { const next = { ...channels, [key]: value }; const result = await setNotifyChannels(next.kakao, next.sms, next.email); setMessage(result.error || "알림 받을 방법을 바꿨어요."); await reload(); };
+  const paused = !!notices?.paused_at;
+  const togglePause = async () => { setPausing(true); const result = await setPaused(!paused); setPausing(false); setPauseMessage(result.error || (paused ? "다시 받기로 바꿨어요. 다음 정오부터 소개를 준비해요." : "새 소개를 잠시 쉬어요. 진행 중인 소개는 그대로 이어져요.")); await reload(); };
   return (
     <section className="space-y-10">
       <PageHeader mark="내 정보" label="계정과 신청" en="ABOUT ME" title="내 정보" lead="지금 어디쯤인지, 다음에 무엇을 하면 되는지 먼저 보여 드려요." />
@@ -230,14 +239,15 @@ function LiveProfileView() {
           {[
             { label: "신청 상태", value: data?.application ? ({ draft: "작성 중", submitted: "접수 완료", reviewing: "검토 중", needs_changes: "보완 요청", approved: "소개 준비", held: "보류", withdrawn: "철회", rejected: "소개 어려움" } as Record<string, string>)[data.application.status] : "신청 전", sub: data?.application?.submittedAt ? `${kstDay(data.application.submittedAt)} 접수` : "신청은 무료예요" },
             { label: "내 기수", value: data?.cohort ? `${data.cohort.number}기 · D-${Math.max(0, Math.round((Date.parse(`${data.cohort.startsOn}T12:00:00+09:00`) - Date.now()) / 86400000))}` : "신청 뒤 정해져요", sub: data?.cohort ? `${noonOf(data.cohort.startsOn)} 정오 첫 소개` : "매달 마지막 날 정오 시작" },
-            { label: "알림", value: notices?.notice_daily_waiting ? "소개 없는 날도 알림" : "새 소개만 알림", sub: "사이트 안 알림" },
+            { label: "알림", value: paused ? "새 소개 쉬는 중" : notices?.notice_daily_waiting ? "소개 없는 날도 알림" : "새 소개만 알림", sub: channelText ? `사이트 · ${channelText}` : "사이트 안 알림" },
           ].map(item => <div key={item.label} className="rounded-2xl bg-card/90 p-5 shadow-[0_18px_36px_-30px_color-mix(in_oklch,var(--primary)_60%,transparent)]"><p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{item.label}</p><p className="mt-2 text-lg font-semibold text-ink">{item.value}</p><p className="mt-1 text-xs text-muted-foreground">{item.sub}</p></div>)}
         </div>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">소개 신청서 고치기</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{!data?.application || data.application.status === "draft" ? "쓰던 곳부터 이어서 쓸 수 있어요." : data.application.status === "submitted" ? "검토 전이라 바로 고칠 수 있어요." : "고치면 운영진이 다시 확인해요. 그동안 새 소개 준비는 잠시 멈춰요."}</p><div className="mt-4 grid grid-cols-2 gap-2">{[["나에 대해", 0], ["사진", 1], ["원하는 만남", 2], ["공개·동의", 3]].map(([label, step]) => <Button key={label} asChild variant="outline" className={`h-auto justify-between rounded-xl border-border px-4 py-3 text-xs ${interaction}`}><Link to={`/apply?edit=1&step=${step}`}>{label} <ArrowUpRight size={13} /></Link></Button>)}</div></Sheet>
-        <Sheet className="p-6"><p className="text-xs font-semibold text-accent">알림 설정</p><div className="mt-4 space-y-3 text-sm"><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.notice_daily_waiting} onCheckedChange={value => void toggle("notice_daily_waiting", value === true)} />소개가 없는 날에도 정오에 알려 주세요. <span className="text-muted-foreground">(선택)</span></label><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.marketing_opt_in} onCheckedChange={value => void toggle("marketing_opt_in", value === true)} />새 소식과 혜택 안내를 받을게요. <span className="text-muted-foreground">(선택 · 광고성 정보)</span></label></div><p className="mt-4 text-[11px] leading-5 text-muted-foreground">새 소개 알림은 사이트 안에서 늘 보여 드려요. 카카오 알림톡은 정식 출시 때 연결돼요.</p>{message && <p role="status" className="mt-3 text-xs text-primary">{message}</p>}</Sheet>
+        <Sheet className="p-6"><p className="text-xs font-semibold text-accent">알림 설정</p><div className="mt-4 space-y-3 text-sm"><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.notice_daily_waiting} onCheckedChange={value => void toggle("notice_daily_waiting", value === true)} />소개가 없는 날에도 정오에 알려 주세요. <span className="text-muted-foreground">(선택)</span></label><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.marketing_opt_in} onCheckedChange={value => void toggle("marketing_opt_in", value === true)} />새 소식과 혜택 안내를 받을게요. <span className="text-muted-foreground">(선택 · 광고성 정보)</span></label></div><fieldset className="mt-5 border-t border-border pt-4"><legend className="sr-only">알림 받을 방법</legend><p className="text-xs font-semibold">알림 받을 방법 <span className="font-normal text-muted-foreground">· 카카오톡·문자 중 1개 이상</span></p><div className="mt-3 flex flex-wrap gap-2">{([["kakao", "카카오톡"], ["sms", "문자"], ["email", "메일"]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={channels[key]} onClick={() => void setChannel(key, !channels[key])} className={`rounded-full border px-4 py-2 text-xs ${interaction} ${channels[key] ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"}`}>{label}</button>)}</div></fieldset><p className="mt-4 text-[11px] leading-5 text-muted-foreground">새 소개 알림은 사이트 안에서 늘 보여 드리고, 메일을 고르면 가입한 주소로도 보내 드려요. 카카오톡·문자는 정식 운영부터 보내요.</p>{message && <p role="status" className="mt-3 text-xs text-primary">{message}</p>}</Sheet>
       </div>
+      {data?.application?.status === "approved" && notices?.status === "active" && <Sheet className="flex flex-wrap items-center justify-between gap-5 p-6"><div className="min-w-0 max-w-xl"><p className="text-xs font-semibold text-accent">새 소개 {paused ? "다시 받기" : "잠시 쉬기"}</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{paused ? `${kstDay(notices.paused_at!)}부터 쉬고 있어요. 다시 받기를 누르면 다음 정오부터 소개를 준비해요.` : "여행·바쁜 시기처럼 잠시 쉬고 싶을 때 눌러 주세요. 진행 중인 소개는 그대로 이어지고, 새 소개만 멈춰요."}</p>{pauseMessage && <p role="status" className="mt-2 text-xs text-primary">{pauseMessage}</p>}</div><Button variant={paused ? "default" : "outline"} disabled={pausing} onClick={() => void togglePause()} className="h-11 shrink-0 rounded-xl border-border px-5">{paused ? "다시 받기" : "잠시 쉬기"}</Button></Sheet>}
       <FirstWordCard />
       <AccountPanel />
     </section>
@@ -246,7 +256,8 @@ function LiveProfileView() {
 
 // ─────────────────────────────────────────────
 // 문의·요청: 개인정보 권리(정정·삭제·처리정지)와 일시정지 같은 요청
-const REQUEST_KINDS = ["pause", "resume", "correction", "deletion", "restriction", "reconsider", "refund"] as const;
+// 일시정지·다시 받기는 내 정보에서 바로 바꾼다.
+const REQUEST_KINDS = ["correction", "deletion", "restriction", "reconsider", "refund"] as const;
 const REQUEST_STATUS: Record<string, string> = { requested: "접수", protection: "보호 조치", checking: "확인 중", decided: "처리 완료", reconsidering: "다시 확인 중" };
 export function LiveSupportPage() {
   return <Member><LiveSupportView /></Member>;

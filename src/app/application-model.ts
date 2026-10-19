@@ -23,6 +23,7 @@ const APPLICATION_FIELD_SOURCE: readonly FieldDefinition[] = [
   { id: "self.name", label: "활동용 이름", step: 0, group: "core", format: "text", purpose: "소개에서 사용할 이름", required: true, scope: "partner", min: 2, max: 12, rule: "no-contact", placeholder: "가상 활동용 이름" },
   { id: "self.birthDate", label: "생년월일 · 가상 정보만", step: 0, group: "core", format: "date", purpose: "만 나이 계산 · 원값은 상대 비공개", required: true, scope: "private", rule: "adult-draft" },
   { id: "self.phone", label: "휴대폰 번호", step: 0, group: "core", format: "text", purpose: "운영진만 봐요 · 소개·만남 안내 연락과, 두 분이 동의한 만나는 날의 연락처 공개에만 써요", required: true, scope: "operator", max: 13, placeholder: "010-0000-0000" },
+  { id: "self.notifyChannels", label: "알림 받을 방법", step: 0, group: "core", format: "multi", purpose: "소개 도착·답 마감 같은 안내를 받을 곳 · 카카오톡이나 문자 중 1개 이상 필수, 메일은 선택", required: true, scope: "operator", limit: 3, options: ["카카오톡", "문자", "메일"] },
   { id: "self.gender", label: "본인 성별", step: 0, group: "core", format: "single", purpose: "본인이 직접 확인한 소개 정보", required: true, scope: "operator", options: ["여성", "남성", "직접 확인이 필요해요"] },
   { id: "desired.gender", label: "소개받을 상대", step: 0, alsoOn: 2, group: "core", format: "single", purpose: "본인이 확인한 상대 조건 · 나의 성별과 별도 저장", required: true, scope: "operator", options: ["여성", "남성", "선호 없음", "직접 확인이 필요해요"] },
   { id: "self.province", label: "주 활동 지역 · 시·도", step: 0, group: "core", format: "single", purpose: "내 주 활동 지역 · 상대 선호/만남 가능 지역과 별도", required: true, scope: "partner", options: ["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"] },
@@ -110,6 +111,7 @@ function rawFieldError(field: FieldDefinition, value: AnswerValue | undefined, t
   if (field.format === "boolean") return value === true ? null : "직접 확인해 주세요.";
   if (field.format === "multi") {
     if (!Array.isArray(value) || new Set(value).size !== value.length || value.some(option => !field.options?.includes(option))) return "선택지를 확인해 주세요.";
+    if (field.id === "self.notifyChannels" && !value.some(item => item === "카카오톡" || item === "문자")) return "카카오톡이나 문자 중 하나는 꼭 골라 주세요.";
     return value.length > (field.limit || Infinity) ? `최대 ${field.limit}개까지 선택할 수 있어요.` : null;
   }
   if (typeof value !== "string") return "입력 형식을 확인해 주세요.";

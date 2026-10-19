@@ -34,3 +34,6 @@ verify_enabled = true
 
 [functions.storage-cleanup]
 verify_jwt = false
+
+[functions.send-notifications]
+verify_jwt = false

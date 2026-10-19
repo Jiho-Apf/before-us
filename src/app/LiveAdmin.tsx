@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
-import { Bell, CalendarRange, ClipboardList, FileClock, LayoutDashboard, ListChecks, LogOut, Settings2, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Bell, Bug, CalendarRange, ClipboardList, FileClock, LayoutDashboard, ListChecks, LogOut, Settings2, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
@@ -21,6 +21,7 @@ const NAV = [
   { path: "/admin", label: "대시보드", icon: LayoutDashboard },
   { path: "/admin/cohorts", label: "기수", icon: CalendarRange },
   { path: "/admin/applicants", label: "신청자", icon: ClipboardList },
+  { path: "/admin/members", label: "회원", icon: Users },
   { path: "/admin/introductions", label: "소개·매칭", icon: ListChecks },
   { path: "/admin/safety", label: "신고·문의", icon: ShieldAlert },
   { path: "/admin/audit", label: "감사로그", icon: FileClock },
@@ -142,7 +143,7 @@ function AdminShell({ role }: { role: Role }) {
 // 대시보드: 오늘 처리할 일
 export function LiveAdminHome() {
   const { data, error } = useLoad(async () => {
-    const [applications, ready, intros, reports, inquiries, requests, jobs] = await Promise.all([
+    const [applications, ready, intros, reports, inquiries, requests, jobs, errors] = await Promise.all([
       call<{ status: string }[]>("admin_list_applications"),
       call<unknown[]>("admin_ready_members").catch(() => []),
       call<{ status: string; reveal_at: string }[]>("admin_list_introductions"),
@@ -150,8 +151,9 @@ export function LiveAdminHome() {
       table<{ status: string }>("inquiries", query => query.select("status").neq("status", "answered")),
       table<{ status: string }>("member_requests", query => query.select("status").neq("status", "decided")),
       table<{ job: string; started_at: string; ok: boolean | null; detail: Record<string, unknown> | null }>("job_runs", query => query.select("job, started_at, ok, detail").order("started_at", { ascending: false }).limit(6)),
+      table<{ id: number; at: string; context: string | null; message: string | null; path: string | null }>("client_errors", query => query.select("id, at, context, message, path").gt("at", new Date(Date.now() - 7 * 86400000).toISOString()).order("id", { ascending: false }).limit(20)).catch(() => []),
     ]);
-    return { applications, ready, intros, reports, inquiries, requests, jobs };
+    return { applications, ready, intros, reports, inquiries, requests, jobs, errors };
   });
   if (error) return <Notice text={error} />;
   if (!data) return <p className="text-sm text-muted-foreground">불러오고 있어요.</p>;
@@ -171,6 +173,7 @@ export function LiveAdminHome() {
     {urgent > 0 && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-semibold text-destructive">긴급 신고 {urgent}건 · 먼저 확인해 주세요.</p>}
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{tiles.map(([label, count, to]) => <Link key={label} to={to} className={`${box} p-5 transition-colors hover:border-primary/40`}><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-3xl font-light tabular-nums text-primary">{count}</p></Link>)}</div>
     <section className={`${box} mt-6 p-5`}><h2 className="flex items-center gap-2 text-sm font-semibold"><Bell size={15} className="text-accent" />예약 작업 기록</h2>{data.jobs.length ? <ul className="mt-3 divide-y divide-border text-xs">{data.jobs.map((job, index) => <li key={index} className="flex flex-wrap justify-between gap-2 py-2"><span>{({ noon: "정오 공개", deadlines: "응답 마감", retention: "보존 기간 정리" } as Record<string, string>)[job.job] ?? job.job} · {job.ok === false ? <span className="font-semibold text-destructive">실패</span> : "완료"}</span><span className="text-muted-foreground">{kstDateTime(job.started_at)} · {JSON.stringify(job.detail ?? {})}</span></li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">아직 실행 기록이 없어요. 정오 작업은 매일 12:00에 돌아요.</p>}</section>
+    <section className={`${box} mt-6 p-5`}><h2 className="flex items-center gap-2 text-sm font-semibold"><Bug size={15} className="text-accent" />화면 오류 · 최근 7일 {data.errors.length ? `${data.errors.length}건` : ""}</h2>{data.errors.length ? <ul className="mt-3 divide-y divide-border text-xs">{data.errors.map(item => <li key={item.id} className="py-2 leading-5"><span className="text-muted-foreground">{kstDateTime(item.at)} · {item.path ?? "-"} · {item.context ?? "-"}</span><br />{item.message}</li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">회원 화면에서 난 오류가 없어요. 오류가 나면 이메일·전화번호를 지운 채로 여기에 모여요.</p>}</section>
   </>;
 }
 
@@ -375,6 +378,42 @@ function RequestsPanel() {
   const [message, setMessage] = useState("");
   const decide = async (id: string, status: string) => { const { error } = await rpc("admin_decide_request", { p_id: id, p_status: status, p_decision: decisions[id] || null }); setMessage(error || "기록했어요."); await list.reload(); };
   return <div className="space-y-3"><Notice text={message || list.error || ""} />{(list.data ?? []).map(request => <article key={request.id} className={`${box} p-4 text-sm`}><p className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{REQUEST_LABELS[request.kind] ?? request.kind}</span><span className="text-xs text-muted-foreground">{REQUEST_STATUS[request.status]} · {kstDateTime(request.created_at)}</span></p>{request.description && <p className="mt-2 whitespace-pre-wrap text-xs leading-6">{request.description}</p>}{request.decision && <p className="mt-2 text-xs text-muted-foreground">회원에게 보인 답변 · {request.decision}</p>}{request.status !== "decided" && <div className="mt-3 flex flex-wrap items-center gap-2"><Input aria-label="회원에게 보일 답변" value={decisions[request.id] ?? ""} onChange={event => setDecisions(current => ({ ...current, [request.id]: event.target.value }))} placeholder="회원에게 보일 답변" className="h-8 max-w-sm text-xs" />{["checking", "protection", "decided"].map(status => <Button key={status} size="sm" variant="outline" className="h-8 text-xs" onClick={() => void decide(request.id, status)}>{REQUEST_STATUS[status]}</Button>)}</div>}</article>)}{!list.loading && !list.data?.length && <p className="text-sm text-muted-foreground">회원 요청이 없어요.</p>}</div>;
+}
+
+// ─────────────────────────────────────────────
+// 회원: 찾기 · 상태(일시정지·이용 정지) · 연락처(운영진만)
+type MemberRow = { id: string; email: string; status: "active" | "withdrawal_requested" | "suspended"; pausedAt: string | null; suspendedReason: string | null; createdAt: string; name: string | null; phone: string | null; gender: string | null; age: number | null; area: string | null; application: string | null; cohort: number | null; channels: { kakao: boolean; sms: boolean; email: boolean }; introductions: number; reports: number };
+const MEMBER_STATE: Record<MemberRow["status"], string> = { active: "이용 중", withdrawal_requested: "탈퇴 요청", suspended: "이용 정지" };
+export function LiveMembers() {
+  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
+  const list = useLoad(() => call<MemberRow[]>("admin_list_members", { p_query: search || null }), [search]);
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState("");
+  const change = async (member: MemberRow, state: "pause" | "resume" | "suspend" | "unsuspend") => {
+    if (state === "suspend" && !window.confirm(`${member.name ?? member.email} 님을 이용 정지할까요? 진행 중인 소개는 바로 끝나요.`)) return;
+    const { error } = await rpc("admin_set_member_state", { p_member: member.id, p_state: state, p_reason: reasons[member.id] || null });
+    setMessage(error || "바꿨어요. 감사 기록에 남았어요.");
+    await list.reload();
+  };
+  const submit = (event: FormEvent) => { event.preventDefault(); setSearch(query.trim()); };
+  return <>
+    <Title lead="이름·이메일·휴대폰 번호로 찾아요. 휴대폰 번호는 운영진만 보고, 연락이 꼭 필요할 때만 써 주세요.">회원</Title>
+    <form onSubmit={submit} className="mb-5 flex flex-wrap gap-2"><Input aria-label="회원 찾기" value={query} onChange={event => setQuery(event.target.value)} placeholder="이름 · 이메일 · 번호 일부" className="max-w-xs" /><Button type="submit">찾기</Button>{search && <Button type="button" variant="ghost" onClick={() => { setQuery(""); setSearch(""); }}>모두 보기</Button>}</form>
+    <Notice text={message || list.error || ""} />
+    <div className="mt-3 space-y-3">{(list.data ?? []).map(member => <article key={member.id} className={`${box} p-4 text-sm`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0"><p className="font-semibold">{member.name ?? "이름 없음"} <span className="font-normal text-muted-foreground">· {[member.gender, member.age !== null ? `만 ${member.age}세` : null, member.area].filter(Boolean).join(" · ")}</span></p><p className="mt-1 text-xs text-muted-foreground">{member.email} · {member.phone ?? "번호 없음"} · 가입 {kstDay(member.createdAt)}</p></div>
+        <p className="flex flex-wrap gap-1.5 text-[11px]"><span className={`rounded-full px-2.5 py-1 ${member.status === "suspended" ? "bg-destructive/10 text-destructive" : "bg-muted"}`}>{MEMBER_STATE[member.status]}</span>{member.pausedAt && <span className="rounded-full bg-lilac px-2.5 py-1">쉬는 중</span>}<span className="rounded-full bg-muted px-2.5 py-1">{member.application ? STATUS_LABEL[member.application] ?? member.application : "신청 전"}{member.cohort ? ` · ${member.cohort}기` : ""}</span></p>
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">알림 {[member.channels.kakao && "카카오톡", member.channels.sms && "문자", member.channels.email && "메일"].filter(Boolean).join("·") || "미선택"} · 소개 {member.introductions}회 · 받은 신고 {member.reports}건{member.suspendedReason ? ` · 정지 사유: ${member.suspendedReason}` : ""}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {member.status === "active" && (member.pausedAt ? <Button size="sm" variant="outline" onClick={() => void change(member, "resume")}>다시 받기로</Button> : <Button size="sm" variant="outline" onClick={() => void change(member, "pause")}>일시정지</Button>)}
+        {member.status === "active" && <><Input aria-label="이용 정지 사유" value={reasons[member.id] ?? ""} onChange={event => setReasons(current => ({ ...current, [member.id]: event.target.value }))} placeholder="정지 사유(회원에게 보여요)" className="h-8 max-w-xs text-xs" /><Button size="sm" variant="ghost" className="text-destructive" disabled={!(reasons[member.id] ?? "").trim()} onClick={() => void change(member, "suspend")}>이용 정지</Button></>}
+        {member.status === "suspended" && <Button size="sm" variant="outline" onClick={() => void change(member, "unsuspend")}>정지 풀기</Button>}
+      </div>
+    </article>)}{list.data && !list.data.length && <p className="text-sm text-muted-foreground">찾는 회원이 없어요.</p>}</div>
+  </>;
 }
 
 // ─────────────────────────────────────────────
