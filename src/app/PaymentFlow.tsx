@@ -213,7 +213,7 @@ export function PaymentFlow({
             새 소개를 보장하지 않아요.
           </li>
           <li>
-            {PLAN_NOTICE.early} {PLAN_NOTICE.standard} {PLAN_NOTICE.carryOver} 평생 재소개나 모든 데이트·프로그램 제공이 아니에요.
+            {PLAN_NOTICE.standard} {PLAN_NOTICE.bonus} {PLAN_NOTICE.carryOver} 평생 재소개나 모든 데이트·프로그램 제공이 아니에요.
           </li>
           <li>
             상호 선택 뒤 새 소개는 잠시 멈춰요. 상호 선택·결제·A/B 합의만으로

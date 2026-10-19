@@ -55,6 +55,7 @@ const LiveIntroductions = later(() => import("./LiveAdmin"), "LiveIntroductions"
 const LiveSafety = later(() => import("./LiveAdmin"), "LiveSafety");
 const LiveAudit = later(() => import("./LiveAdmin"), "LiveAudit");
 const LiveSettings = later(() => import("./LiveAdmin"), "LiveSettings");
+const LiveCohorts = later(() => import("./LiveAdmin"), "LiveCohorts");
 
 function RouteFallback() {
   return <div role="status" aria-live="polite" className="flex flex-1 items-center justify-center py-24"><span className="sr-only">화면을 불러오는 중</span><span aria-hidden="true" className="flex gap-1.5"><span className="size-2 animate-pulse rounded-full bg-primary" /><span className="size-2 animate-pulse rounded-full bg-accent [animation-delay:150ms]" /></span></div>;
@@ -231,6 +232,7 @@ const page = (element: React.ReactNode) => <Suspense fallback={<RouteFallback />
 // 실제 서버 모드의 운영진 화면: 로그인 + 운영진 역할 + 2단계 인증을 거친다.
 const liveAdmin = { path: "/admin", errorElement: <RouteError />, element: page(<LiveAdminLayout />), children: [
   { index: true, element: page(<LiveAdminHome />) },
+  { path: "cohorts", element: page(<LiveCohorts />) },
   { path: "applicants", element: page(<LiveApplicants />) },
   { path: "introductions", element: page(<LiveIntroductions />) },
   { path: "safety", element: page(<LiveSafety />) },

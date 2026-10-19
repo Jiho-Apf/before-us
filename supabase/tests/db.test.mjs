@@ -149,6 +149,36 @@ for (const m of [A, B, C]) {
 eq("소개 가능한 회원 3명", (await q("select * from public.admin_ready_members()")).length, 3)
 
 // ── 정오 소개
+// ── 기수제
+await as(A)
+eq("제출하면 1기에 배정된다", (await one("select public.my_cohort() c")).c.number, 1)
+await as("anon")
+eq("공개 기수 정보에는 번호와 날짜만 있다", Object.keys((await one("select public.public_cohort() c")).c).sort(), ["applicationDeadline", "number", "startsOn"])
+await fails("비회원은 모집 현황을 볼 수 없다", "select public.admin_cohort_overview()")
+await as(A)
+await fails("회원은 모집 현황을 볼 수 없다", "select public.admin_cohort_overview()", [], /운영진/)
+await as(O, "aal2")
+const overview = (await one("select public.admin_cohort_overview() o")).o
+eq("운영진은 성별 인원을 본다", [overview[0].counts["여성"]?.total, overview[0].counts["남성"]?.total], [1, 2])
+const early = (await one("select (public.kst_today() + 1)::text d")).d
+await fails("기수 시작일 전에는 소개를 예약할 수 없다", "select public.admin_reserve_introduction($1, $2, $3::date, '두 분 모두 천천히 알아가는 연애를 원하셨어요.')", [A, B, early], /기수 시작일/)
+await q("select public.admin_update_cohort(1, '2026-12-31', '2026-12-27', 1, 1, '{}')")
+await as("postgres")
+const F = await signup("f@example.test")
+await as(F); await q("select public.save_application_draft($1)", [draft("나래", "여성", "남성", "1997-02-02")]); await photos(F, 50); await q("select public.submit_application()")
+eq("성별 최대 인원이 차면 다음 기수로 배정된다", (await one("select public.my_cohort() c")).c.number, 2)
+await as(O, "aal2")
+await q("select public.admin_update_cohort(1, '2026-12-31', '2026-12-27', 10, 50, '{}')")
+const nextCohort = (await one("select public.admin_create_next_cohort() n")).n
+await as("postgres")
+eq("다음 기수는 매달 마지막 날 규칙으로 만든다", (await one("select starts_on::text s, application_deadline::text d from public.cohorts where number = $1", [nextCohort])), { s: "2027-02-28", d: "2027-02-24" })
+await as(O, "aal2")
+await q("select public.admin_move_member_cohort($1, 1)", [F])
+// 이후 소개 점검을 위해 1기를 이미 시작한 것으로 둔다
+await as("postgres")
+await q("update public.cohorts set starts_on = public.kst_today() - 1, application_deadline = public.kst_today() - 2 where number = 1")
+await as(O, "aal2")
+
 const tomorrow = (await one("select (public.kst_today() + 1)::text d")).d
 const intro1 = (await one("select public.admin_reserve_introduction($1, $2, $3::date, '두 분 모두 천천히 알아가는 연애를 원하셨어요.') id", [A, B, tomorrow])).id
 await fails("같은 사람을 겹쳐 예약할 수 없다", "select public.admin_reserve_introduction($1, $2, $3::date, '다른 소개 이유를 적어 봅니다.')", [A, C, tomorrow], /진행 중|예약된/)
@@ -211,6 +241,7 @@ await as(D); await q("select public.save_application_draft($1)", [draft("서연"
 await as(O, "aal2")
 for (const slot of ["photo.face", "photo.upper", "photo.style"]) await q("select public.admin_review_photo($1, $2, '기준 확인')", [D, slot])
 await q("select public.admin_decide_application($1, 'approved')", [D])
+await q("select public.admin_move_member_cohort($1, 1)", [D])
 const intro3 = (await one("select public.admin_reserve_introduction($1, $2, $3::date, '두 분 모두 음악을 좋아하셨어요.') id", [D, B, tomorrow2])).id
 await as("postgres")
 await q("update public.introductions set status = 'published', published_at = now() - interval '1 day', reveal_at = now() - interval '1 day', respond_by = now() - interval '1 minute', view_until = now() - interval '1 minute' where id = $1", [intro3])

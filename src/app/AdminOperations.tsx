@@ -611,7 +611,7 @@ export function AdminOperations({
                           : `${row.introductionCount}회`}
                       </td>
                       <td className="px-3 py-4">
-                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] ${row.benefit.key === "early" ? "border-accent/40 bg-accent/10 text-accent" : row.benefit.key === "standard" ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>{row.benefit.label}</span>
+                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] ${row.benefit.key === "bonus" ? "border-accent/40 bg-accent/10 text-accent" : row.benefit.key === "standard" ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>{row.benefit.label}</span>
                         <span className="mt-1 block text-[11px] text-muted-foreground">{row.benefit.detail}</span>
                       </td>
                       <td className="px-3 py-4">{time(row.lastReviewedAt)}</td>
@@ -621,7 +621,7 @@ export function AdminOperations({
               ))}
             </Table>
             <p className="mt-4 text-xs leading-6 text-muted-foreground">
-              2026. 12. 31.까지 소개비를 낸 초기 신청은 결제일부터 30일 동안, 첫 교류 실제 시작 전까지 소개 횟수 제한이 없습니다. 이후 결제분은 최대 5번입니다.
+              소개비 한 번에 최대 5번입니다. 2026. 12. 31.까지 소개비를 낸 계정은 5번 동안 교류를 시작하지 못하면 한 번 더 5번을 추가 비용 없이 받습니다(계정당 한 번 · 2027. 12. 31.까지).
               누적 소개는 본인 이력이며 상대 프로필 재열람 목록이 아닙니다.
             </p>
           </section>
@@ -1015,7 +1015,7 @@ export function AdminMemberHistory({ memberId }: { memberId: string }) {
       </div>
       <p className="mb-5 text-xs leading-6 text-muted-foreground">
         본인 이력 요약입니다. 과거 상대의 전체 프로필 재열람 목록은 제공하지
-        않습니다. 혜택 기간·횟수 안에서는 추가 과금이 없습니다(초기 혜택 30일 · 기본 최대 5번).
+        않습니다. 횟수 안에서는 추가 과금이 없습니다(기본 최대 5번 · 대상자는 한 번 더 5번).
       </p>
       <label
         htmlFor={`operator-note-${memberId}`}
@@ -1077,18 +1077,18 @@ export function AdminMemberHistory({ memberId }: { memberId: string }) {
 
 function BenefitSummary({ data, now, active, onPick }: { data: ConsoleData; now: Date; active: string; onPick: (value: string) => void }) {
   const rows = applicantRows(data, now)
-  const keys: BenefitKey[] = ["early", "early-ended", "standard", "standard-ended", "started", "none"]
-  const soon = rows.filter((row) => row.benefit.key === "early" && row.benefit.endsAt && Date.parse(row.benefit.endsAt) - now.getTime() < 7 * 86400000).length
+  const keys: BenefitKey[] = ["standard", "bonus", "standard-ended", "started", "none"]
+  const soon = rows.filter((row) => row.benefit.key === "bonus").length
   return (
     <section className="rounded-lg border border-border bg-card p-5" aria-labelledby="benefit-summary-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="benefit-summary-title" className="text-sm font-semibold">소개 혜택 구분</h2>
-          <p className="mt-1 text-xs text-muted-foreground">2026. 12. 31.까지 결제분은 30일 초기 혜택, 이후는 기본 소개 5번. 숫자를 누르면 아래 목록이 걸러져요.</p>
+          <p className="mt-1 text-xs text-muted-foreground">기본 소개 5번, 2026. 12. 31.까지 결제한 계정은 한 번 더 5번. 숫자를 누르면 아래 목록이 걸러져요.</p>
         </div>
-        {soon > 0 && <p className="text-xs font-medium text-accent">7일 안에 초기 혜택이 끝나는 회원 {soon}명</p>}
+        {soon > 0 && <p className="text-xs font-medium text-accent">한 번 더, 5번을 받는 회원 {soon}명</p>}
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {keys.map((key) => {
           const count = rows.filter((row) => row.benefit.key === key).length
           return (

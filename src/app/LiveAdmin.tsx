@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
-import { Bell, ClipboardList, FileClock, LayoutDashboard, ListChecks, LogOut, Settings2, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Bell, CalendarRange, ClipboardList, FileClock, LayoutDashboard, ListChecks, LogOut, Settings2, ShieldAlert, ShieldCheck } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
@@ -19,6 +19,7 @@ type Role = "owner" | "operator" | "counselor" | "finance";
 const ROLE_LABEL: Record<Role, string> = { owner: "대표", operator: "운영", counselor: "상담", finance: "정산" };
 const NAV = [
   { path: "/admin", label: "대시보드", icon: LayoutDashboard },
+  { path: "/admin/cohorts", label: "기수", icon: CalendarRange },
   { path: "/admin/applicants", label: "신청자", icon: ClipboardList },
   { path: "/admin/introductions", label: "소개·매칭", icon: ListChecks },
   { path: "/admin/safety", label: "신고·문의", icon: ShieldAlert },
@@ -174,8 +175,62 @@ export function LiveAdminHome() {
 }
 
 // ─────────────────────────────────────────────
+// 기수: 모집 현황(운영진만) · 날짜와 인원 조정 · 성별 마감 · 다음 기수 만들기
+type GenderStats = { total: number; approved: number; reviewing: number; needsChanges: number; held: number };
+type Cohort = { number: number; startsOn: string; applicationDeadline: string; minPerGender: number; maxPerGender: number; closedGenders: string[]; note: string | null; counts: Record<string, GenderStats>; ages: Record<string, number>; regions: Record<string, number> };
+const GENDERS = ["여성", "남성"] as const;
+const todayKst = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+
+function GenderBar({ label, stats, min, max, closed, onToggle }: { label: string; stats?: GenderStats; min: number; max: number; closed: boolean; onToggle: () => void }) {
+  const total = stats?.total ?? 0, approved = stats?.approved ?? 0;
+  const width = (value: number) => `${Math.min(100, (value / max) * 100)}%`;
+  return <div className="space-y-2">
+    <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm"><span className="font-semibold">{label} <span className="ml-1 text-2xl font-light tabular-nums text-primary">{total}</span><span className="text-xs text-muted-foreground"> / {max}명</span></span><span className="text-xs text-muted-foreground">승인 {approved} · 검토 {stats?.reviewing ?? 0} · 보완 {stats?.needsChanges ?? 0}{stats?.held ? ` · 보류 ${stats.held}` : ""} · 최소 {min}명{total >= min ? " 충족" : `까지 ${min - total}명 남음`}</span></div>
+    <div className="relative h-2.5 overflow-hidden rounded-full bg-muted" aria-hidden="true"><span className="absolute inset-y-0 left-0 rounded-full bg-primary/25" style={{ width: width(total) }} /><span className="absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: width(approved) }} /><span className="absolute inset-y-0 w-0.5 bg-accent" style={{ left: width(min) }} /></div>
+    <label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={closed} onChange={onToggle} />{label} 신청 마감(이후 신청은 다음 기수로)</label>
+  </div>;
+}
+
+function CohortCard({ cohort, onSaved }: { cohort: Cohort; onSaved: () => Promise<void> }) {
+  const [form, setForm] = useState({ startsOn: cohort.startsOn, deadline: cohort.applicationDeadline, min: cohort.minPerGender, max: cohort.maxPerGender, note: cohort.note ?? "" });
+  const [closed, setClosed] = useState<string[]>(cohort.closedGenders);
+  const [message, setMessage] = useState("");
+  const today = todayKst();
+  const phase = today > cohort.startsOn ? "진행 중" : today > cohort.applicationDeadline ? "마감 · 첫날 짝 준비" : "모집 중";
+  const save = async (nextClosed = closed) => { const { error } = await rpc("admin_update_cohort", { p_number: cohort.number, p_starts_on: form.startsOn, p_deadline: form.deadline, p_min: Number(form.min), p_max: Number(form.max), p_closed: nextClosed, p_note: form.note }); setMessage(error || "저장했어요. 공개 화면의 날짜도 함께 바뀌어요."); if (!error) await onSaved(); };
+  const toggle = (gender: string) => { const next = closed.includes(gender) ? closed.filter(item => item !== gender) : [...closed, gender]; setClosed(next); void save(next); };
+  const chips = (record: Record<string, number>) => Object.entries(record).sort((a, b) => b[1] - a[1]).map(([key, value]) => <span key={key} className="rounded-full bg-muted px-2.5 py-1 text-[11px]">{key} {value}</span>);
+  return <section className={`${box} space-y-5 p-5`} aria-label={`${cohort.number}기`}>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs text-muted-foreground">{phase}</p><h2 className="mt-1 text-xl font-semibold">{cohort.number}기 · {kstDay(cohort.startsOn)} 정오 시작</h2><p className="mt-1 text-xs text-muted-foreground">신청 마감 {kstDay(cohort.applicationDeadline)}{cohort.note ? ` · ${cohort.note}` : ""}</p></div></div>
+    <div className="grid gap-5 md:grid-cols-2">{GENDERS.map(gender => <GenderBar key={gender} label={gender} stats={cohort.counts[gender]} min={cohort.minPerGender} max={cohort.maxPerGender} closed={closed.includes(gender)} onToggle={() => toggle(gender)} />)}</div>
+    {cohort.counts["직접 확인이 필요해요"] && <p className="text-xs text-accent">성별 직접 확인이 필요한 신청 {cohort.counts["직접 확인이 필요해요"].total}건</p>}
+    {(Object.keys(cohort.ages).length > 0 || Object.keys(cohort.regions).length > 0) && <div className="space-y-2 text-xs"><div className="flex flex-wrap items-center gap-1.5"><span className="mr-1 text-muted-foreground">나이대</span>{chips(cohort.ages)}</div><div className="flex flex-wrap items-center gap-1.5"><span className="mr-1 text-muted-foreground">지역</span>{chips(cohort.regions)}</div></div>}
+    <details className="border-t border-border pt-4"><summary className="cursor-pointer text-xs font-semibold">날짜·인원 바꾸기</summary><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <label className="text-xs">시작일(정오)<Input type="date" value={form.startsOn} onChange={event => setForm({ ...form, startsOn: event.target.value })} className="mt-1" /></label>
+      <label className="text-xs">신청 마감<Input type="date" value={form.deadline} onChange={event => setForm({ ...form, deadline: event.target.value })} className="mt-1" /></label>
+      <label className="text-xs">최소(성별)<Input type="number" min={0} value={form.min} onChange={event => setForm({ ...form, min: Number(event.target.value) })} className="mt-1" /></label>
+      <label className="text-xs">최대(성별)<Input type="number" min={1} value={form.max} onChange={event => setForm({ ...form, max: Number(event.target.value) })} className="mt-1" /></label>
+      <label className="text-xs">메모(운영진만)<Input value={form.note} maxLength={80} onChange={event => setForm({ ...form, note: event.target.value })} className="mt-1" /></label>
+    </div><Button size="sm" className="mt-3" onClick={() => void save()}>저장</Button></details>
+    <Notice text={message} />
+  </section>;
+}
+
+export function LiveCohorts() {
+  const list = useLoad(() => call<Cohort[]>("admin_cohort_overview"), []);
+  const [message, setMessage] = useState("");
+  const addNext = async () => { const { data, error } = await rpc<number>("admin_create_next_cohort"); setMessage(error || `${data}기를 만들었어요(매달 마지막 날 규칙).`); await list.reload(); };
+  return <>
+    <Title lead="모인 인원은 이 화면에서만 보여요. 공개 화면에는 기수 번호와 첫 소개 날짜만 나가요. 성별 최대 인원이 차거나 마감하면, 이후 신청은 다음 기수로 들어가요.">기수</Title>
+    {list.error && <Notice text={list.error} />}
+    <div className="space-y-5">{(list.data ?? []).map(cohort => <CohortCard key={`${cohort.number}-${cohort.startsOn}-${cohort.maxPerGender}`} cohort={cohort} onSaved={list.reload} />)}</div>
+    <div className="mt-5 flex flex-wrap items-center gap-3"><Button variant="outline" onClick={() => void addNext()}>다음 기수 만들기</Button><Notice text={message} /></div>
+  </>;
+}
+
+// ─────────────────────────────────────────────
 // 신청자: 목록 → 열람(감사 기록) → 사진 확인 → 결정
-type ApplicationRow = { member_id: string; status: string; submitted_at: string | null; name: string | null; gender: string | null; desired: string | null; province: string | null; area: string | null; age: number | null; source: string | null; photo_count: number; photo_requests: number };
+type ApplicationRow = { member_id: string; status: string; submitted_at: string | null; name: string | null; gender: string | null; desired: string | null; province: string | null; area: string | null; age: number | null; source: string | null; photo_count: number; photo_requests: number; cohort: number | null };
 type ApplicationDetail = { memberId: string; status: string; profileVersion: number; submittedAt: string | null; decisionNote: string | null; draft: { values: Record<string, unknown>; sharing: Record<string, boolean>; preferences?: unknown }; photos: { slot: string; path: string; review: string; reason: string | null; width: number; height: number }[] };
 const show = (value: unknown) => Array.isArray(value) ? value.join(" · ") : typeof value === "boolean" ? value ? "예" : "아니요" : String(value ?? "");
 
@@ -189,7 +244,7 @@ export function LiveApplicants() {
     <div className="mb-4 flex gap-2">{(["open", "all"] as const).map(value => <Button key={value} size="sm" variant={filter === value ? "default" : "outline"} onClick={() => setFilter(value)}>{value === "open" ? "검토할 신청서" : "전체"}</Button>)}</div>
     {list.error && <Notice text={list.error} />}
     <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-      <div className={`${box} divide-y divide-border`}>{rows.length ? rows.map(row => <button key={row.member_id} type="button" onClick={() => setSelected(row.member_id)} className={`block w-full px-4 py-3 text-left text-sm ${selected === row.member_id ? "bg-primary/5" : "hover:bg-secondary"}`}><span className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold">{row.name || "이름 미입력"} <span className="font-normal text-muted-foreground">· {row.gender} · {row.age ?? "?"}세 · {row.province} {row.area}</span></span><span className="text-xs text-primary">{STATUS_LABEL[row.status]}</span></span><span className="mt-1 block text-xs text-muted-foreground">사진 {row.photo_count}/4{row.photo_requests ? ` · 재등록 요청 ${row.photo_requests}` : ""} · 접수 {row.submitted_at ? kstDateTime(row.submitted_at) : "—"}{row.source ? ` · 유입 ${row.source}` : ""}</span></button>) : <p className="p-5 text-sm text-muted-foreground">{list.loading ? "불러오고 있어요." : "해당하는 신청서가 없어요."}</p>}</div>
+      <div className={`${box} divide-y divide-border`}>{rows.length ? rows.map(row => <button key={row.member_id} type="button" onClick={() => setSelected(row.member_id)} className={`block w-full px-4 py-3 text-left text-sm ${selected === row.member_id ? "bg-primary/5" : "hover:bg-secondary"}`}><span className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold">{row.name || "이름 미입력"} <span className="font-normal text-muted-foreground">· {row.gender} · {row.age ?? "?"}세 · {row.province} {row.area}</span></span><span className="text-xs text-primary">{STATUS_LABEL[row.status]}</span></span><span className="mt-1 block text-xs text-muted-foreground">{row.cohort ? `${row.cohort}기 · ` : ""}사진 {row.photo_count}/4{row.photo_requests ? ` · 재등록 요청 ${row.photo_requests}` : ""} · 접수 {row.submitted_at ? kstDateTime(row.submitted_at) : "—"}{row.source ? ` · 유입 ${row.source}` : ""}</span></button>) : <p className="p-5 text-sm text-muted-foreground">{list.loading ? "불러오고 있어요." : "해당하는 신청서가 없어요."}</p>}</div>
       {selected ? <ApplicantDetail key={selected} memberId={selected} onChanged={list.reload} /> : <p className={`${box} p-5 text-sm text-muted-foreground`}>왼쪽에서 신청서를 골라 주세요.</p>}
     </div>
   </>;

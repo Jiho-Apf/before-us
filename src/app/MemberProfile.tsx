@@ -318,10 +318,10 @@ export default function MemberProfile() {
             {plan.label} · {payment.introduction?.confirmedAt ? "결제 기준" : "지금 결제하면"} / {payment.policy.version}
           </p>
           <h2 className="max-w-xl text-2xl font-semibold leading-[1.5] sm:text-[28px]">
-            {plan.kind === "early" ? <>첫 교류 시작 전,<br />소개 횟수 제한 없음</> : <>소개비 한 번에,<br />최대 {plan.introductions}번 소개</>}
+            <>소개비 한 번에,<br />최대 {plan.introductions}번 소개</>
           </h2>
           <p className="max-w-xl text-sm leading-7 text-muted-foreground">
-            {plan.kind === "early" ? `서비스 초기 혜택이에요. ${plan.summary.split(" · ")[0]}, 첫 A/B가 실제 시작되기 전까지 적용되고 먼저 오는 때에 끝나요.` : `하루 최대 한 명, 최대 ${plan.introductions}번이에요. 소개가 없는 날은 횟수에서 빼지 않아요.`} 매일 새 소개는 보장하지 않아요. 평생 재소개·실제
+            {`하루 최대 한 명, 최대 ${plan.introductions}번이에요. 소개가 없는 날은 횟수에서 빼지 않아요.${plan.bonus.eligible ? ` 5번 동안 교류를 시작하지 못하면 한 번 더 ${plan.bonus.introductions}번을 추가 비용 없이 받아요.` : ""}`} 매일 새 소개는 보장하지 않아요. 평생 재소개·실제
             만남·연애 보장은 아니에요.
           </p>
           <div className="flex items-center gap-3 border-t border-border pt-4 text-sm font-medium"><TwoDots />

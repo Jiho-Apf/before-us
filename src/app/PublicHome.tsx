@@ -7,6 +7,9 @@ import { Textarea } from "./components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./components/ui/accordion";
 import { BEFORE_US } from "./config";
 import { LIVE } from "./backend/client";
+import { useRecruitingCohort } from "./cohort";
+import { PLAN_NOTICE } from "./introduction-plan";
+import { kstDay } from "./dates";
 import DirectIntroduction from "./DirectIntroduction";
 import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
@@ -206,11 +209,13 @@ function FounderLetter() {
   );
 }
 
-function InitialOperation({ detailsTo = "#faq-early-benefit" }: { detailsTo?: string }) {
+// 기수 안내 띠(V6-cohort-01). 모인 인원은 보여 주지 않고, 첫 소개 날짜와 신청 마감만 알려 준다.
+function InitialOperation({ detailsTo = "#faq-cohort" }: { detailsTo?: string }) {
+  const cohort = useRecruitingCohort();
   return (
     <section className="bleed relative isolate overflow-clip bg-accent py-16 text-accent-foreground sm:py-20" aria-labelledby="initial-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
-      <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 text-[11px] font-semibold tracking-[0.15em] opacity-95 dark:opacity-100">FOR OUR FIRST MEMBERS</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">처음 함께하는 분들께,<br />한 달은 추가 소개비 없이.</h2><p className="mt-5 inline-block border border-current/30 px-3 py-1 text-xs">초기 신청 혜택 · 2026년 12월 31일 결제분까지</p></div><div className="space-y-4 text-sm leading-[1.95]"><p>기다림도 알아가는 과정의 일부라고 생각해요. 서비스 초기에는 소개비를 낸 날부터 30일 동안, 첫 교류를 시작하기 전까지 몇 번을 소개받아도 소개비가 다시 들지 않아요.</p><p className="opacity-95">30일이 지나거나 첫 교류가 시작되면, 먼저 오는 때에 혜택이 끝나요. 평생 무제한 소개는 아니에요.</p><p className="border-t border-current/20 pt-4 text-xs"><Link to={detailsTo} className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline">2027년부터의 기준까지 자세히 <ArrowRight size={13} /></Link></p></div></div>
+      <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 text-[11px] font-semibold tracking-[0.15em] opacity-95 dark:opacity-100">COHORT {String(cohort.number).padStart(2, "0")} · TOGETHER AT NOON</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">{cohort.number}기 첫 소개는,<br />{kstDay(cohort.startsOn).replace(/ \(.\)$/, "")} 정오에.</h2><p className="mt-5 inline-block border border-current/30 px-3 py-1 text-xs">신청 마감 · {kstDay(cohort.applicationDeadline)}</p></div><div className="space-y-4 text-sm leading-[1.95]"><p>처음에는 한 달 단위 기수제로 시작해요. 같은 기수의 분들이 모이면, 시작하는 날 정오에 함께 첫 소개를 받아요. 첫 소개 날짜를 미리 알려 드려서 오래 기다리지 않아요.</p><p className="opacity-95"><strong className="font-semibold">한 번 더, 5번</strong> · 2026년 12월 31일까지 소개비를 낸 분이 5번의 소개 동안 교류를 시작하지 못했다면, 한 번 더 5번을 추가 비용 없이 소개해 드려요. 계정마다 한 번이에요.</p><p className="border-t border-current/20 pt-4 text-xs"><Link to={detailsTo} className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline">기수제와 ‘한 번 더, 5번’ 자세히 <ArrowRight size={13} /></Link></p></div></div>
     </section>
   );
 }
@@ -373,11 +378,12 @@ const PROMISES = [
   "소개는 준비된 날 정오 12시에, 하루 최대 한 명이에요. 매일 새 소개를 보장하지는 않아요.",
   "후보와 참여 시점이 맞기까지 기다림이 생길 수 있어요. 기다리는 동안에는 비용이 들지 않아요.",
   "3일 교류는 상호 선택, 양쪽 결제, 같은 방식과 시작일 합의 뒤에 시작돼요. 만남을 강요하지 않아요.",
-  "소개 횟수 기준은 결제 시점에 따라 달라요. 평생 무제한 소개나 연애 성공을 약속하지는 않아요.",
+  "소개비 한 번에 최대 5번 소개받아요. 평생 무제한 소개나 연애 성공을 약속하지는 않아요.",
 ]
 const FAQ = [
-  { id: "early-benefit", title: "‘소개 횟수 제한 없음’은 언제까지인가요?", text: "서비스 초기 혜택이에요. 2026년 12월 31일까지 소개비 10,000원을 결제한 분에게만 적용되고, 결제일부터 30일 동안 첫 교류가 시작되기 전까지 소개 횟수 제한이 없어요. 30일이 지나거나 첫 교류가 실제 시작되면 먼저 오는 때에 끝나요. 끝나는 순간 진행 중인 소개나 서로 선택한 교류는 그대로 이어가고, 이후 새 소개를 원하면 소개비를 다시 결제해요. 2027년 1월 1일부터는 소개비 10,000원으로 하루 최대 1명, 최대 5번 소개받아요(소개가 없는 날은 횟수에서 빼지 않아요). 하루 최대 한 명이며 매일 소개를 보장하지는 않아요." },
-  { id: "waiting", title: "후보를 기다리는 동안은 어떻게 되나요?", text: "신청·검토·첫 소개 준비 전 대기는 무료예요. 첫 소개를 제공할 준비와 현재 참여 가능성을 확인한 뒤 소개 이용료를 안내해요. 준비된 날 정오 12시에 하루 최대 한 명을 소개하며, 매일 새 소개를 보장하지 않아요. 활성 소개는 회원당 한 건이고, 상호 선택 뒤에는 새 소개를 멈춰요." },
+  { id: "cohort", title: "기수제는 어떻게 운영되나요?", text: "처음에는 한 달 단위 기수제로 운영해요. 기수마다 신청을 받아, 시작하는 날 정오에 함께 첫 소개를 받아요. 1기는 2026년 12월 31일 정오에 시작하고 신청은 12월 27일까지 받아요. 이후 기수는 매달 마지막 날 시작하고, 신청은 시작 4일 전까지예요. 마감 뒤에 신청하면 다음 기수로 이어지고, 내 기수와 첫 소개 날짜는 오늘 화면에서 볼 수 있어요. 기수가 끝나도 남은 소개는 다음 기수 기간에 이어서 받아요. 회원이 많이 모이면 상시 운영으로 바꿀 수 있어요." },
+  { id: "bonus", title: "‘한 번 더, 5번’은 무엇인가요?", text: `${PLAN_NOTICE.bonus} 기본 5번 동안 서로 선택이 없었거나, 서로 선택했지만 교류가 시작되지 않은 경우가 해당돼요. 한 번이라도 교류를 시작했다면 해당하지 않아요. 하루 최대 한 명이며, 매일 소개를 보장하지는 않아요.` },
+  { id: "waiting", title: "후보를 기다리는 동안은 어떻게 되나요?", text: "신청·검토·기수 시작 전 대기는 무료예요. 기수가 시작되기 전에 소개 이용료를 안내하고, 시작 전에는 언제든 전액 환불해요. 준비된 날 정오 12시에 하루 최대 한 명을 소개하며, 매일 새 소개를 보장하지 않아요. 활성 소개는 회원당 한 건이고, 상호 선택 뒤에는 새 소개를 멈춰요." },
   { id: "three-days", title: "3일 동안 꼭 무언가를 해야 하나요?", text: "3일은 상호 선택·양쪽 결제·같은 방식과 시작일 합의 뒤 교류를 시작한 기간이며, 소개 대기 기간은 별도예요. 그 안에 친밀함·연애를 완성하거나 만남을 강제하지 않아요. 4일째에 두 분이 각자 만남 의사를 선택하고, 양쪽 모두 희망할 때만 시간과 장소를 조율해요." },
   { id: "not-started", title: "상호 선택 후 교류가 시작되지 못하면요?", text: "상호 선택 후 기본 결제 기한은 24시간이에요. 한쪽만 결제하고 상대가 결제하지 않으면, 낸 사람의 교류비는 전액 환불되고 소개 권리도 돌아와요. 양쪽 결제 뒤 A/B·시작일 합의는 기본 48시간, 양쪽 동의 시 24시간 한 번 연장할 수 있어요. 끝내 교류가 시작되지 않으면 교류비는 전액 환불되고 소개 권리는 그대로 남아요." },
   { id: "cancellation", title: "신청이나 교류를 취소할 수 있나요?", text: "결제 후 첫 상대 프로필을 실제로 열람하기 전 취소는 소개비 전액 환불이에요. 교류비는 아직 열리지 않은 날만큼 돌려드려요. 요청을 받으면 운영진이 확인한 뒤 환불을 진행해요." },
@@ -471,7 +477,7 @@ function Together() {
 export function PublicInformation({ section }: { section: "introduction" | "exchange" | "pricing" | "faq" }) {
   usePageWidth();
   const title = { introduction: "진행 방식", exchange: "두 가지 시작", pricing: "이용 요금", faq: "자주 묻는 질문" }[section];
-  return <div className="break-keep [overflow-wrap:anywhere]"><h1 className="sr-only">{title}</h1>{section === "introduction" && <><Introduction /><FounderLetter /><InitialOperation detailsTo="/faq#faq-early-benefit" /></>}{section === "exchange" && <><TwoVoices /><Exchange /></>}{section === "pricing" && <><Pricing /><Faq /></>}{section === "faq" && <Faq />}</div>;
+  return <div className="break-keep [overflow-wrap:anywhere]"><h1 className="sr-only">{title}</h1>{section === "introduction" && <><Introduction /><FounderLetter /><InitialOperation detailsTo="/faq#faq-cohort" /></>}{section === "exchange" && <><TwoVoices /><Exchange /></>}{section === "pricing" && <><Pricing /><Faq /></>}{section === "faq" && <Faq />}</div>;
 }
 
 export default function PublicHome() {

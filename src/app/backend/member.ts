@@ -28,6 +28,7 @@ export type MemberSnapshot = {
   introduction: LiveIntroduction
   notifications: LiveNotification[]
   notices: { notice_daily_waiting: boolean; notice_new_introduction: boolean; marketing_opt_in: boolean } | null
+  cohort: { number: number; startsOn: string; applicationDeadline: string } | null
 }
 
 export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | null; error: string | null }> {
@@ -35,11 +36,12 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
     const db = await supabase()
     const { data: auth } = await db.auth.getUser()
     if (!auth.user) return { data: null, error: "로그인이 필요해요." }
-    const [application, introduction, notifications, profile] = await Promise.all([
+    const [application, introduction, notifications, profile, cohort] = await Promise.all([
       db.from("applications").select("status, decision_note, submitted_at").eq("member_id", auth.user.id).maybeSingle(),
       db.rpc("my_introduction"),
       db.from("notifications").select("id, kind, title, body, link, created_at, read_at").order("created_at", { ascending: false }).limit(10),
       db.from("profiles").select("notice_daily_waiting, notice_new_introduction, marketing_opt_in").eq("id", auth.user.id).maybeSingle(),
+      db.rpc("my_cohort"),
     ])
     const failed = application.error || introduction.error || notifications.error || profile.error
     if (failed) return { data: null, error: friendlyError(failed) }
@@ -49,6 +51,7 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
         introduction: (introduction.data ?? { status: "waiting" }) as LiveIntroduction,
         notifications: (notifications.data ?? []) as LiveNotification[],
         notices: profile.data ?? null,
+        cohort: (cohort.data as MemberSnapshot["cohort"]) ?? null,
       },
       error: null,
     }

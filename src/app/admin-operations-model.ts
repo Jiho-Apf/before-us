@@ -1,4 +1,4 @@
-import { benefitIssue, planFor } from "./introduction-plan"
+import { benefitIssue, introductionLimit, planFor } from "./introduction-plan"
 import { accountAge } from "./application-model"
 import { operatorApplicationOriginal } from "./application-review"
 import { PHOTO_SLOTS } from "./photo-model"
@@ -84,13 +84,12 @@ export const MEMBER_STATES = [
   { id: "blocked", label: "차단" },
   { id: "withdrawal-requested", label: "탈퇴 요청" },
 ] as const
-// 소개비 혜택 구분 (V6-intro-plan-01). 환불되지 않은 가장 최근 소개비 결제를 기준으로 본다.
-export type BenefitKey = "early" | "early-ended" | "standard" | "standard-ended" | "started" | "none"
+// 소개비 혜택 구분 (V6-intro-plan-02). 환불되지 않은 가장 최근 소개비 결제를 기준으로 본다.
+export type BenefitKey = "standard" | "bonus" | "standard-ended" | "started" | "none"
 export const BENEFIT_LABELS: Record<BenefitKey, string> = {
-  early: "초기 혜택 중",
-  "early-ended": "초기 혜택 종료",
   standard: "기본 소개 중",
-  "standard-ended": "기본 소개 소진",
+  bonus: "한 번 더, 5번 진행 중",
+  "standard-ended": "소개 소진",
   started: "첫 교류 시작 · 혜택 종료",
   none: "소개비 미결제",
 }
@@ -103,12 +102,11 @@ export function introductionBenefit(data: ConsoleData, memberId: string, now = n
   const started = data.admin.members.find((member) => member.id === memberId)?.rights === "first-program-started"
   const received = data.events.filter((event) => event.stage === "introduction" && event.memberIds.includes(memberId) && Date.parse(event.at) >= Date.parse(payment.paidAt)).length
   const ended = benefitIssue(payment.paidAt, received, started, now)
-  const key: BenefitKey = started ? "started" : plan.kind === "early" ? (ended ? "early-ended" : "early") : ended ? "standard-ended" : "standard"
-  const daysLeft = plan.endsAt ? Math.ceil((Date.parse(plan.endsAt) - now.getTime()) / 86400000) : null
-  const detail = key === "early" ? `${plan.endsAt!.slice(0, 10).split("-").join(". ")}까지 · D-${daysLeft}`
-    : key === "early-ended" ? `${plan.endsAt!.slice(0, 10).split("-").join(". ")} 종료 · 재결제 필요`
-    : key === "standard" ? `${received}/${plan.introductions}번 받음`
-    : key === "standard-ended" ? `${plan.introductions}번 모두 받음 · 재결제 필요`
+  const limit = introductionLimit(payment.paidAt, now)
+  const key: BenefitKey = started ? "started" : ended ? "standard-ended" : received >= plan.introductions ? "bonus" : "standard"
+  const detail = key === "bonus" ? `${received - plan.introductions}/${plan.bonus.introductions}번 받음 · 추가 비용 없음`
+    : key === "standard" ? `${received}/${plan.introductions}번 받음${plan.bonus.eligible ? " · 한 번 더 대상" : ""}`
+    : key === "standard-ended" ? `${limit}번 모두 받음 · 재결제 필요`
     : "이번 소개비 혜택 끝"
   return { key, label: BENEFIT_LABELS[key], detail, paidAt: payment.paidAt, endsAt: plan.endsAt }
 }

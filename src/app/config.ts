@@ -7,7 +7,9 @@ export const BEFORE_US = {
   capabilities: { collection: false, payments: false, sending: false, autoDeploy: false },
   pricing: { currency: "KRW", introduction: 10000, exchangePerPerson: 29000, firstExchangeTotalPerPerson: 39000, vatIncluded: true, recurring: false, extraIntroductionFeeBeforeFirstStart: 0 },
   introduction: { timezone: "Asia/Seoul", readyAt: "12:00", responseDeadlineNextDayAt: "11:00", dailyMaximum: 1, activeMaximum: 1, guaranteedDaily: false, stopNewOnMutualSelection: true, countLimitBeforeFirstStart: null, rightsEndAt: "actual-program-start" },
-  introductionPlans: { version: "V6-intro-plan-01", early: { label: "초기 신청 혜택", applyBy: "2026-12-31", validDays: 30, endsOnFirstStart: true }, standard: { label: "기본 소개", introductions: 5, dailyMaximum: 1, endsOnFirstStart: true } },
+  introductionPlans: { version: "V6-intro-plan-02", standard: { label: "기본 소개", introductions: 5, dailyMaximum: 1, endsOnFirstStart: true }, bonus: { label: "한 번 더, 5번", introductions: 5, paidBy: "2026-12-31", usableUntil: "2027-12-31", oncePerAccount: true } },
+  // 기수제(V6-cohort-01): 매달 마지막 날 정오에 시작, 신청 마감은 시작 4일 전. 인원은 관리자만 본다. 실제 서버 모드에서는 서버의 기수 표가 기준이다.
+  cohorts: { version: "V6-cohort-01", cadence: "monthly-last-day", deadlineDaysBefore: 4, minimumPerGender: 10, maximumPerGender: 50, first: { number: 1, opensOn: "2026-12-11", startsOn: "2026-12-31", applicationDeadline: "2026-12-27" } },
   exchange: { plans: ["A", "B"], durationDays: 3, meetingDecisionDay: 4, requiresBothPayments: true, requiresSharedPlanAndStartDate: true },
   unstartedExchange: { preserveIntroductionRights: true, manageExchangePaymentSeparately: true },
   refund: { version: "V6-refund-01", introductionBeforeView: 10000, exchangeDayPrice: 10000, paymentHours: 24, agreementHours: 48, extensionHours: 24, extensionMaximum: 1, activeWaitingDays: 30 },
