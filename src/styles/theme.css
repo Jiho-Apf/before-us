@@ -224,3 +224,18 @@
   .dot-meet-left { animation: none; transform: translateX(-9px); }
   .dot-meet-right { animation: none; transform: translateX(9px); }
 }
+
+/* 신청 완료 화면의 빛·물결·빛줄기·선 */
+@keyframes complete-glow { 0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.9; } 50% { transform: translate(24px, 14px) scale(1.08); opacity: 1; } }
+.complete-glow { animation: complete-glow 12s ease-in-out infinite; }
+.complete-glow-late { animation-duration: 15s; animation-delay: -6s; }
+@keyframes complete-ripple { 0% { transform: scale(0.4); opacity: 0; } 30% { opacity: 0.8; } 100% { transform: scale(2.6); opacity: 0; } }
+.complete-ripple { opacity: 0; animation: complete-ripple 1.8s ease-out 1.6s 2 both; }
+@keyframes complete-shine { from { transform: translateX(0); } to { transform: translateX(420%); } }
+.complete-shine { animation: complete-shine 1.6s ease-in-out 1.4s both; }
+@keyframes complete-line { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.complete-line { animation: complete-line 1.2s cubic-bezier(0.22, 0.61, 0.36, 1) 0.9s both; }
+@media (prefers-reduced-motion: reduce) {
+  .complete-glow, .complete-ripple, .complete-shine { animation: none; }
+  .complete-line { animation: none; transform: none; }
+}

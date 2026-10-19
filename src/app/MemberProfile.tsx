@@ -1,7 +1,8 @@
 import { AccountPanel } from "./AuthPages"
-import { kstDateTime } from "./dates"
+import { kstDateTime, kstDay } from "./dates"
 import { benefitIssue, planFor, planIfPaidNow } from "./introduction-plan"
-import { Eyebrow, PageHeader, Sheet, TwoDots } from "./editorial"
+import { Eyebrow, Fold, GroupTitle, PageHeader, Sheet, TwoDots } from "./editorial"
+import { recruitingCohort } from "./cohort"
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import {
@@ -301,18 +302,114 @@ export default function MemberProfile() {
   }
   const plan = payment.introduction?.confirmedAt ? planFor(new Date(payment.introduction.confirmedAt)) : planIfPaidNow(new Date())
   const benefitEnded = benefitIssue(payment.introduction?.confirmedAt, 0, rights === "first-program-started" || !!service.startedAt, new Date())
+  const cohort = recruitingCohort()
+  const daysToStart = Math.max(0, Math.round((Date.parse(`${cohort.startsOn}T12:00:00+09:00`) - Date.now()) / 86400000))
+  const name = typeof application?.values["self.name"] === "string" ? application.values["self.name"] : ""
+  const submission = application?.review.submission
+  const statusLabel = service.connected ? "교류 진행 중" : submission === "received" ? "신청 접수 완료" : submission === "held" ? "신청 보류" : submission === "withdrawn" ? "신청 철회" : application ? "신청서 작성 중" : "신청 전"
+  const received = account?.history.length ?? 0
+  const activity = account?.payment.activity === "paused" ? "일시정지 중" : account?.payment.activity === "withdrawal-requested" ? "탈퇴 요청 접수" : "새 소개 받는 중"
+  const next = !application ? { text: "소개 신청서를 적어 주세요. 네 단계, 단계마다 저장돼요.", to: "/apply", label: "신청서 쓰기" } : submission === "received" ? { text: `운영진이 신청서를 확인하고 있어요. ${cohort.number}기 첫 소개 전날 한 번 더 알려 드릴게요.`, to: "/today", label: "오늘 화면 보기" } : { text: "신청서를 마저 적어 주세요. 쓰던 곳부터 이어서 쓸 수 있어요.", to: "/apply", label: "이어서 쓰기" }
+  const NAV = [["profile-apply", "신청과 진행"], ["profile-intro", "소개와 결제"], ["profile-notice", "알림과 연락"], ["profile-safety", "안전"], ["profile-data", "내 정보 관리"]] as const
   return (
-    <section className="space-y-9 pb-8">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-7">
+    <section className="space-y-12 pb-8">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <Eyebrow mark="내 정보" label="나의 기록" en="MY, BEFORE US" />
-          <h1 className="mt-5 text-3xl font-semibold leading-[1.4] sm:text-[34px]">내 정보</h1>
-          <p className="mt-3 text-sm text-muted-foreground">
-            내가 알려 준 정보와, 지금의 참여 상태를 살펴보세요.
-          </p>
+          <h1 className="mt-5 text-3xl font-semibold leading-[1.4] sm:text-[34px]">{name ? `${name} 님의 자리` : "내 정보"}</h1>
+          <p className="mt-3 text-sm text-muted-foreground">지금 어디쯤인지, 다음에 무엇을 하면 되는지 먼저 보여 드려요.</p>
         </div>
       </header>
-      <div className="grid gap-6 lg:grid-cols-3">
+
+      {/* 한눈에 보는 요약 */}
+      <div className="relative overflow-hidden rounded-3xl border border-lilac bg-mist p-6 sm:p-8">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--primary)_18%,transparent),transparent)]" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 left-1/3 size-72 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--accent)_14%,transparent),transparent)]" />
+        <div className="relative grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: "신청 상태", value: statusLabel, sub: application ? `프로필 v${application.review.profileVersion}` : "신청은 무료예요" },
+            { label: "내 기수", value: `${cohort.number}기 · D-${daysToStart}`, sub: `${kstDay(cohort.startsOn)} 정오 첫 소개` },
+            { label: "받은 소개", value: `${received} / ${plan.introductions}번`, sub: plan.bonus.eligible ? "한 번 더, 5번 대상" : "하루 최대 한 명" },
+            { label: "새 소개", value: activity, sub: "언제든 멈추고 다시 시작해요" },
+          ].map((item) => (
+            <div key={item.label} className="rounded-2xl bg-card/90 p-5 shadow-[0_18px_36px_-30px_color-mix(in_oklch,var(--primary)_60%,transparent)] backdrop-blur">
+              <p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{item.label}</p>
+              <p className="mt-2 text-lg font-semibold text-ink">{item.value}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{item.sub}</p>
+            </div>
+          ))}
+        </div>
+        <div className="relative mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-card/70 px-5 py-4">
+          <p className="flex items-center gap-3 text-sm"><TwoDots /><span><span className="font-semibold text-primary">다음 할 일</span> · {next.text}</span></p>
+          <Button asChild className="h-10 rounded-full px-5"><Link to={next.to}>{next.label} <ArrowUpRight size={15} /></Link></Button>
+        </div>
+      </div>
+
+      {/* 바로 가기 */}
+      <nav aria-label="내 정보 바로 가기" className="-mt-4 flex flex-wrap gap-2">
+        {NAV.map(([id, label]) => <a key={id} href={`#${id}`} onClick={(event) => { event.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }) }} className="rounded-full border border-border bg-card px-4 py-2 text-xs transition-colors hover:border-primary/40 hover:text-primary">{label}</a>)}
+      </nav>
+
+      {/* 01 신청과 진행 */}
+      <section id="profile-apply" className="scroll-mt-24 space-y-6">
+        <GroupTitle number="01" title="신청과 진행" en="APPLICATION" lead="지금 단계와 신청서를 고치는 곳이에요." />
+        {!service.connected && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <WaitingJourney application={application} />
+          <div className="space-y-6">
+            <IdentityPanel />
+            <ProfileCoaching application={application} />
+          </div>
+        </div>
+      )}
+        <div className="rounded-2xl bg-mist p-5 sm:p-6">
+          <div className="mb-4 flex items-center gap-2"><Pencil className="size-4 text-primary" /><h3 className="text-base font-semibold">소개 정보 수정</h3></div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { title: "프로필", step: 0, caption: "나에 대한 정보·자기진술" },
+            { title: "사진", step: 1, caption: "문제 사진만 수정·재검토" },
+            { title: "비공개 선호", step: 2, caption: "다음 소개에 반영" },
+            {
+              title: "공개 범위·동의",
+              step: 3,
+              caption: "상대 제공 항목을 따로 확인",
+            },
+          ].map((item) => (
+            <Button
+              key={item.step}
+              asChild
+              variant="outline"
+              className="h-auto justify-between whitespace-normal p-5"
+            >
+              <Link to={`/apply?step=${item.step}`}>
+                <span className="text-left">
+                  <span className="block text-sm">{item.title}</span>
+                  <span className="mt-2 block text-xs font-normal text-muted-foreground">
+                    {item.caption}
+                  </span>
+                </span>
+                <ArrowUpRight className="size-4 shrink-0" />
+              </Link>
+            </Button>
+          ))}
+        </div>
+        <p className="text-xs leading-6 text-muted-foreground">
+          기존 STEP 01~04로 이동해 수정해요. 핵심 프로필·사진은 새 버전으로
+          재검토하며 승인 사진을 조용히 교체하지 않아요. 비공개 선호 변경은
+          현재 교류를 자동 종료하지 않아요.
+          {service.connected
+            ? " 이 편집기는 별도의 가상 신청 원본이며 교류 데모 계정 정보로 자동 가져오지 않아요."
+            : application
+              ? ` 현재 저장 원본: 프로필 v${application.review.profileVersion} · 선호 v${application.review.preferenceVersion} · 신청 ${application.review.submission}`
+              : " 아직 저장된 신청 원본이 없어요."}
+        </p>
+        </div>
+      </section>
+
+      {/* 02 소개와 결제 */}
+      <section id="profile-intro" className="scroll-mt-24 space-y-6">
+        <GroupTitle number="02" title="소개와 결제" en="INTRODUCTIONS" lead="소개를 몇 번 받을 수 있는지, 결제와 환불은 어떻게 되는지." />
+        <div className="grid gap-6 lg:grid-cols-3">
         <Sheet className="space-y-5 p-6 sm:p-8 lg:col-span-2">
           <p className="text-[10px] font-semibold tracking-[0.2em] text-accent">
             {plan.label} · {payment.introduction?.confirmedAt ? "결제 기준" : "지금 결제하면"} / {payment.policy.version}
@@ -374,87 +471,8 @@ export default function MemberProfile() {
             </Button>
           </div>
         </section>
-      </div>
-      {!service.connected && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <WaitingJourney application={application} />
-          <div className="space-y-6">
-            <IdentityPanel />
-            <ProfileCoaching application={application} />
-          </div>
         </div>
-      )}
-      <section className="space-y-5">
-        <div className="flex items-center gap-2">
-          <Pencil className="size-4 text-primary" />
-          <h2 className="text-xl">소개 정보 수정</h2>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { title: "프로필", step: 0, caption: "나에 대한 정보·자기진술" },
-            { title: "사진", step: 1, caption: "문제 사진만 수정·재검토" },
-            { title: "비공개 선호", step: 2, caption: "다음 소개에 반영" },
-            {
-              title: "공개 범위·동의",
-              step: 3,
-              caption: "상대 제공 항목을 따로 확인",
-            },
-          ].map((item) => (
-            <Button
-              key={item.step}
-              asChild
-              variant="outline"
-              className="h-auto justify-between whitespace-normal p-5"
-            >
-              <Link to={`/apply?step=${item.step}`}>
-                <span className="text-left">
-                  <span className="block text-sm">{item.title}</span>
-                  <span className="mt-2 block text-xs font-normal text-muted-foreground">
-                    {item.caption}
-                  </span>
-                </span>
-                <ArrowUpRight className="size-4 shrink-0" />
-              </Link>
-            </Button>
-          ))}
-        </div>
-        <p className="text-xs leading-6 text-muted-foreground">
-          기존 STEP 01~04로 이동해 수정해요. 핵심 프로필·사진은 새 버전으로
-          재검토하며 승인 사진을 조용히 교체하지 않아요. 비공개 선호 변경은
-          현재 교류를 자동 종료하지 않아요.
-          {service.connected
-            ? " 이 편집기는 별도의 가상 신청 원본이며 교류 데모 계정 정보로 자동 가져오지 않아요."
-            : application
-              ? ` 현재 저장 원본: 프로필 v${application.review.profileVersion} · 선호 v${application.review.preferenceVersion} · 신청 ${application.review.submission}`
-              : " 아직 저장된 신청 원본이 없어요."}
-        </p>
-      </section>
-      <div className="grid gap-8 lg:grid-cols-2">
-        <section className="space-y-5 rounded-xl border border-border p-5">
-          <h2 className="flex items-center gap-2 text-xl">
-            <Bell className="size-4 text-primary" />
-            알림 선택
-          </h2>
-          <NoticePreferencesPanel memberId={service.memberId} />
-          <Label className="flex items-start gap-3 text-sm leading-6">
-            <Checkbox
-              checked={account?.marketing || false}
-              onCheckedChange={(value) =>
-                setMemberMarketing(service.memberId, value === true)
-              }
-            />
-            마케팅 안내에 동의해요. (선택·가상)
-          </Label>
-          <p className="text-xs leading-6 text-muted-foreground">
-            서비스 상태 안내와 별도이며 자동 체크하지 않아요. 해제해도 소개
-            권리는 유지돼요.
-          </p>
-        </section>
-        <section className="space-y-5 rounded-xl border border-border p-5">
-          <h2 className="flex items-center gap-2 text-xl">
-            <CreditCard className="size-4 text-primary" />
-            결제·환불 요청
-          </h2>
+        <Fold icon={<CreditCard size={15} />} title="결제·환불 요청" summary={`소개 이용료 ${payment.introduction ? RECEIPT_LABELS[payment.introduction.status] : "기록 없음"} · 교류비 ${payment.exchange ? RECEIPT_LABELS[payment.exchange.status] : "기록 없음"}`}>
           {(["introduction", "exchange"] as const).map((type) => (
             <div
               key={type}
@@ -499,8 +517,7 @@ export default function MemberProfile() {
             실제 PG 미연결이에요. 구매 시점 환불 기준·제공 개시 이력을 확인하고 요청·검토·완료를 구분해요. 법정 청약철회 권리는 제한하지 않아요. 탈퇴·정지는 자동 전액 환불 또는 권리
             소멸이 아니에요.
           </p>
-        </section>
-      </div>
+        </Fold>
       {kind &&
         !["revoke", "withdrawal", "deletion", "correction", "restriction", "reconsider"].includes(kind) && (
           <section className="rounded-xl border border-primary/20 bg-muted p-5">
@@ -515,11 +532,7 @@ export default function MemberProfile() {
             />
           </section>
         )}
-      <section className="space-y-4 border-t border-border pt-6">
-        <h2 className="flex items-center gap-2 text-xl">
-          <FileClock className="size-4 text-primary" />
-          소개 이력
-        </h2>
+        <Fold icon={<FileClock size={15} />} title="소개 이력" summary={account?.history.length ? `${account.history.length}번의 소개 기록` : "아직 받은 소개가 없어요"}>
         {account?.history.length ? (
           account.history.map((item) => (
             <div
@@ -541,59 +554,30 @@ export default function MemberProfile() {
           본인의 이력 요약만 표시하며 종료된 상대 사진·프로필을 무제한 다시 보는
           보관함이 아니에요.
         </p>
+        </Fold>
       </section>
-      <section className="space-y-4 border-t border-border pt-6">
-        <h2 className="flex items-center gap-2 text-xl">
-          <ShieldCheck className="size-4 text-primary" />내 적용 정책·동의 기록
-        </h2>
-        <p className="text-sm">
-          적용 정책 {payment.policy.version} · 구매 시점 제공 범위는 이후 신규
-          판매 정책과 분리해요.
-        </p>
-        {account?.policies.length ? (
-          account.policies.map((item) => (
-            <details
-              key={item.key}
-              className="rounded-xl border border-border p-4 text-xs"
-            >
-              <summary className="cursor-pointer">
-                    {item.source === "purchase" ? "구매" : item.source === "disclosure" ? "결제 안내 확인 · 승인 아님" : "신청"} 스냅샷 ·{" "}
-                {item.version} · 원본 저장/가상 승인 {format(item.sourceAt)}
-              </summary>
-              <p className="mt-3 leading-6">{item.scope}</p>
-              {item.amount !== undefined && (
-                <p className="mt-2">
-                  {item.source === "disclosure" ? "확인한 안내 가격 · 승인 아님" : "구매 기록"} {item.amount.toLocaleString("ko-KR")}원 ·{" "}
-                  {item.vatIncluded ? "부가세 포함" : "부가세 기준 확인 필요"} ·
-                  환불 정책 {item.refundPolicy || "고지·확인 필요"}
-                </p>
-              )}
-              <p className="mt-2 leading-6">
-                기록된 동의:{" "}
-                {item.consents.length
-                  ? item.consents.join(" / ")
-                  : "별도 동의 원본 연결 필요 · 동의를 추정하지 않음"}
-              </p>
-              <p className="mt-2 text-muted-foreground">
-                시스템 스냅샷 기록: {format(item.at)} · 운영자 실제 검토 시각
-                아님
-              </p>
-            </details>
-          ))
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            구매·신청 동의 원본 기록이 아직 연결되지 않았어요. 열람만으로 동의
-            완료를 만들지 않아요.
+
+      {/* 03 알림과 연락 */}
+      <section id="profile-notice" className="scroll-mt-24 space-y-6">
+        <GroupTitle number="03" title="알림과 연락" en="NOTICES" lead="받고 싶은 알림, 만남 전 연락처, 교류·약속 기록." />
+        <div className="space-y-5 rounded-2xl bg-mist p-5 sm:p-6">
+          <div className="flex items-center gap-2"><Bell className="size-4 text-primary" /><h3 className="text-base font-semibold">알림 선택</h3></div>
+          <NoticePreferencesPanel memberId={service.memberId} />
+          <Label className="flex items-start gap-3 text-sm leading-6">
+            <Checkbox
+              checked={account?.marketing || false}
+              onCheckedChange={(value) =>
+                setMemberMarketing(service.memberId, value === true)
+              }
+            />
+            마케팅 안내에 동의해요. (선택·가상)
+          </Label>
+          <p className="text-xs leading-6 text-muted-foreground">
+            서비스 상태 안내와 별도이며 자동 체크하지 않아요. 해제해도 소개
+            권리는 유지돼요.
           </p>
-        )}
-        <p className="text-xs leading-6 text-muted-foreground">
-          중단·탈퇴·취소·미시작·시작 후 중단·재이용·자료 보유는 고지한 정책으로
-          처리해요. 환불 운영 기준은 구매 시점 버전으로 관리하며 실제 약관 검토는 별도예요. 교류 중단·약속 취소·노쇼·재이용은 V6-conduct-01 운영 기준을 따르며
-          영구 보관·무조건 환불 불가·숨은 기간 소멸을 지정하지 않아요.
-        </p>
-      </section>
-      <section className="space-y-4 border-t border-border pt-6">
-        <h2 className="text-xl">교류·약속 기록과 다음 소개</h2>
+        </div>
+        <Fold icon={<MessageSquare size={15} />} title="교류·약속 기록과 다음 소개" summary="중단·취소·노쇼 기준과 다음 소개에 미치는 영향">
         <MemberConductSummary
           memberId={service.memberId}
           payment={payment}
@@ -602,16 +586,24 @@ export default function MemberProfile() {
           lastReviewAt={null}
         />
         <ConductPolicyNotice compact />
+        </Fold>
+        <Fold icon={<ShieldCheck size={15} />} title="만남 전 연락처 공유" summary="두 분이 동의하면 만나는 날 0시에 열려요">
+          <MemberContactSummary />
+        </Fold>
       </section>
-      <MemberContactSummary />
-      <MemberSafetyTools
+
+      {/* 04 안전 */}
+      <section id="profile-safety" className="scroll-mt-24 space-y-6">
+        <GroupTitle number="04" title="안전" en="SAFETY" lead="불편한 일이 있으면 이유를 묻지 않고 멈출 수 있어요." />
+        <Fold icon={<ShieldCheck size={15} />} title="신고·차단·도움 요청" summary="위급하면 112에 먼저 연락해 주세요" defaultOpen>
+        <MemberSafetyTools
         key={`safety-${service.memberId}`}
         context={context}
         now={service.now}
         onProtect={service.connected ? protectCurrentExchange : undefined}
       />
-      <section className="space-y-4 border-t border-border pt-6">
-        <h2 className="text-xl">공개 철회</h2>
+        </Fold>
+        <Fold icon={<Pause size={15} />} title="공개 철회" summary="새 소개를 멈추고 기존 접근 범위를 다시 살펴봐요">
         <Button variant="outline" onClick={() => request("revoke")}>
           {REQUEST_LABELS.revoke}
         </Button>
@@ -619,7 +611,7 @@ export default function MemberProfile() {
           새 소개를 중지하고 기존 접근 범위를 재검토해요. 이미 본
           화면·저장·캡처의 회수는 보장하지 않아요.
         </p>
-      </section>
+        </Fold>
       {kind === "revoke" && (
         <section className="rounded-xl border border-primary/20 bg-muted p-5">
           <MemberRequestForm
@@ -631,46 +623,12 @@ export default function MemberProfile() {
           />
         </section>
       )}
-      <section className="space-y-4 border-t border-border pt-6">
-        <h2 className="text-xl">내 정보 정정·삭제·처리정지</h2>
-        <DataRightsPanel key={`rights-${service.memberId}`} context={context} inventory={inventory} now={service.now} />
       </section>
-      <section className="space-y-4 border-t border-border pt-6">
-        <h2 className="text-xl">자료 보유 기간</h2>
-        <MyDataSchedule inventory={inventory} now={service.now} />
-        <details className="rounded-xl border border-border p-4">
-          <summary className="cursor-pointer text-sm">자료별 보유·삭제 기준 보기</summary>
-          <div className="mt-4">
-            <RetentionPolicyTable />
-          </div>
-        </details>
-      </section>
-      <section className="space-y-4 rounded-xl border border-destructive/30 p-5">
-        <h2 className="text-xl">회원 탈퇴</h2>
-        <p className="text-xs leading-6 text-muted-foreground">
-          일시정지와 달리 계정을 정리해요. 진행 중인 소개·교류·약속이 있어도
-          탈퇴할 수 있으며, 종료되는 내용과 환불·취소 상태를 먼저 보여 드려요.
-        </p>
-        <WithdrawalPanel
-          key={`withdrawal-${service.memberId}`}
-          input={{
-            memberId: service.memberId,
-            payment,
-            introductionActive: !!payment.introduction && rights === "valid" && !!payment.program && !payment.program.withdrawn,
-            exchangeStatus: service.exchangeStatus,
-            appointmentActive: service.appointmentActive,
-            contactScheduled: service.contactScheduled,
-            inventory,
-            now: service.now,
-          }}
-          context={context}
-          onApplied={afterWithdrawal}
-        />
-      </section>
-      <section className="space-y-4 border-t border-border pt-6">
-        <h2 className="flex items-center gap-2 text-xl">
-          <MessageSquare className="size-4 text-primary" />내 요청 진행
-        </h2>
+
+      {/* 05 내 정보 관리 */}
+      <section id="profile-data" className="scroll-mt-24 space-y-4">
+        <GroupTitle number="05" title="내 정보 관리" en="MY DATA" lead="필요할 때 펼쳐 보세요." />
+        <Fold icon={<MessageSquare size={15} />} title="내 요청 진행" summary={account?.requests.length ? `${account.requests.length}건 · 마지막 ${REQUEST_STATUSES[account.requests[account.requests.length - 1].status]}` : "아직 접수된 요청이 없어요"}>
         {account?.requests.length ? (
           account.requests.map((item) => (
             <div
@@ -718,7 +676,7 @@ export default function MemberProfile() {
             아직 접수된 요청이 없어요.
           </p>
         )}
-      </section>
+        </Fold>
       {kind === "reconsider" && (
         <section className="rounded-xl border border-primary/20 bg-muted p-5">
           <MemberRequestForm
@@ -730,8 +688,91 @@ export default function MemberProfile() {
           />
         </section>
       )}
-      <ExperienceFeedback key={`feedback-${service.memberId}`} service={service} />
-      <AccountPanel />
+        <Fold icon={<ShieldCheck size={15} />} title="내 적용 정책·동의 기록" summary={`적용 정책 ${payment.policy.version}`}>
+        <p className="text-sm">
+          적용 정책 {payment.policy.version} · 구매 시점 제공 범위는 이후 신규
+          판매 정책과 분리해요.
+        </p>
+        {account?.policies.length ? (
+          account.policies.map((item) => (
+            <details
+              key={item.key}
+              className="rounded-xl border border-border p-4 text-xs"
+            >
+              <summary className="cursor-pointer">
+                    {item.source === "purchase" ? "구매" : item.source === "disclosure" ? "결제 안내 확인 · 승인 아님" : "신청"} 스냅샷 ·{" "}
+                {item.version} · 원본 저장/가상 승인 {format(item.sourceAt)}
+              </summary>
+              <p className="mt-3 leading-6">{item.scope}</p>
+              {item.amount !== undefined && (
+                <p className="mt-2">
+                  {item.source === "disclosure" ? "확인한 안내 가격 · 승인 아님" : "구매 기록"} {item.amount.toLocaleString("ko-KR")}원 ·{" "}
+                  {item.vatIncluded ? "부가세 포함" : "부가세 기준 확인 필요"} ·
+                  환불 정책 {item.refundPolicy || "고지·확인 필요"}
+                </p>
+              )}
+              <p className="mt-2 leading-6">
+                기록된 동의:{" "}
+                {item.consents.length
+                  ? item.consents.join(" / ")
+                  : "별도 동의 원본 연결 필요 · 동의를 추정하지 않음"}
+              </p>
+              <p className="mt-2 text-muted-foreground">
+                시스템 스냅샷 기록: {format(item.at)} · 운영자 실제 검토 시각
+                아님
+              </p>
+            </details>
+          ))
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            구매·신청 동의 원본 기록이 아직 연결되지 않았어요. 열람만으로 동의
+            완료를 만들지 않아요.
+          </p>
+        )}
+        <p className="text-xs leading-6 text-muted-foreground">
+          중단·탈퇴·취소·미시작·시작 후 중단·재이용·자료 보유는 고지한 정책으로
+          처리해요. 환불 운영 기준은 구매 시점 버전으로 관리하며 실제 약관 검토는 별도예요. 교류 중단·약속 취소·노쇼·재이용은 V6-conduct-01 운영 기준을 따르며
+          영구 보관·무조건 환불 불가·숨은 기간 소멸을 지정하지 않아요.
+        </p>
+        </Fold>
+        <Fold icon={<Pencil size={15} />} title="내 정보 정정·삭제·처리정지" summary="개인정보 권리 요청">
+          <DataRightsPanel key={`rights-${service.memberId}`} context={context} inventory={inventory} now={service.now} />
+        </Fold>
+        <Fold icon={<FileClock size={15} />} title="자료 보유 기간" summary="무엇을 언제 지우는지">
+        <MyDataSchedule inventory={inventory} now={service.now} />
+        <details className="rounded-xl border border-border p-4">
+          <summary className="cursor-pointer text-sm">자료별 보유·삭제 기준 보기</summary>
+          <div className="mt-4">
+            <RetentionPolicyTable />
+          </div>
+        </details>
+        </Fold>
+        <Fold icon={<MessageSquare size={15} />} title="경험을 나눠 주세요" summary="선택 · 운영진에게만">
+          <ExperienceFeedback key={`feedback-${service.memberId}`} service={service} />
+        </Fold>
+        <Fold tone="danger" icon={<Pause size={15} />} title="회원 탈퇴" summary="일시정지와 달리 계정을 정리해요">
+        <p className="text-xs leading-6 text-muted-foreground">
+          일시정지와 달리 계정을 정리해요. 진행 중인 소개·교류·약속이 있어도
+          탈퇴할 수 있으며, 종료되는 내용과 환불·취소 상태를 먼저 보여 드려요.
+        </p>
+        <WithdrawalPanel
+          key={`withdrawal-${service.memberId}`}
+          input={{
+            memberId: service.memberId,
+            payment,
+            introductionActive: !!payment.introduction && rights === "valid" && !!payment.program && !payment.program.withdrawn,
+            exchangeStatus: service.exchangeStatus,
+            appointmentActive: service.appointmentActive,
+            contactScheduled: service.contactScheduled,
+            inventory,
+            now: service.now,
+          }}
+          context={context}
+          onApplied={afterWithdrawal}
+        />
+        </Fold>
+        <div className="pt-4"><AccountPanel /></div>
+      </section>
     </section>
   )
 }

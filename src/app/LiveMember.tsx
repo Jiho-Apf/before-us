@@ -222,7 +222,18 @@ function LiveProfileView() {
   const toggle = async (key: "notice_daily_waiting" | "marketing_opt_in", value: boolean) => { const result = await saveNoticeSettings({ [key]: value }); setMessage(result.error || "저장했어요."); await reload(); };
   return (
     <section className="space-y-10">
-      <PageHeader mark="내 정보" label="계정과 신청" en="ABOUT ME" title="내 정보" lead="신청서는 검토 전까지 고칠 수 있어요. 검토 뒤에 고칠 내용은 정정 요청으로 남겨 주세요." />
+      <PageHeader mark="내 정보" label="계정과 신청" en="ABOUT ME" title="내 정보" lead="지금 어디쯤인지, 다음에 무엇을 하면 되는지 먼저 보여 드려요." />
+      {/* 한눈에 보는 요약(데모 내 정보와 같은 모양) */}
+      <div className="relative overflow-hidden rounded-3xl border border-lilac bg-mist p-6 sm:p-8">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--primary)_18%,transparent),transparent)]" />
+        <div className="relative grid gap-3 sm:grid-cols-3">
+          {[
+            { label: "신청 상태", value: data?.application ? ({ draft: "작성 중", submitted: "접수 완료", reviewing: "검토 중", needs_changes: "보완 요청", approved: "소개 준비", held: "보류", withdrawn: "철회", rejected: "소개 어려움" } as Record<string, string>)[data.application.status] : "신청 전", sub: data?.application?.submittedAt ? `${kstDay(data.application.submittedAt)} 접수` : "신청은 무료예요" },
+            { label: "내 기수", value: data?.cohort ? `${data.cohort.number}기 · D-${Math.max(0, Math.round((Date.parse(`${data.cohort.startsOn}T12:00:00+09:00`) - Date.now()) / 86400000))}` : "신청 뒤 정해져요", sub: data?.cohort ? `${noonOf(data.cohort.startsOn)} 정오 첫 소개` : "매달 마지막 날 정오 시작" },
+            { label: "알림", value: notices?.notice_daily_waiting ? "소개 없는 날도 알림" : "새 소개만 알림", sub: "사이트 안 알림" },
+          ].map(item => <div key={item.label} className="rounded-2xl bg-card/90 p-5 shadow-[0_18px_36px_-30px_color-mix(in_oklch,var(--primary)_60%,transparent)]"><p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{item.label}</p><p className="mt-2 text-lg font-semibold text-ink">{item.value}</p><p className="mt-1 text-xs text-muted-foreground">{item.sub}</p></div>)}
+        </div>
+      </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">소개 신청서</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{data?.application ? `현재 상태 · ${({ draft: "작성 중", submitted: "접수", reviewing: "검토 중", needs_changes: "보완 요청", approved: "소개 준비", held: "보류", withdrawn: "철회", rejected: "소개 어려움" } as Record<string, string>)[data.application.status]}` : "아직 작성하지 않았어요."}</p><Button asChild variant="outline" className={`mt-5 rounded-xl ${interaction}`}><Link to="/apply">신청서 보기 <ArrowRight size={14} /></Link></Button></Sheet>
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">알림 설정</p><div className="mt-4 space-y-3 text-sm"><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.notice_daily_waiting} onCheckedChange={value => void toggle("notice_daily_waiting", value === true)} />소개가 없는 날에도 정오에 알려 주세요. <span className="text-muted-foreground">(선택)</span></label><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.marketing_opt_in} onCheckedChange={value => void toggle("marketing_opt_in", value === true)} />새 소식과 혜택 안내를 받을게요. <span className="text-muted-foreground">(선택 · 광고성 정보)</span></label></div><p className="mt-4 text-[11px] leading-5 text-muted-foreground">새 소개 알림은 사이트 안에서 늘 보여 드려요. 카카오 알림톡은 정식 출시 때 연결돼요.</p>{message && <p role="status" className="mt-3 text-xs text-primary">{message}</p>}</Sheet>

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react"
+import { ChevronDown } from "lucide-react"
 
 // 편지 화면에서 시작한 조용한 편집 톤을 회원 화면 전체에 맞추기 위한 공통 조각.
 // 진한 색 면 대신 얇은 선·여백·큰 숫자로 무게를 준다.
@@ -106,5 +107,34 @@ export function NoteList({ title, items, className = "" }: { title?: string; ite
         ))}
       </ul>
     </div>
+  )
+}
+
+// 마이페이지 같은 정보가 많은 화면에서: 묶음 제목(큰 숫자 + 이름)과 접어 두는 칸.
+export function GroupTitle({ number, title, en, lead }: { number: string; title: string; en?: string; lead?: string }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex items-end gap-4">
+        <span aria-hidden="true" className="text-[44px] font-extralight leading-none tabular-nums text-primary">{number}</span>
+        <div className="pb-1"><h2 className="text-xl font-semibold leading-tight text-ink">{title}</h2>{lead && <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{lead}</p>}</div>
+      </div>
+      {en && <span className="pb-1 text-[10px] font-semibold tracking-[0.2em] text-muted-foreground">{en}</span>}
+    </div>
+  )
+}
+
+export function Fold({ id, icon, title, summary, children, defaultOpen = false, tone = "plain" }: { id?: string; icon?: ReactNode; title: string; summary?: ReactNode; children: ReactNode; defaultOpen?: boolean; tone?: "plain" | "danger" }) {
+  return (
+    <details id={id} open={defaultOpen} className={`group scroll-mt-24 rounded-2xl border bg-card transition-shadow duration-300 open:shadow-[0_24px_48px_-36px_color-mix(in_oklch,var(--primary)_45%,transparent)] motion-reduce:transition-none ${tone === "danger" ? "border-destructive/25" : "border-border"}`}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-2xl p-5 outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-6 [&::-webkit-details-marker]:hidden">
+        <span className="flex min-w-0 items-start gap-3">
+          {icon && <span className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full ${tone === "danger" ? "bg-destructive/10 text-destructive" : "bg-lilac text-primary"}`}>{icon}</span>}
+          <span className="min-w-0"><span className="block text-[15px] font-semibold">{title}</span>{summary && <span className="mt-1 block text-xs leading-5 text-muted-foreground">{summary}</span>}</span>
+        </span>
+        <span aria-hidden="true" className="grid size-7 shrink-0 place-items-center rounded-full border border-border text-muted-foreground transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"><ChevronDown size={15} /></span>
+      </summary>
+      {/* 안에 넣은 기존 구역의 윗선·여백·같은 제목은 접는 칸 머리가 대신한다. */}
+      <div className="space-y-5 border-t border-border px-5 pb-6 pt-5 sm:px-6 [&>section:first-child]:mt-0 [&>section:first-child]:border-t-0 [&>section:first-child]:pt-0 [&>section:first-child>h2:first-child]:hidden">{children}</div>
+    </details>
   )
 }

@@ -35,7 +35,7 @@ type CurrentStatusProps = { snapshot: TodaySnapshot };
 export function CurrentNoonStatus({ snapshot }: CurrentStatusProps) {
   const input: NoonInput = { memberId: "current-member", stage: snapshot.stage, operatorReviewedAt: snapshot.operatorReviewedAt, lastIntroductionAt: snapshot.lastIntroductionAt, waitingSince: null, preferences: EMPTY_NOTICE_PREFERENCES };
   const followUp = waitingFollowUp(input, new Date());
-  return <section className="mt-6 border border-border bg-card p-5" aria-label="정오 진행 안내">
+  return <section className="mt-6 rounded-2xl border border-lilac bg-mist p-5 sm:p-6" aria-label="정오 진행 안내">
     <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 text-sm font-semibold"><Clock3 size={16} className="text-primary" />정오 진행 안내</div><span className="text-xs text-muted-foreground">12:00 · Asia/Seoul</span></div>
     <p className="mt-4 text-sm font-medium">현재 상태 · {currentStatus(input)}</p>
     <p className="mt-2 text-xs leading-6 text-muted-foreground">새 소개가 없어도 이곳에서 현재 진행 상태를 확인할 수 있어요. 매일 새 소개는 보장되지 않으며 이용 중인 혜택 안에서는 추가 소개비가 발생하지 않아요.</p>
