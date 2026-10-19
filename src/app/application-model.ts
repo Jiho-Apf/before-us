@@ -32,7 +32,7 @@ const APPLICATION_FIELD_SOURCE: readonly FieldDefinition[] = [
   { id: "self.pledge", label: "기혼·사실혼이거나 다른 사람과 교제 중인 사실이 확인되면 이용이 종료되고, 상대 보호에 필요한 조치가 이뤄질 수 있음을 이해했어요.", step: 0, group: "core", format: "boolean", purpose: "허위 진술 시 조치 고지 확인 · 미혼 인증 아님", required: true, scope: "operator" },
   { id: "self.height", label: "키", step: 0, group: "optional", format: "number", purpose: "본인이 입력한 키 · cm", required: true, scope: "partner", rule: "positive-cm", placeholder: "cm 직접 입력" },
   { id: "self.body", label: "체형", step: 0, group: "optional", format: "single", purpose: "본인이 선택한 표현", required: true, scope: "operator", options: ["마른 편", "보통", "탄탄한 편", "체격 있는 편", "미선택"] },
-  { id: "self.style", label: "스타일", step: 0, group: "optional", format: "multi", purpose: "나의 평소 스타일 참고", required: true, scope: "operator", limit: 3, options: ["단정한", "캐주얼", "미니멀", "꾸안꾸", "클래식", "댄디", "페미닌", "포멀", "스트릿", "스포티", "아웃도어", "빈티지", "개성 있는"] },
+  { id: "self.style", label: "스타일", step: 0, group: "optional", format: "multi", purpose: "나의 평소 스타일 참고", required: true, scope: "operator", limit: 3, options: ["단정한", "캐주얼", "미니멀", "깔끔한", "댄디", "스트릿", "스포티", "아웃도어", "빈티지", "개성 있는"] },
   { id: "self.smoking", label: "흡연", step: 0, group: "optional", format: "single", purpose: "나의 생활 성향 참고", required: true, scope: "partner", options: ["안 함", "가끔", "자주", "답하지 않음"] },
   { id: "self.drinking", label: "음주", step: 0, group: "optional", format: "single", purpose: "나의 생활 성향 참고", required: true, scope: "partner", options: ["안 함", "월 1~2회", "주 1회 이상", "상황에 따라", "답하지 않음"] },
   { id: "self.schedule", label: "생활", step: 0, group: "optional", format: "single", purpose: "생활 시간대 참고", required: true, scope: "partner", options: ["주간", "야간", "교대·불규칙", "답하지 않음"] },
