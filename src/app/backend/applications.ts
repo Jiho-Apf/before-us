@@ -1,4 +1,4 @@
-import { emptyApplication, type ApplicationDraft } from "../application-model"
+import { emptyApplication, normalizeLegacyValues, type ApplicationDraft } from "../application-model"
 import { emptyPhoto, emptyPhotos, PHOTO_SLOTS, type ApplicationPhotos, type PhotoReview, type PhotoSlotId } from "../photo-model"
 import { BEFORE_US } from "../config"
 import { PHOTO_BUCKET, friendlyError, rpc, supabase } from "./client"
@@ -43,7 +43,7 @@ export async function loadMyApplication(): Promise<{ data: MyApplication | null;
     const photoRows = (rows ?? []) as PhotoRow[]
     const draft: ApplicationDraft = {
       ...base,
-      values: { ...base.values, ...(saved.values ?? {}) },
+      values: normalizeLegacyValues({ ...base.values, ...(saved.values ?? {}) }),
       sharing: { ...base.sharing, ...(saved.sharing ?? {}) },
       preferences: saved.preferences ?? base.preferences,
       step: typeof saved.step === "number" ? saved.step : 0,
@@ -73,11 +73,23 @@ const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((byte) => b
 
 export async function preparePhoto(file: File): Promise<{ blob: Blob; width: number; height: number; sha256: string } | { error: string }> {
   const type = file.type.toLowerCase()
-  if (/heic|heif/.test(type) || /\.(heic|heif)$/i.test(file.name)) return { error: "HEIC 사진은 아직 받을 수 없어요. 휴대폰 설정에서 JPG로 바꾸거나 캡처해서 올려 주세요." }
-  if (!["image/jpeg", "image/png", "image/webp"].includes(type)) return { error: "JPG·PNG·WebP 사진만 올릴 수 있어요." }
+  const heic = /heic|heif/.test(type) || /\.(heic|heif)$/i.test(file.name)
+  if (!heic && !["image/jpeg", "image/png", "image/webp"].includes(type)) return { error: "JPG·PNG·WebP·HEIC 사진만 올릴 수 있어요." }
   if (file.size > BEFORE_US.photoFiles.maximumBytes) return { error: "한 장에 10MB 이하인 사진을 골라 주세요." }
+  let source: Blob = file
+  if (heic) {
+    // 아이폰 HEIC 사진: 사파리는 바로 읽고, 다른 브라우저는 변환 도구를 그때 불러와 JPG로 바꾼다.
+    const direct = await createImageBitmap(file).then(bitmap => { bitmap.close(); return true }, () => false)
+    if (!direct) {
+      try {
+        const { default: heic2any } = await import("heic2any")
+        const converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.92 })
+        source = Array.isArray(converted) ? converted[0] : converted
+      } catch { return { error: "HEIC 사진을 바꾸지 못했어요. 휴대폰 설정에서 JPG로 바꾸거나 캡처해서 올려 주세요." } }
+    }
+  }
   let bitmap: ImageBitmap
-  try { bitmap = await createImageBitmap(file, { imageOrientation: "from-image" }) } catch { return { error: "사진을 읽지 못했어요. 다른 사진으로 다시 시도해 주세요." } }
+  try { bitmap = await createImageBitmap(source, { imageOrientation: "from-image" }) } catch { return { error: "사진을 읽지 못했어요. 다른 사진으로 다시 시도해 주세요." } }
   const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height))
   const width = Math.round(bitmap.width * scale), height = Math.round(bitmap.height * scale)
   const canvas = document.createElement("canvas")
