@@ -21,12 +21,12 @@ import { blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreetin
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 
-function Waiting({ label = "불러오고 있어요." }: { label?: string }) {
+export function Waiting({ label = "불러오고 있어요." }: { label?: string }) {
   return <div role="status" aria-live="polite" className="flex flex-1 items-center justify-center py-24"><span className="sr-only">{label}</span><span aria-hidden="true" className="flex gap-1.5"><span className="size-2 animate-pulse rounded-full bg-primary" /><span className="size-2 animate-pulse rounded-full bg-accent [animation-delay:150ms]" /></span></div>;
 }
 
 // 로그인이 필요한 화면을 감싼다.
-function Member({ children }: { children: ReactNode }) {
+export function Member({ children }: { children: ReactNode }) {
   const user = useAuth();
   const ready = useAuthReady();
   if (!ready) return <Waiting />;
@@ -42,8 +42,16 @@ function todayState(data: MemberSnapshot) {
   const application = data.application, intro = data.introduction, cohort = data.cohort;
   if (data.notices?.status === "suspended") return { label: "이용 정지", title: "지금은 소개를 받을 수 없어요.", action: "문의·요청 남기기", to: "/support", body: `운영진 안내 · ${(data.notices.suspended_reason || "운영 정책에 따라 이용이 잠시 멈췄어요").replace(/[.。\s]+$/, "")}. 다르게 생각되면 문의·요청에서 ‘결정 재검토 요청’을 남겨 주세요.` };
   const waitingForStart = !!cohort && kstToday() < cohort.startsOn && intro.status === "waiting";
+  const program = data.program;
+  if (program && program.status !== "closed") {
+    if (program.status === "choosing") return { label: "함께 정하기", title: "어떻게 시작할지 함께 정해요.", action: "교류 방식 정하기", to: "/exchange", body: `A 편지·B 첫 장면 중 하나와 시작일을 ${kstDateTime(program.agreeBy)}까지 함께 정해 주세요.` };
+    if (program.status === "scheduled") return { label: "교류 시작 전", title: `${program.startOn ? kstDay(`${program.startOn}T09:00:00+09:00`) : ""} 09:00에 첫날이 열려요.`, action: "교류 화면 보기", to: "/exchange", body: "시작하면 알림으로 알려 드릴게요." };
+    if (program.status === "started") return { label: program.day ? `교류 DAY 0${program.day}` : "교류 중", title: program.ownPlan === "B" ? "오늘의 첫 장면 질문이 열렸어요." : "오늘의 편지를 쓸 시간이에요.", action: "교류 화면으로", to: "/exchange", body: "그날 글은 09:00~23:59에 쓰고, 두 분 모두 보내면 함께 열려요." };
+    if (program.status === "deciding") return { label: "DAY 04", title: program.ownMeeting ? "상대의 답을 기다리고 있어요." : "만나고 싶은지 골라 주세요.", action: "만남 선택하기", to: "/exchange", body: `${kstDateTime(program.meetingBy)}까지예요. 상대의 답은 알려 드리지 않아요.` };
+    return { label: "약속", title: program.meetingOn ? `${kstDay(`${program.meetingOn}T12:00:00+09:00`)}에 만나기로 했어요.` : "만날 약속을 함께 정해요.", action: "약속 화면으로", to: "/meeting", body: program.meetingOn ? "연락처는 두 분이 동의하면 만나는 날 00:00부터 열려요." : `${kstDateTime(program.arrangeBy)}까지 정해 주세요.` };
+  }
   if (intro.status !== "waiting" && (intro.status === "published" || intro.status === "mutual" || intro.status === "expired" || intro.closedAt && Date.now() - Date.parse(intro.closedAt) < 86400000)) {
-    if (intro.status === "mutual") return { label: "서로 선택", title: "두 분 모두 알아가고 싶다고 답했어요.", action: "두 사람 화면 보기", to: "/us", body: "함께 시작하는 방법은 곧 이 화면에서 안내해 드릴게요. 그동안 상대 프로필은 두 사람 화면에서 다시 볼 수 있어요." };
+    if (intro.status === "mutual") return { label: "서로 선택", title: "두 분 모두 알아가고 싶다고 답했어요.", action: "교류 방식 정하기", to: "/exchange", body: "A 편지·B 첫 장면 중 하나와 시작일을 함께 정해요. 상대 프로필은 두 사람 화면에서 다시 볼 수 있어요." };
     if (intro.status === "published" && !intro.ownResponse) return { label: "오늘의 인연", title: "오늘의 인연이 도착했어요.", action: "소개 확인하기", to: "/us", body: `${kstDateTime(intro.dueAt)}까지 답해 주세요. 상대에게는 내 답이 바로 전해지지 않고, 두 분 모두 답한 뒤에 결과만 알려 드려요.` };
     if (intro.status === "published") return { label: "답을 기다리는 중", title: "상대의 답을 기다리고 있어요.", action: "두 사람 화면 보기", to: "/us", body: `${kstDateTime(intro.dueAt)}까지 기다려요. 결과는 이 화면과 알림으로 알려 드릴게요.` };
     return { label: "소개 마무리", title: "이번 소개는 여기서 마무리됐어요.", action: "다음 소개 기다리기", to: null, body: "누가 어떤 답을 했는지는 알려 드리지 않아요. 잘 맞는 분이 준비되면 정오에 다시 소개해 드릴게요." };
@@ -177,7 +185,7 @@ function LiveIntroductionView() {
   };
   return (
     <section aria-labelledby="us-title">
-      {intro.status === "mutual" && <div className="mb-10"><Moment eyebrow="WE BOTH SAID YES" title="두 분 모두 알아가고 싶다고 답했어요.">함께 시작하는 방법은 곧 이 화면에서 안내해 드릴게요.</Moment></div>}
+      {intro.status === "mutual" && <div className="mb-10"><Moment eyebrow="WE BOTH SAID YES" title="두 분 모두 알아가고 싶다고 답했어요." action={<Button asChild className="h-11 rounded-xl px-6"><Link to="/exchange">함께 시작하는 방법 정하기 <ArrowRight size={14} /></Link></Button>}>3일 교류 방식(A 편지 · B 첫 장면)과 시작일을 함께 정해요.</Moment></div>}
       <PageHeader mark="두 사람" label={intro.status === "mutual" ? "서로 선택" : "오늘의 인연"} en="TWO OF US" titleId="us-title" title={name ? `${valueOf(name.value)} 님을 소개해요.` : "오늘의 인연을 소개해요."} lead={intro.status === "published" ? `${kstDateTime(intro.dueAt)}까지 답해 주세요.` : undefined} aside={<TwoDots apart={intro.status !== "mutual"} />} />
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div className="space-y-8">

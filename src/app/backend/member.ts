@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useAuth } from "../auth-service"
 import { friendlyError, rpc, supabase } from "./client"
 import type { ApplicationStatus } from "./applications"
+import type { Program } from "./program"
 
 // 실제 서버의 회원 화면 자료: 신청 상태 · 지금의 소개 · 알림 · 회원 요청.
 export type LiveProfile = { version: number; items: { id: string; value: string | string[] }[]; photos: { slot: string; path: string }[]; greeting?: string | null }
@@ -29,6 +30,7 @@ export type MemberSnapshot = {
   notifications: LiveNotification[]
   notices: { notice_daily_waiting: boolean; notice_new_introduction: boolean; marketing_opt_in: boolean; notify_kakao: boolean; notify_sms: boolean; notify_email: boolean; status: "active" | "withdrawal_requested" | "suspended"; paused_at: string | null; suspended_reason: string | null } | null
   cohort: { number: number; startsOn: string; applicationDeadline: string } | null
+  program: Program | null
 }
 
 export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | null; error: string | null }> {
@@ -36,12 +38,13 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
     const db = await supabase()
     const { data: auth } = await db.auth.getUser()
     if (!auth.user) return { data: null, error: "로그인이 필요해요." }
-    const [application, introduction, notifications, profile, cohort] = await Promise.all([
+    const [application, introduction, notifications, profile, cohort, program] = await Promise.all([
       db.from("applications").select("status, decision_note, submitted_at").eq("member_id", auth.user.id).maybeSingle(),
       db.rpc("my_introduction"),
       db.from("notifications").select("id, kind, title, body, link, created_at, read_at").order("created_at", { ascending: false }).limit(10),
       db.from("profiles").select("notice_daily_waiting, notice_new_introduction, marketing_opt_in, notify_kakao, notify_sms, notify_email, status, paused_at, suspended_reason").eq("id", auth.user.id).maybeSingle(),
       db.rpc("my_cohort"),
+      db.rpc("my_program"),
     ])
     const failed = application.error || introduction.error || notifications.error || profile.error
     if (failed) return { data: null, error: friendlyError(failed) }
@@ -52,6 +55,7 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
         notifications: (notifications.data ?? []) as LiveNotification[],
         notices: profile.data ?? null,
         cohort: (cohort.data as MemberSnapshot["cohort"]) ?? null,
+        program: program.error ? null : ((program.data as Program | null) ?? null),
       },
       error: null,
     }

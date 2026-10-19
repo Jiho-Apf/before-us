@@ -47,6 +47,9 @@ const LiveToday = later(() => import("./LiveMember"), "LiveToday");
 const LiveIntroductionPage = later(() => import("./LiveMember"), "LiveIntroductionPage");
 const LiveProfilePage = later(() => import("./LiveMember"), "LiveProfilePage");
 const LiveSupportPage = later(() => import("./LiveMember"), "LiveSupportPage");
+const LiveExchangePage = later(() => import("./LiveProgram"), "LiveExchangePage");
+const LiveMeetingPage = later(() => import("./LiveProgram"), "LiveMeetingPage");
+const LivePrograms = later(() => import("./LiveAdmin"), "LivePrograms");
 const LiveLaterPage = later(() => import("./LiveMember"), "LiveLaterPage");
 const LiveAdminLayout = later(() => import("./LiveAdmin"), "LiveAdminLayout");
 const LiveAdminHome = later(() => import("./LiveAdmin"), "LiveAdminHome");
@@ -254,6 +257,7 @@ const liveAdmin = { path: "/admin", errorElement: <RouteError />, element: page(
   { path: "cohorts", element: page(<LiveCohorts />) },
   { path: "applicants", element: page(<LiveApplicants />) },
   { path: "members", element: page(<LiveMembers />) },
+  { path: "programs", element: page(<LivePrograms />) },
   { path: "introductions", element: page(<LiveIntroductions />) },
   { path: "safety", element: page(<LiveSafety />) },
   { path: "audit", element: page(<LiveAudit />) },
@@ -290,10 +294,10 @@ const beforeUsRouter = createBrowserRouter([
     { path: "/demo/meeting", element: <MeetingDemo /> },
     { path: "/demo/conduct", element: <ConductDemo /> },
     { path: "/demo/privacy", element: <PrivacyDemo /> },
-    { path: "/exchange", element: LIVE ? <LiveLaterPage title="교류" /> : <MemberAgreement /> },
+    { path: "/exchange", element: LIVE ? <LiveExchangePage /> : <MemberAgreement /> },
     { path: "/demo/payments", element: <PaymentDemo /> },
-    { path: "/meeting", element: LIVE ? <LiveLaterPage title="약속" /> : <MemberMeeting /> },
-    { path: "/meeting/contact", element: LIVE ? <LiveLaterPage title="연락처" /> : <MemberMeeting contactOnly /> },
+    { path: "/meeting", element: LIVE ? <LiveMeetingPage /> : <MemberMeeting /> },
+    { path: "/meeting/contact", element: LIVE ? <LiveMeetingPage /> : <MemberMeeting contactOnly /> },
     { path: "/profile", element: LIVE ? <LiveProfilePage /> : <MemberProfile /> },
     { path: "/support", element: LIVE ? <LiveSupportPage /> : <MemberSupport /> },
     ...MEMBER_NAV.filter(item => !["/today", "/meeting", "/us", "/exchange", "/profile"].includes(item.to)).map(item => ({ path: item.to, element: <ContentFrame title={item.label} /> })),

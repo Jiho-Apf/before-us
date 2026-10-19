@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
-import { Bell, Bug, CalendarRange, ClipboardList, FileClock, LayoutDashboard, ListChecks, LogOut, Settings2, ShieldAlert, ShieldCheck, Users } from "lucide-react";
+import { Bell, Bug, CalendarRange, HeartHandshake, ClipboardList, FileClock, LayoutDashboard, ListChecks, LogOut, Settings2, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
@@ -23,6 +23,7 @@ const NAV = [
   { path: "/admin/applicants", label: "신청자", icon: ClipboardList },
   { path: "/admin/members", label: "회원", icon: Users },
   { path: "/admin/introductions", label: "소개·매칭", icon: ListChecks },
+  { path: "/admin/programs", label: "교류·약속", icon: HeartHandshake },
   { path: "/admin/safety", label: "신고·문의", icon: ShieldAlert },
   { path: "/admin/audit", label: "감사로그", icon: FileClock },
   { path: "/admin/settings", label: "운영진", icon: Settings2 },
@@ -378,6 +379,36 @@ function RequestsPanel() {
   const [message, setMessage] = useState("");
   const decide = async (id: string, status: string) => { const { error } = await rpc("admin_decide_request", { p_id: id, p_status: status, p_decision: decisions[id] || null }); setMessage(error || "기록했어요."); await list.reload(); };
   return <div className="space-y-3"><Notice text={message || list.error || ""} />{(list.data ?? []).map(request => <article key={request.id} className={`${box} p-4 text-sm`}><p className="flex flex-wrap justify-between gap-2"><span className="font-semibold">{REQUEST_LABELS[request.kind] ?? request.kind}</span><span className="text-xs text-muted-foreground">{REQUEST_STATUS[request.status]} · {kstDateTime(request.created_at)}</span></p>{request.description && <p className="mt-2 whitespace-pre-wrap text-xs leading-6">{request.description}</p>}{request.decision && <p className="mt-2 text-xs text-muted-foreground">회원에게 보인 답변 · {request.decision}</p>}{request.status !== "decided" && <div className="mt-3 flex flex-wrap items-center gap-2"><Input aria-label="회원에게 보일 답변" value={decisions[request.id] ?? ""} onChange={event => setDecisions(current => ({ ...current, [request.id]: event.target.value }))} placeholder="회원에게 보일 답변" className="h-8 max-w-sm text-xs" />{["checking", "protection", "decided"].map(status => <Button key={status} size="sm" variant="outline" className="h-8 text-xs" onClick={() => void decide(request.id, status)}>{REQUEST_STATUS[status]}</Button>)}</div>}</article>)}{!list.loading && !list.data?.length && <p className="text-sm text-muted-foreground">회원 요청이 없어요.</p>}</div>;
+}
+
+// ─────────────────────────────────────────────
+// 교류·약속: 진행 단계만 본다(글 원문은 보지 않는다) · 운영 종료
+type ProgramRow = { id: string; status: string; endReason: string | null; createdAt: string; closedAt: string | null; nameA: string | null; nameB: string | null; planA: string | null; planB: string | null; startOn: string | null; agreeBy: string; confirmed: number; entriesA: number; entriesB: number; meetingAnswers: number; meetingBy: string | null; arrangeBy: string | null; meetingOn: string | null; meetingTime: string | null; contacts: number };
+const PROGRAM_LABEL: Record<string, string> = { choosing: "방식·시작일 합의", scheduled: "시작 전", started: "3일 교류", deciding: "만남 선택", arranging: "약속", closed: "마무리" };
+const PROGRAM_END: Record<string, string> = { "agreement-expired": "합의 기한 지남", "meeting-declined": "만남 안 함", "meeting-nonresponse": "만남 선택 없음", "arrange-expired": "약속 기한 지남", completed: "만남 완료", blocked: "차단", withdrawn: "탈퇴", "admin-cancel": "운영 종료" };
+export function LivePrograms() {
+  const list = useLoad(() => call<ProgramRow[]>("admin_list_programs"), []);
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState("");
+  const close = async (row: ProgramRow) => {
+    if (!window.confirm(`${row.nameA ?? "회원"} · ${row.nameB ?? "회원"} 교류를 마무리할까요? 두 분에게 마무리 안내가 가요.`)) return;
+    const { error } = await rpc("admin_close_program", { p_id: row.id, p_reason: reasons[row.id] || null });
+    setMessage(error || "마무리했어요. 감사 기록에 남았어요.");
+    await list.reload();
+  };
+  return <>
+    <Title lead="서로 선택한 두 분의 진행 단계예요. 편지·첫 장면 원문은 보지 않고, 신고가 확인된 경우에만 따로 확인해요.">교류·약속</Title>
+    <Notice text={message || list.error || ""} />
+    <div className="mt-3 space-y-3">{(list.data ?? []).map(row => <article key={row.id} className={`${box} p-4 text-sm`}>
+      <div className="flex flex-wrap items-start justify-between gap-3"><p className="font-semibold">{row.nameA ?? "회원"} · {row.nameB ?? "회원"}</p><span className={`rounded-full px-2.5 py-1 text-[11px] ${row.status === "closed" ? "bg-muted" : "bg-lilac"}`}>{PROGRAM_LABEL[row.status] ?? row.status}{row.endReason ? ` · ${PROGRAM_END[row.endReason] ?? row.endReason}` : ""}</span></div>
+      <p className="mt-2 text-xs leading-6 text-muted-foreground">
+        {row.status === "choosing" ? `방식 ${row.planA ?? "-"} / ${row.planB ?? "-"} · 확인 ${row.confirmed}/2 · 기한 ${kstDateTime(row.agreeBy)}` : `방식 ${row.planA ?? "-"} · 시작 ${row.startOn ? kstDay(`${row.startOn}T09:00:00+09:00`) : "-"} · 보낸 글 ${row.entriesA}/${row.entriesB}`}
+        {row.status === "deciding" && ` · 만남 답 ${row.meetingAnswers}/2 · 기한 ${kstDateTime(row.meetingBy)}`}
+        {row.status === "arranging" && (row.meetingOn ? ` · 약속 ${kstDay(`${row.meetingOn}T12:00:00+09:00`)} ${row.meetingTime ?? ""} · 연락처 동의 ${row.contacts}/2` : ` · 약속 기한 ${kstDateTime(row.arrangeBy)}`)}
+      </p>
+      {row.status !== "closed" && <div className="mt-3 flex flex-wrap items-center gap-2"><Input aria-label="마무리 사유" value={reasons[row.id] ?? ""} onChange={event => setReasons(current => ({ ...current, [row.id]: event.target.value }))} placeholder="마무리 사유(감사 기록에만 남아요)" className="h-8 max-w-xs text-xs" /><Button size="sm" variant="ghost" className="text-destructive" disabled={!(reasons[row.id] ?? "").trim()} onClick={() => void close(row)}>교류 마무리</Button></div>}
+    </article>)}{list.data && !list.data.length && <p className="text-sm text-muted-foreground">진행 중인 교류가 없어요.</p>}</div>
+  </>;
 }
 
 // ─────────────────────────────────────────────
