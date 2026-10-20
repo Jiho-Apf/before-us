@@ -510,6 +510,17 @@ await q("update public.applications set draft = jsonb_set(draft, '{sharing,photo
 await q("insert into public.application_photos (member_id, slot, path, mime, bytes, width, height, sha256, recent_confirmed, rights_confirmed, review) values ($1, 'photo.daily', $2, 'image/jpeg', 1000, 800, 1000, $3, true, true, '재등록 요청') on conflict do nothing", [G, `${G}/daily.jpg`, hex(77)])
 ok("기준 확인하지 않은 사진은 상대에게 보이지 않는다", !JSON.stringify((await one("select public.public_profile($1) p", [G])).p.photos).includes("daily"))
 
+// ── 전체 공지(사이트 + 메일)
+await as(A)
+await fails("회원은 전체 공지를 보낼 수 없다", "select public.admin_broadcast('베타가 곧 끝나요', '정식 운영 안내를 드려요. 7일 뒤 바뀌어요.')", [], /대표만/)
+await as(O, "aal2")
+const sentTo = (await one("select public.admin_broadcast('베타가 곧 끝나요', '정식 운영 안내를 드려요. 7일 뒤 바뀌어요.') n")).n
+ok("대표는 모든 회원에게 공지를 보낸다", sentTo >= 2)
+await as("postgres")
+await q("update public.profiles set notify_email = false where id = $1", [G])
+ok("공지는 메일 알림을 고르지 않은 회원에게도 메일로 간다", (await q("select email from public.pending_email_notifications(500)")).some((r) => r.email === "g@example.test"))
+ok("운영진 계정에는 공지가 가지 않는다", (await one("select count(*)::int n from public.notifications where kind = 'announcement' and member_id = $1", [O])).n === 0)
+
 // ── 역할 관리
 await as(O, "aal2")
 await q("select public.grant_admin_role('c@example.test', 'counselor')")

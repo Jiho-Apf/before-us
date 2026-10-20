@@ -1,6 +1,6 @@
 import { Suspense, lazy, useState, useEffect, type ComponentType } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { createBrowserRouter, RouterProvider, NavLink, Link, Outlet, useLocation } from "react-router";
+import { createBrowserRouter, RouterProvider, NavLink, Link, Navigate, Outlet, useLocation } from "react-router";
 import { Button } from "./components/ui/button";
 import { BEFORE_US } from "./config";
 import { Calendar, User, Home, ArrowRight, X, Sun, Moon, Users, MessageCircle, Menu, LogOut } from "lucide-react";
@@ -295,7 +295,7 @@ const beforeUsRouter = createBrowserRouter([
     { path: "matching", element: <Suspense fallback={<RouteFallback />}><AdminDemo embedded /></Suspense> },
     { path: "*", element: <Suspense fallback={<RouteFallback />}><AdminList section="unknown" /></Suspense> },
   ] },
-  { path: "/demo/admin", element: <Suspense fallback={<RouteFallback />}><AdminDemo /></Suspense> },
+  { path: "/demo/admin", element: LIVE ? <Navigate to="/" replace /> : <Suspense fallback={<RouteFallback />}><AdminDemo /></Suspense> },
   { Component: BeforeUsRoot, errorElement: <RouteError />, children: [
     { index: true, element: <PublicHome /> },
     { path: "/how-it-works", element: <PublicInformation section="introduction" /> },
@@ -308,23 +308,23 @@ const beforeUsRouter = createBrowserRouter([
     { path: "/today", element: LIVE ? <LiveToday /> : <MemberToday /> },
     { path: "/payments", element: LIVE ? <LiveLaterPage title="결제" /> : <MemberPayments /> },
     { path: "/us", element: LIVE ? <LiveIntroductionPage /> : <MemberIntroduction /> },
-    { path: "/demo/introduction", element: <IntroductionDemo /> },
-    { path: "/demo/noon", element: <NoonDemo /> },
-    { path: "/demo/agreement", element: <AgreementDemo /> },
-    { path: "/demo/letters", element: <LetterDemo /> },
-    { path: "/demo/scene", element: <SceneDemo /> },
-    { path: "/demo/meeting", element: <MeetingDemo /> },
-    { path: "/demo/conduct", element: <ConductDemo /> },
-    { path: "/demo/privacy", element: <PrivacyDemo /> },
+    { path: "/demo/introduction", element: LIVE ? <Navigate to="/" replace /> : <IntroductionDemo /> },
+    { path: "/demo/noon", element: LIVE ? <Navigate to="/" replace /> : <NoonDemo /> },
+    { path: "/demo/agreement", element: LIVE ? <Navigate to="/" replace /> : <AgreementDemo /> },
+    { path: "/demo/letters", element: LIVE ? <Navigate to="/" replace /> : <LetterDemo /> },
+    { path: "/demo/scene", element: LIVE ? <Navigate to="/" replace /> : <SceneDemo /> },
+    { path: "/demo/meeting", element: LIVE ? <Navigate to="/" replace /> : <MeetingDemo /> },
+    { path: "/demo/conduct", element: LIVE ? <Navigate to="/" replace /> : <ConductDemo /> },
+    { path: "/demo/privacy", element: LIVE ? <Navigate to="/" replace /> : <PrivacyDemo /> },
     { path: "/exchange", element: LIVE ? <LiveExchangePage /> : <MemberAgreement /> },
-    { path: "/demo/payments", element: <PaymentDemo /> },
+    { path: "/demo/payments", element: LIVE ? <Navigate to="/" replace /> : <PaymentDemo /> },
     { path: "/meeting", element: LIVE ? <LiveMeetingPage /> : <MemberMeeting /> },
     { path: "/meeting/contact", element: LIVE ? <LiveMeetingPage /> : <MemberMeeting contactOnly /> },
     { path: "/profile", element: LIVE ? <LiveProfilePage /> : <MemberProfile /> },
     { path: "/support", element: LIVE ? <LiveSupportPage /> : <MemberSupport /> },
     ...MEMBER_NAV.filter(item => !["/today", "/meeting", "/us", "/exchange", "/profile"].includes(item.to)).map(item => ({ path: item.to, element: <ContentFrame title={item.label} /> })),
-    { path: "/demo/today", element: <TodayDemo /> },
-    { path: "/demo/photos", element: <PhotoDemo /> },
+    { path: "/demo/today", element: LIVE ? <Navigate to="/" replace /> : <TodayDemo /> },
+    { path: "/demo/photos", element: LIVE ? <Navigate to="/" replace /> : <PhotoDemo /> },
     { path: "/login", element: <LoginPage /> },
     { path: "/signup", element: <SignupPage /> },
     { path: "/reset-password", element: <ResetPasswordPage /> },

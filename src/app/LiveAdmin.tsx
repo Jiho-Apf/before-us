@@ -461,6 +461,30 @@ export function LiveAudit() {
     <section className={`${box} overflow-x-auto`}><table className="w-full min-w-[640px] text-left text-xs"><thead className="border-b border-border text-muted-foreground"><tr><th className="p-3">시각</th><th className="p-3">역할</th><th className="p-3">기록</th><th className="p-3">대상</th></tr></thead><tbody className="divide-y divide-border">{(list.data ?? []).map(entry => <tr key={entry.id}><td className="p-3">{kstDateTime(entry.at)}</td><td className="p-3">{ROLE_LABEL[entry.actor_role as Role] ?? entry.actor_role}</td><td className="p-3">{entry.action}{entry.reason ? ` · ${entry.reason}` : ""}</td><td className="p-3 font-mono text-[11px] text-muted-foreground">{entry.target?.slice(0, 13)}</td></tr>)}</tbody></table>{!list.loading && !list.data?.length && <p className="p-5 text-sm text-muted-foreground">볼 수 있는 기록이 없어요. 대표 역할만 볼 수 있어요.</p>}</section>
   </>;
 }
+// 전체 공지(대표만): 모든 회원에게 사이트 알림 + 메일. 베타 종료·정식 전환은 7일 전에 보낸다.
+function Broadcast() {
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const send = async () => {
+    if (!window.confirm(`모든 회원에게 사이트 알림과 메일로 보낼까요?\n\n${title}`)) return;
+    setBusy(true);
+    const { data, error } = await rpc<number>("admin_broadcast", { p_title: title, p_body: body });
+    setBusy(false);
+    setMessage(error || `${data ?? 0}명에게 보냈어요. 메일은 몇 분에 걸쳐 나가요(5분마다 50통).`);
+    if (!error) { setTitle(""); setBody(""); }
+  };
+  return <section className={`${box} mt-8 space-y-3 p-5`}>
+    <h2 className="text-sm font-semibold">전체 공지 · 사이트 알림 + 메일</h2>
+    <p className="text-xs leading-6 text-muted-foreground">대표만 보낼 수 있어요. ‘메일 알림’을 고르지 않은 회원에게도 메일로 가요. 베타를 끝내거나 정식 운영으로 바꿀 때는 적어도 7일 전에 보내 주세요(약관 부칙).</p>
+    <Input aria-label="공지 제목" value={title} maxLength={60} onChange={event => setTitle(event.target.value)} placeholder="제목(5~60자) · 예: 비포어스 정식 운영 안내" />
+    <Textarea aria-label="공지 내용" value={body} maxLength={1000} onChange={event => setBody(event.target.value)} rows={5} placeholder="내용(10~1000자) · 바뀌는 날짜, 무엇이 바뀌는지, 원하지 않으면 탈퇴할 수 있다는 안내" />
+    <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">{body.trim().length} / 1000자</span><Button disabled={busy || title.trim().length < 5 || body.trim().length < 10} onClick={() => void send()}>모든 회원에게 보내기</Button></div>
+    <Notice text={message} />
+  </section>;
+}
+
 export function LiveSettings() {
   const list = useLoad(() => table<{ user_id: string; role: Role; granted_at: string }>("admin_roles", query => query.select("user_id, role, granted_at")), []);
   const emails = useLoad(async () => { const ids = (list.data ?? []).map(row => row.user_id); return ids.length ? table<{ id: string; email: string }>("profiles", query => query.select("id, email").in("id", ids)) : []; }, [list.data]);
@@ -472,5 +496,6 @@ export function LiveSettings() {
     <Title lead="역할은 대표만 주고 거둘 수 있어요. 먼저 그 이메일로 회원가입을 해야 해요.">운영진</Title>
     <section className={`${box} space-y-3 p-5`}><div className="flex flex-wrap gap-2"><Input type="email" aria-label="운영진 이메일" value={email} onChange={event => setEmail(event.target.value)} placeholder="이메일" className="max-w-xs" /><select aria-label="역할" value={role} onChange={event => setRole(event.target.value as Role)} className="h-9 rounded-md border border-border bg-card px-2 text-sm">{(Object.keys(ROLE_LABEL) as Role[]).map(key => <option key={key} value={key}>{ROLE_LABEL[key]}</option>)}</select><Button onClick={() => void grant(email, role)} disabled={!email.trim()}>역할 주기</Button></div><Notice text={message} /></section>
     <section className={`${box} mt-5 divide-y divide-border`}>{(list.data ?? []).map(row => { const mail = emails.data?.find(item => item.id === row.user_id)?.email; return <div key={row.user_id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"><span>{mail ?? row.user_id.slice(0, 8)} · {ROLE_LABEL[row.role]}</span><span className="flex items-center gap-2 text-xs text-muted-foreground">{kstDay(row.granted_at)}{mail && row.role !== "owner" && <Button size="sm" variant="ghost" onClick={() => void grant(mail, null)}>거두기</Button>}</span></div>; })}</section>
+    <Broadcast />
   </>;
 }

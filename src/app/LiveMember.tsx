@@ -299,5 +299,6 @@ function LiveSupportView() {
 
 // 교류·약속·결제는 서버 5단계에서 연결한다. 그 전까지는 지금 단계를 안내한다.
 export function LiveLaterPage({ title }: { title: string }) {
-  return <Member><section><PageHeader mark={title} label="서로 선택한 뒤에 열려요" en="BEFORE US" title={`${title} 화면은 두 분이 서로 선택한 뒤에 열려요.`} lead="소개를 받고 두 분 모두 알아가고 싶다고 답하면, 이곳에서 함께 시작하는 방법을 안내해 드려요." aside={<TwoDots apart faded />} /><div className="mt-8 flex flex-wrap gap-2"><Button asChild className={`rounded-xl ${interaction}`}><Link to="/today">오늘로 돌아가기 <ArrowRight size={15} /></Link></Button><Button asChild variant="outline" className={`rounded-xl ${interaction}`}><Link to="/us">두 사람 화면</Link></Button></div></section></Member>;
+  const free = title === "결제" && BEFORE_US.beta.active;
+  return <Member><section><PageHeader mark={title} label={free ? "베타 기간" : "서로 선택한 뒤에 열려요"} en="BEFORE US" title={free ? "베타 기간에는 결제가 없어요." : `${title} 화면은 두 분이 서로 선택한 뒤에 열려요.`} lead={free ? "소개도, 서로 선택한 뒤의 3일 교류도 무료예요. 베타가 끝나거나 정식 운영으로 바뀌기 7일 전에 사이트와 메일로 알려 드려요." : "소개를 받고 두 분 모두 알아가고 싶다고 답하면, 이곳에서 함께 시작하는 방법을 안내해 드려요."} aside={<TwoDots apart faded />} /><div className="mt-8 flex flex-wrap gap-2"><Button asChild className={`rounded-xl ${interaction}`}><Link to="/today">오늘로 돌아가기 <ArrowRight size={15} /></Link></Button><Button asChild variant="outline" className={`rounded-xl ${interaction}`}><Link to="/us">두 사람 화면</Link></Button></div></section></Member>;
 }
