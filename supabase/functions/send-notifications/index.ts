@@ -64,7 +64,7 @@ Deno.serve(async () => {
         for (const mail of mails) {
           try { await client.send({ from: from!, to: mail.to, subject: mail.subject, content: mail.text, html: mail.html }); await done(mail.id) } catch (error) { failed++; reason ||= String((error as Error)?.message ?? error).slice(0, 300) }
         }
-      } finally { await client.close().catch(() => {}) }
+      } finally { try { await client.close() } catch { /* 이미 닫힌 연결 */ } }
     } catch (error) {
       reason ||= String((error as Error)?.message ?? error).slice(0, 300)
     }
