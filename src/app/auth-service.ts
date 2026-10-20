@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react"
 import { BEFORE_US } from "./config"
 import { submitMemberRequest } from "./member-operations-model"
-import { LIVE, friendlyError, rpc, supabase } from "./backend/client"
+import { LANDING, LIVE, friendlyError, rpc, supabase } from "./backend/client"
 
 // 계정(회원가입·로그인·비밀번호 재설정·탈퇴).
 //  - 데모: 탭 메모리에서만 동작한다. 비밀번호는 원문 대신 SHA-256 해시만 남긴다.
@@ -50,6 +50,7 @@ if (LIVE) {
       emit()
     }
     const { data } = await db.auth.getSession()
+    readLinkReturn(!!data.session)
     await apply(data.session)
     // 콜백 안에서 바로 Supabase를 다시 부르면 멈출 수 있어 한 박자 뒤에 처리한다.
     db.auth.onAuthStateChange((_event, current) => { window.setTimeout(() => void apply(current), 0) })
@@ -85,7 +86,7 @@ export async function signIn(emailInput: string, password: string, now = Date.no
     const db = await supabase()
     const { data, error } = await db.auth.signInWithPassword({ email, password })
     if (error) {
-      if (/not confirmed/i.test(error.message)) return { error: "메일함에서 가입 확인 링크를 먼저 눌러 주세요." }
+      if (/not confirmed/i.test(error.message)) return { error: "메일 확인이 필요해요. 메일함(스팸함 포함)에서 가입 확인 링크를 눌러 주세요.", unconfirmed: true }
       if (/rate|too many/i.test(error.message)) return { error: LOCKED }
       if (!/invalid/i.test(error.message)) return { error: friendlyError(error) }
       tries.failed += 1
@@ -186,6 +187,39 @@ export async function withdraw(password: string, now = new Date()): Promise<{ er
   session = null
   emit()
   return { error: null, deletionDueAt: user.deletionDueAt }
+}
+
+// 메일 링크로 돌아왔는데 로그인되지 않은 경우의 안내(인스타그램·카카오톡 앱 안 브라우저로 가입한 뒤 다른 브라우저에서 링크를 연 경우 등)
+let linkNotice: string | null = null
+export const getLinkNotice = () => linkNotice
+export const clearLinkNotice = () => { linkNotice = null; emit() }
+function readLinkReturn(signedIn: boolean) {
+  if (LANDING.path.startsWith("/reset-password")) return
+  const query = new URLSearchParams(LANDING.search), hash = new URLSearchParams(LANDING.hash.replace(/^#/, ""))
+  const failed = query.get("error_code") || hash.get("error_code") || query.get("error") || hash.get("error")
+  if (signedIn || (!query.has("code") && !failed)) return
+  const detail = `${failed ?? ""} ${query.get("error_description") ?? hash.get("error_description") ?? ""}`
+  linkNotice = !failed
+    ? "메일 확인이 끝났어요. 가입할 때와 다른 브라우저(인스타그램·카카오톡 앱 안 화면 등)에서 링크가 열려 자동으로 로그인되지 않았어요. 가입한 이메일과 비밀번호로 로그인해 주세요."
+    : /expired|invalid/i.test(detail)
+      ? "확인 링크가 만료됐거나 이미 쓰였어요. 먼저 로그인해 보시고, ‘메일 확인이 필요해요’가 나오면 확인 메일을 다시 받아 주세요."
+      : "링크를 확인하지 못했어요. 로그인해 보시고, 안 되면 확인 메일을 다시 받아 주세요."
+  try {
+    const url = new URL(window.location.href)
+    ;["code", "error", "error_code", "error_description"].forEach((key) => url.searchParams.delete(key))
+    window.history.replaceState(window.history.state, "", url.pathname + url.search)
+  } catch { /* 주소 정리는 못 해도 안내는 보여 준다 */ }
+}
+
+// 가입 확인 메일 다시 보내기(링크가 만료됐거나 메일을 못 찾을 때)
+export async function resendConfirmation(emailInput: string) {
+  const email = normalize(emailInput)
+  if (!validEmail(email)) return { error: "이메일 주소를 확인해 주세요." }
+  if (!LIVE) return { error: null }
+  const db = await supabase()
+  const { error } = await db.auth.resend({ type: "signup", email, options: { emailRedirectTo: `${window.location.origin}/apply` } })
+  if (error && /rate|too many|seconds/i.test(error.message)) return { error: "방금 보냈어요. 1분쯤 뒤에 다시 시도해 주세요." }
+  return { error: error ? friendlyError(error) : null }
 }
 
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener) } }

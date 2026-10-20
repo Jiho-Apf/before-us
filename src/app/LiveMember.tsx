@@ -16,7 +16,7 @@ import { PHOTO_SLOTS } from "./photo-model";
 import { DECLINE_REASONS } from "./introduction-model";
 import { REQUEST_LABELS } from "./member-operations-model";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
-import { photoUrl } from "./backend/applications";
+import { partnerPhotoUrl } from "./backend/applications";
 import { blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
 
 // 실제 서버 모드의 회원 화면(오늘 · 두 사람 · 내 정보 · 문의·요청). 데모 화면과 같은 편집 톤을 쓴다.
@@ -146,7 +146,7 @@ const valueOf = (value: string | string[]) => Array.isArray(value) ? value.join(
 
 function PartnerPhoto({ path, label }: { path: string; label: string }) {
   const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => { let alive = true; void photoUrl(path).then(next => { if (alive) setUrl(next); }); return () => { alive = false; }; }, [path]);
+  useEffect(() => { let alive = true; void partnerPhotoUrl(path).then(next => { if (alive) setUrl(next); }); return () => { alive = false; }; }, [path]);
   return <figure className="aspect-[4/5] overflow-hidden border border-border bg-muted">{url ? <img src={url} alt={label} className="h-full w-full object-cover" draggable={false} onContextMenu={event => event.preventDefault()} /> : <span className="sr-only">{label} 불러오는 중</span>}</figure>;
 }
 

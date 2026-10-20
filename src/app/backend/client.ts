@@ -9,6 +9,8 @@ export const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_vJTN2b31pClzNM-uKNWPVQ_A
 export const PHOTO_BUCKET = "application-photos"
 
 export const LIVE = import.meta.env.VITE_BACKEND === "supabase"
+// 처음 열린 주소(메일 링크로 돌아왔는지 확인용). Supabase가 주소를 정리하기 전에 남겨 둔다.
+export const LANDING = typeof window === "undefined" ? { path: "", search: "", hash: "" } : { path: window.location.pathname, search: window.location.search, hash: window.location.hash }
 
 let client: Promise<SupabaseClient> | null = null
 export function supabase() {

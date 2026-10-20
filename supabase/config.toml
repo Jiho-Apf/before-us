@@ -37,3 +37,6 @@ verify_jwt = false
 
 [functions.send-notifications]
 verify_jwt = false
+
+[functions.partner-photo]
+verify_jwt = false

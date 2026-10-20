@@ -7,7 +7,7 @@ import { Label } from "./components/ui/label"
 import { Checkbox } from "./components/ui/checkbox"
 import { BEFORE_US } from "./config"
 import { kstDay } from "./dates"
-import { PASSWORD_RULE, requestPasswordReset, resetPassword, signIn, signOut, signUp, useAuth, withdraw } from "./auth-service"
+import { PASSWORD_RULE, requestPasswordReset, resetPassword, signIn, signOut, signUp, useAuth, withdraw, resendConfirmation } from "./auth-service"
 import { LIVE } from "./backend/client"
 
 // 계정 화면: 로그인 · 회원가입 · 비밀번호 재설정. 계정에는 사진이나 이상형을 받지 않는다(소개 신청은 따로 4단계).
@@ -42,19 +42,23 @@ export function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const [unconfirmed, setUnconfirmed] = useState(false)
+  const [resent, setResent] = useState("")
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true)
     const result = await signIn(email, password)
     setBusy(false)
-    if (result.error) return setError(result.error)
+    if (result.error) { setUnconfirmed("unconfirmed" in result && !!result.unconfirmed); return setError(result.error) }
     navigate("/today")
   }
+  const resend = async () => { const result = await resendConfirmation(email); setResent(result.error || "확인 메일을 다시 보냈어요. 이 브라우저에서 링크를 열면 바로 이어져요.") }
   return (
     <Frame title="로그인" foot={<><p>처음이신가요? <Link to="/signup" className="text-foreground underline underline-offset-4 hover:text-primary">회원가입</Link></p><p><Link to="/reset-password" className="underline underline-offset-4 hover:text-primary">비밀번호를 잊으셨나요?</Link></p></>}>
       <form className="space-y-5" onSubmit={submit} noValidate>
         <Field id="login-email" label="이메일" type="email" autoComplete="email" value={email} onChange={(value) => { setEmail(value); setError("") }} />
         <Field id="login-password" label="비밀번호" type="password" autoComplete="current-password" value={password} onChange={(value) => { setPassword(value); setError("") }} />
         <ErrorText text={error} />
+        {unconfirmed && <div className="rounded-xl bg-mist p-4 text-xs leading-6"><Button type="button" variant="outline" onClick={() => void resend()} className="h-10 rounded-xl border-border">확인 메일 다시 받기</Button>{resent && <p role="status" className="mt-2 text-primary">{resent}</p>}</div>}
         <Button type="submit" disabled={busy} className={`h-12 w-full rounded-xl ${motion}`}>로그인 <ArrowRight size={16} /></Button>
       </form>
       {!LIVE && <Link to="/today" className="mt-5 block text-center text-xs text-muted-foreground underline-offset-4 hover:text-primary hover:underline">로그인 없이 회원 공간 둘러보기</Link>}

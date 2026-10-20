@@ -115,6 +115,27 @@ function PageTransition() {
 }
 
 // 공개 화면 머리에서 로그인 여부를 안다(계정 모듈은 나중에 불러와 첫 화면을 가볍게 둔다).
+// 메일 링크로 돌아왔는데 로그인되지 않았을 때 맨 위에 안내를 띄운다.
+function LinkNotice() {
+  const [text, setText] = useState<string | null>(null);
+  const [clear, setClear] = useState<() => void>(() => () => {});
+  useEffect(() => {
+    if (!LIVE) return;
+    let unsubscribe = () => {};
+    let alive = true;
+    void import("./auth-service").then(auth => {
+      if (!alive) return;
+      const update = () => setText(auth.getLinkNotice());
+      update();
+      setClear(() => auth.clearLinkNotice);
+      unsubscribe = auth.subscribeAuth(update);
+    });
+    return () => { alive = false; unsubscribe(); };
+  }, []);
+  if (!text) return null;
+  return <div role="status" className="mx-auto mt-6 w-full max-w-3xl rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm leading-7"><p>{text}</p><p className="mt-2 flex flex-wrap gap-4 text-xs"><Link to="/login" onClick={clear} className="font-semibold text-primary underline-offset-4 hover:underline">로그인하기</Link><button type="button" onClick={clear} className="text-muted-foreground underline-offset-4 hover:underline">닫기</button></p></div>;
+}
+
 function useSignedIn() {
   const [signedIn, setSignedIn] = useState(false);
   useEffect(() => {
@@ -160,6 +181,7 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
         </nav>}
       </header>
       <main id="main-content" className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 sm:px-8 lg:px-12">
+        <LinkNotice />
         <PageTransition />
       </main>
       <footer className="border-t border-border">

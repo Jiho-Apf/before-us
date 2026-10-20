@@ -332,7 +332,8 @@ eq("두 사람 모두 만나고 싶으면 약속으로", (await one("select publ
 const meetDay = (await one("select ($1::date + 6)::text d", [startOn])).d
 await fails("후보 날짜는 서로 달라야 한다", "select public.propose_appointment($1, $2, '산책·공원', '마포구')", [prog.id, JSON.stringify([{ date: meetDay, start: "14:00", end: "16:00" }, { date: meetDay, start: "18:00", end: "20:00" }])], /서로 달라/)
 await fails("약속 제안에도 연락처는 못 넣는다", "select public.propose_appointment($1, $2, '산책·공원', '마포구', null, '인스타 아이디 알려 드릴게요')", [prog.id, JSON.stringify([{ date: meetDay, start: "14:00", end: "16:00" }])], /연락처/)
-const proposal = (await one("select public.propose_appointment($1, $2, '산책·공원', '마포구', '망원 한강공원', '천천히 걸어요') v", [prog.id, JSON.stringify([{ date: meetDay, start: "14:00", end: "16:00" }])])).v.proposals[0]
+const proposal = (await one("select public.propose_appointment($1, $2, '산책·공원', '마포구', '망원 한강공원', '천천히 걸어요') v", [prog.id, JSON.stringify([{ date: meetDay, start: "14:00", end: "16:00", memo: "010-9876-5432" }])])).v.proposals[0]
+ok("후보 시간에는 날짜·시각만 저장된다(다른 값으로 연락처를 넘길 수 없다)", !("memo" in proposal.slots[0]))
 await fails("내 제안은 내가 고를 수 없다", "select public.accept_appointment($1, 0)", [proposal.id], /상대가/)
 await as(A)
 await fails("약속 전에는 연락처를 고르지 않는다", "select public.set_contact_consent($1, true)", [prog.id], /약속이 정해진 뒤/)
@@ -360,7 +361,8 @@ await fails("소개받지 않은 사람은 차단할 수 없다", "select public
 await q("select public.block_partner($1)", [intro2])
 eq("차단하면 소개가 바로 닫힌다", (await one("select public.my_introduction() v")).v.status, "closed")
 const blockedProgram = await mine()
-eq("차단하면 교류도 바로 닫힌다", [blockedProgram.status, blockedProgram.endReason, blockedProgram.partnerPhone], ["closed", "blocked", null])
+eq("차단하면 교류도 바로 닫힌다", [blockedProgram.status, blockedProgram.endReason], ["closed", "blocked"])
+ok("닫힌 교류는 글·상대 이름·번호를 더 보여 주지 않는다", blockedProgram.entries.length === 0 && !("partnerName" in blockedProgram) && !("partnerPhone" in blockedProgram))
 
 // 응답 마감
 await as("postgres")
@@ -481,6 +483,32 @@ await as("postgres")
 await q("update public.profiles set notify_email = false where id <> $1", [A])
 const mails = await q("select email from public.pending_email_notifications()")
 ok("메일 알림을 고른 회원의 알림만 메일 목록에 오른다", mails.length > 0 && mails.every((r) => r.email === "a@example.test"))
+
+// ── 베타 전 점검 고친 것
+await as("anon")
+ok("‘베타 의견’ 문의를 남길 수 있다", (await one("select public.submit_inquiry('베타 의견', '', 'beta@example.test', '신청서가 조금 길어요. 그래도 좋았어요.', true) r")).r.id)
+await as("postgres")
+const G = await signup("g@example.test")
+await as(G)
+await q("select public.save_application_draft($1)", [{ ...draft("지민", "여성", "남성", "1994-04-04"), values: { ...draft("지민", "여성", "남성", "1994-04-04").values, "self.bio": "편하게 연락 주세요 인스타 아이디 jimin_94 팔로우해요" } }])
+await photos(G, 50)
+await fails("소개 글에 연락처·SNS를 넣으면 제출할 수 없다", "select public.submit_application()", [], /연락처/)
+await q("select public.save_application_draft($1)", [draft("지민", "여성", "남성", "1994-04-04")])
+await q("select public.submit_application()")
+await q("select public.save_application_draft($1)", [draft("지민", "여성", "남성", "2010-04-04")])
+eq("제출 뒤 고친 신청서는 접수 상태 그대로", (await one("select status from public.applications where member_id = $1", [G])).status, "submitted")
+await as(O, "aal2")
+for (const slot of ["photo.face", "photo.upper", "photo.style"]) await q("select public.admin_review_photo($1, $2, '기준 확인')", [G, slot])
+await fails("승인할 때 같은 기준으로 다시 확인한다(만 19세)", "select public.admin_decide_application($1, 'approved')", [G], /19세/)
+await as("postgres")
+await q("update public.applications set status = 'approved', cohort_number = (select max(number) from public.cohorts) where member_id = $1", [G])
+await q("update public.cohorts set starts_on = public.kst_today() + 30, application_deadline = public.kst_today() + 26 where number = (select max(number) from public.cohorts)")
+await q("delete from public.notifications where kind = 'waiting'")
+await one("select public.run_noon()")
+eq("기수 시작 전에는 ‘오늘은 소개가 없어요’를 보내지 않는다", (await one("select count(*)::int n from public.notifications where member_id = $1 and kind = 'waiting'", [G])).n, 0)
+await q("update public.applications set draft = jsonb_set(draft, '{sharing,photo.daily}', 'true') where member_id = $1", [G])
+await q("insert into public.application_photos (member_id, slot, path, mime, bytes, width, height, sha256, recent_confirmed, rights_confirmed, review) values ($1, 'photo.daily', $2, 'image/jpeg', 1000, 800, 1000, $3, true, true, '재등록 요청') on conflict do nothing", [G, `${G}/daily.jpg`, hex(77)])
+ok("기준 확인하지 않은 사진은 상대에게 보이지 않는다", !JSON.stringify((await one("select public.public_profile($1) p", [G])).p.photos).includes("daily"))
 
 // ── 역할 관리
 await as(O, "aal2")

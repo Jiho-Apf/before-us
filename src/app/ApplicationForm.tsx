@@ -71,7 +71,7 @@ function fieldNotes(field: Field, text: string, today: string, existingAge: numb
   const notes: string[] = [field.purpose];
   if (field.id === "self.name") notes.push("연락처·SNS·아이디는 넣지 않아요");
   if (field.id === "self.phone") notes.push("상대에게는 보이지 않아요");
-  if (field.id === "self.notifyChannels") notes.push("메일은 가입한 주소로 보내요 · 카카오톡·문자는 정식 운영부터 보내고, 그전에는 사이트와 메일로 알려 드려요");
+  if (field.id === "self.notifyChannels") notes.push(BEFORE_US.beta.active ? "베타 기간에는 카카오톡·문자 알림이 아직 없어요. 메일을 함께 고르면 소개 도착과 답 마감을 놓치지 않아요(가입한 주소로 보내요)" : "메일은 가입한 주소로 보내요 · 카카오톡·문자는 정식 운영부터 보내고, 그전에는 사이트와 메일로 알려 드려요");
   if (field.id === "self.birthDate" && existingAge === null) notes.push(LIVE ? `지금 입력값으로 만 ${ageOn(text, today) ?? "—"}세 · 만 ${BEFORE_US.operatingDraft.minimumAge}세 이상만 신청할 수 있어요` : `자기 입력 계산 만 ${ageOn(text, today) ?? "—"}세 · 실제 생년월일·신분증은 받지 않아요`);
   if (field.id === "self.gender") notes.push("사진으로 성별이나 지향을 추론하지 않아요");
   if (field.id === "desired.gender") notes.push("기본은 이성 소개예요. 운영 범위와 다르면 따로 확인해요");

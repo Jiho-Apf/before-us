@@ -149,4 +149,19 @@ export async function photoUrl(path: string) {
   return data.signedUrl
 }
 
+// 상대 사진: 서버 함수가 열람 기간인지 확인한 뒤 5분짜리 주소를 만들어 준다.
+export async function partnerPhotoUrl(path: string) {
+  const cached = urlCache.get(path)
+  if (cached && cached.until > Date.now()) return cached.url
+  try {
+    const db = await supabase()
+    const { data, error } = await db.functions.invoke<{ url?: string }>("partner-photo", { body: { path } })
+    if (error || !data?.url) return null
+    urlCache.set(path, { url: data.url, until: Date.now() + 240000 })
+    return data.url
+  } catch {
+    return null
+  }
+}
+
 export const PHOTO_ORDER = PHOTO_SLOTS.map((slot) => slot.id)
