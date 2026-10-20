@@ -16,7 +16,7 @@
 | 7. 삭제 예약·감사 | 탈퇴 7일 뒤 삭제, 끝난 소개 사본 30일 뒤 삭제, 문의 3년·감사 365일·알림 90일, 사진 파일 정리 함수 | 운영진 ‘감사로그’·대시보드 작업 기록 |
 
 - 예약 작업(pg_cron, UTC 기준): 정오 공개 12:00·12:05 KST, 응답 마감 10분마다, 보존 기간 정리 03:30 KST, 사진 파일 정리 04:00 KST.
-- 서버 점검: `pnpm test:db` (내 컴퓨터 안의 Postgres로 151개 권한·흐름 점검). 마이그레이션을 고치면 반드시 다시 돌린다.
+- 서버 점검: `pnpm test:db` (내 컴퓨터 안의 Postgres로 159개 권한·흐름 점검). 마이그레이션을 고치면 반드시 다시 돌린다.
 - 화면은 `VITE_BACKEND=supabase` 로 빌드할 때만 실제 서버를 쓴다. 지정하지 않으면 지금 배포처럼 데모로 동작한다.
   - 로컬: 미리보기 설정 `before-us-live`(포트 8444, `.env.live`).
   - Vercel: `beta` 브랜치를 올리면 실제 서버 모드 미리보기가 만들어지고, `main`(공개 사이트)은 데모 그대로다(`vercel.json`).
@@ -51,7 +51,13 @@
 
 ## 3. 정식 출시 전에 꼭 바꿀 것
 
-- **메일 알림 켜기(대표가 직접, 키는 채팅에 붙이지 않기):**
+- **도메인 없이 바로(베타용) — Gmail로 가입 확인 메일·알림 메일 보내기(대표가 직접, 비밀번호는 채팅에 붙이지 않기):**
+  1. 비포어스 전용 Gmail을 만들고 Google 계정 → 보안 → 2단계 인증을 켠다 → ‘앱 비밀번호’에서 16자리 비밀번호를 만든다.
+  2. Supabase 대시보드 → Authentication → Emails(또는 Settings → SMTP) → Enable custom SMTP: Host `smtp.gmail.com`, Port `465`, Username 그 Gmail 주소, Password 앱 비밀번호, Sender email 그 Gmail 주소, Sender name `비포어스`. 저장하면 회원 누구나 가입 확인 메일을 받는다.
+  3. 같은 화면의 Rate limits에서 ‘이메일 발송’을 시간당 30통 이상으로 둔다(기본값이 낮으면 가입이 몰릴 때 막힌다).
+  4. 알림 메일: Edge Functions → Secrets에 `SMTP_HOST`=`smtp.gmail.com`, `SMTP_USER`=Gmail 주소, `SMTP_PASS`=앱 비밀번호, `MAIL_FROM`=`비포어스 <Gmail 주소>`, `SITE_URL`=`https://before-us-3jr4.vercel.app` 을 넣는다.
+  5. 다 넣었다고 알려 주면 Claude가 비포어스 메일 디자인(가입 확인·비밀번호 재설정)을 적용한다. Gmail은 하루 약 500통까지라 베타에는 충분하다.
+- **메일 알림 켜기(도메인이 생기면, 대표가 직접, 키는 채팅에 붙이지 않기):**
   1. 도메인을 산다(예: 가비아·Cloudflare). Resend(resend.com)에 가입하고 Domains에서 그 도메인을 추가 → 안내된 DNS 기록(TXT·MX)을 도메인 관리 화면에 넣고 Verify.
   2. Resend → API Keys에서 키를 만든다(Sending access).
   3. Supabase 대시보드 → Edge Functions → Secrets(또는 Project Settings → Edge Functions)에 세 값을 넣는다: `RESEND_API_KEY`(위 키), `MAIL_FROM`(예: `비포어스 <hello@도메인>`), `SITE_URL`(회원이 쓰는 사이트 주소).
