@@ -32,7 +32,8 @@ type Mail = { id: string; to: string; subject: string; html: string; text: strin
 
 Deno.serve(async () => {
   const key = Deno.env.get("RESEND_API_KEY"), from = Deno.env.get("MAIL_FROM")
-  const smtp = { host: Deno.env.get("SMTP_HOST"), user: Deno.env.get("SMTP_USER"), pass: Deno.env.get("SMTP_PASS") }
+  // 앱 비밀번호는 띄어쓰기 없이 쓴다(Google 화면에는 4자리씩 띄어서 보여 준다).
+  const smtp = { host: Deno.env.get("SMTP_HOST")?.trim(), user: Deno.env.get("SMTP_USER")?.trim(), pass: Deno.env.get("SMTP_PASS")?.replace(/\s/g, "") }
   if (!from || (!key && !(smtp.host && smtp.user && smtp.pass))) return Response.json({ skipped: "메일 발송 설정(MAIL_FROM과 Resend 키 또는 SMTP)이 아직 없어요." })
   const site = (Deno.env.get("SITE_URL") ?? "https://before-us-3jr4.vercel.app").replace(/\/$/, "")
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } })
@@ -55,12 +56,19 @@ Deno.serve(async () => {
       if (response.ok) await done(mail.id); else failed++
     }
   } else {
-    const client = new SMTPClient({ connection: { hostname: smtp.host!, port: 465, tls: true, auth: { username: smtp.user!, password: smtp.pass! } } })
+    // 실패 원인을 남긴다(비밀번호는 담지 않는다).
+    let reason = ""
     try {
-      for (const mail of mails) {
-        try { await client.send({ from: from!, to: mail.to, subject: mail.subject, content: mail.text, html: mail.html }); await done(mail.id) } catch { failed++ }
-      }
-    } finally { await client.close().catch(() => {}) }
+      const client = new SMTPClient({ connection: { hostname: smtp.host!, port: 465, tls: true, auth: { username: smtp.user!, password: smtp.pass! } } })
+      try {
+        for (const mail of mails) {
+          try { await client.send({ from: from!, to: mail.to, subject: mail.subject, content: mail.text, html: mail.html }); await done(mail.id) } catch (error) { failed++; reason ||= String((error as Error)?.message ?? error).slice(0, 300) }
+        }
+      } finally { await client.close().catch(() => {}) }
+    } catch (error) {
+      reason ||= String((error as Error)?.message ?? error).slice(0, 300)
+    }
+    if (reason) return Response.json({ sent, failed, reason })
   }
   return Response.json({ sent, failed })
 })
