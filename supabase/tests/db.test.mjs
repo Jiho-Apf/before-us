@@ -33,6 +33,12 @@ for (const file of readdirSync(migrations).sort()) {
   try { await db.exec(readFileSync(join(migrations, file), "utf8")) }
   catch (error) { console.error(`마이그레이션 실패: ${file}\n${error.message}`); process.exit(1) }
 }
+// 베타 기수(번호 0)는 날짜가 정해져 있어, 아래 기수 점검은 베타 기수를 뺀 상태로 한다(시험 날짜와 무관하게).
+{
+  const beta = (await db.query("select number, starts_on::text s, application_deadline::text d from public.cohorts where number = 0")).rows[0]
+  if (!beta || beta.s !== "2026-11-16" || beta.d !== "2026-11-12") { console.error("베타 기수가 없거나 날짜가 다릅니다", beta); process.exit(1) }
+  await db.query("delete from public.cohorts where number = 0")
+}
 
 // ── 도우미
 let passed = 0

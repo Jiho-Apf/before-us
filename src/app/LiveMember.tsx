@@ -10,6 +10,8 @@ import { AccountPanel } from "./AuthPages";
 import { useAuth, useAuthReady } from "./auth-service";
 import { kstDateTime, kstDay } from "./dates";
 import { APPLICATION_FIELDS } from "./application-model";
+import { cohortName } from "./cohort";
+import { BEFORE_US } from "./config";
 import { PHOTO_SLOTS } from "./photo-model";
 import { DECLINE_REASONS } from "./introduction-model";
 import { REQUEST_LABELS } from "./member-operations-model";
@@ -58,11 +60,11 @@ function todayState(data: MemberSnapshot) {
   }
   if (!application || application.status === "draft") return { label: "신청 전", title: "소개 신청을 마저 적어 주세요.", action: application ? "이어서 작성하기" : "소개 신청하기", to: "/apply", body: "나에 대해 · 사진 · 원하는 만남 · 공개 확인, 네 단계예요. 단계마다 저장돼요." };
   if (application.status === "needs_changes") return { label: "보완 요청", title: "신청서에 보완할 부분이 있어요.", action: "보완하기", to: "/apply", body: application.decisionNote || "운영진 안내를 확인해 주세요." };
-  if (application.status === "submitted" || application.status === "reviewing") return { label: "검토 중", title: "신청서를 확인하고 있어요.", action: "신청서 보기", to: "/apply", body: `운영진이 사진과 내용을 확인하고 있어요. 검토가 끝나면 이 화면에서 알려 드릴게요.${cohort ? ` ${cohort.number}기 첫 소개는 ${noonOf(cohort.startsOn)} 정오예요.` : ""}` };
+  if (application.status === "submitted" || application.status === "reviewing") return { label: "검토 중", title: "신청서를 확인하고 있어요.", action: "신청서 보기", to: "/apply", body: `운영진이 사진과 내용을 확인하고 있어요. 검토가 끝나면 이 화면에서 알려 드릴게요.${cohort ? ` ${cohortName(cohort.number)} 첫 소개는 ${noonOf(cohort.startsOn)} 정오예요.` : ""}` };
   if (application.status === "approved" && data.notices?.paused_at) return { label: "잠시 쉬는 중", title: "새 소개를 잠시 쉬고 있어요.", action: "내 정보에서 다시 받기", to: "/profile", body: "쉬는 동안에는 새 소개를 준비하지 않아요. 다시 받기를 누르면 다음 정오부터 다시 준비해요." };
   if (application.status === "approved" && waitingForStart && cohort) return kstToday() === dayBefore(cohort.startsOn)
-    ? { label: `${cohort.number}기 · 내일 시작`, title: "내일 정오에 첫 소개가 도착해요.", action: "내 정보 확인하기", to: "/profile", body: "잘 맞는 분을 준비해 두었어요. 내일 정오에 이 화면과 두 사람 화면에서 확인해 주세요." }
-    : { label: `${cohort.number}기 · 시작 전`, title: `${cohort.number}기 첫 소개는 ${noonOf(cohort.startsOn)} 정오에 도착해요.`, action: "내 정보 확인하기", to: "/profile", body: "같은 기수의 분들과 함께 첫 소개를 받아요. 시작 전날 한 번 더 알려 드릴게요. 시작 전에는 소개비를 언제든 전액 환불받을 수 있어요." };
+    ? { label: `${cohortName(cohort.number)} · 내일 시작`, title: "내일 정오에 첫 소개가 도착해요.", action: "내 정보 확인하기", to: "/profile", body: "잘 맞는 분을 준비해 두었어요. 내일 정오에 이 화면과 두 사람 화면에서 확인해 주세요." }
+    : { label: `${cohortName(cohort.number)} · 시작 전`, title: `${cohortName(cohort.number)} 첫 소개는 ${noonOf(cohort.startsOn)} 정오에 도착해요.`, action: "내 정보 확인하기", to: "/profile", body: "같은 기수의 분들과 함께 첫 소개를 받아요. 시작 전날 한 번 더 알려 드릴게요. 시작 전에는 소개비를 언제든 전액 환불받을 수 있어요." };
   if (application.status === "approved") return { label: "소개 준비", title: "잘 맞는 분을 찾고 있어요.", action: "다음 정오 기다리기", to: null, body: "준비된 날 정오에 하루 최대 한 명을 소개해요. 매일 새 소개를 약속하지는 않아요." };
   return { label: "신청 상태", title: "신청 상태를 확인해 주세요.", action: "신청서 보기", to: "/apply", body: application.decisionNote || "궁금한 점은 문의하기로 남겨 주세요." };
 }
@@ -103,7 +105,7 @@ function LiveTodayView() {
       {data.application && data.application.status !== "draft" && data.introduction.status === "waiting" && <div className="mt-10"><FirstWordCard /></div>}
       <section className="mt-14 border-t border-border pt-8" aria-labelledby="status-title">
         <h2 id="status-title" className="mb-5 text-sm font-semibold">지금 알아두면 좋은 것</h2>
-        <dl className="grid gap-5 text-xs sm:grid-cols-3"><div><dt className="mb-2 text-muted-foreground">신청 접수</dt><dd>{data.application?.submittedAt ? kstDay(data.application.submittedAt) : "아직 접수 전"}</dd></div><div><dt className="mb-2 text-muted-foreground">최근 소개</dt><dd>{data.introduction.status !== "waiting" && data.introduction.publishedAt ? kstDay(data.introduction.publishedAt) : "아직 없어요"}</dd></div><div><dt className="mb-2 text-muted-foreground">{data.cohort ? "내 기수" : "소개 방식"}</dt><dd>{data.cohort ? `${data.cohort.number}기 · ${noonOf(data.cohort.startsOn)} 정오 시작` : "준비된 날 정오 · 하루 최대 한 명"}</dd></div></dl>
+        <dl className="grid gap-5 text-xs sm:grid-cols-3"><div><dt className="mb-2 text-muted-foreground">신청 접수</dt><dd>{data.application?.submittedAt ? kstDay(data.application.submittedAt) : "아직 접수 전"}</dd></div><div><dt className="mb-2 text-muted-foreground">최근 소개</dt><dd>{data.introduction.status !== "waiting" && data.introduction.publishedAt ? kstDay(data.introduction.publishedAt) : "아직 없어요"}</dd></div><div><dt className="mb-2 text-muted-foreground">{data.cohort ? "내 기수" : "소개 방식"}</dt><dd>{data.cohort ? `${cohortName(data.cohort.number)} · ${noonOf(data.cohort.startsOn)} 정오 시작` : "준비된 날 정오 · 하루 최대 한 명"}</dd></div></dl>
         <div className="mt-6 flex flex-wrap gap-2"><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/profile">알림 설정·내 정보</Link></Button><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/support">일시정지·정정 요청</Link></Button><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/contact">문의하기</Link></Button></div>
       </section>
     </section>
@@ -246,7 +248,7 @@ function LiveProfileView() {
         <div className="relative grid gap-3 sm:grid-cols-3">
           {[
             { label: "신청 상태", value: data?.application ? ({ draft: "작성 중", submitted: "접수 완료", reviewing: "검토 중", needs_changes: "보완 요청", approved: "소개 준비", held: "보류", withdrawn: "철회", rejected: "소개 어려움" } as Record<string, string>)[data.application.status] : "신청 전", sub: data?.application?.submittedAt ? `${kstDay(data.application.submittedAt)} 접수` : "신청은 무료예요" },
-            { label: "내 기수", value: data?.cohort ? `${data.cohort.number}기 · D-${Math.max(0, Math.round((Date.parse(`${data.cohort.startsOn}T12:00:00+09:00`) - Date.now()) / 86400000))}` : "신청 뒤 정해져요", sub: data?.cohort ? `${noonOf(data.cohort.startsOn)} 정오 첫 소개` : "매달 마지막 날 정오 시작" },
+            { label: "내 기수", value: data?.cohort ? `${cohortName(data.cohort.number)} · D-${Math.max(0, Math.round((Date.parse(`${data.cohort.startsOn}T12:00:00+09:00`) - Date.now()) / 86400000))}` : "신청 뒤 정해져요", sub: data?.cohort ? `${noonOf(data.cohort.startsOn)} 정오 첫 소개` : "매달 마지막 날 정오 시작" },
             { label: "알림", value: paused ? "새 소개 쉬는 중" : notices?.notice_daily_waiting ? "소개 없는 날도 알림" : "새 소개만 알림", sub: channelText ? `사이트 · ${channelText}` : "사이트 안 알림" },
           ].map(item => <div key={item.label} className="rounded-2xl bg-card/90 p-5 shadow-[0_18px_36px_-30px_color-mix(in_oklch,var(--primary)_60%,transparent)]"><p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{item.label}</p><p className="mt-2 text-lg font-semibold text-ink">{item.value}</p><p className="mt-1 text-xs text-muted-foreground">{item.sub}</p></div>)}
         </div>
@@ -257,6 +259,7 @@ function LiveProfileView() {
       </div>
       {data?.application?.status === "approved" && notices?.status === "active" && <Sheet className="flex flex-wrap items-center justify-between gap-5 p-6"><div className="min-w-0 max-w-xl"><p className="text-xs font-semibold text-accent">새 소개 {paused ? "다시 받기" : "잠시 쉬기"}</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{paused ? `${kstDay(notices.paused_at!)}부터 쉬고 있어요. 다시 받기를 누르면 다음 정오부터 소개를 준비해요.` : "여행·바쁜 시기처럼 잠시 쉬고 싶을 때 눌러 주세요. 진행 중인 소개는 그대로 이어지고, 새 소개만 멈춰요."}</p>{pauseMessage && <p role="status" className="mt-2 text-xs text-primary">{pauseMessage}</p>}</div><Button variant={paused ? "default" : "outline"} disabled={pausing} onClick={() => void togglePause()} className="h-11 shrink-0 rounded-xl border-border px-5">{paused ? "다시 받기" : "잠시 쉬기"}</Button></Sheet>}
       <FirstWordCard />
+      {BEFORE_US.beta.active && <QuietNote>베타 테스터로 함께해 주셔서 고마워요. 불편했던 점이나 바라는 점이 있다면 <Link to="/contact?type=베타 의견" className="font-semibold text-primary underline-offset-4 hover:underline">베타 의견 남기기</Link>로 알려 주세요. 하나하나 읽고 반영할게요.</QuietNote>}
       <AccountPanel />
     </section>
   );

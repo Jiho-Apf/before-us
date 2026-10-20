@@ -1,12 +1,14 @@
 // 메일 알림 보내기(5분마다, pg_cron이 부른다).
-// 사이트 안 알림 가운데 ‘메일’을 고른 회원의 것만 Resend로 보낸다. 보낸 알림은 emailed_at 을 남겨 두 번 보내지 않는다.
+// 사이트 안 알림 가운데 ‘메일’을 고른 회원의 것만 메일로 보낸다. 보낸 알림은 emailed_at 을 남겨 두 번 보내지 않는다.
 // 받는 값이 없고 대기 중인 알림만 보내므로, 누가 불러도 다른 일을 할 수 없다.
-// 필요한 비밀 값(대표가 Supabase 대시보드 → Edge Functions → Secrets 에 직접 넣는다):
-//   RESEND_API_KEY  Resend에서 만든 키
-//   MAIL_FROM       보내는 주소(예: 비포어스 <hello@도메인>) · Resend에서 확인한 도메인이어야 한다
-//   SITE_URL        버튼이 열 사이트 주소(없으면 베타 주소)
-// 키가 없으면 아무것도 보내지 않고 건너뛴다(사이트 안 알림은 그대로 보인다).
+// 보내는 방법(대표가 Supabase 대시보드 → Edge Functions → Secrets 에 직접 넣는다. 채팅에 붙이지 않는다):
+//   A) Resend(도메인이 있을 때 · 권장): RESEND_API_KEY, MAIL_FROM(예: 비포어스 <hello@도메인>)
+//   B) 메일 계정 SMTP(도메인 없이 · 베타용): SMTP_HOST(예: smtp.gmail.com), SMTP_USER(메일 주소), SMTP_PASS(앱 비밀번호),
+//      MAIL_FROM(예: 비포어스 <그 메일 주소>) · Supabase 함수는 465 포트(SSL)만 쓸 수 있다.
+//   공통: SITE_URL(버튼이 열 사이트 주소, 없으면 공개 사이트)
+// 아무것도 없으면 보내지 않고 건너뛴다(사이트 안 알림은 그대로 보인다).
 import { createClient } from "npm:@supabase/supabase-js@2.49.4"
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts"
 
 const escape = (text: string) => text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!)
 
@@ -26,24 +28,39 @@ ${body ? `<p style="margin:0 0 24px;font-size:15px;line-height:1.85;color:#4A467
 </table></td></tr></table></body></html>`
 }
 
+type Mail = { id: string; to: string; subject: string; html: string; text: string }
+
 Deno.serve(async () => {
   const key = Deno.env.get("RESEND_API_KEY"), from = Deno.env.get("MAIL_FROM")
-  if (!key || !from) return Response.json({ skipped: "RESEND_API_KEY·MAIL_FROM 이 아직 없어요." })
-  const site = (Deno.env.get("SITE_URL") ?? "https://before-us-3jr4-git-beta-ji-ho-jung-s-projects.vercel.app").replace(/\/$/, "")
+  const smtp = { host: Deno.env.get("SMTP_HOST"), user: Deno.env.get("SMTP_USER"), pass: Deno.env.get("SMTP_PASS") }
+  if (!from || (!key && !(smtp.host && smtp.user && smtp.pass))) return Response.json({ skipped: "메일 발송 설정(MAIL_FROM과 Resend 키 또는 SMTP)이 아직 없어요." })
+  const site = (Deno.env.get("SITE_URL") ?? "https://before-us-3jr4.vercel.app").replace(/\/$/, "")
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } })
   const { data, error } = await db.rpc("pending_email_notifications", { p_limit: 50 })
   if (error) return Response.json({ error: error.message }, { status: 500 })
-  let sent = 0, failed = 0
-  for (const item of (data ?? []) as { id: string; email: string; title: string; body: string | null; link: string | null }[]) {
+  const mails: Mail[] = ((data ?? []) as { id: string; email: string; title: string; body: string | null; link: string | null }[]).map((item) => {
     const url = site + (item.link?.startsWith("/") ? item.link : "/today")
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "Idempotency-Key": `notification-${item.id}` },
-      body: JSON.stringify({ from, to: [item.email], subject: `[비포어스] ${item.title}`, html: html(item.title, item.body, url), text: `${item.title}\n\n${item.body ?? ""}\n\n${url}` }),
-    })
-    if (!response.ok) { failed++; continue }
-    await db.from("notifications").update({ emailed_at: new Date().toISOString() }).eq("id", item.id)
-    sent++
+    return { id: item.id, to: item.email, subject: `[비포어스] ${item.title}`, html: html(item.title, item.body, url), text: `${item.title}\n\n${item.body ?? ""}\n\n${url}` }
+  })
+  if (!mails.length) return Response.json({ sent: 0, failed: 0 })
+  let sent = 0, failed = 0
+  const done = async (id: string) => { await db.from("notifications").update({ emailed_at: new Date().toISOString() }).eq("id", id); sent++ }
+  if (key) {
+    for (const mail of mails) {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "Idempotency-Key": `notification-${mail.id}` },
+        body: JSON.stringify({ from, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text }),
+      })
+      if (response.ok) await done(mail.id); else failed++
+    }
+  } else {
+    const client = new SMTPClient({ connection: { hostname: smtp.host!, port: 465, tls: true, auth: { username: smtp.user!, password: smtp.pass! } } })
+    try {
+      for (const mail of mails) {
+        try { await client.send({ from: from!, to: mail.to, subject: mail.subject, content: mail.text, html: mail.html }); await done(mail.id) } catch { failed++ }
+      }
+    } finally { await client.close().catch(() => {}) }
   }
   return Response.json({ sent, failed })
 })

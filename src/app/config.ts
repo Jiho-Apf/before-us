@@ -21,5 +21,10 @@ export const BEFORE_US = {
   noonGuidance: { reviewAfterDays: 7, counselingAfterDays: 14, criteriaStatus: "operating-draft", kakaoApproved: false, sendingConnected: false },
   agreement: { defaultStartTime: "09:00", timezone: "Asia/Seoul", defaultStart: "day-after-both-confirmed", status: "operating-draft" },
   letters: { opensAt: "09:00", closesAt: "23:59", timezone: "Asia/Seoul", recommendedMinimum: 300, recommendedMaximum: 600, scheduleResetPolicy: null },
+  // 베타 운영(결제 없이). 정식 운영으로 바꿀 때 active 를 false 로 바꾼다.
+  beta: { active: true, startsOn: "2026-10-20", legalVersion: "beta-2026-10-20" },
+  // 운영자(개인정보 보호책임자) 정보와 공식 SNS. 비어 있으면 화면에 ‘문의하기’로 대신 안내한다.
+  operator: { name: "", email: "" },
+  social: { instagram: "", threads: "" },
   meeting: { policyVersion: "V6-DAY04-draft-1", timezone: "Asia/Seoul", decisionOpensAt: "09:00", decisionHours: 24, methodHours: 24, proposalHours: 48, replyHours: 24, coordinationTargetHours: 72, status: "operating-draft" },
 } as const;

@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { kstDay } from "./dates";
 import { LIVE, rpc } from "./backend/client";
-import { recruitingCohort, type CohortInfo } from "./cohort";
+import { cohortCode, cohortName, recruitingCohort, type CohortInfo } from "./cohort";
 
 // 소개 신청을 마친 직후의 화면.
 //  - 뒤에는 라벤더·푸른빛이 천천히 번지고, 내용은 위에서부터 한 줄씩 내려앉는다.
@@ -51,7 +51,7 @@ export default function ApplicationComplete({ name }: { name?: string }) {
           <div className="relative overflow-hidden rounded-[21px] bg-[linear-gradient(180deg,var(--card),color-mix(in_oklch,var(--lilac)_30%,var(--card)))] px-7 py-7">
             <span aria-hidden="true" className="complete-shine pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-[linear-gradient(100deg,transparent,rgba(255,255,255,0.65),transparent)]" />
             <div className="relative flex items-center justify-between">
-              <p className="text-[11px] font-semibold tracking-[0.18em] text-accent">{cohort.number}기 · COHORT {String(cohort.number).padStart(2, "0")}</p>
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-accent">{cohortName(cohort.number)} · {cohortCode(cohort.number)}</p>
               <span className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold leading-none text-primary-foreground tabular-nums">D-{days}</span>
             </div>
             <p className="relative mt-4 text-[26px] font-semibold text-ink">{kstDay(cohort.startsOn)} 정오</p>

@@ -1,0 +1,11 @@
+User-agent: *
+Disallow: /admin
+Disallow: /demo/
+Disallow: /apply
+Disallow: /today
+Disallow: /us
+Disallow: /exchange
+Disallow: /meeting
+Disallow: /profile
+Disallow: /support
+Disallow: /reset-password

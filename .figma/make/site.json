@@ -1,9 +1,9 @@
 {
   "title": "비포어스 · BEFORE US",
-  "description": "끌리는 사람을, 천천히 알아갑니다. 운영진이 직접 고른 한 사람을 준비된 날 정오에 소개하는 일대일 소개 서비스 비포어스의 데모입니다.",
+  "description": "끌리는 사람을, 천천히 알아갑니다. 운영진이 직접 고른 한 사람을 준비된 날 정오에 소개하는 일대일 소개 서비스 비포어스. 지금은 베타 테스터를 무료로 모집하고 있어요.",
   "language": "ko",
   "robots": {
-    "index": false
+    "index": true
   },
   "accessibility": {
     "addBypassLinks": false,

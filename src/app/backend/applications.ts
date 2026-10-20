@@ -1,6 +1,7 @@
 import { emptyApplication, normalizeLegacyValues, type ApplicationDraft } from "../application-model"
 import { emptyPhoto, emptyPhotos, PHOTO_SLOTS, type ApplicationPhotos, type PhotoReview, type PhotoSlotId } from "../photo-model"
 import { BEFORE_US } from "../config"
+import { storedSource } from "../acquisition"
 import { PHOTO_BUCKET, friendlyError, rpc, supabase } from "./client"
 
 // 실제 서버의 소개 신청서·사진.
@@ -41,9 +42,13 @@ export async function loadMyApplication(): Promise<{ data: MyApplication | null;
     const saved = (row?.draft ?? {}) as Partial<ApplicationDraft>
     const status = (row?.status ?? "draft") as ApplicationStatus
     const photoRows = (rows ?? []) as PhotoRow[]
+    // 홍보 링크로 들어왔다면 ‘알게 된 경로’를 미리 채운다(회원이 바꿀 수 있다).
+    const values = normalizeLegacyValues({ ...base.values, ...(saved.values ?? {}) })
+    const source = storedSource()
+    if (!values["self.source"] && source) values["self.source"] = source
     const draft: ApplicationDraft = {
       ...base,
-      values: normalizeLegacyValues({ ...base.values, ...(saved.values ?? {}) }),
+      values,
       sharing: { ...base.sharing, ...(saved.sharing ?? {}) },
       preferences: saved.preferences ?? base.preferences,
       step: typeof saved.step === "number" ? saved.step : 0,

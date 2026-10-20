@@ -7,6 +7,9 @@ import { LIVE, rpc } from "./backend/client"
 // 실제 서버 모드에서는 운영진이 바꾼 날짜가 있으면 서버 값을 쓴다.
 export type CohortInfo = { number: number; startsOn: string; applicationDeadline: string; opensOn: string | null }
 const C = BEFORE_US.cohorts
+// 베타 기수는 번호 0으로 두고 화면에는 ‘베타’로 보여 준다.
+export const cohortName = (number: number) => number === 0 ? "베타" : `${number}기`
+export const cohortCode = (number: number) => number === 0 ? "BETA" : `COHORT ${String(number).padStart(2, "0")}`
 const pad = (n: number) => String(n).padStart(2, "0")
 const lastDay = (year: number, month: number) => new Date(Date.UTC(year, month, 0)).getUTCDate()
 const shift = (date: string, days: number) => new Date(Date.parse(`${date}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10)

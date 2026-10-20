@@ -21,7 +21,7 @@ const listeners = new Set<() => void>()
 const emit = () => listeners.forEach((listener) => listener())
 
 export const PASSWORD_RULE = "8자 이상, 영문과 숫자를 함께 써 주세요."
-export const LEGAL_VERSION = "draft-2026-10-15"
+export const LEGAL_VERSION = LIVE && BEFORE_US.beta.active ? BEFORE_US.beta.legalVersion : "draft-2026-10-15"
 const LOCK_AFTER = 5
 const LOCK_MINUTES = 5
 const RESET_MINUTES = 30

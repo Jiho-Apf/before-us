@@ -70,7 +70,7 @@ function InquiryLookup() {
 }
 
 export default function InquiryPage() {
-  const [type, setType] = useState<InquiryType | "">("")
+  const [type, setType] = useState<InquiryType | "">(() => { const wanted = new URLSearchParams(window.location.search).get("type"); return (INQUIRY_TYPES as readonly string[]).includes(wanted ?? "") ? wanted as InquiryType : "" })
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [body, setBody] = useState("")

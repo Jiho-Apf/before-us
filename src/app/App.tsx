@@ -174,7 +174,7 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
               <Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
             </nav>
           </div>
-          <div className="mt-6 space-y-1 border-t border-border pt-5 leading-6 text-muted-foreground"><p>상호 · 대표자 · 사업자등록번호 · 통신판매업 신고번호 · 준비 중</p><p><span className="font-semibold text-foreground">19세 미만 이용 불가</span> · 만 19세 이상 대상 일대일 소개</p></div>
+          <div className="mt-6 space-y-1 border-t border-border pt-5 leading-6 text-muted-foreground">{LIVE && BEFORE_US.beta.active ? <p>베타 운영 중 · 결제 없이 운영해요{BEFORE_US.operator.name ? ` · 운영자 ${BEFORE_US.operator.name}` : ""}{BEFORE_US.operator.email ? ` · ${BEFORE_US.operator.email}` : ""}</p> : <p>상호 · 대표자 · 사업자등록번호 · 통신판매업 신고번호 · 준비 중</p>}{(BEFORE_US.social.instagram || BEFORE_US.social.threads) && <p className="flex flex-wrap gap-x-4">{BEFORE_US.social.instagram && <a href={`https://www.instagram.com/${BEFORE_US.social.instagram}`} target="_blank" rel="noreferrer" className="underline-offset-4 hover:text-primary hover:underline">인스타그램 @{BEFORE_US.social.instagram}</a>}{BEFORE_US.social.threads && <a href={`https://www.threads.net/@${BEFORE_US.social.threads}`} target="_blank" rel="noreferrer" className="underline-offset-4 hover:text-primary hover:underline">스레드 @{BEFORE_US.social.threads}</a>}</p>}<p><span className="font-semibold text-foreground">19세 미만 이용 불가</span> · 만 19세 이상 대상 일대일 소개</p></div>
         </div>
       </footer>
     </div>
