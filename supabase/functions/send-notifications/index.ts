@@ -8,7 +8,8 @@
 //   공통: SITE_URL(버튼이 열 사이트 주소, 없으면 공개 사이트)
 // 아무것도 없으면 보내지 않고 건너뛴다(사이트 안 알림은 그대로 보인다).
 import { createClient } from "npm:@supabase/supabase-js@2.49.4"
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts"
+import { buildMessage, parseAddress } from "./mime.ts"
+import { Smtp } from "./smtp.ts"
 
 const escape = (text: string) => text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!)
 
@@ -59,12 +60,15 @@ Deno.serve(async () => {
     // 실패 원인을 남긴다(비밀번호는 담지 않는다).
     let reason = ""
     try {
-      const client = new SMTPClient({ connection: { hostname: smtp.host!, port: 465, tls: true, auth: { username: smtp.user!, password: smtp.pass! } } })
+      const client = await Smtp.open(smtp.host!, smtp.user!, smtp.pass!)
+      // 보내는 주소는 로그인한 Gmail 주소로 고정한다(MAIL_FROM에서는 보낸 사람 이름만 쓴다).
+      const sender = smtp.user!
+      const fromHeader = `${parseAddress(from!).name || "비포어스"} <${sender}>`
       try {
         for (const mail of mails) {
-          try { await client.send({ from: from!, to: mail.to, subject: mail.subject, content: mail.text, html: mail.html }); await done(mail.id) } catch (error) { failed++; reason ||= String((error as Error)?.message ?? error).slice(0, 300) }
+          try { await client.send(sender, mail.to, buildMessage({ from: fromHeader, to: mail.to, subject: mail.subject, text: mail.text, html: mail.html, id: mail.id })); await done(mail.id) } catch (error) { failed++; reason ||= String((error as Error)?.message ?? error).slice(0, 300) }
         }
-      } finally { try { await client.close() } catch { /* 이미 닫힌 연결 */ } }
+      } finally { await client.quit() }
     } catch (error) {
       reason ||= String((error as Error)?.message ?? error).slice(0, 300)
     }
