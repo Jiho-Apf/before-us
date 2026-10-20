@@ -1,3 +1,4 @@
+import { ChannelNotice } from "./ChannelNotice";
 import { Fragment, useEffect, useState } from "react";
 import PreferencesStep from "./PreferencesStep";
 import { EXPRESSION_ORDER } from "./personality-fields";
@@ -71,7 +72,7 @@ function fieldNotes(field: Field, text: string, today: string, existingAge: numb
   const notes: string[] = [field.purpose];
   if (field.id === "self.name") notes.push("연락처·SNS·아이디는 넣지 않아요");
   if (field.id === "self.phone") notes.push("상대에게는 보이지 않아요");
-  if (field.id === "self.notifyChannels") notes.push(BEFORE_US.beta.active ? "베타 기간에는 카카오톡·문자 알림이 아직 없어요. 메일을 함께 고르면 소개 도착과 답 마감을 놓치지 않아요(가입한 주소로 보내요)" : "메일은 가입한 주소로 보내요 · 카카오톡·문자는 정식 운영부터 보내고, 그전에는 사이트와 메일로 알려 드려요");
+  if (field.id === "self.notifyChannels") notes.push("메일은 가입한 주소로 보내요");
   if (field.id === "self.birthDate" && existingAge === null) notes.push(LIVE ? `지금 입력값으로 만 ${ageOn(text, today) ?? "—"}세 · 만 ${BEFORE_US.operatingDraft.minimumAge}세 이상만 신청할 수 있어요` : `자기 입력 계산 만 ${ageOn(text, today) ?? "—"}세 · 실제 생년월일·신분증은 받지 않아요`);
   if (field.id === "self.gender") notes.push("사진으로 성별이나 지향을 추론하지 않아요");
   if (field.id === "desired.gender") notes.push("기본은 이성 소개예요. 운영 범위와 다르면 따로 확인해요");
@@ -143,6 +144,7 @@ function FieldInput({ field, value, onChange, error, sharing, onSharing, account
     <div id={`${controlId}-help`} className="mt-2.5 flex items-start justify-between gap-4 text-[11px] leading-5 text-muted-foreground"><p className="min-w-0">{fieldNotes(field, text, today, existingAge).join(" · ")}{examples && <> · <button type="button" aria-expanded={examplesOpen} onClick={() => setExamplesOpen(open => !open)} className="text-primary underline-offset-4 hover:underline">{examplesOpen ? "예시 닫기" : "예시 보기"}</button></>}</p>{fieldCounter(field, value) && <span className="shrink-0 tabular-nums">{fieldCounter(field, value)}</span>}</div>
     {examplesOpen && examples && <div className="mt-3 space-y-2 rounded-xl bg-muted/50 p-4">{examples.map(example => <div key={example} className="flex items-start justify-between gap-3"><p className="text-xs leading-6">{example}</p><Button type="button" size="sm" variant="ghost" disabled={!!text.trim()} onClick={() => { onChange(example); setExamplesOpen(false); }} className="h-7 shrink-0 rounded-lg px-2 text-[11px] text-primary">{text.trim() ? "쓰던 글 있음" : "가져다 쓰기"}</Button></div>)}<p className="text-[11px] text-muted-foreground">예시는 시작을 돕기 위한 거예요. 내 이야기로 고쳐 써 주세요.</p></div>}
     {error && <p role="alert" className="mt-2 text-xs leading-6 text-destructive">{error}</p>}
+    {field.id === "self.notifyChannels" && Array.isArray(value) && <ChannelNotice kakao={value.includes("카카오톡")} sms={value.includes("문자")} email={value.includes("메일")} />}
     {field.id === "self.mbti" && answered && <Button type="button" variant="ghost" onClick={() => onChange("")} className="mt-2 h-8 rounded-lg px-2 text-xs text-muted-foreground">MBTI 선택 해제</Button>}
   </div>;
 }
