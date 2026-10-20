@@ -145,7 +145,7 @@ function AdminShell({ role }: { role: Role }) {
 // 대시보드: 오늘 처리할 일
 export function LiveAdminHome() {
   const { data, error } = useLoad(async () => {
-    const [applications, ready, intros, reports, inquiries, requests, jobs, errors] = await Promise.all([
+    const [applications, ready, intros, reports, inquiries, requests, jobs, mail, errors] = await Promise.all([
       call<{ status: string; source: string | null; cohort: number | null }[]>("admin_list_applications"),
       call<unknown[]>("admin_ready_members").catch(() => []),
       call<{ status: string; reveal_at: string }[]>("admin_list_introductions"),
@@ -153,9 +153,10 @@ export function LiveAdminHome() {
       table<{ status: string }>("inquiries", query => query.select("status").neq("status", "answered")),
       table<{ status: string }>("member_requests", query => query.select("status").neq("status", "decided")),
       table<{ job: string; started_at: string; ok: boolean | null; detail: Record<string, unknown> | null }>("job_runs", query => query.select("job, started_at, ok, detail").order("started_at", { ascending: false }).limit(6)),
+      table<{ started_at: string; ok: boolean | null; detail: { sent?: number; failed?: number; reason?: string } | null }>("job_runs", query => query.select("started_at, ok, detail").eq("job", "email").gt("started_at", new Date(Date.now() - 86400000).toISOString()).order("started_at", { ascending: false }).limit(1)),
       table<{ id: number; at: string; context: string | null; message: string | null; path: string | null }>("client_errors", query => query.select("id, at, context, message, path").gt("at", new Date(Date.now() - 7 * 86400000).toISOString()).order("id", { ascending: false }).limit(20)).catch(() => []),
     ]);
-    return { applications, ready, intros, reports, inquiries, requests, jobs, errors };
+    return { applications, ready, intros, reports, inquiries, requests, jobs, mail: mail[0] ?? null, errors };
   });
   if (error) return <Notice text={error} />;
   if (!data) return <p className="text-sm text-muted-foreground">불러오고 있어요.</p>;
@@ -175,9 +176,10 @@ export function LiveAdminHome() {
   const sources = Object.entries(submitted.reduce<Record<string, number>>((all, item) => ({ ...all, [item.source || "응답 없음"]: (all[item.source || "응답 없음"] ?? 0) + 1 }), {})).sort((a, b) => b[1] - a[1]);
   return <>
     <Title lead="실제 회원 자료예요. 열람과 처리는 모두 감사 기록에 남아요.">오늘 처리할 일</Title>
+    {data.mail?.ok === false && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-destructive"><span className="font-semibold">메일 발송이 실패하고 있어요</span> · {kstDateTime(data.mail.started_at)} · 실패 {data.mail.detail?.failed ?? 0}통{data.mail.detail?.reason ? ` · ${data.mail.detail.reason.slice(0, 120)}` : ""}<br /><span className="text-xs">Supabase → Edge Functions → Secrets의 SMTP_USER(메일 주소)·SMTP_PASS(앱 비밀번호)를 확인해 주세요.</span></p>}
     {urgent > 0 && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-semibold text-destructive">긴급 신고 {urgent}건 · 먼저 확인해 주세요.</p>}
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{tiles.map(([label, count, to]) => <Link key={label} to={to} className={`${box} p-5 transition-colors hover:border-primary/40`}><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-3xl font-light tabular-nums text-primary">{count}</p></Link>)}</div>
-    <section className={`${box} mt-6 p-5`}><h2 className="flex items-center gap-2 text-sm font-semibold"><Bell size={15} className="text-accent" />예약 작업 기록</h2>{data.jobs.length ? <ul className="mt-3 divide-y divide-border text-xs">{data.jobs.map((job, index) => <li key={index} className="flex flex-wrap justify-between gap-2 py-2"><span>{({ noon: "정오 공개", deadlines: "응답 마감", retention: "보존 기간 정리" } as Record<string, string>)[job.job] ?? job.job} · {job.ok === false ? <span className="font-semibold text-destructive">실패</span> : "완료"}</span><span className="text-muted-foreground">{kstDateTime(job.started_at)} · {JSON.stringify(job.detail ?? {})}</span></li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">아직 실행 기록이 없어요. 정오 작업은 매일 12:00에 돌아요.</p>}</section>
+    <section className={`${box} mt-6 p-5`}><h2 className="flex items-center gap-2 text-sm font-semibold"><Bell size={15} className="text-accent" />예약 작업 기록</h2>{data.jobs.length ? <ul className="mt-3 divide-y divide-border text-xs">{data.jobs.map((job, index) => <li key={index} className="flex flex-wrap justify-between gap-2 py-2"><span>{({ noon: "정오 공개", deadlines: "응답 마감", retention: "보존 기간 정리", email: "메일 발송", reminders: "마감 전 알림", programs: "교류 진행", "program-retention": "교류 글 정리" } as Record<string, string>)[job.job] ?? job.job} · {job.ok === false ? <span className="font-semibold text-destructive">실패</span> : "완료"}</span><span className="text-muted-foreground">{kstDateTime(job.started_at)} · {JSON.stringify(job.detail ?? {})}</span></li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">아직 실행 기록이 없어요. 정오 작업은 매일 12:00에 돌아요.</p>}</section>
     <section className={`${box} mt-6 p-5`}><h2 className="text-sm font-semibold">유입 경로 · 제출한 신청서 {submitted.length}건</h2>{sources.length ? <ul className="mt-3 grid gap-2 text-xs sm:grid-cols-2">{sources.map(([label, count]) => <li key={label} className="flex items-center gap-3"><span className="w-28 shrink-0 text-muted-foreground">{label}</span><span className="h-2 rounded-full bg-primary/70" style={{ width: `${Math.max(6, Math.round(count / submitted.length * 100))}%` }} /><span className="tabular-nums">{count}</span></li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">아직 제출한 신청서가 없어요. 홍보 링크 끝에 ?from=instagram · ?from=threads 를 붙이면 경로가 자동으로 채워져요.</p>}</section>
     <section className={`${box} mt-6 p-5`}><h2 className="flex items-center gap-2 text-sm font-semibold"><Bug size={15} className="text-accent" />화면 오류 · 최근 7일 {data.errors.length ? `${data.errors.length}건` : ""}</h2>{data.errors.length ? <ul className="mt-3 divide-y divide-border text-xs">{data.errors.map(item => <li key={item.id} className="py-2 leading-5"><span className="text-muted-foreground">{kstDateTime(item.at)} · {item.path ?? "-"} · {item.context ?? "-"}</span><br />{item.message}</li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">회원 화면에서 난 오류가 없어요. 오류가 나면 이메일·전화번호를 지운 채로 여기에 모여요.</p>}</section>
   </>;

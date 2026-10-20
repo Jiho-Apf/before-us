@@ -22,14 +22,20 @@ function html(title: string, body: string | null, url: string) {
 <tr><td style="background:#FFFFFF;border:1px solid #EEEAFA;border-radius:20px;padding:36px 30px;">
 <p style="margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:2px;color:#3A54CA;">BEFORE US · 알림</p>
 <h1 style="margin:0 0 14px;font-size:22px;line-height:1.5;font-weight:700;">${escape(title)}</h1>
-${body ? `<p style="margin:0 0 24px;font-size:15px;line-height:1.85;color:#4A4670;">${escape(body)}</p>` : ""}
+${body ? `<p style="margin:0 0 24px;font-size:15px;line-height:1.85;color:#4A4670;">${escape(body).split("\n").join("<br>")}</p>` : ""}
 <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:12px;background:#614CC4;"><a href="${escape(url)}" style="display:inline-block;padding:14px 26px;font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;">비포어스에서 확인하기 →</a></td></tr></table>
 </td></tr>
-<tr><td style="padding:22px 8px 0;font-size:12px;line-height:1.8;color:#7A76A0;"><p style="margin:0 0 6px;">메일 알림은 내 정보 → 알림 설정에서 끌 수 있어요.</p><p style="margin:0;color:#A19DC0;">BEFORE US · 끌리는 사람을, 천천히 알아갑니다. · 19세 미만 이용 불가</p></td></tr>
+<tr><td style="padding:22px 8px 0;font-size:12px;line-height:1.8;color:#7A76A0;"><p style="margin:0 0 6px;">메일로 받을 알림의 범위는 내 정보 → 알림 설정에서 고를 수 있어요. 밤 10시~아침 8시에는 보내지 않아요.</p><p style="margin:0 0 6px;">이 메일이 스팸함에 있었다면 beforeus.official.kr@gmail.com을 주소록에 추가해 주세요.</p><p style="margin:0;color:#A19DC0;">BEFORE US · 끌리는 사람을, 천천히 알아갑니다. · 19세 미만 이용 불가</p></td></tr>
 </table></td></tr></table></body></html>`
 }
 
-type Mail = { id: string; to: string; subject: string; html: string; text: string }
+// 보낸 결과를 예약 작업 기록에 남긴다(운영진 대시보드 · 실패하면 맨 위에 경고). 보낸 것도 실패도 없으면 남기지 않는다.
+async function record(db: ReturnType<typeof createClient>, sent: number, failed: number, reason: string) {
+  if (!sent && !failed && !reason) return
+  await db.from("job_runs").insert({ job: "email", finished_at: new Date().toISOString(), ok: !failed && !reason, detail: { sent, failed, ...(reason ? { reason } : {}) } })
+}
+
+type Mail = { id: string; source: string; to: string; subject: string; html: string; text: string }
 
 Deno.serve(async () => {
   const key = Deno.env.get("RESEND_API_KEY"), from = Deno.env.get("MAIL_FROM")
@@ -40,13 +46,14 @@ Deno.serve(async () => {
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } })
   const { data, error } = await db.rpc("pending_email_notifications", { p_limit: 50 })
   if (error) return Response.json({ error: error.message }, { status: 500 })
-  const mails: Mail[] = ((data ?? []) as { id: string; email: string; title: string; body: string | null; link: string | null }[]).map((item) => {
+  const mails: Mail[] = ((data ?? []) as { id: string; email: string; title: string; body: string | null; link: string | null; source: string }[]).map((item) => {
     const url = site + (item.link?.startsWith("/") ? item.link : "/today")
-    return { id: item.id, to: item.email, subject: `[비포어스] ${item.title}`, html: html(item.title, item.body, url), text: `${item.title}\n\n${item.body ?? ""}\n\n${url}` }
+    return { id: item.id, source: item.source, to: item.email, subject: `[비포어스] ${item.title}`, html: html(item.title, item.body, url), text: `${item.title}\n\n${item.body ?? ""}\n\n${url}` }
   })
   if (!mails.length) return Response.json({ sent: 0, failed: 0 })
   let sent = 0, failed = 0
-  const done = async (id: string) => { await db.from("notifications").update({ emailed_at: new Date().toISOString() }).eq("id", id); sent++ }
+  // 알림은 notifications, 문의 답변 등은 email_queue 에 보낸 시각을 남긴다.
+  const done = async (mail: Mail) => { await db.from(mail.source === "queue" ? "email_queue" : "notifications").update({ emailed_at: new Date().toISOString() }).eq("id", mail.id); sent++ }
   if (key) {
     for (const mail of mails) {
       const response = await fetch("https://api.resend.com/emails", {
@@ -54,7 +61,7 @@ Deno.serve(async () => {
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "Idempotency-Key": `notification-${mail.id}` },
         body: JSON.stringify({ from, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text }),
       })
-      if (response.ok) await done(mail.id); else failed++
+      if (response.ok) await done(mail); else failed++
     }
   } else {
     // 실패 원인을 남긴다(비밀번호는 담지 않는다).
@@ -66,13 +73,14 @@ Deno.serve(async () => {
       const fromHeader = `${parseAddress(from!).name || "비포어스"} <${sender}>`
       try {
         for (const mail of mails) {
-          try { await client.send(sender, mail.to, buildMessage({ from: fromHeader, to: mail.to, subject: mail.subject, text: mail.text, html: mail.html, id: mail.id })); await done(mail.id) } catch (error) { failed++; reason ||= String((error as Error)?.message ?? error).slice(0, 300) }
+          try { await client.send(sender, mail.to, buildMessage({ from: fromHeader, to: mail.to, subject: mail.subject, text: mail.text, html: mail.html, id: mail.id })); await done(mail) } catch (error) { failed++; reason ||= String((error as Error)?.message ?? error).slice(0, 300) }
         }
       } finally { await client.quit() }
     } catch (error) {
       reason ||= String((error as Error)?.message ?? error).slice(0, 300)
     }
-    if (reason) return Response.json({ sent, failed, reason })
+    if (reason) { await record(db, sent, failed, reason); return Response.json({ sent, failed, reason }) }
   }
+  await record(db, sent, failed, "")
   return Response.json({ sent, failed })
 })
