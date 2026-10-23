@@ -155,7 +155,7 @@ function Hero() {
           </div>
           <p className="mt-12 text-sm text-white/95">{part.phrase}</p>
           <div className="mt-5"><NoonClock /></div>
-          <p className="mt-5 text-[11px] text-white/95 dark:text-white">{LIVE ? `베타 운영 중 · 결제 없이 진행해요 · ${BEFORE_US.ageBand.label}(${BEFORE_US.ageBand.korean})` : "데모 둘러보기 · 실제 신청이나 결제는 진행되지 않아요."}</p>
+          <p className="mt-5 text-[11px] text-white/95 dark:text-white">{LIVE ? "베타 운영 중 · 지금은 결제 없이 진행해요." : "데모 둘러보기 · 실제 신청이나 결제는 진행되지 않아요."}</p>
         </div>
         <ServiceCollage />
       </div>
@@ -173,29 +173,48 @@ function Philosophy() {
   );
 }
 
-// 한눈에 보는 흐름: 얼굴(사진)은 정오 소개 때 보고, 서로 선택한 뒤에 3일 교류가 시작된다.
+// 한눈에 보는 흐름(THE JOURNEY): 사진은 정오 소개 때 보고, 두 분 모두 원할 때만 3일 교류로 이어진다.
 const FLOW = [
-  { n: "01", title: "소개 신청", body: "가입 뒤 신청서와 사진 3장 · 약 15분", tag: "무료" },
-  { n: "02", title: "운영진 확인", body: "사진과 신청서를 사람이 직접 읽어요" },
-  { n: "03", title: "정오에 한 분 소개", body: "사진·프로필을 보고 다음 날 11시까지 답해요" },
-  { n: "04", title: "서로 선택", body: "두 분 모두 ‘알아가고 싶어요’일 때만 다음으로" },
-  { n: "05", title: "3일 교류", body: "편지 또는 첫 장면 · 둘 다 보내야 함께 열려요" },
-  { n: "06", title: "넷째 날 만남 선택", body: "각자 고르고, 상대의 답은 알려 주지 않아요" },
-  { n: "07", title: "약속 · 연락처", body: "번호는 만나는 날에만 서로 보여요" },
+  { n: "01", meta: "무료 · 약 15분", title: "소개 신청", body: "가입하고 신청서와 사진 3장을 적어요. 단계마다 저장돼서 나눠 써도 돼요." },
+  { n: "02", meta: "사람이 직접", title: "운영진 확인", body: "사진과 신청서를 운영진이 하나하나 읽고, 잘 맞을 분을 찾아요." },
+  { n: "03", meta: "12:00", title: "정오에 한 분 소개", body: "상대의 사진과 프로필이 함께 도착해요. 다음 날 오전 11시까지 답해요.", key: true },
+  { n: "04", meta: "두 분 모두일 때만", title: "서로 선택", body: "한 분이라도 넘기면 조용히 마무리돼요. 누가 넘겼는지는 알리지 않아요." },
+  { n: "05", meta: "DAY 01—03", title: "3일 교류", body: "편지 또는 ‘첫 장면’ 중 함께 고른 방식으로. 두 분이 모두 보내야 함께 열려요." },
+  { n: "06", meta: "DAY 04", title: "만남 선택", body: "만나고 싶은지 각자 골라요. 상대의 답은 알려 주지 않아요." },
+  { n: "07", meta: "만나는 날", title: "약속 · 연락처", body: "날짜와 장소를 함께 정하고, 번호는 만나는 날에만 서로 보여요.", key: true },
 ] as const;
+function JourneyText({ step, align }: { step: (typeof FLOW)[number]; align: "left" | "right" }) {
+  return (
+    <div className={align === "right" ? "sm:text-right" : ""}>
+      <p className={`flex flex-wrap items-center gap-2 text-[11px] font-semibold tracking-[0.14em] text-accent ${align === "right" ? "sm:justify-end" : ""}`}>STEP {step.n}<span className="rounded-full bg-primary/8 px-2.5 py-0.5 text-[11px] font-medium tracking-normal text-primary">{step.meta}</span></p>
+      <p className="text-ink mt-2.5 text-lg font-semibold leading-snug">{step.title}</p>
+      <p className="mt-2 text-sm leading-[1.85] text-muted-foreground">{step.body}</p>
+    </div>
+  );
+}
 function FlowSteps() {
   return (
-    <div className="mt-14 border-t border-border pt-10">
-      <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-[11px] font-semibold tracking-[0.13em] text-accent">HOW IT FLOWS</p><h3 className="text-ink mt-3 text-2xl font-semibold leading-[1.5]">한눈에 보는 흐름</h3></div><p className="max-w-sm text-sm leading-7 text-muted-foreground">한 번에 한 분만 소개해요. 서로 선택해 교류하는 동안에는 새 소개를 멈추고, 마무리되면 다음 분을 소개해요.</p></div>
-      <ol className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
-        {FLOW.map((step, index) => <li key={step.n} className="relative rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold tabular-nums text-primary">{step.n}</span>{"tag" in step && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{step.tag}</span>}</div>
-          <p className="mt-3 text-sm font-semibold">{step.title}</p>
-          <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{step.body}</p>
-          {index < FLOW.length - 1 && <ArrowRight size={14} aria-hidden="true" className="absolute -right-[11px] top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-mist text-muted-foreground lg:block" />}
-        </li>)}
+    <div className="mt-20 border-t border-border pt-16 sm:mt-24 sm:pt-20">
+      <div className="mx-auto max-w-xl text-center">
+        <p className="text-[11px] font-semibold tracking-[0.24em] text-accent">THE JOURNEY</p>
+        <h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">신청부터 만남까지,<br />한눈에 볼게요.</h3>
+        <p className="mt-4 text-sm leading-7 text-muted-foreground">한 번에 한 분만 소개해요. 서로 선택해 교류하는 동안에는 새 소개를 멈추고, 마무리되면 다음 분을 소개해요.</p>
+      </div>
+      <ol className="relative mx-auto mt-14 max-w-3xl">
+        <span aria-hidden="true" className="absolute bottom-4 left-[15px] top-4 w-px bg-[linear-gradient(to_bottom,color-mix(in_oklch,var(--primary)_45%,transparent),color-mix(in_oklch,var(--accent)_35%,transparent))] sm:left-1/2 sm:-translate-x-1/2" />
+        {FLOW.map((step, index) => {
+          const left = index % 2 === 0;
+          return (
+            <li key={step.n} className="relative grid grid-cols-[32px_1fr] gap-x-5 pb-11 last:pb-0 sm:grid-cols-[1fr_32px_1fr] sm:gap-x-10">
+              <div className="hidden sm:block">{left && <JourneyText step={step} align="right" />}</div>
+              <span className={`relative z-10 flex size-8 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums shadow-[0_6px_16px_-8px_color-mix(in_oklch,var(--primary)_60%,transparent)] ${"key" in step ? "bg-primary text-primary-foreground" : "bg-card text-primary ring-1 ring-primary/25"}`}>{step.n}</span>
+              <div className="sm:hidden"><JourneyText step={step} align="left" /></div>
+              <div className="hidden sm:block">{!left && <JourneyText step={step} align="left" />}</div>
+            </li>
+          );
+        })}
       </ol>
-      <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3"><Button asChild className={`h-12 rounded-full px-6 ${interaction}`}><Link to="/apply">{BETA ? "베타 무료로 신청하기" : "소개 신청하기"} <ArrowUpRight size={16} /></Link></Button><Link to="/faq" className={`text-sm underline-offset-4 hover:text-primary hover:underline ${interaction}`}>자주 묻는 질문 보기</Link></div>
+      <div className="mt-14 flex flex-wrap items-center justify-center gap-x-6 gap-y-3"><Button asChild className={`h-12 rounded-full px-7 ${interaction}`}><Link to="/apply">{BETA ? "베타 무료로 신청하기" : "소개 신청하기"} <ArrowUpRight size={16} /></Link></Button><Link to="/faq" className={`text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline ${interaction}`}>자주 묻는 질문 보기</Link></div>
     </div>
   );
 }
@@ -226,7 +245,7 @@ function FounderLetter() {
       <article className={`relative border border-border bg-card p-7 shadow-[0_1px_0_var(--border)] sm:p-10 hover:-translate-y-1 ${lift}`}>
         <div className="mb-7 flex gap-1.5" aria-hidden="true"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></div>
         <div className="space-y-5 text-[15px] leading-[2]">
-          <p>안녕하세요, 비포어스를 만든 사람이에요.</p>
+          <p>안녕하세요, 비포어스 운영진입니다.</p>
           <p>끝없이 넘기는 프로필 속에서, 누군가를 정말 알아가 본 적이 언제였는지 생각해 봤어요. 많이 볼수록, 한 사람에게 마음을 쓰기는 오히려 어려워지니까요.</p>
           <p>그래서 비포어스는 한 번에 한 사람만 소개해요. 신청서를 한 장씩 읽고, 두 분이 좋아하는 것과 중요하게 여기는 것을 나란히 놓고 오래 고민해요. 도구의 도움을 받더라도, 마지막에 ‘이 두 사람’이라고 정하는 건 언제나 사람이에요.</p>
           <p>빠르지는 않을 거예요. 대신 소개가 도착한 날에는, 그 한 사람에게 온전히 마음을 써 보셨으면 해요.</p>
@@ -282,7 +301,7 @@ function LetterTrial() {
   const [calendar, setCalendar] = useState(false);
   return (
     <div className="mt-8 border border-border bg-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs font-medium text-accent"><span>{day === today ? "오늘의 질문" : `${kstLabel(day)}의 질문`}</span><span className="rounded-full bg-accent/10 px-2 py-0.5 text-[11px]">미리 해 보기 · 여기서 쓴 글은 저장되지 않아요</span></div>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs font-medium text-accent"><span>{day === today ? "오늘의 질문" : `${kstLabel(day)}의 질문`}</span></div>
       <p className="mt-4 text-[15px] font-semibold leading-7" aria-live="polite">{question}</p>
       {sent ? (
         <div className="mt-4 space-y-3" aria-live="polite">
@@ -305,7 +324,7 @@ function SceneTrial() {
   const [picked, setPicked] = useState<string | null>(null);
   return (
     <div className="mt-8 space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs font-medium text-accent"><span>일요일 오후, 어디서 시작할까요?</span><span className="rounded-full bg-accent/10 px-2 py-0.5 text-[11px]">미리 해 보기 · 여기서 고른 건 저장되지 않아요</span></div>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs font-medium text-accent"><span>일요일 오후, 어디서 시작할까요?</span></div>
       {SCENES.map(scene => (
         <button key={scene} type="button" aria-pressed={picked === scene} onClick={() => setPicked(scene)} className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm ${interaction} ${picked === scene ? "border-accent bg-accent/5 text-accent" : "border-border bg-card hover:border-accent/60"}`}>
           {scene}{picked === scene && <Check size={15} />}
@@ -411,7 +430,7 @@ const PROMISES = [
   "3일 교류는 상호 선택, 양쪽 결제, 같은 방식과 시작일 합의 뒤에 시작돼요. 만남을 강요하지 않아요.",
   "소개비 한 번에 최대 5번 소개받아요. 평생 무제한 소개나 연애 성공을 약속하지는 않아요.",
 ]
-const BETA_FAQ = { id: "beta", title: "베타 기간에는 무엇이 다른가요?", text: `지금은 정식으로 열기 전 베타 기간이라 결제가 없어요. 소개도, 서로 선택한 뒤의 3일 교류도 무료로 진행하고, 교류는 두 분이 같은 방식과 시작일을 정하면 바로 시작해요. 아래의 요금·환불 안내는 정식 운영 기준이에요. 베타는 운영 사정에 따라 언제든 끝날 수 있고, 끝나거나 정식 운영으로 바뀌기 7일 전에 사이트와 메일로 알려 드려요. 그때 이어서 쓸지 직접 고를 수 있고, 자동으로 결제되는 일은 없어요. 써 보시며 불편한 점은 ‘문의하기 → 베타 의견’으로 남겨 주세요. 베타는 ${BEFORE_US.ageBand.label}(${BEFORE_US.ageBand.korean})만 신청할 수 있어요.` };
+const BETA_FAQ = { id: "beta", title: "베타 기간에는 무엇이 다른가요?", text: `지금은 정식으로 열기 전 베타 기간이라 결제가 없어요. 소개도, 서로 선택한 뒤의 3일 교류도 무료로 진행하고, 교류는 두 분이 같은 방식과 시작일을 정하면 바로 시작해요. 아래의 요금·환불 안내는 정식 운영 기준이에요. 베타는 운영 사정에 따라 언제든 끝날 수 있고, 끝나거나 정식 운영으로 바뀌기 7일 전에 사이트와 메일로 알려 드려요. 그때 이어서 쓸지 직접 고를 수 있고, 자동으로 결제되는 일은 없어요. 써 보시며 불편한 점은 ‘문의하기 → 베타 의견’으로 남겨 주세요.` };
 const BETA_COHORT_FAQ = { id: "cohort", title: "기수제는 어떻게 운영되나요?", text: "기수마다 신청을 받아, 시작하는 날 정오에 함께 첫 소개를 받아요. 지금은 베타 기수를 모집하고 있고, 신청 마감과 첫 소개 날짜는 첫 화면의 기수 안내에 있어요. 마감 뒤에 신청하면 다음 기수로 이어지고, 내 기수와 첫 소개 날짜는 오늘 화면에서 볼 수 있어요. 정식 운영 일정은 정해지면 공지할게요." };
 const FAQ_BASE = [
   { id: "cohort", title: "기수제는 어떻게 운영되나요?", text: "처음에는 한 달 단위 기수제로 운영해요. 기수마다 신청을 받아, 시작하는 날 정오에 함께 첫 소개를 받아요. 1기는 2026년 12월 31일 정오에 시작하고 신청은 12월 27일까지 받아요. 이후 기수는 매달 마지막 날 시작하고, 신청은 시작 4일 전까지예요. 마감 뒤에 신청하면 다음 기수로 이어지고, 내 기수와 첫 소개 날짜는 오늘 화면에서 볼 수 있어요. 기수가 끝나도 남은 소개는 다음 기수 기간에 이어서 받아요. 회원이 많이 모이면 상시 운영으로 바꿀 수 있어요." },
@@ -441,10 +460,20 @@ function Pricing() {
       <div className="grid gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16"><div><h2 id="pricing-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">시작하기 전에,<br />분명하게 안내해요.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">{BETA ? <>지금은 베타 기간이라 결제가 없어요.<br />정식 운영으로 바뀌기 7일 전에 메일로 알려 드려요.</> : <>신청·검토·첫 소개 준비 전 대기는 무료.<br />첫 소개 준비와 현재 참여 가능성 확인 후 안내해요.</>}</p></div><div>
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-7"><div><p className="mb-3 text-xs text-muted-foreground">{BETA ? "베타 기간 이용료 · 1인" : "소개 이용료 · 1인"}</p><strong className="text-5xl font-semibold tabular-nums text-primary">{BETA ? "무료" : money(BEFORE_US.pricing.introduction)}</strong></div><p className="text-xs text-muted-foreground">{BETA ? `정식 운영 소개 이용료 ${money(BEFORE_US.pricing.introduction)}(예정) · 부가세 포함` : "부가세 포함 · 자동 갱신 없음"}</p></div>
         <p className="pt-6 text-sm leading-7 text-muted-foreground">{BETA ? "베타 기간에는 서로 더 알아가기로 한 뒤의 3일 교류도 무료예요. 두 사람이 같은 방식과 시작일을 확인하면 3일이 시작돼요." : "서로 더 알아가기로 한 뒤의 교류비는, 결제하기 전에 화면에서 먼저 확인할 수 있어요. 두 사람 모두 확인해야 3일이 시작돼요."}</p>
-        <div className="mt-8 border-t border-border pt-6">
-          <p className="mb-4 flex flex-wrap items-baseline justify-between gap-2 text-sm font-semibold">언제, 얼마인가요?<span className="text-xs font-normal text-muted-foreground">{BETA ? "정식 운영 기준 · 베타 기간에는 모두 무료" : "월정액 아님 · 자동 결제 없음"}</span></p>
-          <ol className="grid gap-2 sm:grid-cols-4">{[["신청·검토", "무료", "가입·신청서·운영진 확인"], ["소개 받기", money(BEFORE_US.pricing.introduction), "한 번 내면 최대 5번 소개"], ["서로 선택해 교류할 때만", money(BEFORE_US.pricing.exchangePerPerson), "1인 · 3일 교류"], ["약속·만남", "무료", "비포어스에 내는 비용 없음"]].map(([when, price, note], index) => <li key={when} className="rounded-xl border border-border bg-card p-4"><p className="text-[11px] font-semibold text-accent">0{index + 1} · {when}</p><p className={`mt-2 text-lg font-semibold tabular-nums ${BETA && price !== "무료" ? "text-muted-foreground" : "text-ink"}`}>{price}{BETA && price !== "무료" && <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 align-middle text-[10px] font-semibold text-primary">베타 무료</span>}</p><p className="mt-1 text-[11px] leading-5 text-muted-foreground">{note}</p></li>)}</ol>
-          <p className="mt-3 text-xs leading-6 text-muted-foreground">월정액이 아니고 자동으로 결제되지 않아요. 소개비는 첫 상대 프로필을 열기 전에 취소하면 전액 돌려드려요.</p>
+        <div className="mt-9 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_48px_-36px_color-mix(in_oklch,var(--primary)_45%,transparent)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4 sm:px-6"><p className="text-ink text-[15px] font-semibold">언제, 얼마인가요?</p><span className="rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">{BETA ? "지금은 베타 · 모두 무료" : "월정액 아님 · 자동 결제 없음"}</span></div>
+          <ol className="grid sm:grid-cols-4">{[
+            { when: "신청·검토", price: "무료", unit: "", note: "가입·신청서·운영진 확인" },
+            { when: "소개 받기", price: money(BEFORE_US.pricing.introduction), unit: "", note: "한 번 내면 최대 5번 소개" },
+            { when: "교류할 때만", price: money(BEFORE_US.pricing.exchangePerPerson), unit: "", note: "1인 · 서로 선택한 뒤 3일" },
+            { when: "약속·만남", price: "무료", unit: "", note: "비포어스에 내는 비용 없음" },
+          ].map((item, index) => <li key={item.when} className="border-b border-border px-5 py-6 last:border-b-0 sm:border-b-0 sm:border-r sm:px-6 sm:last:border-r-0">
+            <p className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.14em] text-accent"><span aria-hidden="true" className={`size-1.5 rounded-full ${index === 2 ? "bg-accent" : "bg-primary"}`} />STEP 0{index + 1}</p>
+            <p className="mt-3 text-sm font-semibold">{item.when}</p>
+            <p className="text-ink mt-4 whitespace-nowrap text-[22px] font-semibold leading-none tabular-nums lg:text-2xl">{item.price}{item.unit && <span className="ml-1.5 text-xs font-normal text-muted-foreground">/ {item.unit}</span>}</p>
+            <p className="mt-2.5 text-xs leading-5 text-muted-foreground">{item.note}</p>
+          </li>)}</ol>
+          <p className="border-t border-border bg-mist px-5 py-3.5 text-xs leading-6 text-muted-foreground sm:px-6">{BETA ? "위 금액은 정식 운영 기준이에요. 베타 기간에는 소개도 교류도 무료이고, 바뀌기 7일 전에 메일로 알려 드려요. " : ""}월정액이 아니고 자동으로 결제되지 않아요. 소개비는 첫 상대 프로필을 열기 전에 취소하면 전액 돌려드려요.</p>
         </div>
         <div className="mt-8 border-t border-border pt-6"><p className="mb-4 text-sm font-semibold">분명히 해 두고 싶은 것들</p><ul className="space-y-3">{(BETA ? PROMISES.map(item => item.replace("상호 선택, 양쪽 결제, 같은 방식과 시작일 합의 뒤에", "상호 선택과 같은 방식·시작일 합의 뒤에").replace("소개비 한 번에 최대 5번 소개받아요. ", "")) : PROMISES).map(item => <li key={item} className="flex gap-3 text-sm leading-7"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-primary" />{item}</li>)}</ul></div>
         <div className="mt-7 flex flex-wrap items-center gap-3"><Button asChild className={`h-12 rounded-full px-6 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={16} /></Link></Button><Button asChild variant="link" className={`h-12 px-0 text-foreground hover:text-primary ${interaction}`}><a href="#faq">자주 묻는 질문 보기 <ArrowRight size={14} /></a></Button></div>
