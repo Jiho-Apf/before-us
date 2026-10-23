@@ -1,5 +1,5 @@
 import { usePageWidth, useScrollReveal } from "./scroll-reveal";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link, useLocation } from "react-router";
 import { ArrowRight, ArrowUpRight, Check, Clock, Lock, Plus, RotateCcw } from "lucide-react";
 import { Button } from "./components/ui/button";
@@ -11,7 +11,7 @@ import { cohortCode, cohortName, useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
 import DirectIntroduction from "./DirectIntroduction";
-import { CompareTable, HeroCollage, Journey, LetterMoment, NumberBand, PlanFlow, Standards } from "./HomeVisuals";
+import { CompareTable, HeroCollage, Journey, LetterMoment, NumberBand, PlanFlow, Standards, useInView } from "./HomeVisuals";
 import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -120,7 +120,7 @@ function ScrollDots() {
 }
 
 function ServiceCollage() {
-  return <div className="relative mx-auto w-full max-w-lg pb-10 lg:pb-0"><HeroCollage /></div>;
+  return <div className="relative mx-auto w-full max-w-lg pb-4 lg:pb-0"><HeroCollage /></div>;
 }
 
 function Hero() {
@@ -281,12 +281,67 @@ function SceneTrial() {
   );
 }
 
+// 목록이 화면에서 얼마나 지나갔는지 0~1(가운데 선이 차오르는 정도)
+function useElementProgress(ref: RefObject<HTMLElement | null>) {
+  const reduced = useReducedMotion();
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    if (reduced) { setProgress(1); return; }
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const node = ref.current;
+      if (!node) return;
+      const box = node.getBoundingClientRect();
+      setProgress(Math.min(1, Math.max(0, (window.innerHeight * 0.6 - box.top) / box.height)));
+    };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure); };
+    measure();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); cancelAnimationFrame(frame); };
+  }, [reduced, ref]);
+  return progress;
+}
+// 화면 가운데를 지나는 동안만 true(지금 읽는 장의 라벨을 밝힌다)
+function useCentered<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [centered, setCentered] = useState(false);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver(([entry]) => setCentered(entry.isIntersecting), { rootMargin: "-40% 0px -45% 0px" });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  return { ref, centered };
+}
+function StoryChapter({ label, prompt, left, right, leftClass, rightClass }: { label: string; prompt?: string; left: ReactNode; right: ReactNode; leftClass: string; rightClass: string }) {
+  const { ref, shown } = useInView<HTMLLIElement>(0.25);
+  const { ref: labelRef, centered } = useCentered<HTMLSpanElement>();
+  const reveal = "transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none";
+  return (
+    <li ref={ref} className="relative pb-16 last:pb-4">
+      <div className={`relative z-10 mx-auto mb-8 max-w-sm bg-mist px-4 text-center ${reveal} ${shown ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"}`}>
+        <span ref={labelRef} className={`inline-block rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.14em] transition-colors duration-500 motion-reduce:transition-none ${centered ? "border-accent bg-accent text-white shadow-[0_8px_20px_-10px_var(--accent)]" : "border-accent/30 text-accent"}`}>{label}</span>
+        {prompt && <p className="mt-3 text-base font-medium leading-7">{prompt.endsWith("?") ? `“${prompt}”` : prompt}</p>}
+      </div>
+      <div className="grid gap-8 md:grid-cols-2 md:gap-16">
+        <div className={`md:pr-6 md:text-right ${leftClass}`}><div className={`${reveal} ${shown ? "translate-x-0 opacity-100" : "-translate-x-4 opacity-0"}`} style={{ transitionDelay: "150ms" }}>{left}</div></div>
+        <div className={`md:pl-6 ${rightClass}`}><div className={`${reveal} ${shown ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0"}`} style={{ transitionDelay: "350ms" }}>{right}</div></div>
+      </div>
+    </li>
+  );
+}
+
 function TwoVoices() {
   const [voice, setVoice] = useState<"both" | "left" | "right">("both");
   const [storyId, setStoryId] = useState<(typeof STORIES)[number]["id"]>("plain");
   const story = STORIES.find(item => item.id === storyId)!;
   const { chapters, ending, people } = story;
   const show = (side: "left" | "right") => voice === "both" || voice === side;
+  const listRef = useRef<HTMLOListElement>(null);
+  const progress = useElementProgress(listRef);
   const Name = ({ side }: { side: "left" | "right" }) => (
     <p className={`mb-3 flex items-center gap-2 text-xs font-semibold ${side === "left" ? "md:justify-end" : ""}`}>
       {side === "right" && <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />}
@@ -319,25 +374,14 @@ function TwoVoices() {
         </div>
         <p className="mt-4 text-[11px] text-muted-foreground">약 3분</p>
       </div>
-      <ol key={storyId} className="relative mx-auto mt-16 max-w-4xl">
+      <ol ref={listRef} key={storyId} className="relative mx-auto mt-16 max-w-4xl">
         <span aria-hidden="true" className="absolute top-2 bottom-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-border to-transparent md:block" />
+        <span aria-hidden="true" className="absolute top-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-primary/0 via-primary/60 to-accent md:block" style={{ height: `calc(${progress * 100}% - 1rem)` }} />
+        <span aria-hidden="true" className={`absolute left-1/2 z-20 hidden size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_0_5px_color-mix(in_oklch,var(--accent)_15%,transparent)] transition-opacity duration-300 md:block ${progress > 0 && progress < 1 ? "opacity-100" : "opacity-0"}`} style={{ top: `calc(${progress * 100}% - 0.5rem)` }} />
         {chapters.map(chapter => (
-          <li key={chapter.id} className="relative pb-16 last:pb-4">
-            <div className="relative z-10 mx-auto mb-8 max-w-sm bg-mist px-4 text-center">
-              <span className="inline-block rounded-full border border-accent/30 px-3 py-1 text-[10px] font-semibold tracking-[0.14em] text-accent">{chapter.label}</span>
-              {chapter.prompt && <p className="mt-3 text-base font-medium leading-7">{chapter.prompt.endsWith("?") ? `“${chapter.prompt}”` : chapter.prompt}</p>}
-            </div>
-            <div className="grid gap-8 md:grid-cols-2 md:gap-16">
-              <div className={`md:pr-6 md:text-right ${voiceClass("left")}`}>
-                <Name side="left" />
-                <p className="text-[15px] leading-[2] text-foreground/85">{chapter.left}</p>
-              </div>
-              <div className={`md:pl-6 ${voiceClass("right")}`}>
-                <Name side="right" />
-                <p className="text-[15px] leading-[2] text-foreground/85">{chapter.right}</p>
-              </div>
-            </div>
-          </li>
+          <StoryChapter key={chapter.id} label={chapter.label} prompt={chapter.prompt ?? undefined} leftClass={voiceClass("left")} rightClass={voiceClass("right")}
+            left={<><Name side="left" /><p className="text-[15px] leading-[2] text-foreground/85">{chapter.left}</p></>}
+            right={<><Name side="right" /><p className="text-[15px] leading-[2] text-foreground/85">{chapter.right}</p></>} />
         ))}
       </ol>
       <div className="mx-auto mt-10 max-w-2xl text-center">

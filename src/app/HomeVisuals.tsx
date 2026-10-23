@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { ArrowUpRight, BadgeAlert, CalendarX2, Check, Link2Off, LockOpen, ShieldCheck, Siren, Smartphone, UserCheck } from "lucide-react";
+import { ArrowUpRight, BadgeAlert, CalendarX2, Check, Heart, Link2Off, LockOpen, ShieldCheck, Siren, Smartphone, UserCheck } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { BEFORE_US } from "./config";
 import { LIVE } from "./backend/client";
@@ -12,10 +12,10 @@ const BETA = LIVE && BEFORE_US.beta.active;
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
 const money = (amount: number) => `${amount.toLocaleString("ko-KR")}원`;
 const ApplyButton = ({ className = "" }: { className?: string }) => (
-  <Button asChild className={`h-12 rounded-full px-7 ${interaction} ${className}`}><Link to="/apply">{BETA ? "베타 무료로 신청하기" : "소개 신청하기"} <ArrowUpRight size={16} /></Link></Button>
+  <Button asChild className={`h-12 rounded-full bg-[#F7D96B] px-7 text-[#2B2540] shadow-[0_14px_30px_-16px_rgba(180,140,20,0.7)] hover:bg-[#F2CF52] ${interaction} ${className}`}><Link to="/apply">{BETA ? "베타 무료로 신청하기" : "소개 신청하기"} <ArrowUpRight size={16} /></Link></Button>
 );
 
-function useInView<T extends HTMLElement>(threshold = 0.2) {
+export function useInView<T extends HTMLElement>(threshold = 0.2) {
   const ref = useRef<T>(null);
   const [shown, setShown] = useState(false);
   useEffect(() => {
@@ -33,10 +33,9 @@ export function Glow({ className = "", tone = "primary" }: { className?: string;
   return <span aria-hidden="true" className={`pointer-events-none absolute -z-10 rounded-full blur-3xl ${tone === "primary" ? "bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--primary)_10%,transparent),transparent)]" : "bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--accent)_9%,transparent),transparent)]"} ${className}`} />;
 }
 
-// ── 사진(Unsplash 라이선스 · 상업적 이용 가능). 얼굴이 드러나지 않는 뒷모습·사물만 쓰고, 실제 회원이 아니라고 함께 적는다.
+// ── 사진(Unsplash 라이선스 · 상업적 이용 가능). 얼굴이 드러나지 않는 뒷모습·사물만 쓴다.
 const PHOTOS = {
   walk: { id: "1542891433-684dbf58d399", alt: "단풍 든 길을 나란히 걷는 두 사람의 뒷모습" },
-  mugs: { id: "1787998861095-053316c5713d", alt: "김이 오르는 머그잔 두 개" },
   cosmos: { id: "1697308614986-fca3bc8a0ae0", alt: "편지지 위에 놓인 코스모스 한 송이" },
 } as const;
 function Photo({ name, width, eager = false, className = "" }: { name: keyof typeof PHOTOS; width: number; eager?: boolean; className?: string }) {
@@ -45,34 +44,33 @@ function Photo({ name, width, eager = false, className = "" }: { name: keyof typ
   return <img src={src(width)} srcSet={`${src(width)} 1x, ${src(width * 2)} 2x`} alt={alt} loading={eager ? "eager" : "lazy"} decoding="async" className={`h-full w-full object-cover ${className}`} />;
 }
 const Dots = ({ className = "size-1.5" }: { className?: string }) => <span aria-hidden="true" className="flex gap-1"><span className={`${className} rounded-full bg-primary`} /><span className={`${className} rounded-full bg-accent`} /></span>;
-const lifted = "transition-transform duration-500 ease-out motion-reduce:transition-none";
 
-// ① 첫 화면: 아치 사진 한 장 + 작은 사진 + 정오 알림 + 편지 한 장(잡지 화보처럼 겹쳐 놓기)
-export function HeroCollage() {
+// 유리처럼 비치는 알림 카드(첫 화면에서 사진 위에 떠 있다)
+function GlassNote({ icon, label, time, title, className = "" }: { icon: ReactNode; label: string; time: string; title: string; className?: string }) {
   return (
-    <figure className="relative mx-auto aspect-[10/11] w-full max-w-[460px]" aria-label="비포어스의 분위기를 담은 사진과 화면 예시">
-      <div className={`absolute right-0 top-0 h-[86%] w-[66%] overflow-hidden rounded-b-[2rem] rounded-t-full bg-white/10 shadow-[0_50px_90px_-45px_rgba(18,10,58,0.85)] ring-1 ring-white/30 hover:-translate-y-1.5 ${lifted}`}>
-        <Photo name="walk" width={560} eager />
-        <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(to_top,rgba(40,26,104,0.45),transparent_42%)]" />
-      </div>
-      <div className={`absolute bottom-0 left-0 aspect-square w-[42%] -rotate-3 overflow-hidden rounded-[1.4rem] border-[5px] border-white bg-white shadow-[0_30px_60px_-30px_rgba(18,10,58,0.8)] hover:-translate-y-1.5 hover:-rotate-2 ${lifted}`}>
-        <Photo name="mugs" width={360} eager />
-      </div>
-      <div className="hero-float absolute left-0 top-[11%] z-10 w-[64%] rounded-2xl bg-white/90 p-3 text-[#2B2540] shadow-[0_24px_50px_-24px_rgba(18,10,58,0.75)] ring-1 ring-white/60 backdrop-blur-md sm:p-3.5">
-        <div className="flex items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#EEEAFA]"><Dots /></span>
-          <div className="min-w-0 flex-1">
-            <p className="flex items-center justify-between text-[9px] font-semibold tracking-[0.16em] text-[#2B2540]/55 sm:text-[10px]"><span>BEFORE US</span><span className="tracking-normal tabular-nums">12:00</span></p>
-            <p className="mt-0.5 truncate text-[12px] font-semibold sm:text-[13px]">오늘의 인연이 도착했어요</p>
-          </div>
+    <div className={`absolute z-10 rounded-2xl bg-white/90 p-3 text-[#2B2540] shadow-[0_24px_50px_-24px_rgba(18,10,58,0.75)] ring-1 ring-white/60 backdrop-blur-md sm:p-3.5 ${className}`}>
+      <div className="flex items-center gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#EEEAFA] text-primary">{icon}</span>
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center justify-between gap-2 text-[9px] font-semibold tracking-[0.16em] text-[#2B2540]/55 sm:text-[10px]"><span>{label}</span><span className="tracking-normal tabular-nums">{time}</span></p>
+          <p className="mt-0.5 truncate text-[12px] font-semibold sm:text-[13px]">{title}</p>
         </div>
       </div>
-      <div className={`absolute bottom-[-4%] right-[-3%] z-10 w-[46%] rotate-2 bg-white p-3.5 text-[#1F1B33] shadow-[0_30px_60px_-30px_rgba(18,10,58,0.8)] hover:-translate-y-1.5 hover:rotate-1 sm:p-4 ${lifted}`}>
-        <p className="flex items-center justify-between text-[9px] font-semibold tracking-[0.16em] text-[#1F1B33]/55"><span>DAY 01 · 편지</span><Dots className="size-1" /></p>
-        <p className="mt-2.5 text-[12px] font-semibold leading-[1.6] sm:text-[13px]">당신의 하루에서<br />가장 좋아하는 순간은?</p>
-        <div aria-hidden="true" className="mt-3 space-y-2"><div className="h-px bg-black/10" /><div className="h-px w-3/4 bg-black/10" /></div>
+    </div>
+  );
+}
+
+// ① 첫 화면: 큰 아치 사진 한 장, 뒤로 비켜 선 얇은 아치 선, 그 위에 떠 있는 두 장의 알림(정오의 소개 → 서로의 선택)
+export function HeroCollage() {
+  return (
+    <figure className="relative mx-auto aspect-[5/6] w-full max-w-[460px]" aria-label="비포어스의 분위기를 담은 사진과 화면 예시">
+      <span aria-hidden="true" className="absolute right-0 top-[5%] h-[90%] w-[76%] rounded-b-[2.25rem] rounded-t-full border border-white/35" />
+      <div className="absolute right-[6%] top-0 h-[90%] w-[76%] overflow-hidden rounded-b-[2.25rem] rounded-t-full bg-white/10 shadow-[0_50px_90px_-45px_rgba(18,10,58,0.85)] ring-1 ring-white/25">
+        <Photo name="walk" width={620} eager />
+        <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(to_top,rgba(40,26,104,0.4),transparent_40%)]" />
       </div>
-      <figcaption className="absolute -bottom-8 left-0 text-[10px] text-white/70">사진: Unsplash · 실제 회원이 아니에요</figcaption>
+      <GlassNote icon={<Dots />} label="BEFORE US" time="12:00" title="오늘의 인연이 도착했어요" className="hero-float left-0 top-[14%] w-[66%]" />
+      <GlassNote icon={<Heart size={16} strokeWidth={1.8} />} label="서로의 선택" time="D+1" title="두 분 모두 알아가고 싶어 해요" className="hero-float right-[-2%] bottom-[3%] w-[70%] [animation-delay:-3s]" />
     </figure>
   );
 }
@@ -82,32 +80,32 @@ const RULED = "bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent
 export function LetterMoment({ className = "" }: { className?: string }) {
   const { ref, shown } = useInView<HTMLElement>(0.35);
   const letters = [
-    { who: "나", time: "21:14 보냄", text: "어제 말한 빵집, 저도 가 보고 싶어요. 아침에 가면 줄이 없나요?", place: "left-[5%] top-[9%] -rotate-3", from: "-translate-x-6" },
-    { who: "상대", time: "22:40 보냄", text: "평일 아침이면 바로 들어가요. 소금빵이 제일 먼저 나와요.", place: "right-[5%] top-[41%] rotate-2", from: "translate-x-6" },
+    { who: "나", time: "21:14 보냄", text: "어제 말한 빵집, 저도 가 보고 싶어요. 아침에 가면 줄이 없나요? 요즘은 퇴근길에 한 정거장 일찍 내려서 걸어요. 그 길에 작은 꽃집이 하나 있거든요.", place: "left-[4%] top-[5%] -rotate-2", from: "-translate-x-6" },
+    { who: "상대", time: "22:40 보냄", text: "평일 아침이면 바로 들어가요. 소금빵이 제일 먼저 나와요. 한 정거장 일찍 내려서 걷는 거, 저도 해 보고 싶어졌어요. 그 꽃집 이름은 아직 비밀인가요?", place: "right-[4%] top-[45%] rotate-2", from: "translate-x-6" },
   ];
   return (
-    <figure ref={ref} className={`relative mx-auto aspect-[5/6] w-full max-w-[440px] ${className}`} aria-label="화면 예시: 두 사람의 편지가 같은 순간에 열려요">
+    <figure ref={ref} className={`relative mx-auto aspect-[2/3] w-full max-w-[440px] sm:aspect-[5/6] ${className}`} aria-label="화면 예시: 두 사람의 편지가 같은 순간에 열려요">
       <div className="absolute inset-0 overflow-hidden rounded-[2rem] shadow-[0_40px_80px_-50px_color-mix(in_oklch,var(--primary)_70%,transparent)]">
-        <Photo name="cosmos" width={520} className="scale-105" />
-        <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,rgba(214,204,245,0.7),rgba(214,204,245,0.15)_55%,transparent)]" />
+        <Photo name="cosmos" width={520} className="scale-105 brightness-[0.9] saturate-[0.7]" />
+        <span aria-hidden="true" className="absolute inset-0 bg-[rgba(120,104,170,0.16)]" />
+        <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.32),transparent_22%,transparent_80%,rgba(255,255,255,0.28))]" />
       </div>
       {letters.map((letter, index) => (
-        <div key={letter.who} className={`absolute w-[70%] ${letter.place}`}>
-          <div className={`bg-[#FFFEFA] px-5 pb-4 pt-4 text-[#1F1B33] shadow-[0_26px_50px_-26px_rgba(30,20,80,0.6)] transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none ${shown ? "translate-x-0 opacity-100" : `${letter.from} opacity-0`}`} style={{ transitionDelay: `${index * 260}ms` }}>
+        <div key={letter.who} className={`absolute w-[80%] sm:w-[74%] ${letter.place}`}>
+          <div className={`bg-[#FFFEFA] px-5 pb-4 pt-4 text-[#1F1B33] shadow-[0_26px_50px_-24px_rgba(30,20,80,0.65)] transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none ${shown ? "translate-x-0 opacity-100" : `${letter.from} opacity-0`}`} style={{ transitionDelay: `${index * 260}ms` }}>
             <p className="flex items-center justify-between text-[10px] font-semibold tracking-[0.12em] text-[#1F1B33]/55"><span className="flex items-center gap-2"><Dots className="size-1" />DAY 02 · {letter.who}</span><span className="tracking-normal">{letter.time}</span></p>
             <p className={`mt-2 text-[12.5px] leading-[26px] ${RULED}`}>{letter.text}</p>
           </div>
         </div>
       ))}
-      <p className={`absolute bottom-[7%] left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-white/92 px-4 py-2.5 text-[12px] font-semibold text-[#2B2540] shadow-[0_18px_40px_-18px_rgba(30,20,80,0.6)] backdrop-blur transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none ${shown ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`} style={{ transitionDelay: "700ms" }}>
+      <p className={`absolute bottom-[4%] left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-white/95 px-4 py-2.5 text-[12px] font-semibold text-[#2B2540] shadow-[0_18px_40px_-18px_rgba(30,20,80,0.6)] backdrop-blur transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none ${shown ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`} style={{ transitionDelay: "700ms" }}>
         <span className="flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground"><LockOpen size={12} /></span>두 통 모두 도착 · 함께 열렸어요
       </p>
-      <figcaption className="sr-only">사진: Unsplash. 화면 속 편지는 예시예요.</figcaption>
     </figure>
   );
 }
 
-// 큰 숫자 띠
+// 큰 숫자 띠: 상자 없이, 얇은 선으로만 나눈다
 const NUMBERS = [
   { big: "1명", label: "한 번에 한 사람", note: "여러 명과 동시에 연락하지 않아요" },
   { big: "12:00", label: "같은 순간에 도착", note: "두 분에게 정오에 함께" },
@@ -116,9 +114,9 @@ const NUMBERS = [
 ];
 export function NumberBand() {
   return (
-    <dl className="relative mt-16 grid grid-cols-2 gap-px overflow-hidden rounded-3xl border border-border bg-border lg:grid-cols-4">
-      {NUMBERS.map(item => (
-        <div key={item.big} className="relative flex flex-col bg-card p-6 sm:p-7">
+    <dl className="relative mt-16 grid grid-cols-2 gap-y-10 border-t border-border pt-10 lg:grid-cols-4">
+      {NUMBERS.map((item, index) => (
+        <div key={item.big} className={`flex flex-col border-l border-border pl-5 sm:pl-7 ${index === 0 ? "border-l-0 pl-0 sm:pl-0" : index === 2 ? "border-l-0 pl-0 sm:pl-0 lg:border-l lg:pl-7" : ""}`}>
           <dt className="order-2 mt-3 text-sm font-semibold">{item.label}</dt>
           <dd className="order-1 text-[26px] font-semibold leading-none tracking-tight text-primary sm:text-[30px]">{item.big}</dd>
           <dd className="order-3 mt-1.5 text-xs leading-5 text-muted-foreground">{item.note}</dd>
@@ -172,7 +170,7 @@ export function Journey() {
           );
         })}
       </ol>
-      <div className="mt-14 flex flex-wrap items-center justify-center gap-x-6 gap-y-3"><ApplyButton /><Link to="/faq" className={`text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline ${interaction}`}>자주 묻는 질문 보기</Link></div>
+      <div className="mb-4 mt-[4.5rem] flex flex-wrap items-center justify-center gap-x-6 gap-y-3"><ApplyButton /><Link to="/faq" className={`text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline ${interaction}`}>자주 묻는 질문 보기</Link></div>
     </div>
   );
 }
@@ -282,10 +280,10 @@ export function PlanFlow() {
     <div className="mt-9 rounded-3xl border border-border bg-card/80 px-5 py-6 sm:px-7 sm:py-7">
       <p className="text-ink text-[15px] font-semibold">어떤 순서로 진행되나요?</p>
       <ol className="relative mt-6 grid gap-5 sm:grid-cols-4 sm:gap-4">
-        <span aria-hidden="true" className="absolute bottom-2 left-[4px] top-2 w-px bg-primary/15 sm:bottom-auto sm:left-1 sm:right-0 sm:top-[4px] sm:h-px sm:w-auto" />
+        <span aria-hidden="true" className="absolute bottom-2 left-[7px] top-2 w-px bg-primary/15 sm:bottom-auto sm:left-[7px] sm:right-0 sm:top-[7px] sm:h-px sm:w-auto" />
         {PLAN_FLOW.map((step, index) => (
           <li key={step.when} className="relative pl-6 sm:pl-0 sm:pt-6">
-            <span aria-hidden="true" className="absolute left-0 top-1.5 size-[9px] rounded-full bg-card ring-2 ring-primary/40 sm:top-0" />
+            <span aria-hidden="true" className={`absolute left-[7px] top-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full sm:top-[7px] ${index === 0 ? "journey-breathe size-3.5 ring-1 ring-primary/30" : "size-[7px] bg-card ring-[1.5px] ring-primary/35"}`} />
             <p className="text-[10px] font-semibold tracking-[0.16em] text-accent tabular-nums">0{index + 1}</p>
             <p className="mt-1 text-sm font-semibold">{step.when}</p>
             <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{step.note}</p>
