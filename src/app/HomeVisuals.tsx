@@ -44,34 +44,18 @@ function Photo({ name, width, eager = false, className = "" }: { name: keyof typ
 }
 const Dots = ({ className = "size-1.5" }: { className?: string }) => <span aria-hidden="true" className="flex gap-1"><span className={`${className} rounded-full bg-primary`} /><span className={`${className} rounded-full bg-accent`} /></span>;
 
-// ① 첫 화면 사진: 분홍 노을 아래 풀밭에 나란히 앉은 두 사람의 뒷모습.
-// 들판 사진(Unsplash 1590706504556)의 인물을 지우고 보랏빛 노을 언덕 사진(Unsplash 1616794033751)의 두 사람을 합성해 public/images에 둔다(Unsplash 라이선스는 수정·상업적 이용 가능).
-// 데스크톱은 화면 전체에 깔고 보라색이 왼쪽에서 스며들며, 모바일은 위쪽에 깔고 아래로 보라색에 녹아든다(두 사람이 보라색에 묻히지 않도록 풀밭 아래부터).
+// ① 첫 화면 사진: 분홍 노을 아래 초록 들판(Unsplash 1590706504556). 원본에 있던 두 사람만 지우고(그 둘레만 손대고 나머지 픽셀은 원본 그대로) public/images에 둔다.
+// 데스크톱은 오른쪽 넓게 깔고 보라색이 왼쪽에서 스며든다. 모바일은 아래쪽(카드 뒤)에 깔고 위에서 보라색이 내려와 녹아든다.
 export function HeroBackdrop() {
-  const src = (w: number) => `/images/hero-field-${w}.jpg`;
+  const src = (w: number) => `/images/hero-meadow-${w}.jpg`;
   return (
     <>
-      <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-30 h-[430px] sm:h-[560px] lg:inset-y-0 lg:left-[22%] lg:h-auto">
-        <img src={src(1600)} srcSet={`${src(900)} 900w, ${src(1600)} 1600w, ${src(2400)} 2400w`} sizes="(min-width: 1024px) 78vw, 100vw" alt="" {...{ fetchpriority: "high" }} decoding="async" className="h-full w-full object-cover object-[50%_60%] lg:object-[0%_60%]" />
+      <div aria-hidden="true" className="absolute inset-x-0 bottom-0 -z-30 h-[680px] sm:h-[760px] lg:inset-y-0 lg:left-[22%] lg:h-auto">
+        <img src={src(1600)} srcSet={`${src(900)} 900w, ${src(1600)} 1600w, ${src(2400)} 2400w`} sizes="(min-width: 1024px) 78vw, 100vw" alt="" {...{ fetchpriority: "high" }} decoding="async" className="h-full w-full object-cover object-[50%_50%] lg:object-[40%_55%]" />
       </div>
-      <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-20 h-[430px] sm:h-[560px] lg:hidden" style={{ backgroundImage: "linear-gradient(to bottom, color-mix(in oklch, var(--primary) 12%, transparent) 0%, transparent 18%, transparent 64%, color-mix(in oklch, var(--primary) 70%, transparent) 80%, color-mix(in oklch, var(--primary) 94%, transparent) 92%, var(--primary) 100%)" }} />
+      <div aria-hidden="true" className="absolute inset-x-0 bottom-0 -z-20 h-[680px] sm:h-[760px] lg:hidden" style={{ backgroundImage: "linear-gradient(to bottom, var(--primary) 0%, color-mix(in oklch, var(--primary) 70%, transparent) 12%, color-mix(in oklch, var(--primary) 18%, transparent) 30%, transparent 44%)" }} />
       <div aria-hidden="true" className="absolute inset-0 -z-20 hidden lg:block" style={{ backgroundImage: "linear-gradient(90deg, var(--primary) 0%, var(--primary) 22%, color-mix(in oklch, var(--primary) 78%, transparent) 36%, color-mix(in oklch, var(--primary) 25%, transparent) 54%, transparent 68%)" }} />
     </>
-  );
-}
-
-// 사진 위에 떠 있는 정오 알림(유리처럼 비친다)
-export function HeroNote({ className = "" }: { className?: string }) {
-  return (
-    <div className={`hero-float max-w-full rounded-2xl bg-white/90 p-3.5 text-[#2B2540] shadow-[0_24px_50px_-24px_rgba(18,10,58,0.75)] ring-1 ring-white/60 backdrop-blur-md ${className}`} aria-label="화면 예시: 정오에 도착한 소개 알림">
-      <div className="flex items-center gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#EEEAFA]"><Dots /></span>
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center justify-between gap-2 text-[10px] font-semibold tracking-[0.16em] text-[#2B2540]/55"><span>BEFORE US</span><span className="tracking-normal tabular-nums">12:00</span></p>
-          <p className="mt-0.5 truncate text-[13.5px] font-semibold">오늘의 인연이 도착했어요</p>
-        </div>
-      </div>
-    </div>
   );
 }
 

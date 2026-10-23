@@ -11,7 +11,7 @@ import { cohortCode, cohortName, useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
 import DirectIntroduction from "./DirectIntroduction";
-import { CompareTable, HeroBackdrop, HeroNote, Journey, LetterMoment, NumberBand, PlanFlow, Standards } from "./HomeVisuals";
+import { CompareTable, HeroBackdrop, Journey, LetterMoment, NumberBand, PlanFlow, Standards } from "./HomeVisuals";
 import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -119,13 +119,37 @@ function ScrollDots() {
   );
 }
 
+function ServiceCollage() {
+  return (
+    <div className="relative mx-auto w-full max-w-lg pb-8 lg:pb-0" aria-label="서비스 화면 예시: 편지 나누기와 첫 장면 만들기">
+      <div className="mb-6 flex items-center justify-end text-xs text-white/95 dark:text-white"><span className="tracking-[0.15em]">DAY 01—03</span></div>
+      <div className="group/collage relative min-h-[500px] sm:min-h-[540px]">
+        <div className="hero-float absolute top-0 left-0 w-[78%]">
+          <div className={`-rotate-3 border border-white/40 bg-white text-[#151515] shadow-[0_30px_60px_-28px_rgba(30,20,80,0.55)] hover:-translate-y-1.5 hover:-rotate-2 ${lift}`}>
+            <div className="flex items-center justify-between border-b border-black/10 px-6 py-4 text-[10px] font-semibold tracking-[0.15em]"><span>A · 편지 나누기</span><span>DAY 01</span></div>
+            <div className="px-6 pt-7 pb-12 sm:px-8"><div className="mb-6 flex gap-1.5" aria-hidden="true"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></div><p className="text-xl font-semibold leading-relaxed">당신의 하루에서<br />가장 좋아하는 순간은?</p><p className="mt-5 text-xs leading-6 text-black/55">서로에게 하루 한 통.<br />한 번에 조금씩, 나의 이야기를 전해요.</p><div className="mt-8 h-px bg-black/10" /><div className="mt-3 h-px w-4/5 bg-black/10" /></div>
+            <div className="bg-accent px-6 py-3 text-[11px] text-white">하루 한 통의 편지, 각자의 속도로.</div>
+          </div>
+        </div>
+        <div className="hero-float hero-float-late absolute top-48 right-3 w-[65%] sm:right-6">
+          <div className={`rotate-3 border border-white/40 bg-white text-[#151515] shadow-[0_30px_60px_-28px_rgba(30,20,80,0.55)] hover:-translate-y-1.5 hover:rotate-2 ${lift}`}>
+            <div className="flex items-center justify-between border-b border-black/10 px-5 py-4 text-[10px] font-semibold tracking-[0.1em]"><span>B · 첫 장면 만들기</span><span>DAY 02</span></div>
+            <div className="px-5 py-6"><p className="text-[15px] font-semibold leading-6">함께 고르는<br />우리의 첫 장면.</p><div className="mt-5 space-y-2"><div className="flex items-center justify-between rounded-xl border border-accent bg-accent/5 px-3 py-3 text-[11px]"><span>조용한 동네를 함께 걷기</span><Check size={13} className="text-accent" /></div><div className="rounded-xl border border-black/10 px-3 py-3 text-[11px] text-black/55">좋아하는 음악을 함께 듣기</div></div></div>
+            <div className="bg-accent px-5 py-3 text-[11px] text-white">두 사람이 함께 선택해요.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Hero() {
   const part = DAY_PARTS[dayPart(useMinuteNow())];
   return (
     <section className="bleed relative isolate overflow-clip bg-primary text-primary-foreground" aria-labelledby="home-title">
       <HeroBackdrop />
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10" style={{ backgroundImage: part.tint }} />
-      <div className="relative grid pt-[372px] pb-28 sm:pt-[500px] sm:pb-32 lg:min-h-[720px] lg:grid-cols-[7fr_5fr] lg:gap-10 lg:pt-20 lg:pb-36">
+      <div className="relative grid gap-12 pt-14 pb-28 sm:pt-20 sm:pb-32 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:pt-20 lg:pb-32">
         <div className="relative z-10">
           <p className="mb-6 flex items-center gap-2.5 text-base font-semibold sm:text-lg"><span aria-hidden="true" className="size-1.5 rounded-full bg-white" />넘기는 소개팅에 지쳤다면.</p>
           <h1 id="home-title" className="text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>
@@ -138,7 +162,7 @@ function Hero() {
           <div className="mt-5"><NoonClock /></div>
           <p className="mt-5 text-[11px] text-white/95 dark:text-white">{LIVE ? "베타 운영 중 · 지금은 결제 없이 진행해요." : "데모 둘러보기 · 실제 신청이나 결제는 진행되지 않아요."}</p>
         </div>
-        <div className="absolute right-0 top-7 z-10 lg:relative lg:right-auto lg:top-auto lg:flex lg:items-start lg:justify-end lg:pr-6 lg:pt-[60px]"><HeroNote className="w-[270px] sm:w-[300px]" /></div>
+        <ServiceCollage />
       </div>
       <svg className="pointer-events-none absolute inset-x-0 bottom-0 h-16 w-full fill-background sm:h-24" viewBox="0 0 1200 100" preserveAspectRatio="none" aria-hidden="true"><path d="M0 68 C300 -20 700 122 1200 28 L1200 100 L0 100 Z" /></svg>
     </section>
@@ -337,7 +361,7 @@ function TwoVoices() {
         <p className="mt-4 text-[11px] text-muted-foreground">약 3분</p>
       </div>
       <ol key={storyId} className="relative mx-auto mt-16 max-w-4xl">
-        <span aria-hidden="true" className="absolute top-2 bottom-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-border to-transparent md:block" />
+        <span aria-hidden="true" className="absolute top-2 bottom-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-primary/25 to-transparent md:block" />
         {chapters.map(chapter => (
           <StoryChapter key={chapter.id} label={chapter.label} prompt={chapter.prompt} left={chapter.left} right={chapter.right} leftClass={voiceClass("left")} rightClass={voiceClass("right")} nameLeft={<Name side="left" />} nameRight={<Name side="right" />} />
         ))}
@@ -407,7 +431,7 @@ function Pricing() {
         <div><h2 id="pricing-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">시작하기 전에,<br />분명하게 안내해요.</h2><p className="mt-5 text-[15px] leading-[1.9] text-foreground/75">{BETA ? <>지금은 베타 기간이라 결제가 없어요.<br />정식 운영으로 바뀌기 7일 전에 메일로 알려 드려요.</> : <>신청·검토·첫 소개 준비 전 대기는 무료.<br />첫 소개 준비와 현재 참여 가능성 확인 후 안내해요.</>}</p></div>
         <div className="space-y-4">
           <div className={card}>
-            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2.5 text-[13px] font-medium text-foreground/70">{BETA ? "베타 기간 이용료 · 1인" : "소개 이용료 · 1인"}</p><strong className="text-[26px] font-semibold leading-none tabular-nums text-[#3560C0] dark:text-[#8FA9F0]">{BETA ? "무료" : money(BEFORE_US.pricing.introduction)}</strong></div><p className="text-xs text-foreground/60">{BETA ? `정식 운영 소개 이용료 ${money(BEFORE_US.pricing.introduction)}(예정) · 부가세 포함` : "부가세 포함 · 자동 갱신 없음"}</p></div>
+            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2.5 text-[13px] font-medium text-foreground/70">{BETA ? "베타 기간 이용료 · 1인" : "소개 이용료 · 1인"}</p><strong className="text-[26px] font-semibold leading-none tabular-nums text-[#4A56C8] dark:text-[#9AA4F2]">{BETA ? "무료" : money(BEFORE_US.pricing.introduction)}</strong></div><p className="text-xs text-foreground/60">{BETA ? `정식 운영 소개 이용료 ${money(BEFORE_US.pricing.introduction)}(예정) · 부가세 포함` : "부가세 포함 · 자동 갱신 없음"}</p></div>
             <p className="mt-6 border-t border-border pt-5 text-[15px] leading-[1.9] text-foreground/80">{BETA ? "베타 기간에는 서로 더 알아가기로 한 뒤의 3일 교류도 무료예요. 두 사람이 같은 방식과 시작일을 확인하면 3일이 시작돼요." : "서로 더 알아가기로 한 뒤의 교류비는, 결제하기 전에 화면에서 먼저 확인할 수 있어요. 두 사람 모두 확인해야 3일이 시작돼요."}</p>
           </div>
           <PlanFlow />
@@ -415,7 +439,7 @@ function Pricing() {
             <p className="text-ink text-base font-semibold">분명히 해 두고 싶은 것들</p>
             <ul className="mt-4 divide-y divide-border">{promises.map(item => <li key={item} className="flex gap-3.5 py-3.5 text-[15px] leading-[1.8] text-foreground/80 first:pt-1 last:pb-0"><span aria-hidden="true" className="mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul>
           </div>
-          <div className="flex flex-wrap items-center gap-3 pt-3"><Button asChild className={`h-12 rounded-full px-6 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={16} /></Link></Button><Button asChild variant="link" className={`h-12 px-0 text-foreground hover:text-primary ${interaction}`}><a href="#faq">자주 묻는 질문 보기 <ArrowRight size={14} /></a></Button></div>
+          <div className="flex flex-wrap items-center gap-3 pt-3"><Button asChild className={`h-12 rounded-full bg-[#F7D96B] px-6 text-[#2B2540] shadow-[0_14px_30px_-16px_rgba(180,140,20,0.7)] hover:bg-[#F2CF52] ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={16} /></Link></Button><Button asChild variant="link" className={`h-12 px-0 text-foreground hover:text-primary ${interaction}`}><a href="#faq">자주 묻는 질문 보기 <ArrowRight size={14} /></a></Button></div>
         </div>
       </div>
     </section>
