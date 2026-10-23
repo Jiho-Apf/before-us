@@ -1,7 +1,7 @@
 import { usePageWidth, useScrollReveal } from "./scroll-reveal";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
-import { ArrowLeft, ArrowRight, ArrowUpRight, Check, Clock, Lock, Plus, RotateCcw } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Clock, Lock, Plus, RotateCcw } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./components/ui/accordion";
@@ -11,7 +11,7 @@ import { cohortCode, cohortName, useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
 import DirectIntroduction from "./DirectIntroduction";
-import { CompareTable, HeroBackdrop, HeroNote, Journey, LetterMoment, NumberBand, PlanFlow, Standards } from "./HomeVisuals";
+import { CompareTable, HeroBackdrop, HeroNote, Journey, LetterMoment, NumberBand, PlanFlow, Standards, useInView } from "./HomeVisuals";
 import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -138,7 +138,7 @@ function Hero() {
           <div className="mt-5"><NoonClock /></div>
           <p className="mt-5 text-[11px] text-white/95 dark:text-white">{LIVE ? "베타 운영 중 · 지금은 결제 없이 진행해요." : "데모 둘러보기 · 실제 신청이나 결제는 진행되지 않아요."}</p>
         </div>
-        <div className="absolute right-0 top-7 z-10 lg:relative lg:right-auto lg:top-auto lg:flex lg:items-start lg:justify-end lg:pt-2"><HeroNote className="w-[270px] sm:w-[300px]" /></div>
+        <div className="absolute right-0 top-[150px] z-10 sm:top-[200px] lg:relative lg:right-auto lg:top-auto lg:flex lg:items-end lg:justify-end lg:pb-14"><HeroNote className="w-[270px] sm:w-[300px]" /></div>
       </div>
       <svg className="pointer-events-none absolute inset-x-0 bottom-0 h-16 w-full fill-background sm:h-24" viewBox="0 0 1200 100" preserveAspectRatio="none" aria-hidden="true"><path d="M0 68 C300 -20 700 122 1200 28 L1200 100 L0 100 Z" /></svg>
     </section>
@@ -199,7 +199,7 @@ function FounderLetter() {
 function InitialOperation({ detailsTo = "#faq-cohort" }: { detailsTo?: string }) {
   const cohort = useRecruitingCohort();
   return (
-    <section className="bleed relative isolate overflow-clip bg-[#3C60B4] py-16 text-white sm:py-20" aria-labelledby="initial-title">
+    <section className="bleed relative isolate overflow-clip bg-[#3560C0] py-16 text-white sm:py-20" aria-labelledby="initial-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
       <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 text-[11px] font-semibold tracking-[0.15em] opacity-95 dark:opacity-100">{cohortCode(cohort.number)} · TOGETHER AT NOON</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">{cohortName(cohort.number)} 첫 소개는,<br />{kstDay(cohort.startsOn).replace(/ \(.\)$/, "")} 정오에.</h2><p className="mt-5 inline-block border border-current/30 px-3 py-1 text-xs">신청 마감 · {kstDay(cohort.applicationDeadline)}</p></div><div className="space-y-4 text-sm leading-[1.95]">{cohort.number === 0 ? <><p>정식으로 열기 전에, 베타 테스터와 먼저 시작해요. 같은 날 신청을 마친 분들이 시작하는 날 정오에 함께 첫 소개를 받아요.</p><p className="opacity-95"><strong className="font-semibold">베타는 무료예요</strong> · 소개도, 서로 선택한 뒤의 3일 교류도 결제 없이 진행해요. 써 보신 의견으로 비포어스를 다듬어 갈게요.</p></> : <><p>처음에는 한 달 단위 기수제로 시작해요. 같은 기수의 분들이 모이면, 시작하는 날 정오에 함께 첫 소개를 받아요. 첫 소개 날짜를 미리 알려 드려서 오래 기다리지 않아요.</p><p className="opacity-95"><strong className="font-semibold">한 번 더, 5번</strong> · 2026년 12월 31일까지 소개비를 낸 분이 5번의 소개 동안 교류를 시작하지 못했다면, 한 번 더 5번을 추가 비용 없이 소개해 드려요. 계정마다 한 번이에요.</p></>}<p className="border-t border-current/20 pt-4 text-xs"><Link to={detailsTo} className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline">{cohort.number === 0 ? "베타 운영 자세히" : "기수제와 ‘한 번 더, 5번’ 자세히"} <ArrowRight size={13} /></Link></p></div></div>
     </section>
@@ -277,30 +277,41 @@ function SceneTrial() {
   );
 }
 
-// 04 이야기: 사흘을 한 장씩 넘겨 보는 일기장. 위에는 정오 → DAY 04 → 그 후의 단계, 가운데에는 그날의 질문, 아래에는 두 사람의 편지가 마주 놓인다.
-const STORY_RULED = "bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent_29px,rgba(97,76,196,0.12)_29px,rgba(97,76,196,0.12)_30px)]";
-function StoryLetter({ side, name, text, dim }: { side: "left" | "right"; name: string; text: string; dim: boolean }) {
-  const left = side === "left";
+// 04 이야기: 세로로 이어지는 두 사람의 사흘(처음 배치 그대로). 강조는 형광펜 하나로만 — 장이 화면에 들어오면 이야기 속 ‘…’ 구절에 옅은 보라 형광펜이 왼쪽부터 칠해진다.
+function Highlighted({ text, on }: { text: string; on: boolean }) {
+  const parts = text.split(/(‘[^’]+’)/);
+  return <>{parts.map((part, index) => part.startsWith("‘") ? <mark key={index} className={`story-mark ${on ? "is-on" : ""}`}>{part}</mark> : part)}</>;
+}
+function StoryChapter({ label, prompt, left, right, leftClass, rightClass, nameLeft, nameRight }: { label: string; prompt: string | null; left: string; right: string; leftClass: string; rightClass: string; nameLeft: ReactNode; nameRight: ReactNode }) {
+  const { ref, shown } = useInView<HTMLLIElement>(0.45);
   return (
-    <div className={`h-full transition-opacity duration-300 motion-reduce:transition-none ${dim ? "hidden opacity-30 md:block" : "opacity-100"}`}>
-      <article className={`${left ? "story-in-left md:-rotate-1" : "story-in-right md:rotate-1"} h-full bg-[#FFFEFA] px-6 pb-6 pt-5 text-[#1F1B33] shadow-[0_26px_50px_-30px_rgba(40,28,100,0.55)] ring-1 ring-black/[0.04] sm:px-7`}>
-        <p className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.12em] text-[#1F1B33]/60"><span aria-hidden="true" className={`size-1.5 rounded-full ${left ? "bg-primary" : "bg-accent"}`} />{name}</p>
-        <p className={`mt-3 text-[15px] leading-[30px] ${STORY_RULED}`}>{text}</p>
-      </article>
-    </div>
+    <li ref={ref} className="relative pb-16 last:pb-4">
+      <div className="relative z-10 mx-auto mb-8 max-w-sm bg-mist px-4 text-center">
+        <span className="inline-block rounded-full border border-accent/30 px-3 py-1 text-[10px] font-semibold tracking-[0.14em] text-accent">{label}</span>
+        {prompt && <p className="mt-3 text-base font-medium leading-7">{prompt.endsWith("?") ? `“${prompt}”` : prompt}</p>}
+      </div>
+      <div className="grid gap-8 md:grid-cols-2 md:gap-16">
+        <div className={`md:pr-6 md:text-right ${leftClass}`}>{nameLeft}<p className="text-[15px] leading-[2] text-foreground/85"><Highlighted text={left} on={shown} /></p></div>
+        <div className={`md:pl-6 ${rightClass}`}>{nameRight}<p className="text-[15px] leading-[2] text-foreground/85"><Highlighted text={right} on={shown} /></p></div>
+      </div>
+    </li>
   );
 }
 
 function TwoVoices() {
   const [voice, setVoice] = useState<"both" | "left" | "right">("both");
   const [storyId, setStoryId] = useState<(typeof STORIES)[number]["id"]>("plain");
-  const [page, setPage] = useState(0);
   const story = STORIES.find(item => item.id === storyId)!;
   const { chapters, ending, people } = story;
-  const pages = chapters.length + 1;
-  const last = page === chapters.length;
-  const chapter = last ? null : chapters[page];
-  const go = (next: number) => setPage(Math.min(pages - 1, Math.max(0, next)));
+  const show = (side: "left" | "right") => voice === "both" || voice === side;
+  const Name = ({ side }: { side: "left" | "right" }) => (
+    <p className={`mb-3 flex items-center gap-2 text-xs font-semibold ${side === "left" ? "md:justify-end" : ""}`}>
+      {side === "right" && <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />}
+      {people[side]}
+      {side === "left" && <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />}
+    </p>
+  );
+  const voiceClass = (side: "left" | "right") => `${show(side) ? "" : "hidden md:block md:opacity-25"} transition-opacity duration-200 motion-reduce:transition-none`;
   return (
     <section className="bleed bg-mist py-20 sm:py-24" aria-labelledby="story-title">
       <div className="mx-auto max-w-2xl text-center">
@@ -311,7 +322,7 @@ function TwoVoices() {
           {STORIES.map(item => {
             const active = storyId === item.id;
             return (
-              <button key={item.id} type="button" aria-pressed={active} aria-label={`이야기 ${item.number} · ${item.people.left}과 ${item.people.right}`} title={`${item.people.left}과 ${item.people.right}`} onClick={() => { setStoryId(item.id); setVoice("both"); setPage(0); }} className="group flex min-h-9 min-w-9 flex-col items-center justify-end rounded-sm px-2 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <button key={item.id} type="button" aria-pressed={active} aria-label={`이야기 ${item.number} · ${item.people.left}과 ${item.people.right}`} title={`${item.people.left}과 ${item.people.right}`} onClick={() => { setStoryId(item.id); setVoice("both"); }} className="group flex min-h-9 min-w-9 flex-col items-center justify-end rounded-sm px-2 outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className={`text-lg font-[500] leading-none tabular-nums transition-colors duration-300 motion-reduce:transition-none ${active ? "bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent" : "text-muted-foreground group-hover:text-foreground"}`}>{item.number}</span>
                 <span aria-hidden="true" className={`mt-2 h-px transition-all duration-300 motion-reduce:transition-none ${active ? "w-3.5 bg-gradient-to-r from-primary to-accent" : "w-0 bg-transparent"}`} />
               </button>
@@ -323,45 +334,18 @@ function TwoVoices() {
             <button key={id} type="button" aria-pressed={voice === id} onClick={() => setVoice(id)} className={`rounded-full px-4 py-2 ${interaction} ${voice === id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
           ))}
         </div>
+        <p className="mt-4 text-[11px] text-muted-foreground">약 3분</p>
       </div>
-
-      <div className="mx-auto mt-14 max-w-4xl">
-        <ol aria-label="이야기 단계" className="relative mx-auto grid max-w-2xl grid-cols-6">
-          <span aria-hidden="true" className="absolute left-[8.33%] right-[8.33%] top-[7px] h-px bg-primary/15" />
-          <span aria-hidden="true" className="absolute left-[8.33%] top-[7px] h-px bg-primary transition-[width] duration-500 ease-out motion-reduce:transition-none" style={{ width: `${(page / (pages - 1)) * 83.34}%` }} />
-          {[...chapters.map(item => item.label), "그 후"].map((label, index) => (
-            <li key={label} className="relative flex justify-center">
-              <button type="button" onClick={() => go(index)} aria-current={index === page ? "step" : undefined} className="group flex flex-col items-center gap-2 outline-none">
-                <span aria-hidden="true" className={`flex size-[15px] items-center justify-center rounded-full transition-colors duration-300 motion-reduce:transition-none ${index === page ? "bg-primary ring-4 ring-primary/15" : index < page ? "bg-primary" : "bg-card ring-1 ring-primary/30 group-hover:ring-primary/60"}`} />
-                <span className={`text-[10px] font-semibold tracking-[0.12em] sm:text-[11px] ${index === page ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`}>{label}</span>
-              </button>
-            </li>
-          ))}
-        </ol>
-
-        <div key={`${storyId}-${page}`} aria-live="polite" className="mt-12 min-h-[19rem]">
-          {chapter ? (
-            <>
-              <p className="story-fade text-ink mx-auto max-w-xl text-center text-lg font-medium leading-8 sm:text-xl">{chapter.prompt ? (chapter.prompt.endsWith("?") ? `“${chapter.prompt}”` : chapter.prompt) : ""}</p>
-              <div className="mt-9 grid gap-5 md:grid-cols-2 md:gap-8">
-                <StoryLetter side="left" name={people.left} text={chapter.left} dim={voice === "right"} />
-                <StoryLetter side="right" name={people.right} text={chapter.right} dim={voice === "left"} />
-              </div>
-            </>
-          ) : (
-            <div className="story-fade mx-auto max-w-2xl rounded-[1.75rem] bg-card px-7 py-12 text-center shadow-[0_26px_50px_-34px_rgba(40,28,100,0.5)] sm:px-14">
-              <div aria-hidden="true" className="mb-8 flex justify-center gap-1"><span className="size-2.5 rounded-full bg-primary" /><span className="size-2.5 rounded-full bg-accent" /></div>
-              <p className="text-lg leading-[1.9]">{ending}</p>
-              <p className="mx-auto mt-6 max-w-md text-xs leading-6 text-muted-foreground">{STORY_NOTE}</p>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-10 flex items-center justify-center gap-4">
-          <Button type="button" variant="outline" className={`h-11 rounded-full px-5 ${interaction}`} disabled={page === 0} onClick={() => go(page - 1)}><ArrowLeft size={15} />이전</Button>
-          <span className="min-w-12 text-center text-xs tabular-nums text-muted-foreground">{page + 1} / {pages}</span>
-          <Button type="button" className={`h-11 rounded-full px-5 ${interaction}`} onClick={() => go(last ? 0 : page + 1)}>{last ? <><RotateCcw size={14} />처음부터</> : <>{page === chapters.length - 1 ? "그 후" : "다음 날"}<ArrowRight size={15} /></>}</Button>
-        </div>
+      <ol key={storyId} className="relative mx-auto mt-16 max-w-4xl">
+        <span aria-hidden="true" className="absolute top-2 bottom-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-border to-transparent md:block" />
+        {chapters.map(chapter => (
+          <StoryChapter key={chapter.id} label={chapter.label} prompt={chapter.prompt} left={chapter.left} right={chapter.right} leftClass={voiceClass("left")} rightClass={voiceClass("right")} nameLeft={<Name side="left" />} nameRight={<Name side="right" />} />
+        ))}
+      </ol>
+      <div className="mx-auto mt-10 max-w-2xl text-center">
+        <div aria-hidden="true" className="mb-8 flex justify-center gap-1.5"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></div>
+        <p className="text-lg leading-[1.9]">{ending}</p>
+        <p className="mx-auto mt-6 max-w-md text-xs leading-6 text-muted-foreground">{STORY_NOTE}</p>
       </div>
     </section>
   );
@@ -423,7 +407,7 @@ function Pricing() {
         <div><h2 id="pricing-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">시작하기 전에,<br />분명하게 안내해요.</h2><p className="mt-5 text-[15px] leading-[1.9] text-foreground/75">{BETA ? <>지금은 베타 기간이라 결제가 없어요.<br />정식 운영으로 바뀌기 7일 전에 메일로 알려 드려요.</> : <>신청·검토·첫 소개 준비 전 대기는 무료.<br />첫 소개 준비와 현재 참여 가능성 확인 후 안내해요.</>}</p></div>
         <div className="space-y-4">
           <div className={card}>
-            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2.5 text-[13px] font-medium text-foreground/70">{BETA ? "베타 기간 이용료 · 1인" : "소개 이용료 · 1인"}</p><strong className="text-[30px] font-semibold leading-none tabular-nums text-primary">{BETA ? "무료" : money(BEFORE_US.pricing.introduction)}</strong></div><p className="text-xs text-foreground/60">{BETA ? `정식 운영 소개 이용료 ${money(BEFORE_US.pricing.introduction)}(예정) · 부가세 포함` : "부가세 포함 · 자동 갱신 없음"}</p></div>
+            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2.5 text-[13px] font-medium text-foreground/70">{BETA ? "베타 기간 이용료 · 1인" : "소개 이용료 · 1인"}</p><strong className="text-[26px] font-semibold leading-none tabular-nums text-primary">{BETA ? "무료" : money(BEFORE_US.pricing.introduction)}</strong></div><p className="text-xs text-foreground/60">{BETA ? `정식 운영 소개 이용료 ${money(BEFORE_US.pricing.introduction)}(예정) · 부가세 포함` : "부가세 포함 · 자동 갱신 없음"}</p></div>
             <p className="mt-6 border-t border-border pt-5 text-[15px] leading-[1.9] text-foreground/80">{BETA ? "베타 기간에는 서로 더 알아가기로 한 뒤의 3일 교류도 무료예요. 두 사람이 같은 방식과 시작일을 확인하면 3일이 시작돼요." : "서로 더 알아가기로 한 뒤의 교류비는, 결제하기 전에 화면에서 먼저 확인할 수 있어요. 두 사람 모두 확인해야 3일이 시작돼요."}</p>
           </div>
           <PlanFlow />

@@ -263,3 +263,15 @@
 .story-in-right { animation: story-in-right 0.6s ease-out 0.15s both; }
 .story-fade { animation: story-fade 0.5s ease-out both; }
 @media (prefers-reduced-motion: reduce) { .story-in-left, .story-in-right, .story-fade { animation: none; } }
+
+/* 04 이야기: 장이 화면에 들어오면 이야기 속 ‘…’ 구절에 옅은 보라 형광펜이 왼쪽부터 칠해진다 */
+.story-mark {
+  color: inherit;
+  padding: 0 1px;
+  background: linear-gradient(transparent 56%, color-mix(in oklch, var(--primary) 28%, transparent) 56%, color-mix(in oklch, var(--primary) 28%, transparent) 94%, transparent 94%) no-repeat 0 0 / 0% 100%;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-size 1.1s ease-out 0.35s;
+}
+.story-mark.is-on { background-size: 100% 100%; }
+@media (prefers-reduced-motion: reduce) { .story-mark { transition: none; background-size: 100% 100%; } }
