@@ -11,7 +11,7 @@ import { cohortCode, cohortName, useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
 import DirectIntroduction from "./DirectIntroduction";
-import { CompareTable, HeroCollage, Journey, LetterMoment, NumberBand, PlanFlow, Standards, useInView } from "./HomeVisuals";
+import { CompareTable, HeroBackdrop, HeroNote, Journey, LetterMoment, NumberBand, PlanFlow, Standards, useInView } from "./HomeVisuals";
 import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -119,17 +119,13 @@ function ScrollDots() {
   );
 }
 
-function ServiceCollage() {
-  return <div className="relative mx-auto w-full max-w-lg pb-4 lg:pb-0"><HeroCollage /></div>;
-}
-
 function Hero() {
   const part = DAY_PARTS[dayPart(useMinuteNow())];
   return (
     <section className="bleed relative isolate overflow-clip bg-primary text-primary-foreground" aria-labelledby="home-title">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-20" style={{ backgroundImage: part.tint }} />
-      <Texture />
-      <div className="grid gap-12 pt-14 pb-28 sm:pt-20 sm:pb-32 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:pt-20 lg:pb-32">
+      <HeroBackdrop />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10" style={{ backgroundImage: part.tint }} />
+      <div className="relative grid pt-[250px] pb-28 sm:pt-[300px] sm:pb-32 lg:min-h-[720px] lg:grid-cols-[7fr_5fr] lg:gap-10 lg:pt-20 lg:pb-36">
         <div className="relative z-10">
           <p className="mb-6 flex items-center gap-2.5 text-base font-semibold sm:text-lg"><span aria-hidden="true" className="size-1.5 rounded-full bg-white" />넘기는 소개팅에 지쳤다면.</p>
           <h1 id="home-title" className="text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>
@@ -142,7 +138,7 @@ function Hero() {
           <div className="mt-5"><NoonClock /></div>
           <p className="mt-5 text-[11px] text-white/95 dark:text-white">{LIVE ? "베타 운영 중 · 지금은 결제 없이 진행해요." : "데모 둘러보기 · 실제 신청이나 결제는 진행되지 않아요."}</p>
         </div>
-        <ServiceCollage />
+        <div className="absolute right-0 top-7 z-10 lg:relative lg:right-auto lg:top-auto lg:flex lg:items-start lg:justify-end lg:pt-2"><HeroNote className="w-[270px] sm:w-[300px]" /></div>
       </div>
       <svg className="pointer-events-none absolute inset-x-0 bottom-0 h-16 w-full fill-background sm:h-24" viewBox="0 0 1200 100" preserveAspectRatio="none" aria-hidden="true"><path d="M0 68 C300 -20 700 122 1200 28 L1200 100 L0 100 Z" /></svg>
     </section>
@@ -431,15 +427,15 @@ const FAQ = BETA ? [BETA_FAQ, ...FIRST_FAQ, BETA_COHORT_FAQ, ...FAQ_BASE.filter(
 
 function Pricing() {
   const promises = BETA ? PROMISES.map(item => item.replace("상호 선택, 양쪽 결제, 같은 방식과 시작일 합의 뒤에", "상호 선택과 같은 방식·시작일 합의 뒤에").replace("소개비 한 번에 최대 5번 소개받아요. ", "")) : PROMISES;
-  const card = "rounded-3xl bg-card px-6 py-7 shadow-[0_20px_44px_-36px_rgba(60,45,30,0.5)] ring-1 ring-black/[0.04] sm:px-8 sm:py-8";
+  const card = "rounded-2xl border border-border bg-card px-6 py-7 sm:px-8";
   return (
-    <section id="pricing" className="bleed relative isolate overflow-clip bg-[#F6F2EC] py-20 dark:bg-mist sm:py-24" aria-labelledby="pricing-title">
+    <section id="pricing" className="bleed relative isolate overflow-clip bg-[#F3F5FA] py-20 dark:bg-mist sm:py-24" aria-labelledby="pricing-title">
       <SectionLabel number="06" ko="이용 요금">CLEAR FROM THE BEGINNING</SectionLabel>
       <div className="grid gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16">
         <div><h2 id="pricing-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">시작하기 전에,<br />분명하게 안내해요.</h2><p className="mt-5 text-[15px] leading-[1.9] text-foreground/75">{BETA ? <>지금은 베타 기간이라 결제가 없어요.<br />정식 운영으로 바뀌기 7일 전에 메일로 알려 드려요.</> : <>신청·검토·첫 소개 준비 전 대기는 무료.<br />첫 소개 준비와 현재 참여 가능성 확인 후 안내해요.</>}</p></div>
         <div className="space-y-4">
           <div className={card}>
-            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2.5 text-[13px] font-medium text-foreground/70">{BETA ? "베타 기간 이용료 · 1인" : "소개 이용료 · 1인"}</p><strong className="text-[44px] font-semibold leading-none tabular-nums text-primary">{BETA ? "무료" : money(BEFORE_US.pricing.introduction)}</strong></div><p className="rounded-full bg-[#F6F2EC] px-3 py-1.5 text-xs text-foreground/70 dark:bg-mist">{BETA ? `정식 운영 소개 이용료 ${money(BEFORE_US.pricing.introduction)}(예정) · 부가세 포함` : "부가세 포함 · 자동 갱신 없음"}</p></div>
+            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2.5 text-[13px] font-medium text-foreground/70">{BETA ? "베타 기간 이용료 · 1인" : "소개 이용료 · 1인"}</p><strong className="text-[30px] font-semibold leading-none tabular-nums text-primary">{BETA ? "무료" : money(BEFORE_US.pricing.introduction)}</strong></div><p className="text-xs text-foreground/60">{BETA ? `정식 운영 소개 이용료 ${money(BEFORE_US.pricing.introduction)}(예정) · 부가세 포함` : "부가세 포함 · 자동 갱신 없음"}</p></div>
             <p className="mt-6 border-t border-border pt-5 text-[15px] leading-[1.9] text-foreground/80">{BETA ? "베타 기간에는 서로 더 알아가기로 한 뒤의 3일 교류도 무료예요. 두 사람이 같은 방식과 시작일을 확인하면 3일이 시작돼요." : "서로 더 알아가기로 한 뒤의 교류비는, 결제하기 전에 화면에서 먼저 확인할 수 있어요. 두 사람 모두 확인해야 3일이 시작돼요."}</p>
           </div>
           <PlanFlow />

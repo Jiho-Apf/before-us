@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { ArrowUpRight, BadgeAlert, CalendarX2, Check, Link2Off, LockOpen, ShieldCheck, Siren, Smartphone, UserCheck } from "lucide-react";
 import { Button } from "./components/ui/button";
@@ -35,7 +35,6 @@ export function Glow({ className = "", tone = "primary" }: { className?: string;
 
 // ── 사진(Unsplash 라이선스 · 상업적 이용 가능). 얼굴이 드러나지 않는 뒷모습·사물만 쓴다.
 const PHOTOS = {
-  hands: { id: "1480618376353-2950ee462b17", alt: "바닷가에서 손을 내밀어 잡는 두 사람" },
   envelope: { id: "1614711961675-c589a467042f", alt: "대리석 위에 놓인 크림색 봉투들" },
 } as const;
 function Photo({ name, width, eager = false, className = "" }: { name: keyof typeof PHOTOS; width: number; eager?: boolean; className?: string }) {
@@ -45,40 +44,33 @@ function Photo({ name, width, eager = false, className = "" }: { name: keyof typ
 }
 const Dots = ({ className = "size-1.5" }: { className?: string }) => <span aria-hidden="true" className="flex gap-1"><span className={`${className} rounded-full bg-primary`} /><span className={`${className} rounded-full bg-accent`} /></span>;
 
-// 유리처럼 비치는 알림 카드(첫 화면에서 사진 위에 떠 있다)
-function GlassNote({ icon, label, time, title, className = "" }: { icon: ReactNode; label: string; time: string; title: string; className?: string }) {
+// ① 첫 화면 사진: 공원 벤치에 나란히 앉은 두 사람의 뒷모습(Unsplash 1653556380866). 데스크톱은 화면 전체에 깔고 보라색이 왼쪽에서 스며들며, 모바일은 위쪽에 깔고 아래로 보라색에 녹아든다.
+const HERO_PHOTO = "1653556380866-72862449a0b8";
+export function HeroBackdrop() {
+  const src = (w: number) => `https://images.unsplash.com/photo-${HERO_PHOTO}?auto=format&fit=crop&w=${w}&q=75`;
   return (
-    <div className={`absolute z-10 rounded-2xl bg-white/90 p-3 text-[#2B2540] shadow-[0_24px_50px_-24px_rgba(18,10,58,0.75)] ring-1 ring-white/60 backdrop-blur-md sm:p-3.5 ${className}`}>
-      <div className="flex items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#EEEAFA] text-primary">{icon}</span>
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center justify-between gap-2 text-[9px] font-semibold tracking-[0.16em] text-[#2B2540]/55 sm:text-[10px]"><span>{label}</span><span className="tracking-normal tabular-nums">{time}</span></p>
-          <p className="mt-0.5 truncate text-[12px] font-semibold sm:text-[13px]">{title}</p>
-        </div>
+    <>
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-30 h-[460px] sm:h-[520px] lg:inset-y-0 lg:left-[22%] lg:h-auto">
+        <img src={src(1600)} srcSet={`${src(900)} 900w, ${src(1600)} 1600w, ${src(2400)} 2400w`} sizes="(min-width: 1024px) 78vw, 100vw" alt="" fetchPriority="high" decoding="async" className="h-full w-full object-cover object-[55%_55%]" />
       </div>
-    </div>
+      <div aria-hidden="true" className="absolute inset-0 -z-20 lg:hidden" style={{ backgroundImage: "linear-gradient(to bottom, color-mix(in oklch, var(--primary) 10%, transparent) 0px, transparent 90px, color-mix(in oklch, var(--primary) 55%, transparent) 230px, color-mix(in oklch, var(--primary) 90%, transparent) 340px, var(--primary) 450px)" }} />
+      <div aria-hidden="true" className="absolute inset-0 -z-20 hidden lg:block" style={{ backgroundImage: "linear-gradient(90deg, var(--primary) 0%, var(--primary) 22%, color-mix(in oklch, var(--primary) 78%, transparent) 36%, color-mix(in oklch, var(--primary) 25%, transparent) 54%, transparent 68%)" }} />
+    </>
   );
 }
 
-// ① 첫 화면: 큰 아치 사진 한 장, 위에 떠 있는 정오 알림, 옆에 붙은 편지 카드(종이 톤을 사진에 맞춘다)
-export function HeroCollage() {
+// 사진 위에 떠 있는 정오 알림(유리처럼 비친다)
+export function HeroNote({ className = "" }: { className?: string }) {
   return (
-    <figure className="relative mx-auto aspect-[5/6] w-full max-w-[460px]" aria-label="비포어스의 분위기를 담은 사진과 화면 예시">
-      <div className="absolute right-0 top-0 h-[92%] w-[72%] overflow-hidden rounded-b-[2.25rem] rounded-t-full bg-white/10 shadow-[0_50px_90px_-45px_rgba(18,10,58,0.85)] ring-1 ring-white/25">
-        <Photo name="hands" width={620} eager className="object-[45%_50%]" />
-        <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(to_top,rgba(40,26,104,0.28),transparent_38%)]" />
-      </div>
-      <GlassNote icon={<Dots />} label="BEFORE US" time="12:00" title="오늘의 인연이 도착했어요" className="hero-float left-0 top-[9%] w-[64%]" />
-      <div className="absolute bottom-[-12%] left-[-2%] z-10 w-[52%] -rotate-2 overflow-hidden rounded-md bg-[#FFFDF8] text-[#1F1B33] shadow-[0_44px_80px_-36px_rgba(18,10,58,0.9)] ring-1 ring-black/5">
-        <div className="flex items-center justify-between border-b border-black/[0.07] px-4 py-2.5 text-[9px] font-semibold tracking-[0.16em] text-[#1F1B33]/55 sm:px-5 sm:py-3 sm:text-[10px]"><span>A · 편지 나누기</span><span>DAY 01</span></div>
-        <div className="px-4 pb-4 pt-3.5 sm:px-5 sm:pb-5 sm:pt-4">
-          <Dots className="size-1.5" />
-          <p className="mt-3 text-[13px] font-semibold leading-[1.6] sm:text-[15px]">당신의 하루에서<br />가장 좋아하는 순간은?</p>
-          <p className="mt-2 text-[10px] leading-[1.7] text-[#1F1B33]/50 sm:text-[11px]">서로에게 하루 한 통.<br />한 번에 조금씩, 나의 이야기를 전해요.</p>
+    <div className={`hero-float max-w-full rounded-2xl bg-white/90 p-3.5 text-[#2B2540] shadow-[0_24px_50px_-24px_rgba(18,10,58,0.75)] ring-1 ring-white/60 backdrop-blur-md ${className}`} aria-label="화면 예시: 정오에 도착한 소개 알림">
+      <div className="flex items-center gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#EEEAFA]"><Dots /></span>
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center justify-between gap-2 text-[10px] font-semibold tracking-[0.16em] text-[#2B2540]/55"><span>BEFORE US</span><span className="tracking-normal tabular-nums">12:00</span></p>
+          <p className="mt-0.5 truncate text-[13.5px] font-semibold">오늘의 인연이 도착했어요</p>
         </div>
-        <div className="bg-[#ECE7F8] px-4 py-2 text-[10px] text-primary sm:px-5 sm:py-2.5 sm:text-[11px]">하루 한 통의 편지, 각자의 속도로.</div>
       </div>
-    </figure>
+    </div>
   );
 }
 
@@ -283,7 +275,7 @@ const PLAN_FLOW = [
 ];
 export function PlanFlow() {
   return (
-    <div className="rounded-3xl bg-card px-6 py-7 shadow-[0_20px_44px_-36px_rgba(60,45,30,0.5)] ring-1 ring-black/[0.04] sm:px-8 sm:py-8">
+    <div className="rounded-2xl border border-border bg-card px-6 py-7 sm:px-8">
       <p className="text-ink text-base font-semibold">어떤 순서로 진행되나요?</p>
       <ol className="relative mt-6 grid gap-5 sm:grid-cols-4 sm:gap-4">
         <span aria-hidden="true" className="absolute bottom-2 left-[7px] top-2 w-px bg-primary/15 sm:bottom-auto sm:left-[7px] sm:right-0 sm:top-[7px] sm:h-px sm:w-auto" />
