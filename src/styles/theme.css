@@ -240,14 +240,21 @@
   .complete-line { animation: none; transform: none; }
 }
 
-/* 홈 여정: 정오(03) 점이 흰색 ↔ 옅은 보라로 숨 쉬듯 바뀐다(테두리 없이) */
-@keyframes journey-breathe {
-  0%, 100% { background-color: var(--card); color: var(--primary); box-shadow: 0 8px 20px -12px color-mix(in oklch, var(--primary) 45%, transparent); }
-  50% { background-color: color-mix(in oklch, var(--primary) 58%, white); color: #fff; box-shadow: 0 12px 26px -12px color-mix(in oklch, var(--primary) 70%, transparent); }
+/* 홈 여정: 정오(03) 점이 흰색 ↔ 옅은 보라로 숨 쉬듯 바뀐다(테두리 없이).
+   배포용 압축이 @keyframes 안의 color-mix를 처리하지 못해 효과가 비어 버리므로, 색은 밖에서 변수로 정하고 안에서는 변수만 쓴다. */
+.journey-breathe {
+  --breathe-off: var(--card);
+  --breathe-on: color-mix(in oklch, var(--primary) 58%, white);
+  --breathe-shadow-off: color-mix(in oklch, var(--primary) 45%, transparent);
+  --breathe-shadow-on: color-mix(in oklch, var(--primary) 70%, transparent);
+  animation: journey-breathe 3.2s ease-in-out infinite;
 }
-.journey-breathe { animation: journey-breathe 3.2s ease-in-out infinite; }
+@keyframes journey-breathe {
+  0%, 100% { background-color: var(--breathe-off); color: var(--primary); box-shadow: 0 8px 20px -12px var(--breathe-shadow-off); }
+  50% { background-color: var(--breathe-on); color: #fff; box-shadow: 0 12px 26px -12px var(--breathe-shadow-on); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .journey-breathe { animation: none; background-color: color-mix(in oklch, var(--primary) 58%, white); color: #fff; }
+  .journey-breathe { animation: none; background-color: var(--breathe-on); color: #fff; }
 }
 
 /* 첫 화면: 정오 알림 카드가 아주 천천히 떠 있다 */
@@ -280,3 +287,10 @@
 }
 .soft-underline.is-on { background-size: 100% 2px; }
 @media (prefers-reduced-motion: reduce) { .soft-underline { transition: none; background-size: 100% 2px; } }
+
+/* 첫 화면 엽서·티켓: 편지 글은 명조, 종이에는 아주 옅은 결 */
+.font-letter { font-family: "Gowun Batang", "Nanum Myeongjo", serif; letter-spacing: -0.01em; }
+.paper-grain::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; opacity: 0.35; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.55  0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}

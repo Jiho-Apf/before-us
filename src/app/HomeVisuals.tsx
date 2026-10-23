@@ -74,7 +74,7 @@ export function LetterMoment({ className = "" }: { className?: string }) {
       </div>
       {letters.map(letter => (
         <div key={letter.who} className={`absolute w-[70%] ${letter.place}`}>
-          <div className="bg-white px-5 pb-4 pt-4 text-[#1F1B33] shadow-[0_26px_50px_-24px_rgba(30,20,80,0.65)]">
+          <div className="bg-[#FFFEFA] px-5 pb-4 pt-4 text-[#1F1B33] shadow-[0_26px_50px_-24px_rgba(30,20,80,0.65)]">
             <p className="flex items-center justify-between text-[10px] font-semibold tracking-[0.12em] text-[#1F1B33]/55"><span className="flex items-center gap-2"><Dots className="size-1" />DAY 02 · {letter.who}</span><span className="tracking-normal">{letter.time}</span></p>
             <p className={`mt-2 text-[12.5px] leading-[26px] ${RULED}`}>{letter.text}</p>
           </div>
