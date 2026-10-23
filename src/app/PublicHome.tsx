@@ -11,7 +11,7 @@ import { cohortCode, cohortName, useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
 import DirectIntroduction from "./DirectIntroduction";
-import { CompareTable, Glow, Journey, LetterPhone, NoonPhone, NumberBand, PriceTwice, Standards } from "./HomeVisuals";
+import { CompareTable, Journey, LetterPhone, NoonPhone, NumberBand, PriceSteps, Standards } from "./HomeVisuals";
 import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -129,7 +129,7 @@ function ServiceCollage() {
           <div className="px-6 pt-7 pb-12 sm:px-8"><div className="mb-6 flex gap-1.5" aria-hidden="true"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></div><p className="text-xl font-semibold leading-relaxed">당신의 하루에서<br />가장 좋아하는 순간은?</p><p className="mt-5 text-xs leading-6 text-black/55">서로에게 하루 한 통.<br />한 번에 조금씩, 나의 이야기를 전해요.</p><div className="mt-8 h-px bg-black/10" /><div className="mt-3 h-px w-4/5 bg-black/10" /></div>
           <div className="bg-accent px-6 py-3 text-[11px] text-white">하루 한 통의 편지, 각자의 속도로.</div>
         </div>
-        <div className={`absolute right-0 top-24 rotate-[4deg] hover:-translate-y-1.5 hover:rotate-[3deg] sm:right-2 sm:top-20 ${lift}`}><NoonPhone /></div>
+        <div className={`absolute right-0 top-16 hover:-translate-y-1.5 sm:right-2 sm:top-12 ${lift}`}><NoonPhone /></div>
       </div>
     </div>
   );
@@ -371,7 +371,8 @@ function Exchange() {
         <article className="flex flex-col bg-background p-7 sm:p-10"><div className="mb-8 flex items-start justify-between"><span className="text-6xl font-light leading-none text-accent">B</span><span className="pt-2 text-[10px] tracking-[0.12em] text-muted-foreground">CHOOSE A SCENE TOGETHER</span></div><h3 className="text-2xl font-semibold">첫 장면 만들기</h3><p className="mt-4 min-h-14 text-sm leading-7 text-muted-foreground">함께 고르며 서로를 알아가요.<br />같은 장면을 고른 순간, 대화가 시작돼요.</p><SceneTrial /></article>
       </div>
       <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4 border-t border-border pt-6 text-xs"><span className="font-semibold text-accent">DAY 01—03 <span className="ml-2 font-normal text-foreground">교류</span></span><ArrowRight size={14} className="text-muted-foreground" /><span className="font-semibold text-accent">DAY 04 <span className="ml-2 font-normal text-foreground">각자 만남 의사 확인</span></span><span className="text-muted-foreground">양쪽이 희망하면 시간·장소 조율</span></div>
-      <div className="relative isolate mt-20 grid items-center gap-14 border-t border-border pt-16 lg:grid-cols-[5fr_7fr] lg:gap-16"><Glow className="-left-24 top-10 size-96" /><LetterPhone className="mx-auto" /><Standards /></div>
+      <div className="mt-20 grid items-center gap-14 border-t border-border pt-16 lg:grid-cols-[6fr_5fr] lg:gap-16"><div><p className="text-[11px] font-semibold tracking-[0.24em] text-accent">OPENED TOGETHER</p><h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">두 분 모두 보내야,<br /><span className="text-primary">같은 순간에 열려요.</span></h3><p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground">먼저 쓴 사람도, 늦게 쓴 사람도 서두를 필요 없어요. 그날 23:59까지 두 분이 모두 보내면, 편지는 같은 순간에 함께 열려요.</p><ul className="mt-6 space-y-2.5 text-sm">{["하루 한 통 · 09:00~23:59", "열린 편지에는 답장 한 번", "연락처·링크는 자동으로 막혀요"].map(item => <li key={item} className="flex items-center gap-2.5"><span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul></div><LetterPhone className="mx-auto py-6" /></div>
+      <Standards />
       <div className="mt-8"><Button asChild className={`h-12 rounded-full px-6 ${interaction}`}><Link to="/apply">{BETA ? "베타 무료로 신청하기" : "소개 신청하기"} <ArrowUpRight size={16} /></Link></Button></div>
     </section>
   );
@@ -410,13 +411,11 @@ const FAQ = BETA ? [BETA_FAQ, ...FIRST_FAQ, BETA_COHORT_FAQ, ...FAQ_BASE.filter(
 function Pricing() {
   return (
     <section id="pricing" className="bleed relative isolate overflow-clip bg-mist py-20 sm:py-24" aria-labelledby="pricing-title">
-      <Glow className="-right-32 top-24 size-[480px]" />
-      <Glow tone="accent" className="-left-40 bottom-0 size-[420px]" />
       <SectionLabel number="06" ko="이용 요금">CLEAR FROM THE BEGINNING</SectionLabel>
       <div className="grid gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16"><div><h2 id="pricing-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">시작하기 전에,<br />분명하게 안내해요.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">{BETA ? <>지금은 베타 기간이라 결제가 없어요.<br />정식 운영으로 바뀌기 7일 전에 메일로 알려 드려요.</> : <>신청·검토·첫 소개 준비 전 대기는 무료.<br />첫 소개 준비와 현재 참여 가능성 확인 후 안내해요.</>}</p></div><div>
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-7"><div><p className="mb-3 text-xs text-muted-foreground">{BETA ? "베타 기간 이용료 · 1인" : "소개 이용료 · 1인"}</p><strong className="text-5xl font-semibold tabular-nums text-primary">{BETA ? "무료" : money(BEFORE_US.pricing.introduction)}</strong></div><p className="text-xs text-muted-foreground">{BETA ? `정식 운영 소개 이용료 ${money(BEFORE_US.pricing.introduction)}(예정) · 부가세 포함` : "부가세 포함 · 자동 갱신 없음"}</p></div>
         <p className="pt-6 text-sm leading-7 text-muted-foreground">{BETA ? "베타 기간에는 서로 더 알아가기로 한 뒤의 3일 교류도 무료예요. 두 사람이 같은 방식과 시작일을 확인하면 3일이 시작돼요." : "서로 더 알아가기로 한 뒤의 교류비는, 결제하기 전에 화면에서 먼저 확인할 수 있어요. 두 사람 모두 확인해야 3일이 시작돼요."}</p>
-        <PriceTwice />
+        <PriceSteps />
         <div className="mt-8 border-t border-border pt-6"><p className="mb-4 text-sm font-semibold">분명히 해 두고 싶은 것들</p><ul className="space-y-3">{(BETA ? PROMISES.map(item => item.replace("상호 선택, 양쪽 결제, 같은 방식과 시작일 합의 뒤에", "상호 선택과 같은 방식·시작일 합의 뒤에").replace("소개비 한 번에 최대 5번 소개받아요. ", "")) : PROMISES).map(item => <li key={item} className="flex gap-3 text-sm leading-7"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-primary" />{item}</li>)}</ul></div>
         <div className="mt-7 flex flex-wrap items-center gap-3"><Button asChild className={`h-12 rounded-full px-6 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={16} /></Link></Button><Button asChild variant="link" className={`h-12 px-0 text-foreground hover:text-primary ${interaction}`}><a href="#faq">자주 묻는 질문 보기 <ArrowRight size={14} /></a></Button></div>
       </div></div>
