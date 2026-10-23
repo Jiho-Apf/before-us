@@ -35,7 +35,7 @@ export function Glow({ className = "", tone = "primary" }: { className?: string;
 
 // ── 사진(Unsplash 라이선스 · 상업적 이용 가능). 얼굴이 드러나지 않는 뒷모습·사물만 쓴다.
 const PHOTOS = {
-  envelope: { id: "1614711961675-c589a467042f", alt: "대리석 위에 놓인 크림색 봉투들" },
+  envelope: { id: "1567794947803-59c1ec40ab6c", alt: "흰 꽃 옆에 놓인 봉투" },
 } as const;
 function Photo({ name, width, eager = false, className = "" }: { name: keyof typeof PHOTOS; width: number; eager?: boolean; className?: string }) {
   const { id, alt } = PHOTOS[name];

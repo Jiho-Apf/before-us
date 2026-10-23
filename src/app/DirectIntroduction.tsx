@@ -1,11 +1,11 @@
-// 운영진이 직접 고른다는 약속. 편지 아래에서 옅은 파란 면 위에 남색 글씨로 자연스럽게 강조한다.
+// 운영진이 직접 고른다는 약속. 편지 아래에서 옅은 하늘색 면 위에 남색 글씨로 자연스럽게 강조한다.
 export default function DirectIntroduction() {
   return (
-    <div className="rounded-2xl bg-[#E4EAF6] p-7 text-[#26335E] sm:p-9 dark:bg-[#26335E] dark:text-white">
+    <div className="rounded-2xl bg-[#DDEBF8] p-7 text-[#26335E] sm:p-9 dark:bg-[#26335E] dark:text-white">
       <div className="grid gap-5 sm:grid-cols-[2fr_3fr] sm:gap-10">
         <div>
-          <div className="flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.2em] text-[#4F67A6] dark:text-white/75">
-            <span aria-hidden="true" className="flex gap-1"><span className="size-1.5 rounded-full bg-primary" /><span className="size-1.5 rounded-full bg-[#4F67A6]" /></span>
+          <div className="flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.2em] text-[#3A6BA5] dark:text-white/75">
+            <span aria-hidden="true" className="flex gap-1"><span className="size-1.5 rounded-full bg-primary" /><span className="size-1.5 rounded-full bg-[#5B8FD0]" /></span>
             운영진이 직접 고르는 소개
           </div>
           <div className="mt-4 text-xl font-semibold leading-relaxed sm:text-2xl">
