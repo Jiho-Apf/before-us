@@ -125,7 +125,7 @@ function Hero() {
     <section className="bleed relative isolate overflow-clip bg-primary text-primary-foreground" aria-labelledby="home-title">
       <HeroBackdrop />
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10" style={{ backgroundImage: part.tint }} />
-      <div className="relative grid pt-[250px] pb-28 sm:pt-[300px] sm:pb-32 lg:min-h-[720px] lg:grid-cols-[7fr_5fr] lg:gap-10 lg:pt-20 lg:pb-36">
+      <div className="relative grid pt-[372px] pb-28 sm:pt-[500px] sm:pb-32 lg:min-h-[720px] lg:grid-cols-[7fr_5fr] lg:gap-10 lg:pt-20 lg:pb-36">
         <div className="relative z-10">
           <p className="mb-6 flex items-center gap-2.5 text-base font-semibold sm:text-lg"><span aria-hidden="true" className="size-1.5 rounded-full bg-white" />넘기는 소개팅에 지쳤다면.</p>
           <h1 id="home-title" className="text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>

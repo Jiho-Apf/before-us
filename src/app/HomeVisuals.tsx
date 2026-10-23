@@ -44,16 +44,17 @@ function Photo({ name, width, eager = false, className = "" }: { name: keyof typ
 }
 const Dots = ({ className = "size-1.5" }: { className?: string }) => <span aria-hidden="true" className="flex gap-1"><span className={`${className} rounded-full bg-primary`} /><span className={`${className} rounded-full bg-accent`} /></span>;
 
-// ① 첫 화면 사진: 공원 벤치에 나란히 앉은 두 사람의 뒷모습(Unsplash 1653556380866). 데스크톱은 화면 전체에 깔고 보라색이 왼쪽에서 스며들며, 모바일은 위쪽에 깔고 아래로 보라색에 녹아든다.
-const HERO_PHOTO = "1653556380866-72862449a0b8";
+// ① 첫 화면 사진: 분홍 노을 아래 풀밭에 나란히 앉은 두 사람의 뒷모습.
+// 들판 사진(Unsplash 1590706504556)의 인물을 지우고 보랏빛 노을 언덕 사진(Unsplash 1616794033751)의 두 사람을 합성해 public/images에 둔다(Unsplash 라이선스는 수정·상업적 이용 가능).
+// 데스크톱은 화면 전체에 깔고 보라색이 왼쪽에서 스며들며, 모바일은 위쪽에 깔고 아래로 보라색에 녹아든다(두 사람이 보라색에 묻히지 않도록 풀밭 아래부터).
 export function HeroBackdrop() {
-  const src = (w: number) => `https://images.unsplash.com/photo-${HERO_PHOTO}?auto=format&fit=crop&w=${w}&q=75`;
+  const src = (w: number) => `/images/hero-field-${w}.jpg`;
   return (
     <>
-      <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-30 h-[460px] sm:h-[520px] lg:inset-y-0 lg:left-[22%] lg:h-auto">
-        <img src={src(1600)} srcSet={`${src(900)} 900w, ${src(1600)} 1600w, ${src(2400)} 2400w`} sizes="(min-width: 1024px) 78vw, 100vw" alt="" {...{ fetchpriority: "high" }} decoding="async" className="h-full w-full object-cover object-[55%_55%]" />
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-30 h-[430px] sm:h-[560px] lg:inset-y-0 lg:left-[22%] lg:h-auto">
+        <img src={src(1600)} srcSet={`${src(900)} 900w, ${src(1600)} 1600w, ${src(2400)} 2400w`} sizes="(min-width: 1024px) 78vw, 100vw" alt="" {...{ fetchpriority: "high" }} decoding="async" className="h-full w-full object-cover object-[50%_60%] lg:object-[0%_60%]" />
       </div>
-      <div aria-hidden="true" className="absolute inset-0 -z-20 lg:hidden" style={{ backgroundImage: "linear-gradient(to bottom, color-mix(in oklch, var(--primary) 10%, transparent) 0px, transparent 90px, color-mix(in oklch, var(--primary) 55%, transparent) 230px, color-mix(in oklch, var(--primary) 90%, transparent) 340px, var(--primary) 450px)" }} />
+      <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-20 h-[430px] sm:h-[560px] lg:hidden" style={{ backgroundImage: "linear-gradient(to bottom, color-mix(in oklch, var(--primary) 12%, transparent) 0%, transparent 18%, transparent 64%, color-mix(in oklch, var(--primary) 70%, transparent) 80%, color-mix(in oklch, var(--primary) 94%, transparent) 92%, var(--primary) 100%)" }} />
       <div aria-hidden="true" className="absolute inset-0 -z-20 hidden lg:block" style={{ backgroundImage: "linear-gradient(90deg, var(--primary) 0%, var(--primary) 22%, color-mix(in oklch, var(--primary) 78%, transparent) 36%, color-mix(in oklch, var(--primary) 25%, transparent) 54%, transparent 68%)" }} />
     </>
   );
