@@ -249,3 +249,8 @@
 @media (prefers-reduced-motion: reduce) {
   .journey-breathe { animation: none; background-color: color-mix(in oklch, var(--primary) 58%, white); color: #fff; }
 }
+
+/* 첫 화면: 정오 알림 카드가 아주 천천히 떠 있다 */
+@keyframes hero-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.hero-float { animation: hero-float 6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .hero-float { animation: none; } }
