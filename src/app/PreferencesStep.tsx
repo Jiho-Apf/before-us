@@ -45,8 +45,7 @@ export function PreferenceSummary({ draft }: { draft: ApplicationDraft }) {
         <h3 className="text-sm font-semibold">꼭 지켜 주세요</h3>
         <span className="text-xs text-primary">
           {selected.length} /{" "}
-          {BEFORE_US.operatingDraft.additionalRequiredConditionsMaximum}개 ·
-          운영 초안
+          {BEFORE_US.operatingDraft.additionalRequiredConditionsMaximum}개까지
         </span>
       </div>
       {selected.length ? (
@@ -168,7 +167,7 @@ export default function PreferencesStep({
       BEFORE_US.operatingDraft.additionalRequiredConditionsMaximum
     ) {
       setNotice(
-        "추가 필수 조건은 운영 초안 기준 최대 3개예요. 지금 기준은 그대로 두고, 추가 요청 또는 신청 보류를 선택할 수 있어요.",
+        `꼭 지켜 주세요는 최대 ${BEFORE_US.operatingDraft.additionalRequiredConditionsMaximum}개까지 고를 수 있어요. 지금 고른 것은 그대로 두고, 더 필요한 조건은 따로 요청하거나 신청을 잠시 보류할 수 있어요.`,
       )
       setRequestOpen(true)
       return
@@ -471,7 +470,7 @@ export default function PreferencesStep({
                   </div>
                 )}
               </>,
-              `운영 초안: 만 ${BEFORE_US.operatingDraft.minimumAge}세 이상. 최소·최대 나이를 포함해 비교해요.`,
+              `만 ${BEFORE_US.operatingDraft.minimumAge}세 이상만 소개해요. 적은 최소·최대 나이도 포함해서 비교해요.`,
             )}
             {basic.map(field)}
           </div>

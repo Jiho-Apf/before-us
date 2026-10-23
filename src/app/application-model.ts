@@ -105,7 +105,7 @@ export function fieldError(field: FieldDefinition, value: AnswerValue | undefine
 }
 function rawFieldError(field: FieldDefinition, value: AnswerValue | undefined, today: string, account: AccountFacts, photos: ApplicationPhotos) {
   if (field.format === "photo") return photoError(photos, field.id as PhotoSlotId);
-  if (field.id === "self.birthDate" && accountAge(account, today) !== null) return accountAge(account, today)! < BEFORE_US.operatingDraft.minimumAge ? "운영 초안의 만 19세 이상 기준을 충족하지 않아요." : null;
+  if (field.id === "self.birthDate" && accountAge(account, today) !== null) return accountAge(account, today)! < BEFORE_US.operatingDraft.minimumAge ? "만 19세 이상만 신청할 수 있어요." : null;
   const state = answerState(value);
   if (state === "unanswered") return field.required ? "필수 항목을 확인해 주세요." : null;
   if (field.format === "boolean") return value === true ? null : "직접 확인해 주세요.";
@@ -126,7 +126,7 @@ function rawFieldError(field: FieldDefinition, value: AnswerValue | undefined, t
   if (field.rule === "adult-draft") {
     const age = ageOn(value, today);
     if (age === null) return "유효한 가상 생년월일을 입력해 주세요.";
-    if (age < BEFORE_US.operatingDraft.minimumAge) return "만 19세 이상은 운영 초안 기준이에요. 현재 입력값은 기준 미충족이에요.";
+    if (age < BEFORE_US.operatingDraft.minimumAge) return "만 19세 이상만 신청할 수 있어요. 생년월일을 다시 확인해 주세요.";
     const year = Number(value.slice(0, 4));
     if (year < BEFORE_US.ageBand.minBirthYear || year > BEFORE_US.ageBand.maxBirthYear) return `지금은 ${BEFORE_US.ageBand.label}(${BEFORE_US.ageBand.korean})만 신청할 수 있어요.`;
   }

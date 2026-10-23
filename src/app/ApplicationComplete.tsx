@@ -18,13 +18,14 @@ const STEPS = [
 ];
 
 export default function ApplicationComplete({ name }: { name?: string }) {
-  const [cohort, setCohort] = useState<CohortInfo>(() => recruitingCohort());
+  // 실제 서버 모드에서는 서버가 알려 준 내 기수가 올 때까지 비워 둔다(설정 파일의 1기 날짜가 잠깐 보였다가 바뀌지 않도록).
+  const [cohort, setCohort] = useState<CohortInfo | null>(() => LIVE ? null : recruitingCohort());
   useEffect(() => {
     window.scrollTo(0, 0);
     if (!LIVE) return;
     void rpc<{ number: number; startsOn: string; applicationDeadline: string } | null>("my_cohort").then(({ data }) => { if (data) setCohort({ ...data, opensOn: null }); });
   }, []);
-  const days = Math.max(0, Math.round((Date.parse(`${cohort.startsOn}T12:00:00+09:00`) - Date.now()) / 86400000));
+  const days = cohort ? Math.max(0, Math.round((Date.parse(`${cohort.startsOn}T12:00:00+09:00`) - Date.now()) / 86400000)) : null;
   const delay = (index: number) => ({ animationDelay: `${index * 130}ms` });
   return (
     <section aria-labelledby="complete-title" className="relative isolate mx-auto flex w-full max-w-3xl flex-col items-center py-12 text-center break-keep sm:py-16">
@@ -51,17 +52,17 @@ export default function ApplicationComplete({ name }: { name?: string }) {
           <div className="relative overflow-hidden rounded-[21px] bg-[linear-gradient(180deg,var(--card),color-mix(in_oklch,var(--lilac)_30%,var(--card)))] px-7 py-7">
             <span aria-hidden="true" className="complete-shine pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-[linear-gradient(100deg,transparent,rgba(255,255,255,0.65),transparent)]" />
             <div className="relative flex items-center justify-between">
-              <p className="text-[11px] font-semibold tracking-[0.18em] text-accent">{cohortName(cohort.number)} · {cohortCode(cohort.number)}</p>
-              <span className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold leading-none text-primary-foreground tabular-nums">D-{days}</span>
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-accent">{cohort ? `${cohortName(cohort.number)} · ${cohortCode(cohort.number)}` : "내 기수"}</p>
+              <span className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold leading-none text-primary-foreground tabular-nums">{days === null ? "· · ·" : `D-${days}`}</span>
             </div>
-            <p className="relative mt-4 text-[26px] font-semibold text-ink">{kstDay(cohort.startsOn)} 정오</p>
+            <p className="relative mt-4 text-[26px] font-semibold text-ink">{cohort ? `${kstDay(cohort.startsOn)} 정오` : "날짜를 확인하고 있어요"}</p>
             <p className="relative mt-2 text-xs leading-6 text-muted-foreground">첫 소개가 도착하는 날이에요. 전날 한 번 더 알려 드릴게요.</p>
           </div>
         </div>
       </div>
 
       <div className="drop-in mt-11" style={delay(5)}>
-        <Button asChild className="group h-12 rounded-full px-8 text-[15px] shadow-[0_14px_28px_-16px_color-mix(in_oklch,var(--primary)_55%,transparent)] transition-transform duration-200 hover:-translate-y-0.5 motion-reduce:transition-none"><Link to="/profile">마이페이지로 가기 <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" /></Link></Button>
+        <Button asChild className="group h-12 rounded-full px-8 text-[15px] shadow-[0_14px_28px_-16px_color-mix(in_oklch,var(--primary)_55%,transparent)] transition-transform duration-200 hover:-translate-y-0.5 motion-reduce:transition-none"><Link to="/profile">내 정보로 가기 <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" /></Link></Button>
       </div>
 
       {/* 다음 세 단계: 선이 왼쪽에서 오른쪽으로 그어지며 이어진다 */}
@@ -77,7 +78,7 @@ export default function ApplicationComplete({ name }: { name?: string }) {
           ))}
         </ol>
       </div>
-      <p className="drop-in mt-10 max-w-md rounded-full bg-mist px-5 py-2.5 text-xs leading-6 text-muted-foreground" style={delay(10)}>기다리는 동안 마이페이지에서 ‘첫 마디’를 적어 두면, 소개된 분이 가장 먼저 보게 돼요.</p>
+      <p className="drop-in mt-10 max-w-md rounded-full bg-mist px-5 py-2.5 text-xs leading-6 text-muted-foreground" style={delay(10)}>기다리는 동안 내 정보에서 ‘첫 마디’를 적어 두면, 소개된 분이 가장 먼저 보게 돼요.</p>
       {!LIVE && <p className="drop-in mt-3 text-[11px] text-muted-foreground" style={delay(11)}>데모 화면이라 실제 접수·발송은 일어나지 않았어요.</p>}
     </section>
   );

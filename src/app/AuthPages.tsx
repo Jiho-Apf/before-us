@@ -223,6 +223,7 @@ export function AccountPanel() {
   const [agree, setAgree] = useState(false)
   const [error, setError] = useState("")
   const [result, setResult] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
   if (result) return <section className="border-t border-border pt-6 text-sm leading-7" aria-label="계정"><p className="font-semibold">탈퇴 요청을 받았어요.</p><p className="mt-1 text-muted-foreground">상대 노출과 알림은 바로 멈췄고, 일반 자료는 {result}까지 지워요.</p></section>
   if (!user) return (
     <section className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6 text-sm" aria-label="계정">
@@ -233,7 +234,10 @@ export function AccountPanel() {
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (!agree) return setError("안내를 확인했다고 체크해 주세요.")
+    if (sending) return
+    setSending(true)
     const outcome = await withdraw(password)
+    setSending(false)
     if (outcome.error) return setError(outcome.error)
     setResult(outcome.deletionDueAt ? kstDay(outcome.deletionDueAt) : "7일 안")
   }
@@ -248,11 +252,11 @@ export function AccountPanel() {
       </div>
       {open && (
         <form onSubmit={submit} className="space-y-4 rounded-xl border border-border p-5" noValidate>
-          <p className="leading-7">탈퇴하면 상대 노출과 알림이 바로 멈추고, 진행 중인 소개·교류는 종료돼요. 일반 자료는 {BEFORE_US.privacy.activeDeleteDays}일 안에, 백업은 최대 {BEFORE_US.privacy.backupMaxDays}일 안에 지워요. 결제 환불은 환불 기준에 따라 따로 안내해요.</p>
+          <p className="leading-7">탈퇴하면 상대 노출과 알림이 바로 멈추고, 진행 중인 소개·교류는 종료돼요. 일반 자료는 {BEFORE_US.privacy.activeDeleteDays}일 안에, 백업은 최대 {BEFORE_US.privacy.backupMaxDays}일 안에 지워요.{LIVE && BEFORE_US.beta.active ? "" : " 결제 환불은 환불 기준에 따라 따로 안내해요."}</p>
           <Field id="withdraw-password" label="비밀번호 다시 입력" type="password" autoComplete="current-password" value={password} onChange={(value) => { setPassword(value); setError("") }} />
           <label htmlFor="withdraw-agree" className="flex items-start gap-3 leading-6"><Checkbox id="withdraw-agree" className="mt-1" checked={agree} onCheckedChange={(value) => { setAgree(value === true); setError("") }} />위 내용을 확인했어요.</label>
           <ErrorText text={error} />
-          <Button type="submit" variant="outline" className="rounded-xl border-destructive/40 text-destructive hover:bg-destructive/5">탈퇴 요청하기</Button>
+          <Button type="submit" variant="outline" disabled={sending} className="rounded-xl border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive">{sending ? "보내는 중…" : "탈퇴 요청하기"}</Button>
         </form>
       )}
     </section>

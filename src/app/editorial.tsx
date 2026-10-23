@@ -66,7 +66,8 @@ export function Timeline({ items, current }: { items: { title: string; body: Rea
 }
 
 export function QuietNote({ children }: { children: ReactNode }) {
-  return <p className="flex items-center gap-3 border-t border-border pt-5 text-xs leading-6 text-muted-foreground"><TwoDots />{children}</p>
+  // 글 안에 연결 글자(Link)가 섞여도 한 문장으로 이어지도록 글은 한 덩어리로 감싼다(그러지 않으면 글과 연결 글자가 따로 된 칸으로 쪼개짐).
+  return <p className="flex items-start gap-3 border-t border-border pt-5 text-xs leading-6 text-muted-foreground"><span className="mt-[9px] shrink-0"><TwoDots /></span><span className="min-w-0">{children}</span></p>
 }
 
 // 기억에 남을 장면(서로 선택했을 때, 두 사람 모두 만나고 싶다고 했을 때).

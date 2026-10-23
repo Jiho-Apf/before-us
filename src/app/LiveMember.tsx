@@ -65,7 +65,7 @@ function todayState(data: MemberSnapshot) {
   if (application.status === "approved" && data.notices?.paused_at) return { label: "잠시 쉬는 중", title: "새 소개를 잠시 쉬고 있어요.", action: "내 정보에서 다시 받기", to: "/profile", body: "쉬는 동안에는 새 소개를 준비하지 않아요. 다시 받기를 누르면 다음 정오부터 다시 준비해요." };
   if (application.status === "approved" && waitingForStart && cohort) return kstToday() === dayBefore(cohort.startsOn)
     ? { label: `${cohortName(cohort.number)} · 내일 시작`, title: "내일 정오에 첫 소개가 도착해요.", action: "내 정보 확인하기", to: "/profile", body: "잘 맞는 분을 준비해 두었어요. 내일 정오에 이 화면과 두 사람 화면에서 확인해 주세요." }
-    : { label: `${cohortName(cohort.number)} · 시작 전`, title: `${cohortName(cohort.number)} 첫 소개는 ${noonOf(cohort.startsOn)} 정오에 도착해요.`, action: "내 정보 확인하기", to: "/profile", body: "같은 기수의 분들과 함께 첫 소개를 받아요. 시작 전날 한 번 더 알려 드릴게요. 시작 전에는 소개비를 언제든 전액 환불받을 수 있어요." };
+    : { label: `${cohortName(cohort.number)} · 시작 전`, title: `${cohortName(cohort.number)} 첫 소개는 ${noonOf(cohort.startsOn)} 정오에 도착해요.`, action: "내 정보 확인하기", to: "/profile", body: `같은 기수의 분들과 함께 첫 소개를 받아요. 시작 전날 한 번 더 알려 드릴게요.${BEFORE_US.beta.active ? "" : " 시작 전에는 소개비를 언제든 전액 환불받을 수 있어요."}` };
   if (application.status === "approved") return { label: "소개 준비", title: "잘 맞는 분을 찾고 있어요.", action: "다음 정오 기다리기", to: null, body: "준비된 날 정오에 하루 최대 한 명을 소개해요. 매일 새 소개를 약속하지는 않아요." };
   return { label: "신청 상태", title: "신청 상태를 확인해 주세요.", action: "신청서 보기", to: "/apply", body: application.decisionNote || "궁금한 점은 문의하기로 남겨 주세요." };
 }
@@ -162,6 +162,7 @@ function LiveIntroductionView() {
   const [message, setMessage] = useState("");
   const [safety, setSafety] = useState<"report" | "block" | null>(null);
   const [reportText, setReportText] = useState("");
+  const [sending, setSending] = useState(false);
   const [urgent, setUrgent] = useState(false);
   useEffect(() => { if (data) setIntro(data.introduction); }, [data]);
   useEffect(() => { if (intro && intro.status !== "waiting" && intro.profile && !intro.opened) void recordIntroductionView(intro.id).then(() => setIntro(current => current && current.status !== "waiting" ? { ...current, opened: true } : current)); }, [intro?.status !== "waiting" && intro?.id]);
@@ -175,16 +176,26 @@ function LiveIntroductionView() {
   );
   const name = intro.profile.items.find(item => item.id === "self.name");
   const respond = async () => {
-    if (!choice) return;
+    if (!choice || sending) return;
+    setSending(true);
     const result = await respondIntroduction(intro.id, choice, choice === "negative" ? reason : null);
+    setSending(false);
     if (result.error || !result.data) { setMessage(result.error || "답을 저장하지 못했어요."); return; }
     setIntro(result.data); setMessage("");
   };
+  // 신고·차단도 보내는 중에는 다시 보내지 않는다. 신고는 내용을 적어야 보낼 수 있다.
   const submitSafety = async () => {
-    if (safety === "block") { const result = await blockPartner(intro.id); if (result.error) { setMessage(result.error); return; } setSafety(null); await reload(); return; }
-    const result = await reportPartner(intro.id, "회원 신고", reportText, urgent);
-    setMessage(result.error || "신고를 받았어요. 운영진이 가장 먼저 확인해요. 상대에게는 신고 사실을 알리지 않아요.");
-    if (!result.error) { setSafety(null); setReportText(""); }
+    if (sending) return;
+    if (safety === "report" && !reportText.trim()) { setMessage("어떤 일이 있었는지 한 줄이라도 적어 주세요."); return; }
+    setSending(true);
+    try {
+      if (safety === "block") { const result = await blockPartner(intro.id); if (result.error) { setMessage(result.error); return; } setSafety(null); await reload(); return; }
+      const result = await reportPartner(intro.id, "회원 신고", reportText, urgent);
+      setMessage(result.error || "신고를 받았어요. 운영진이 가장 먼저 확인해요. 상대에게는 신고 사실을 알리지 않아요.");
+      if (!result.error) { setSafety(null); setReportText(""); }
+    } finally {
+      setSending(false);
+    }
   };
   return (
     <section aria-labelledby="us-title">
@@ -205,15 +216,15 @@ function LiveIntroductionView() {
               <h2 className="mt-4 text-xl font-semibold">이 분을 더 알아가고 싶나요?</h2>
               <div className="mt-5 grid gap-2">{([["positive", "알아가고 싶어요"], ["negative", "이번엔 넘길게요"]] as const).map(([value, label]) => <Button key={value} variant="outline" aria-pressed={choice === value} onClick={() => { setChoice(value); setReason(null); }} className={`h-12 justify-start rounded-xl ${choice === value ? "border-primary bg-primary/5 text-primary" : "border-border"} ${interaction}`}>{label}</Button>)}</div>
               {choice === "negative" && <div className="mt-5"><p className="text-xs leading-6 text-muted-foreground">이유를 골라 주시면 다음 소개에 참고해요(선택). 상대에게는 절대 보이지 않아요.</p><div className="mt-3 flex flex-wrap gap-2">{DECLINE_REASONS.map(item => <button key={item} type="button" aria-pressed={reason === item} onClick={() => setReason(value => value === item ? null : item)} className={`rounded-full border px-3 py-1.5 text-xs ${reason === item ? "border-primary bg-primary/5 text-primary" : "border-border"} ${interaction}`}>{item}</button>)}</div></div>}
-              <Button disabled={!choice} onClick={() => void respond()} className={`mt-6 h-12 w-full rounded-xl ${interaction}`}>답 보내기 <ArrowRight size={15} /></Button>
+              <Button disabled={!choice || sending} onClick={() => void respond()} className={`mt-6 h-12 w-full rounded-xl ${interaction}`}>답 보내기 <ArrowRight size={15} /></Button>
               <p className="mt-3 text-[11px] leading-5 text-muted-foreground">보낸 답은 바꿀 수 없어요. 두 분 모두 답한 뒤에 결과만 알려 드려요.</p>
             </> : <p className="mt-4 text-sm leading-7 text-muted-foreground">응답 기한이 지났어요.</p>}
           </Sheet>
           <div className="space-y-3 border-t border-border pt-5">
             <p className="text-xs leading-6 text-muted-foreground">{SAFETY_COMPOSE_NOTE}</p>
             <div className="flex flex-wrap gap-2"><Button variant="ghost" onClick={() => setSafety(value => value === "report" ? null : "report")} aria-expanded={safety === "report"} className={`h-9 rounded-xl text-xs text-muted-foreground ${interaction}`}><Flag size={13} />신고하기</Button><Button variant="ghost" onClick={() => setSafety(value => value === "block" ? null : "block")} aria-expanded={safety === "block"} className={`h-9 rounded-xl text-xs text-muted-foreground ${interaction}`}><ShieldOff size={13} />차단하기</Button></div>
-            {safety === "report" && <div className="space-y-3 rounded-xl border border-border p-4"><Textarea aria-label="신고 내용" value={reportText} maxLength={1000} onChange={event => setReportText(event.target.value)} placeholder="어떤 일이 있었는지 적어 주세요. 캡처 등 증빙은 지우지 말고 보관해 주세요." className="min-h-24 rounded-xl" /><label className="flex items-center gap-2 text-xs"><Checkbox checked={urgent} onCheckedChange={value => setUrgent(value === true)} />돈 요구·협박 등 급한 일이에요</label><Button size="sm" onClick={() => void submitSafety()} className="rounded-xl">신고 보내기</Button><p className="text-[11px] text-muted-foreground">위급하면 112에 먼저 연락해 주세요.</p></div>}
-            {safety === "block" && <div className="space-y-3 rounded-xl border border-border p-4"><p className="text-xs leading-6">차단하면 이 소개가 바로 끝나고, 다시는 서로 소개되지 않아요. 이유는 묻지 않아요.</p><Button size="sm" variant="outline" onClick={() => void submitSafety()} className="rounded-xl border-destructive/40 text-destructive">차단하기</Button></div>}
+            {safety === "report" && <div className="space-y-3 rounded-xl border border-border p-4"><Textarea aria-label="신고 내용" value={reportText} maxLength={1000} onChange={event => setReportText(event.target.value)} placeholder="어떤 일이 있었는지 적어 주세요. 캡처 등 증빙은 지우지 말고 보관해 주세요." className="min-h-24 rounded-xl" /><label className="flex items-center gap-2 text-xs"><Checkbox checked={urgent} onCheckedChange={value => setUrgent(value === true)} />돈 요구·협박 등 급한 일이에요</label><Button size="sm" disabled={sending} onClick={() => void submitSafety()} className="rounded-xl">신고 보내기</Button><p className="text-[11px] text-muted-foreground">위급하면 112에 먼저 연락해 주세요.</p></div>}
+            {safety === "block" && <div className="space-y-3 rounded-xl border border-border p-4"><p className="text-xs leading-6">차단하면 이 소개가 바로 끝나고, 다시는 서로 소개되지 않아요. 이유는 묻지 않아요.</p><Button size="sm" variant="outline" disabled={sending} onClick={() => void submitSafety()} className="rounded-xl border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive">차단하기</Button></div>}
             {message && <p role="status" className="rounded-xl bg-muted p-3 text-xs leading-6">{message}</p>}
           </div>
         </div>
@@ -228,11 +239,13 @@ export function LiveProfilePage() {
   return <Member><LiveProfileView /></Member>;
 }
 function LiveProfileView() {
-  const { data, loading, reload } = useMemberSnapshot();
+  const { data, error, loading, reload } = useMemberSnapshot();
   const [message, setMessage] = useState("");
   const [pauseMessage, setPauseMessage] = useState("");
   const [pausing, setPausing] = useState(false);
   if (loading) return <Waiting />;
+  // 불러오지 못했을 때 기본값(모두 꺼짐)을 보여 주면, 그 상태로 알림 설정을 눌러 실제 설정을 덮어쓸 수 있다. 그래서 다시 불러오기만 보여 준다.
+  if (error || !data) return <section><p role="alert" className="text-sm text-destructive">{error || "불러오지 못했어요."}</p><Button variant="outline" className="mt-5 rounded-xl" onClick={() => void reload()}>다시 불러오기</Button></section>;
   const notices = data?.notices;
   const toggle = async (key: "notice_daily_waiting" | "marketing_opt_in", value: boolean) => { const result = await saveNoticeSettings({ [key]: value }); setMessage(result.error || "저장했어요."); await reload(); };
   const channels = { kakao: !!notices?.notify_kakao, sms: !!notices?.notify_sms, email: !!notices?.notify_email };
@@ -249,7 +262,7 @@ function LiveProfileView() {
         <div className="relative grid gap-3 sm:grid-cols-3">
           {[
             { label: "신청 상태", value: data?.application ? ({ draft: "작성 중", submitted: "접수 완료", reviewing: "검토 중", needs_changes: "보완 요청", approved: "소개 준비", held: "보류", withdrawn: "철회", rejected: "소개 어려움" } as Record<string, string>)[data.application.status] : "신청 전", sub: data?.application?.submittedAt ? `${kstDay(data.application.submittedAt)} 접수` : "신청은 무료예요" },
-            { label: "내 기수", value: data?.cohort ? `${cohortName(data.cohort.number)} · D-${Math.max(0, Math.round((Date.parse(`${data.cohort.startsOn}T12:00:00+09:00`) - Date.now()) / 86400000))}` : "신청 뒤 정해져요", sub: data?.cohort ? `${noonOf(data.cohort.startsOn)} 정오 첫 소개` : "매달 마지막 날 정오 시작" },
+            { label: "내 기수", value: data?.cohort ? `${cohortName(data.cohort.number)} · D-${Math.max(0, Math.round((Date.parse(`${data.cohort.startsOn}T12:00:00+09:00`) - Date.now()) / 86400000))}` : "신청 뒤 정해져요", sub: data?.cohort ? `${noonOf(data.cohort.startsOn)} 정오 첫 소개` : BEFORE_US.beta.active ? "베타 기수 · 날짜는 신청 뒤 알려 드려요" : "매달 마지막 날 정오 시작" },
             { label: "알림", value: paused ? "새 소개 쉬는 중" : notices?.notice_daily_waiting ? "소개 없는 날도 알림" : "새 소개만 알림", sub: channelText ? `사이트 · ${channelText}` : "사이트 안 알림" },
           ].map(item => <div key={item.label} className="rounded-2xl bg-card/90 p-5 shadow-[0_18px_36px_-30px_color-mix(in_oklch,var(--primary)_60%,transparent)]"><p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{item.label}</p><p className="mt-2 text-lg font-semibold text-ink">{item.value}</p><p className="mt-1 text-xs text-muted-foreground">{item.sub}</p></div>)}
         </div>
@@ -281,15 +294,16 @@ function LiveSupportView() {
   const [list, setList] = useState<Awaited<ReturnType<typeof loadMyRequests>>>([]);
   const refresh = async () => setList(await loadMyRequests());
   useEffect(() => { void refresh(); }, []);
-  const submit = async () => { if (!kind) return; const result = await submitMemberRequest(kind, text); setMessage(result.error || "요청을 받았어요. 처리 결과는 이 화면에서 볼 수 있어요."); if (!result.error) { setKind(null); setText(""); await refresh(); } };
+  const [sending, setSending] = useState(false);
+  const submit = async () => { if (!kind || sending) return; setSending(true); const result = await submitMemberRequest(kind, text); setSending(false); setMessage(result.error || "요청을 받았어요. 처리 결과는 이 화면에서 볼 수 있어요."); if (!result.error) { setKind(null); setText(""); await refresh(); } };
   return (
     <section className="space-y-10">
       <PageHeader mark="요청" label="문의·요청" en="SUPPORT" title="필요한 요청을 남겨 주세요." lead="상대와 관련된 신고는 두 사람 화면에서 하면 그 소개에 바로 연결돼요. 위급하면 112에 먼저 연락해 주세요." />
       <Sheet className="p-6 sm:p-8">
         <p className="text-xs font-semibold text-accent">요청 종류</p>
-        <div className="mt-4 flex flex-wrap gap-2">{REQUEST_KINDS.map(item => <button key={item} type="button" aria-pressed={kind === item} onClick={() => setKind(item)} className={`rounded-full border px-4 py-2 text-xs ${kind === item ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-primary/50"} ${interaction}`}>{REQUEST_LABELS[item]}</button>)}</div>
+        <div className="mt-4 flex flex-wrap gap-2">{REQUEST_KINDS.filter(item => !(item === "refund" && BEFORE_US.beta.active)).map(item => <button key={item} type="button" aria-pressed={kind === item} onClick={() => setKind(item)} className={`rounded-full border px-4 py-2 text-xs ${kind === item ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-primary/50"} ${interaction}`}>{REQUEST_LABELS[item]}</button>)}</div>
         <Textarea aria-label="요청 내용" value={text} maxLength={1000} onChange={event => setText(event.target.value)} placeholder="필요한 내용을 적어 주세요. 주민등록번호·카드번호는 적지 말아 주세요." className="mt-5 min-h-28 rounded-xl" />
-        <Button disabled={!kind} onClick={() => void submit()} className={`mt-4 h-11 rounded-xl px-6 ${interaction}`}>요청 보내기</Button>
+        <Button disabled={!kind || sending} onClick={() => void submit()} className={`mt-4 h-11 rounded-xl px-6 ${interaction}`}>{sending ? "보내는 중…" : "요청 보내기"}</Button>
         {message && <p role="status" className="mt-4 rounded-xl bg-muted p-3 text-xs leading-6">{message}</p>}
         <p className="mt-5 text-[11px] leading-5 text-muted-foreground">탈퇴는 내 정보 아래쪽 계정에서 할 수 있어요. 그 밖의 문의는 <Link to="/contact" className="underline underline-offset-4">문의하기</Link>로 남겨 주세요.</p>
       </Sheet>

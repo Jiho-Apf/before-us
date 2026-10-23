@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { createBrowserRouter, RouterProvider, NavLink, Link, Navigate, Outlet, useLocation } from "react-router";
 import { Button } from "./components/ui/button";
 import { BEFORE_US } from "./config";
-import { Calendar, User, Home, ArrowRight, X, Sun, Moon, Users, MessageCircle, Menu, LogOut } from "lucide-react";
+import { Calendar, User, Home, ArrowRight, X, Sun, Moon, Users, MessageCircle, Menu } from "lucide-react";
 import PublicHome, { PublicInformation } from "./PublicHome";
 import RouteError from "./RouteError";
 import { LIVE } from "./backend/client";
@@ -204,9 +204,12 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
   );
 }
 
+// 회원 메뉴에는 없지만 회원 틀 안에서 여는 화면의 이름(머리 위치 표시·문서 제목에 쓴다)
+const MEMBER_EXTRA = [{ to: "/support", label: "문의·요청" }, { to: "/payments", label: "결제" }];
+
 function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }) {
   const location = useLocation();
-  const current = MEMBER_NAV.find(item => item.to === location.pathname || (item.to === "/meeting" && location.pathname === "/meeting/contact"));
+  const current = MEMBER_NAV.find(item => item.to === location.pathname || (item.to === "/meeting" && location.pathname === "/meeting/contact")) ?? MEMBER_EXTRA.find(item => item.to === location.pathname);
   const memberPath = (to: string) => new URLSearchParams(location.search).get("demo") === "agreement" && ["/today", "/us", "/exchange", "/meeting", "/profile", "/payments", "/support"].includes(to) ? `${to}?demo=agreement` : to;
   return (
     <div className="flex min-h-dvh bg-background text-foreground">
@@ -217,7 +220,7 @@ function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
         </nav>
         <div className="mt-auto border-t border-border pt-5">
           {!LIVE && <span className="block px-4 pb-3 text-xs text-muted-foreground">데모 둘러보기</span>}
-          <Button asChild variant="ghost" className={`w-full justify-start gap-3 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground ${CONTROL_MOTION}`}><Link to="/"><LogOut size={16} />공개 홈으로</Link></Button>
+          <Button asChild variant="ghost" className={`w-full justify-start gap-3 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground ${CONTROL_MOTION}`}><Link to="/"><Home size={16} />공개 홈으로</Link></Button>
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0">
@@ -262,7 +265,7 @@ function BeforeUsRoot() {
   const location = useLocation();
   const isMember = ["/payments","/support","/meeting/contact"].includes(location.pathname) || MEMBER_NAV.some(item => item.to === location.pathname);
   useEffect(() => {
-    const label = [...PUBLIC_NAV, ...MEMBER_NAV, { to: "/login", label: "로그인" }, { to: "/apply", label: "소개 신청하기" }, { to: "/terms", label: "이용약관" }, { to: "/privacy", label: "개인정보처리방침" }, { to: "/how-it-works", label: "진행 방식" }, { to: "/signup", label: "회원가입" }, { to: "/reset-password", label: "비밀번호 다시 설정" }].find(item => item.to === location.pathname)?.label;
+    const label = [...PUBLIC_NAV, ...MEMBER_NAV, ...MEMBER_EXTRA, { to: "/contact", label: "문의하기" }, { to: "/login", label: "로그인" }, { to: "/apply", label: "소개 신청하기" }, { to: "/terms", label: "이용약관" }, { to: "/privacy", label: "개인정보처리방침" }, { to: "/how-it-works", label: "진행 방식" }, { to: "/signup", label: "회원가입" }, { to: "/reset-password", label: "비밀번호 다시 설정" }].find(item => item.to === location.pathname)?.label;
     document.title = label ? `${label} · ${BEFORE_US.brand.name}` : `${BEFORE_US.brand.name} · ${BEFORE_US.brand.english}`;
   }, [location.pathname]);
   return (

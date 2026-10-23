@@ -32,8 +32,9 @@ export function recruitingCohort(now = new Date()): CohortInfo {
   return cohortByNumber(number)
 }
 
-export function useRecruitingCohort() {
-  const [cohort, setCohort] = useState<CohortInfo>(() => recruitingCohort())
+// 실제 서버 모드에서는 서버 값이 올 때까지 null(설정 파일의 1기 날짜가 잠깐 보였다가 바뀌는 깜빡임을 막는다).
+export function useRecruitingCohort(): CohortInfo | null {
+  const [cohort, setCohort] = useState<CohortInfo | null>(() => LIVE ? null : recruitingCohort())
   useEffect(() => {
     if (!LIVE) return
     void rpc<{ number: number; startsOn: string; applicationDeadline: string } | null>("public_cohort").then(({ data }) => {

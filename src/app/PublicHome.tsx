@@ -211,6 +211,7 @@ function FounderLetter() {
 // 기수 안내 띠(V6-cohort-01). 모인 인원은 보여 주지 않고, 첫 소개 날짜와 신청 마감만 알려 준다.
 function InitialOperation({ detailsTo = "#faq-cohort" }: { detailsTo?: string }) {
   const cohort = useRecruitingCohort();
+  if (!cohort) return null;
   return (
     <section className="bleed relative isolate overflow-clip bg-[#F8E5A6] py-16 text-[#2B2540] sm:py-20 dark:bg-[#3B3424] dark:text-white" aria-labelledby="initial-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />

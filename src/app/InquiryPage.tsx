@@ -77,6 +77,7 @@ export default function InquiryPage() {
   const [consent, setConsent] = useState(false)
   const [website, setWebsite] = useState("")
   const [error, setError] = useState("")
+  const [sending, setSending] = useState(false)
   const [receipt, setReceipt] = useState<string | null>(null)
   return (
     <section className="grid gap-12 py-16 sm:py-20 lg:grid-cols-[5fr_7fr] lg:gap-16 break-keep">
@@ -86,7 +87,7 @@ export default function InquiryPage() {
         <p className="text-sm leading-7 text-muted-foreground">운영진이 순서대로 읽고, 남겨 주신 이메일로 답변드려요. 신청하지 않은 분도 문의할 수 있어요.</p><p className="mt-2 text-sm leading-7 text-muted-foreground">평일 오전 10시부터 오후 6시까지 답해요. 보통 1영업일 안에 첫 답변을 드리고, 안전·신고와 관련된 문의는 가장 먼저 확인해요.</p>
         <ul className="space-y-3 text-sm leading-7">
           <li className="flex gap-3"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-primary" /><span>자주 묻는 질문은 <Link to="/pricing#faq" className="whitespace-nowrap text-primary underline underline-offset-4">이용 요금 · FAQ</Link>에서 먼저 확인할 수 있어요.</span></li>
-          <li className="flex gap-3"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-primary" /><span>회원이라면 <Link to="/support" className="whitespace-nowrap text-primary underline underline-offset-4">문의·신고</Link> 화면에서 진행 중인 소개와 연결해 남기면 더 빨리 확인할 수 있어요.</span></li>
+          <li className="flex gap-3"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-primary" /><span>회원이라면 <Link to="/support" className="whitespace-nowrap text-primary underline underline-offset-4">문의·요청</Link> 화면에서 진행 중인 소개와 연결해 남기면 더 빨리 확인할 수 있어요.</span></li>
           <li className="flex gap-3"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-accent" /><span>위급한 상황이라면 이 양식보다 먼저 112에 연락해 주세요.</span></li>
         </ul>
         {!LIVE && <p className="rounded-xl bg-accent/5 p-4 text-xs leading-6 text-accent">데모 화면이에요. 문의는 이 브라우저에만 임시로 저장되고 실제 메일은 발송되지 않아요.</p>}
@@ -101,7 +102,7 @@ export default function InquiryPage() {
             <Button variant="outline" onClick={() => { setReceipt(null); setType(""); setBody(""); setConsent(false) }}>다른 문의 남기기</Button>
           </div>
         ) : (
-          <form className="space-y-7" onSubmit={async (event) => { event.preventDefault(); const result = LIVE ? await submitLive({ type, name, email, body, consent, website }) : submitInquiry({ type, name, email, body, consent, website }); setError(result.error || ""); if (result.id) setReceipt(result.id) }}>
+          <form className="space-y-7" onSubmit={async (event) => { event.preventDefault(); if (sending) return; setSending(true); const result = LIVE ? await submitLive({ type, name, email, body, consent, website }) : submitInquiry({ type, name, email, body, consent, website }); setSending(false); setError(result.error || ""); if (result.id) setReceipt(result.id) }}>
             <fieldset className="space-y-3">
               <legend className="text-sm font-semibold">문의 유형</legend>
               <div className="flex flex-wrap gap-2">
@@ -109,7 +110,7 @@ export default function InquiryPage() {
                   <button key={item} type="button" aria-pressed={type === item} onClick={() => setType(item)} className={`${chip} ${type === item ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-primary/50"}`}>{item}</button>
                 ))}
               </div>
-              {type === "안전·신고" && <p className="text-xs leading-6 text-accent">진행 중인 상대와 관련된 일이라면 내 정보의 신고 기능을 쓰면 해당 소개에 바로 연결돼요. 위급하면 112에 먼저 연락해 주세요.</p>}
+              {type === "안전·신고" && <p className="text-xs leading-6 text-accent">진행 중인 상대와 관련된 일이라면 ‘두 사람’ 화면의 신고하기를 쓰면 해당 소개에 바로 연결돼요. 위급하면 112에 먼저 연락해 주세요.</p>}
             </fieldset>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <Label className="flex-col items-stretch gap-2 text-sm">
@@ -136,7 +137,7 @@ export default function InquiryPage() {
               </Label>
             </div>
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="h-12 rounded-full px-7" disabled={!type || !email.trim() || !body.trim() || !consent}>문의 남기기 <ArrowRight size={16} /></Button>
+            <Button type="submit" className="h-12 rounded-full px-7" disabled={sending || !type || !email.trim() || !body.trim() || !consent}>{sending ? "보내는 중…" : <>문의 남기기 <ArrowRight size={16} /></>}</Button>
           </form>
         )}
         <InquiryLookup />

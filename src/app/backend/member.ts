@@ -102,20 +102,29 @@ export async function saveNoticeSettings(values: Partial<Pick<NonNullable<Member
   }
 }
 
+// 연결이 끊겨도 화면이 멈추지 않도록 실패하면 빈 목록을 돌려준다.
 export async function loadMyRequests() {
-  const db = await supabase()
-  const { data } = await db.from("member_requests").select("id, kind, description, status, decision, created_at").order("created_at", { ascending: false }).limit(20)
-  return (data ?? []) as { id: string; kind: string; description: string | null; status: string; decision: string | null; created_at: string }[]
+  try {
+    const db = await supabase()
+    const { data } = await db.from("member_requests").select("id, kind, description, status, decision, created_at").order("created_at", { ascending: false }).limit(20)
+    return (data ?? []) as { id: string; kind: string; description: string | null; status: string; decision: string | null; created_at: string }[]
+  } catch {
+    return []
+  }
 }
 
 // 첫 마디: 소개된 상대가 가장 먼저 보는 한마디. 홈 공개는 본인이 켜고 운영진이 확인한 뒤에만.
 export type Greeting = { body: string; showOnHome: boolean; homeStatus: "none" | "pending" | "approved" | "rejected"; homeReason: string | null }
 export async function loadGreeting(): Promise<Greeting | null> {
-  const db = await supabase()
-  const { data: auth } = await db.auth.getUser()
-  if (!auth.user) return null
-  const { data } = await db.from("greetings").select("body, show_on_home, home_status, home_reason").eq("member_id", auth.user.id).maybeSingle()
-  return data ? { body: data.body, showOnHome: data.show_on_home, homeStatus: data.home_status, homeReason: data.home_reason } : null
+  try {
+    const db = await supabase()
+    const { data: auth } = await db.auth.getUser()
+    if (!auth.user) return null
+    const { data } = await db.from("greetings").select("body, show_on_home, home_status, home_reason").eq("member_id", auth.user.id).maybeSingle()
+    return data ? { body: data.body, showOnHome: data.show_on_home, homeStatus: data.home_status, homeReason: data.home_reason } : null
+  } catch {
+    return null
+  }
 }
 export const saveGreeting = (body: string, showOnHome: boolean) => rpc<{ body: string; showOnHome: boolean; homeStatus: Greeting["homeStatus"] }>("save_greeting", { p_body: body, p_show_on_home: showOnHome })
 export const deleteGreeting = () => rpc<null>("delete_greeting")

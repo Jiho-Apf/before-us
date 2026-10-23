@@ -454,7 +454,7 @@ export default function ApplicationReviewStep({
             [
               "본인 확인",
               verifiedAge === null
-                ? "확인 전 · 자기진술은 인증 아님"
+                ? "확인 전 · 직접 적은 내용이에요(인증 아님)"
                 : "기존 인증값 참고",
             ],
             [

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "./components/ui/button";
@@ -22,11 +22,19 @@ function useProgram() {
   const reload = async () => { const result = await loadMyProgram(); setState({ data: result.data, error: result.error, loading: false }); };
   useEffect(() => { void reload(); }, []);
   // 서버 함수는 고친 뒤의 교류를 그대로 돌려준다. 실패하면 안내만 바꾼다.
-  const run = async (action: () => Promise<{ data: Program | null; error: string | null }>, done = "") => {
-    const result = await action();
-    if (result.error) return result.error;
-    if (result.data) setState({ data: result.data, error: null, loading: false });
-    return result.data?.notice || done;
+  // 보내는 중에 다시 누르면 무시한다(두 번 눌러도 한 번만 보내지게). 성공 여부도 함께 돌려준다.
+  const sending = useRef(false);
+  const run = async (action: () => Promise<{ data: Program | null; error: string | null }>, done = ""): Promise<{ text: string; ok: boolean } | null> => {
+    if (sending.current) return null;
+    sending.current = true;
+    try {
+      const result = await action();
+      if (result.error) return { text: result.error, ok: false };
+      if (result.data) setState({ data: result.data, error: null, loading: false });
+      return { text: result.data?.notice || done, ok: true };
+    } finally {
+      sending.current = false;
+    }
   };
   return { ...state, reload, run };
 }
@@ -54,7 +62,7 @@ function ExchangeView() {
   if (loading) return <Waiting />;
   if (error) return <section><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="outline" className="mt-5 rounded-xl" onClick={() => void reload()}>다시 불러오기</Button></section>;
   if (!data) return <NotYet title="교류" />;
-  const act = async (action: () => Promise<{ data: Program | null; error: string | null }>, done = "") => setMessage(await run(action, done));
+  const act = async (action: () => Promise<{ data: Program | null; error: string | null }>, done = "") => { const result = await run(action, done); if (result) setMessage(result.text); return !!result?.ok; };
   const header = {
     choosing: { label: "함께 정하기", title: "어떻게 시작할지 함께 정해요." },
     scheduled: { label: "시작 전", title: `${data.startOn ? dayLabel(data.startOn) : ""} 09:00에 첫날이 열려요.` },
@@ -78,7 +86,7 @@ function ExchangeView() {
   );
 }
 
-type Act = (action: () => Promise<{ data: Program | null; error: string | null }>, done?: string) => Promise<void>;
+type Act = (action: () => Promise<{ data: Program | null; error: string | null }>, done?: string) => Promise<boolean>;
 
 function Agreement({ program, act }: { program: Program; act: Act }) {
   const [date, setDate] = useState(program.startOn ?? "");
@@ -153,17 +161,17 @@ function EntryPair({ entry, plan, reply = false }: { entry?: ProgramEntry; plan:
   </div>;
 }
 
-function LetterComposer({ onSend, reply = false }: { onSend: (body: string) => Promise<void>; reply?: boolean }) {
+function LetterComposer({ onSend, reply = false }: { onSend: (body: string) => Promise<unknown>; reply?: boolean }) {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const length = Array.from(body.trim()).length, min = reply ? 1 : 20, max = reply ? 600 : 1000;
   return <div className="mt-5 space-y-3">
-    <Textarea value={body} onChange={event => setBody(event.target.value)} maxLength={max} rows={reply ? 3 : 7} placeholder={reply ? "열린 편지에 한 번 답해요." : "300~600자를 권해요. 보낸 뒤에는 고칠 수 없어요."} className="rounded-xl border-border bg-card text-sm leading-7" />
+    <Textarea aria-label={reply ? "열린 편지에 답장 쓰기" : "오늘의 편지 쓰기"} value={body} onChange={event => setBody(event.target.value)} maxLength={max} rows={reply ? 3 : 7} placeholder={reply ? "열린 편지에 한 번 답해요." : "300~600자를 권해요. 보낸 뒤에는 고칠 수 없어요."} className="rounded-xl border-border bg-card text-sm leading-7" />
     <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">{length} / {max}자{!reply && " · 20자 이상"}</span><Button disabled={sending || length < min} onClick={async () => { setSending(true); await onSend(body); setSending(false); }} className="h-11 rounded-xl px-6">{reply ? "답장 보내기" : "편지 보내기"}</Button></div>
   </div>;
 }
 
-function SceneComposer({ day, onSend }: { day: number; onSend: (body: string | null, payload: Record<string, string>) => Promise<void> }) {
+function SceneComposer({ day, onSend }: { day: number; onSend: (body: string | null, payload: Record<string, string>) => Promise<unknown> }) {
   const [payload, setPayload] = useState<Record<string, string>>({});
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -201,10 +209,10 @@ function MeetingView() {
   if (loading) return <Waiting />;
   if (error) return <section><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="outline" className="mt-5 rounded-xl" onClick={() => void reload()}>다시 불러오기</Button></section>;
   if (!data || !["arranging", "closed"].includes(data.status) || (data.status === "closed" && !data.meetingOn)) {
-    return <section className="space-y-8"><PageHeader mark="약속" label="DAY 04 이후" en="THE NEXT SCENE" title={<>함께 나눈 이야기,<br />그다음 장면으로.</>} lead="3일 교류가 끝나고 넷째 날, 두 분 모두 만나고 싶다고 답하면 이곳에서 약속을 정해요." />{data && <Button asChild variant="outline" className="h-11 rounded-xl border-border"><Link to="/exchange">교류 화면으로 <ArrowRight size={14} /></Link></Button>}</section>;
+    return <section className="space-y-8"><PageHeader mark="약속" label="DAY 04 이후" en="THE NEXT SCENE" title={<>함께 나눈 이야기,<br />그다음 장면으로.</>} lead="3일 교류가 끝나고 넷째 날, 두 분 모두 만나고 싶다고 답하면 이곳에서 약속을 정해요." />{data ? <Button asChild variant="outline" className="h-11 rounded-xl border-border"><Link to="/exchange">교류 화면으로 <ArrowRight size={14} /></Link></Button> : <Button asChild variant="outline" className="h-11 rounded-xl border-border"><Link to="/today">오늘로 돌아가기 <ArrowRight size={14} /></Link></Button>}</section>;
   }
   if (data.status === "closed") return <section className="space-y-8"><PageHeader mark="약속" label="마무리" en="THE NEXT SCENE" title="이번 약속은 마무리됐어요." /><Closed program={data} /></section>;
-  const act = async (action: () => Promise<{ data: Program | null; error: string | null }>, done = "") => setMessage(await run(action, done));
+  const act = async (action: () => Promise<{ data: Program | null; error: string | null }>, done = "") => { const result = await run(action, done); if (result) setMessage(result.text); return !!result?.ok; };
   const accepted = data.proposals.find(item => item.status === "accepted");
   const open = data.proposals.find(item => item.status === "open");
   return (
@@ -212,7 +220,7 @@ function MeetingView() {
       <PageHeader mark="약속" label={accepted ? "약속 확정" : "약속 정하기"} en="THE NEXT SCENE" titleId="meeting-title" title={accepted ? <>{data.meetingOn && dayLabel(data.meetingOn)} {data.meetingTime?.split("~")[0]},<br />만나기로 했어요.</> : "만날 시간과 장소를 함께 정해요."} lead={accepted ? undefined : data.arrangeBy ? `${kstDateTime(data.arrangeBy)}까지 정하지 않으면 교류는 마무리돼요.` : undefined} />
       <Notice text={message} />
       {accepted && accepted.selected && <Sheet className="p-6 sm:p-8"><Eyebrow mark="✓" label="정해진 약속" en="IT'S A DATE" /><dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">{[["날짜·시간", `${dayLabel(accepted.selected.date)} ${accepted.selected.start}~${accepted.selected.end}`], ["활동", accepted.activity], ["지역", accepted.region], ["장소", accepted.place || "만나서 정해요"]].map(([label, value]) => <div key={label}><dt className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{label}</dt><dd className="mt-1 font-semibold">{value}</dd></div>)}</dl>{accepted.note && <p className="mt-4 rounded-xl bg-mist p-4 text-sm leading-7">{accepted.note}</p>}</Sheet>}
-      {open && !open.mine && <Sheet className="p-6 sm:p-8"><Eyebrow label="상대의 약속 제안" en="PROPOSAL" /><p className="mt-3 text-sm leading-7">{open.activity} · {open.region}{open.place ? ` · ${open.place}` : ""}</p>{open.note && <p className="mt-2 text-sm leading-7 text-muted-foreground">{open.note}</p>}<p className="mt-5 text-xs font-semibold">좋은 시간 하나를 골라 주세요</p><div className="mt-3 flex flex-wrap gap-2">{open.slots.map((slot, index) => <Button key={slot.date} variant="outline" onClick={() => void act(() => acceptAppointment(open.id, index), "약속이 정해졌어요.")} className="h-auto rounded-xl border-border px-4 py-3 text-sm">{dayLabel(slot.date)} {slot.start}~{slot.end}</Button>)}</div><p className="mt-4 text-xs text-muted-foreground">맞는 시간이 없으면 아래에서 다른 시간을 제안해 주세요.</p></Sheet>}
+      {open && !open.mine && <Sheet className="p-6 sm:p-8"><Eyebrow label="상대의 약속 제안" en="PROPOSAL" /><p className="mt-3 text-sm leading-7">{open.activity} · {open.region}{open.place ? ` · ${open.place}` : ""}</p>{open.note && <p className="mt-2 text-sm leading-7 text-muted-foreground">{open.note}</p>}<p className="mt-5 text-xs font-semibold">좋은 시간 하나를 골라 주세요</p><div className="mt-3 flex flex-wrap gap-2">{open.slots.map((slot, index) => <Button key={index} variant="outline" onClick={() => void act(() => acceptAppointment(open.id, index), "약속이 정해졌어요.")} className="h-auto rounded-xl border-border px-4 py-3 text-sm">{dayLabel(slot.date)} {slot.start}~{slot.end}</Button>)}</div><p className="mt-4 text-xs text-muted-foreground">맞는 시간이 없으면 아래에서 다른 시간을 제안해 주세요.</p></Sheet>}
       {open && open.mine && <QuietNote>보낸 제안: {open.slots.map(slot => `${dayLabel(slot.date)} ${slot.start}`).join(", ")} · 상대가 시간을 고르면 약속이 정해져요.</QuietNote>}
       <ProposalForm program={data} act={act} again={!!(open || accepted)} />
       {accepted && <Contact program={data} act={act} />}
@@ -247,7 +255,7 @@ function ProposalForm({ program, act, again }: { program: Program; act: Act; aga
       {field("장소(선택)", <Input value={place} maxLength={80} onChange={event => setPlace(event.target.value)} placeholder="공개된 장소 이름" className="h-11 rounded-xl border-border bg-card font-normal" />)}
       {field("한마디(선택)", <Input value={note} maxLength={300} onChange={event => setNote(event.target.value)} placeholder="예: 천천히 걸으면서 이야기해요" className="h-11 rounded-xl border-border bg-card font-normal" />)}
     </div>
-    <div className="mt-6 flex justify-end gap-2">{again && <Button variant="ghost" onClick={() => setOpenForm(false)} className="h-11">닫기</Button>}<Button disabled={!ready} onClick={async () => { await act(() => proposeAppointment(program.id, slots, activity, region, place, note), "제안을 보냈어요."); setOpenForm(false); }} className="h-11 rounded-xl px-6">제안 보내기</Button></div>
+    <div className="mt-6 flex justify-end gap-2">{again && <Button variant="ghost" onClick={() => setOpenForm(false)} className="h-11">닫기</Button>}<Button disabled={!ready} onClick={async () => { if (await act(() => proposeAppointment(program.id, slots, activity, region, place, note), "제안을 보냈어요.")) setOpenForm(false); }} className="h-11 rounded-xl px-6">제안 보내기</Button></div>
   </Sheet>;
 }
 
