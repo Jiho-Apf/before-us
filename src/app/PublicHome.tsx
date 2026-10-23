@@ -12,7 +12,7 @@ import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
 import DirectIntroduction from "./DirectIntroduction";
 import { CompareTable, HeroBackdrop, Journey, LetterMoment, NumberBand, PlanFlow, Standards, useInView } from "./HomeVisuals";
-import { HERO_VARIANTS, heroVariantFromUrl } from "./HeroVariants";
+import { HeroLetters } from "./HeroLetters";
 import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -132,53 +132,6 @@ function withUnderlines(text: string, phrases: readonly string[]) {
   return text.split(pattern).map((part, index) => hits.includes(part) ? <Underline key={index}>{part}</Underline> : part);
 }
 
-// 첫 화면 카드: 필름 사진 같은 노을 들판 위에 놓인 종이 엽서(편지 나누기)와 영화표 같은 티켓(첫 장면 만들기).
-// 화면 부품처럼 보이지 않도록 종이 질감·우표·소인·절취선으로 ‘손에 잡히는 물건’처럼, 글은 명조로 편지답게.
-const TICKET_MASK = "radial-gradient(circle 9px at 74% 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 9px at 74% 100%, #0000 98%, #000) bottom / 100% 51% no-repeat";
-function ServiceCollage() {
-  const ink = "text-[#2B2540]";
-  return (
-    <div className="relative mx-auto w-full max-w-[460px] pb-6 lg:mx-0 lg:ml-auto lg:pb-0" aria-label="서비스 화면 예시: 편지 나누기와 첫 장면 만들기">
-      <div className="relative h-[470px] sm:h-[430px]">
-        <div className="hero-float absolute right-0 top-0 w-[88%]">
-          <article className={`paper-grain relative -rotate-[3deg] rounded-[3px] bg-[#FBF8F3] px-6 pb-6 pt-5 ${ink} shadow-[0_44px_70px_-36px_rgba(38,20,92,0.62),0_10px_18px_-12px_rgba(38,20,92,0.3)]`}>
-            <div className="flex items-start justify-between">
-              <p className="text-[10px] font-semibold tracking-[0.16em] text-[#2B2540]/50">A · 편지 나누기</p>
-              <div className="relative">
-                <span aria-hidden="true" className="absolute -left-12 top-4 flex size-[52px] -rotate-12 items-center justify-center rounded-full border border-primary/35 text-center text-[7px] font-semibold leading-[1.35] tracking-[0.12em] text-primary/60">BEFORE US<br />DAY 01</span>
-                <span aria-hidden="true" className="flex h-[54px] w-[44px] flex-col items-center justify-center gap-1.5 bg-[#EEEAFA] outline-2 outline-offset-[3px] outline-dashed outline-[#FBF8F3]"><span className="flex gap-1"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></span><span className="text-[7px] font-semibold tracking-[0.1em] text-primary">12:00</span></span>
-              </div>
-            </div>
-            <div className="mt-4 grid grid-cols-[1fr_auto_0.6fr] gap-3 sm:grid-cols-[1fr_auto_0.75fr] sm:gap-4">
-              <p className="font-letter text-[17px] leading-[1.65] sm:text-[20px]">당신의 하루에서<br />가장 좋아하는<br />순간은?</p>
-              <span aria-hidden="true" className="w-px bg-[#2B2540]/12" />
-              <div aria-hidden="true" className="flex flex-col justify-end gap-3.5 pb-1"><span className="font-letter text-[11px] text-[#2B2540]/55">오늘의 인연에게</span><span className="h-px bg-[#2B2540]/15" /><span className="h-px bg-[#2B2540]/15" /><span className="h-px w-2/3 bg-[#2B2540]/15" /></div>
-            </div>
-            <p className="mt-5 text-[11px] text-[#2B2540]/55">하루 한 통, 각자의 속도로.</p>
-          </article>
-        </div>
-        <div className="hero-float hero-float-late absolute bottom-0 left-0 w-[80%]">
-          <article className={`relative flex rotate-[2.5deg] bg-white ${ink} shadow-[0_44px_70px_-36px_rgba(38,20,92,0.62),0_10px_18px_-12px_rgba(38,20,92,0.3)]`} style={{ mask: TICKET_MASK, WebkitMask: TICKET_MASK, borderRadius: 10 }}>
-            <div className="w-[74%] px-5 pb-5 pt-4">
-              <p className="text-[10px] font-semibold tracking-[0.16em] text-[#2B2540]/50">B · 첫 장면 만들기</p>
-              <p className="font-letter mt-3 text-[15px] leading-[1.5] sm:text-[17px]">함께 고르는,<br className="sm:hidden" /> 우리의 첫 장면</p>
-              <ul className="mt-3.5 space-y-2 text-[12px]">
-                <li className="flex items-center gap-2 font-medium text-primary"><span className="flex size-4 items-center justify-center rounded-full bg-primary text-white"><Check size={10} strokeWidth={3} /></span>조용한 동네를 함께 걷기</li>
-                <li className="flex items-center gap-2 text-[#2B2540]/45"><span className="size-4 rounded-full ring-1 ring-[#2B2540]/20" />좋아하는 음악을 함께 듣기</li>
-              </ul>
-            </div>
-            <div className="flex w-[26%] flex-col items-center justify-center gap-2 border-l-2 border-dashed border-[#2B2540]/12 bg-[#F6F3FD] py-4">
-              <span aria-hidden="true" className="flex gap-1"><span className="size-1.5 rounded-full bg-primary" /><span className="size-1.5 rounded-full bg-accent" /></span>
-              <span className="text-[10px] font-semibold tracking-[0.14em] text-primary">DAY 02</span>
-              <span className="text-[10px] text-[#2B2540]/50">함께 고름</span>
-            </div>
-          </article>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function Hero() {
   const part = DAY_PARTS[dayPart(useMinuteNow())];
   return (
@@ -198,7 +151,7 @@ function Hero() {
           <div className="mt-5"><NoonClock /></div>
           <p className="mt-5 text-[11px] text-white/95 dark:text-white">{LIVE ? "베타 운영 중 · 지금은 결제 없이 진행해요." : "데모 둘러보기 · 실제 신청이나 결제는 진행되지 않아요."}</p>
         </div>
-        {(() => { const Variant = HERO_VARIANTS[heroVariantFromUrl()]; return Variant ? <div className="relative z-10 lg:flex lg:items-center lg:justify-end"><Variant /></div> : <ServiceCollage />; })()}
+        <div className="relative z-10 lg:flex lg:items-center lg:justify-end"><HeroLetters /></div>
       </div>
       <svg className="pointer-events-none absolute inset-x-0 bottom-0 h-16 w-full fill-background sm:h-24" viewBox="0 0 1200 100" preserveAspectRatio="none" aria-hidden="true"><path d="M0 68 C300 -20 700 122 1200 28 L1200 100 L0 100 Z" /></svg>
     </section>

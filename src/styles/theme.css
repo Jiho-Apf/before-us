@@ -288,9 +288,3 @@
 .soft-underline.is-on { background-size: 100% 2px; }
 @media (prefers-reduced-motion: reduce) { .soft-underline { transition: none; background-size: 100% 2px; } }
 
-/* 첫 화면 엽서·티켓: 편지 글은 명조, 종이에는 아주 옅은 결 */
-.font-letter { font-family: "Gowun Batang", "Nanum Myeongjo", serif; letter-spacing: -0.01em; }
-.paper-grain::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; opacity: 0.35; mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.55  0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
