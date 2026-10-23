@@ -1,8 +1,8 @@
-// 운영진이 직접 고른다는 약속. 편지 아래에서 파란 면(기수 안내 띠와 같은 색)에 아주 옅은 종이결을 얹어 조용히 강조한다.
+// 운영진이 직접 고른다는 약속. 편지 아래에서 기수 안내 띠보다 아주 조금 더 맑은 파란 면에 아주 옅은 종이결을 얹어 조용히 강조한다.
 const GRAIN = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
 export default function DirectIntroduction() {
   return (
-    <div className="relative isolate overflow-hidden rounded-2xl bg-[#3560C0] p-7 text-white ring-1 ring-inset ring-white/10 sm:p-9">
+    <div className="relative isolate overflow-hidden rounded-2xl bg-[#2F5FCC] p-7 text-white ring-1 ring-inset ring-white/10 sm:p-9">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.12] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
       <div className="grid gap-5 sm:grid-cols-[2fr_3fr] sm:gap-10">
         <div>
