@@ -265,3 +265,18 @@
 .story-fade { animation: story-fade 0.5s ease-out both; }
 @media (prefers-reduced-motion: reduce) { .story-in-left, .story-in-right, .story-fade { animation: none; } }
 
+
+/* 강조 밑줄: 화면에 들어오면 얇은 보라 선이 왼쪽부터 그어진다 */
+.soft-underline {
+  background-image: linear-gradient(color-mix(in oklch, var(--primary) 62%, transparent), color-mix(in oklch, var(--primary) 62%, transparent));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 2px;
+  padding-bottom: 3px;
+  color: var(--foreground);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-size 1s cubic-bezier(0.22, 0.61, 0.36, 1) 0.25s;
+}
+.soft-underline.is-on { background-size: 100% 2px; }
+@media (prefers-reduced-motion: reduce) { .soft-underline { transition: none; background-size: 100% 2px; } }

@@ -62,26 +62,25 @@ export function HeroBackdrop() {
 // ② 두 가지 시작: 편지지 사진 위에 두 사람의 편지가 겹쳐지고, 같은 순간에 열린다
 const RULED = "bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent_25px,rgba(97,76,196,0.14)_25px,rgba(97,76,196,0.14)_26px)]";
 export function LetterMoment({ className = "" }: { className?: string }) {
-  const { ref, shown } = useInView<HTMLElement>(0.35);
   const letters = [
-    { who: "나", time: "21:14 보냄", text: "어제 말한 빵집, 저도 가 보고 싶어요. 아침에 가면 줄이 없나요?", place: "left-[5%] top-[9%] -rotate-3", from: "-translate-x-6" },
-    { who: "상대", time: "22:40 보냄", text: "평일 아침이면 바로 들어가요. 소금빵이 제일 먼저 나와요.", place: "right-[5%] top-[41%] rotate-2", from: "translate-x-6" },
+    { who: "나", time: "21:14 보냄", text: "어제 말한 빵집, 저도 가 보고 싶어요. 아침에 가면 줄이 없나요?", place: "left-[5%] top-[9%] -rotate-3" },
+    { who: "상대", time: "22:40 보냄", text: "평일 아침이면 바로 들어가요. 소금빵이 제일 먼저 나와요.", place: "right-[5%] top-[41%] rotate-2" },
   ];
   return (
-    <figure ref={ref} className={`relative mx-auto aspect-[5/6] w-full max-w-[440px] ${className}`} aria-label="화면 예시: 두 사람의 편지가 같은 순간에 열려요">
+    <figure className={`relative mx-auto aspect-[5/6] w-full max-w-[440px] ${className}`} aria-label="화면 예시: 두 사람의 편지가 같은 순간에 열려요">
       <div className="absolute inset-0 overflow-hidden rounded-[2rem] shadow-[0_40px_80px_-50px_color-mix(in_oklch,var(--primary)_70%,transparent)]">
         <Photo name="envelope" width={520} className="scale-105 brightness-[0.93] saturate-[0.75]" />
         <span aria-hidden="true" className="absolute inset-0 bg-[rgba(160,130,100,0.12)]" />
       </div>
-      {letters.map((letter, index) => (
+      {letters.map(letter => (
         <div key={letter.who} className={`absolute w-[70%] ${letter.place}`}>
-          <div className={`bg-[#FFFEFA] px-5 pb-4 pt-4 text-[#1F1B33] shadow-[0_26px_50px_-24px_rgba(30,20,80,0.65)] transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none ${shown ? "translate-x-0 opacity-100" : `${letter.from} opacity-0`}`} style={{ transitionDelay: `${index * 260}ms` }}>
+          <div className="bg-white px-5 pb-4 pt-4 text-[#1F1B33] shadow-[0_26px_50px_-24px_rgba(30,20,80,0.65)]">
             <p className="flex items-center justify-between text-[10px] font-semibold tracking-[0.12em] text-[#1F1B33]/55"><span className="flex items-center gap-2"><Dots className="size-1" />DAY 02 · {letter.who}</span><span className="tracking-normal">{letter.time}</span></p>
             <p className={`mt-2 text-[12.5px] leading-[26px] ${RULED}`}>{letter.text}</p>
           </div>
         </div>
       ))}
-      <p className={`absolute bottom-[4%] left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-white/95 px-4 py-2.5 text-[12px] font-semibold text-[#2B2540] shadow-[0_18px_40px_-18px_rgba(30,20,80,0.6)] backdrop-blur transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none ${shown ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`} style={{ transitionDelay: "700ms" }}>
+      <p className="absolute bottom-[4%] left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-white px-4 py-2.5 text-[12px] font-semibold text-[#2B2540] shadow-[0_18px_40px_-18px_rgba(30,20,80,0.6)]">
         <span className="flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground"><LockOpen size={12} /></span>두 통 모두 도착 · 함께 열렸어요
       </p>
     </figure>
