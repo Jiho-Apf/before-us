@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { ArrowUpRight, BadgeAlert, CalendarX2, Check, Heart, Link2Off, LockOpen, ShieldCheck, Siren, Smartphone, UserCheck } from "lucide-react";
+import { ArrowUpRight, BadgeAlert, CalendarX2, Check, Link2Off, LockOpen, ShieldCheck, Siren, Smartphone, UserCheck } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { BEFORE_US } from "./config";
 import { LIVE } from "./backend/client";
@@ -35,8 +35,8 @@ export function Glow({ className = "", tone = "primary" }: { className?: string;
 
 // ── 사진(Unsplash 라이선스 · 상업적 이용 가능). 얼굴이 드러나지 않는 뒷모습·사물만 쓴다.
 const PHOTOS = {
-  walk: { id: "1542891433-684dbf58d399", alt: "단풍 든 길을 나란히 걷는 두 사람의 뒷모습" },
-  cosmos: { id: "1697308614986-fca3bc8a0ae0", alt: "편지지 위에 놓인 코스모스 한 송이" },
+  hands: { id: "1480618376353-2950ee462b17", alt: "바닷가에서 손을 내밀어 잡는 두 사람" },
+  envelope: { id: "1614711961675-c589a467042f", alt: "대리석 위에 놓인 크림색 봉투들" },
 } as const;
 function Photo({ name, width, eager = false, className = "" }: { name: keyof typeof PHOTOS; width: number; eager?: boolean; className?: string }) {
   const { id, alt } = PHOTOS[name];
@@ -60,17 +60,24 @@ function GlassNote({ icon, label, time, title, className = "" }: { icon: ReactNo
   );
 }
 
-// ① 첫 화면: 큰 아치 사진 한 장, 뒤로 비켜 선 얇은 아치 선, 그 위에 떠 있는 두 장의 알림(정오의 소개 → 서로의 선택)
+// ① 첫 화면: 큰 아치 사진 한 장, 위에 떠 있는 정오 알림, 옆에 붙은 편지 카드(종이 톤을 사진에 맞춘다)
 export function HeroCollage() {
   return (
     <figure className="relative mx-auto aspect-[5/6] w-full max-w-[460px]" aria-label="비포어스의 분위기를 담은 사진과 화면 예시">
-      <span aria-hidden="true" className="absolute right-0 top-[5%] h-[90%] w-[76%] rounded-b-[2.25rem] rounded-t-full border border-white/35" />
-      <div className="absolute right-[6%] top-0 h-[90%] w-[76%] overflow-hidden rounded-b-[2.25rem] rounded-t-full bg-white/10 shadow-[0_50px_90px_-45px_rgba(18,10,58,0.85)] ring-1 ring-white/25">
-        <Photo name="walk" width={620} eager />
-        <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(to_top,rgba(40,26,104,0.4),transparent_40%)]" />
+      <div className="absolute right-0 top-0 h-[92%] w-[72%] overflow-hidden rounded-b-[2.25rem] rounded-t-full bg-white/10 shadow-[0_50px_90px_-45px_rgba(18,10,58,0.85)] ring-1 ring-white/25">
+        <Photo name="hands" width={620} eager className="object-[45%_50%]" />
+        <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(to_top,rgba(40,26,104,0.28),transparent_38%)]" />
       </div>
-      <GlassNote icon={<Dots />} label="BEFORE US" time="12:00" title="오늘의 인연이 도착했어요" className="hero-float left-0 top-[14%] w-[66%]" />
-      <GlassNote icon={<Heart size={16} strokeWidth={1.8} />} label="서로의 선택" time="D+1" title="두 분 모두 알아가고 싶어 해요" className="hero-float right-[-2%] bottom-[3%] w-[70%] [animation-delay:-3s]" />
+      <GlassNote icon={<Dots />} label="BEFORE US" time="12:00" title="오늘의 인연이 도착했어요" className="hero-float left-0 top-[9%] w-[64%]" />
+      <div className="absolute bottom-[-12%] left-[-2%] z-10 w-[52%] -rotate-2 overflow-hidden rounded-md bg-[#FFFDF8] text-[#1F1B33] shadow-[0_44px_80px_-36px_rgba(18,10,58,0.9)] ring-1 ring-black/5">
+        <div className="flex items-center justify-between border-b border-black/[0.07] px-4 py-2.5 text-[9px] font-semibold tracking-[0.16em] text-[#1F1B33]/55 sm:px-5 sm:py-3 sm:text-[10px]"><span>A · 편지 나누기</span><span>DAY 01</span></div>
+        <div className="px-4 pb-4 pt-3.5 sm:px-5 sm:pb-5 sm:pt-4">
+          <Dots className="size-1.5" />
+          <p className="mt-3 text-[13px] font-semibold leading-[1.6] sm:text-[15px]">당신의 하루에서<br />가장 좋아하는 순간은?</p>
+          <p className="mt-2 text-[10px] leading-[1.7] text-[#1F1B33]/50 sm:text-[11px]">서로에게 하루 한 통.<br />한 번에 조금씩, 나의 이야기를 전해요.</p>
+        </div>
+        <div className="bg-[#ECE7F8] px-4 py-2 text-[10px] text-primary sm:px-5 sm:py-2.5 sm:text-[11px]">하루 한 통의 편지, 각자의 속도로.</div>
+      </div>
     </figure>
   );
 }
@@ -80,18 +87,17 @@ const RULED = "bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent
 export function LetterMoment({ className = "" }: { className?: string }) {
   const { ref, shown } = useInView<HTMLElement>(0.35);
   const letters = [
-    { who: "나", time: "21:14 보냄", text: "어제 말한 빵집, 저도 가 보고 싶어요. 아침에 가면 줄이 없나요? 요즘은 퇴근길에 한 정거장 일찍 내려서 걸어요. 그 길에 작은 꽃집이 하나 있거든요.", place: "left-[4%] top-[5%] -rotate-2", from: "-translate-x-6" },
-    { who: "상대", time: "22:40 보냄", text: "평일 아침이면 바로 들어가요. 소금빵이 제일 먼저 나와요. 한 정거장 일찍 내려서 걷는 거, 저도 해 보고 싶어졌어요. 그 꽃집 이름은 아직 비밀인가요?", place: "right-[4%] top-[45%] rotate-2", from: "translate-x-6" },
+    { who: "나", time: "21:14 보냄", text: "어제 말한 빵집, 저도 가 보고 싶어요. 아침에 가면 줄이 없나요?", place: "left-[5%] top-[9%] -rotate-3", from: "-translate-x-6" },
+    { who: "상대", time: "22:40 보냄", text: "평일 아침이면 바로 들어가요. 소금빵이 제일 먼저 나와요.", place: "right-[5%] top-[41%] rotate-2", from: "translate-x-6" },
   ];
   return (
-    <figure ref={ref} className={`relative mx-auto aspect-[2/3] w-full max-w-[440px] sm:aspect-[5/6] ${className}`} aria-label="화면 예시: 두 사람의 편지가 같은 순간에 열려요">
+    <figure ref={ref} className={`relative mx-auto aspect-[5/6] w-full max-w-[440px] ${className}`} aria-label="화면 예시: 두 사람의 편지가 같은 순간에 열려요">
       <div className="absolute inset-0 overflow-hidden rounded-[2rem] shadow-[0_40px_80px_-50px_color-mix(in_oklch,var(--primary)_70%,transparent)]">
-        <Photo name="cosmos" width={520} className="scale-105 brightness-[0.9] saturate-[0.7]" />
-        <span aria-hidden="true" className="absolute inset-0 bg-[rgba(120,104,170,0.16)]" />
-        <span aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.32),transparent_22%,transparent_80%,rgba(255,255,255,0.28))]" />
+        <Photo name="envelope" width={520} className="scale-105 brightness-[0.93] saturate-[0.75]" />
+        <span aria-hidden="true" className="absolute inset-0 bg-[rgba(160,130,100,0.12)]" />
       </div>
       {letters.map((letter, index) => (
-        <div key={letter.who} className={`absolute w-[80%] sm:w-[74%] ${letter.place}`}>
+        <div key={letter.who} className={`absolute w-[70%] ${letter.place}`}>
           <div className={`bg-[#FFFEFA] px-5 pb-4 pt-4 text-[#1F1B33] shadow-[0_26px_50px_-24px_rgba(30,20,80,0.65)] transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none ${shown ? "translate-x-0 opacity-100" : `${letter.from} opacity-0`}`} style={{ transitionDelay: `${index * 260}ms` }}>
             <p className="flex items-center justify-between text-[10px] font-semibold tracking-[0.12em] text-[#1F1B33]/55"><span className="flex items-center gap-2"><Dots className="size-1" />DAY 02 · {letter.who}</span><span className="tracking-normal">{letter.time}</span></p>
             <p className={`mt-2 text-[12.5px] leading-[26px] ${RULED}`}>{letter.text}</p>
@@ -118,7 +124,7 @@ export function NumberBand() {
       {NUMBERS.map((item, index) => (
         <div key={item.big} className={`flex flex-col border-l border-border pl-5 sm:pl-7 ${index === 0 ? "border-l-0 pl-0 sm:pl-0" : index === 2 ? "border-l-0 pl-0 sm:pl-0 lg:border-l lg:pl-7" : ""}`}>
           <dt className="order-2 mt-3 text-sm font-semibold">{item.label}</dt>
-          <dd className="order-1 text-[26px] font-semibold leading-none tracking-tight text-primary sm:text-[30px]">{item.big}</dd>
+          <dd className="order-1 text-[20px] font-semibold leading-none tracking-tight text-primary sm:text-[22px]">{item.big}</dd>
           <dd className="order-3 mt-1.5 text-xs leading-5 text-muted-foreground">{item.note}</dd>
         </div>
       ))}
@@ -277,16 +283,16 @@ const PLAN_FLOW = [
 ];
 export function PlanFlow() {
   return (
-    <div className="mt-9 rounded-3xl border border-border bg-card/80 px-5 py-6 sm:px-7 sm:py-7">
-      <p className="text-ink text-[15px] font-semibold">어떤 순서로 진행되나요?</p>
+    <div className="rounded-3xl bg-card px-6 py-7 shadow-[0_20px_44px_-36px_rgba(60,45,30,0.5)] ring-1 ring-black/[0.04] sm:px-8 sm:py-8">
+      <p className="text-ink text-base font-semibold">어떤 순서로 진행되나요?</p>
       <ol className="relative mt-6 grid gap-5 sm:grid-cols-4 sm:gap-4">
         <span aria-hidden="true" className="absolute bottom-2 left-[7px] top-2 w-px bg-primary/15 sm:bottom-auto sm:left-[7px] sm:right-0 sm:top-[7px] sm:h-px sm:w-auto" />
         {PLAN_FLOW.map((step, index) => (
           <li key={step.when} className="relative pl-6 sm:pl-0 sm:pt-6">
             <span aria-hidden="true" className={`absolute left-[7px] top-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full sm:top-[7px] ${index === 0 ? "journey-breathe size-3.5 ring-1 ring-primary/30" : "size-[7px] bg-card ring-[1.5px] ring-primary/35"}`} />
             <p className="text-[10px] font-semibold tracking-[0.16em] text-accent tabular-nums">0{index + 1}</p>
-            <p className="mt-1 text-sm font-semibold">{step.when}</p>
-            <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{step.note}</p>
+            <p className="text-ink mt-1.5 text-[15px] font-semibold">{step.when}</p>
+            <p className="mt-1.5 text-[13px] leading-6 text-foreground/70">{step.note}</p>
           </li>
         ))}
       </ol>

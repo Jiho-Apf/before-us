@@ -281,49 +281,41 @@ function SceneTrial() {
   );
 }
 
-// 목록이 화면에서 얼마나 지나갔는지 0~1(가운데 선이 차오르는 정도)
-function useElementProgress(ref: RefObject<HTMLElement | null>) {
-  const reduced = useReducedMotion();
-  const [progress, setProgress] = useState(0);
+// 화면 가운데에 가장 가까운 장(지금 읽는 장). 목록이 화면 가운데를 지나지 않을 때는 -1.
+function useReadingIndex(ref: RefObject<HTMLElement | null>) {
+  const [index, setIndex] = useState(-1);
   useEffect(() => {
-    if (reduced) { setProgress(1); return; }
     let frame = 0;
     const measure = () => {
       frame = 0;
       const node = ref.current;
       if (!node) return;
+      const middle = window.innerHeight / 2;
       const box = node.getBoundingClientRect();
-      setProgress(Math.min(1, Math.max(0, (window.innerHeight * 0.6 - box.top) / box.height)));
+      if (box.top > middle || box.bottom < middle) { setIndex(-1); return; }
+      let best = -1, distance = Infinity;
+      Array.from(node.querySelectorAll(":scope > li")).forEach((item, i) => {
+        const r = item.getBoundingClientRect();
+        const d = Math.abs(r.top + r.height / 2 - middle);
+        if (d < distance) { distance = d; best = i; }
+      });
+      setIndex(best);
     };
     const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure); };
     measure();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
     return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); cancelAnimationFrame(frame); };
-  }, [reduced, ref]);
-  return progress;
+  }, [ref]);
+  return index;
 }
-// 화면 가운데를 지나는 동안만 true(지금 읽는 장의 라벨을 밝힌다)
-function useCentered<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [centered, setCentered] = useState(false);
-  useEffect(() => {
-    const node = ref.current;
-    if (!node || !("IntersectionObserver" in window)) return;
-    const observer = new IntersectionObserver(([entry]) => setCentered(entry.isIntersecting), { rootMargin: "-40% 0px -45% 0px" });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-  return { ref, centered };
-}
-function StoryChapter({ label, prompt, left, right, leftClass, rightClass }: { label: string; prompt?: string; left: ReactNode; right: ReactNode; leftClass: string; rightClass: string }) {
+function StoryChapter({ label, prompt, left, right, leftClass, rightClass, focus, dim }: { label: string; prompt?: string; left: ReactNode; right: ReactNode; leftClass: string; rightClass: string; focus: boolean; dim: boolean }) {
   const { ref, shown } = useInView<HTMLLIElement>(0.25);
-  const { ref: labelRef, centered } = useCentered<HTMLSpanElement>();
   const reveal = "transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none";
   return (
-    <li ref={ref} className="relative pb-16 last:pb-4">
-      <div className={`relative z-10 mx-auto mb-8 max-w-sm bg-mist px-4 text-center ${reveal} ${shown ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"}`}>
-        <span ref={labelRef} className={`inline-block rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.14em] transition-colors duration-500 motion-reduce:transition-none ${centered ? "border-accent bg-accent text-white shadow-[0_8px_20px_-10px_var(--accent)]" : "border-accent/30 text-accent"}`}>{label}</span>
+    <li ref={ref} className={`relative mb-4 rounded-[1.75rem] px-5 py-9 transition-[background-color,box-shadow,opacity] duration-500 last:mb-0 motion-reduce:transition-none sm:px-10 sm:py-11 ${focus ? "bg-card shadow-[0_30px_60px_-44px_color-mix(in_oklch,var(--primary)_60%,transparent)]" : ""} ${dim ? "opacity-45" : "opacity-100"}`}>
+      <div className={`relative z-10 mx-auto mb-8 max-w-sm px-4 text-center transition-colors duration-500 motion-reduce:transition-none ${focus ? "bg-card" : "bg-mist"} ${reveal} ${shown ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"}`}>
+        <span className={`inline-block rounded-full border px-3 py-1 text-[10px] font-semibold tracking-[0.14em] transition-colors duration-500 motion-reduce:transition-none ${focus ? "border-accent bg-accent text-white" : "border-accent/30 text-accent"}`}>{label}</span>
         {prompt && <p className="mt-3 text-base font-medium leading-7">{prompt.endsWith("?") ? `“${prompt}”` : prompt}</p>}
       </div>
       <div className="grid gap-8 md:grid-cols-2 md:gap-16">
@@ -341,7 +333,7 @@ function TwoVoices() {
   const { chapters, ending, people } = story;
   const show = (side: "left" | "right") => voice === "both" || voice === side;
   const listRef = useRef<HTMLOListElement>(null);
-  const progress = useElementProgress(listRef);
+  const reading = useReadingIndex(listRef);
   const Name = ({ side }: { side: "left" | "right" }) => (
     <p className={`mb-3 flex items-center gap-2 text-xs font-semibold ${side === "left" ? "md:justify-end" : ""}`}>
       {side === "right" && <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />}
@@ -376,10 +368,8 @@ function TwoVoices() {
       </div>
       <ol ref={listRef} key={storyId} className="relative mx-auto mt-16 max-w-4xl">
         <span aria-hidden="true" className="absolute top-2 bottom-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-border to-transparent md:block" />
-        <span aria-hidden="true" className="absolute top-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-primary/0 via-primary/60 to-accent md:block" style={{ height: `calc(${progress * 100}% - 1rem)` }} />
-        <span aria-hidden="true" className={`absolute left-1/2 z-20 hidden size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_0_5px_color-mix(in_oklch,var(--accent)_15%,transparent)] transition-opacity duration-300 md:block ${progress > 0 && progress < 1 ? "opacity-100" : "opacity-0"}`} style={{ top: `calc(${progress * 100}% - 0.5rem)` }} />
-        {chapters.map(chapter => (
-          <StoryChapter key={chapter.id} label={chapter.label} prompt={chapter.prompt ?? undefined} leftClass={voiceClass("left")} rightClass={voiceClass("right")}
+        {chapters.map((chapter, index) => (
+          <StoryChapter key={chapter.id} focus={reading === index} dim={reading !== -1 && reading !== index} label={chapter.label} prompt={chapter.prompt ?? undefined} leftClass={voiceClass("left")} rightClass={voiceClass("right")}
             left={<><Name side="left" /><p className="text-[15px] leading-[2] text-foreground/85">{chapter.left}</p></>}
             right={<><Name side="right" /><p className="text-[15px] leading-[2] text-foreground/85">{chapter.right}</p></>} />
         ))}
@@ -440,16 +430,26 @@ const FIRST_FAQ = [
 const FAQ = BETA ? [BETA_FAQ, ...FIRST_FAQ, BETA_COHORT_FAQ, ...FAQ_BASE.filter(item => item.id !== "cohort")] : [...FIRST_FAQ, ...FAQ_BASE];
 
 function Pricing() {
+  const promises = BETA ? PROMISES.map(item => item.replace("상호 선택, 양쪽 결제, 같은 방식과 시작일 합의 뒤에", "상호 선택과 같은 방식·시작일 합의 뒤에").replace("소개비 한 번에 최대 5번 소개받아요. ", "")) : PROMISES;
+  const card = "rounded-3xl bg-card px-6 py-7 shadow-[0_20px_44px_-36px_rgba(60,45,30,0.5)] ring-1 ring-black/[0.04] sm:px-8 sm:py-8";
   return (
-    <section id="pricing" className="bleed relative isolate overflow-clip bg-mist py-20 sm:py-24" aria-labelledby="pricing-title">
+    <section id="pricing" className="bleed relative isolate overflow-clip bg-[#F6F2EC] py-20 dark:bg-mist sm:py-24" aria-labelledby="pricing-title">
       <SectionLabel number="06" ko="이용 요금">CLEAR FROM THE BEGINNING</SectionLabel>
-      <div className="grid gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16"><div><h2 id="pricing-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">시작하기 전에,<br />분명하게 안내해요.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">{BETA ? <>지금은 베타 기간이라 결제가 없어요.<br />정식 운영으로 바뀌기 7일 전에 메일로 알려 드려요.</> : <>신청·검토·첫 소개 준비 전 대기는 무료.<br />첫 소개 준비와 현재 참여 가능성 확인 후 안내해요.</>}</p></div><div>
-        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-7"><div><p className="mb-3 text-xs text-muted-foreground">{BETA ? "베타 기간 이용료 · 1인" : "소개 이용료 · 1인"}</p><strong className="text-5xl font-semibold tabular-nums text-primary">{BETA ? "무료" : money(BEFORE_US.pricing.introduction)}</strong></div><p className="text-xs text-muted-foreground">{BETA ? `정식 운영 소개 이용료 ${money(BEFORE_US.pricing.introduction)}(예정) · 부가세 포함` : "부가세 포함 · 자동 갱신 없음"}</p></div>
-        <p className="pt-6 text-sm leading-7 text-muted-foreground">{BETA ? "베타 기간에는 서로 더 알아가기로 한 뒤의 3일 교류도 무료예요. 두 사람이 같은 방식과 시작일을 확인하면 3일이 시작돼요." : "서로 더 알아가기로 한 뒤의 교류비는, 결제하기 전에 화면에서 먼저 확인할 수 있어요. 두 사람 모두 확인해야 3일이 시작돼요."}</p>
-        <PlanFlow />
-        <div className="mt-8 border-t border-border pt-6"><p className="mb-4 text-sm font-semibold">분명히 해 두고 싶은 것들</p><ul className="space-y-3">{(BETA ? PROMISES.map(item => item.replace("상호 선택, 양쪽 결제, 같은 방식과 시작일 합의 뒤에", "상호 선택과 같은 방식·시작일 합의 뒤에").replace("소개비 한 번에 최대 5번 소개받아요. ", "")) : PROMISES).map(item => <li key={item} className="flex gap-3 text-sm leading-7"><span aria-hidden="true" className="mt-3 size-1.5 shrink-0 rounded-full bg-primary" />{item}</li>)}</ul></div>
-        <div className="mt-7 flex flex-wrap items-center gap-3"><Button asChild className={`h-12 rounded-full px-6 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={16} /></Link></Button><Button asChild variant="link" className={`h-12 px-0 text-foreground hover:text-primary ${interaction}`}><a href="#faq">자주 묻는 질문 보기 <ArrowRight size={14} /></a></Button></div>
-      </div></div>
+      <div className="grid gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16">
+        <div><h2 id="pricing-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">시작하기 전에,<br />분명하게 안내해요.</h2><p className="mt-5 text-[15px] leading-[1.9] text-foreground/75">{BETA ? <>지금은 베타 기간이라 결제가 없어요.<br />정식 운영으로 바뀌기 7일 전에 메일로 알려 드려요.</> : <>신청·검토·첫 소개 준비 전 대기는 무료.<br />첫 소개 준비와 현재 참여 가능성 확인 후 안내해요.</>}</p></div>
+        <div className="space-y-4">
+          <div className={card}>
+            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2.5 text-[13px] font-medium text-foreground/70">{BETA ? "베타 기간 이용료 · 1인" : "소개 이용료 · 1인"}</p><strong className="text-[44px] font-semibold leading-none tabular-nums text-primary">{BETA ? "무료" : money(BEFORE_US.pricing.introduction)}</strong></div><p className="rounded-full bg-[#F6F2EC] px-3 py-1.5 text-xs text-foreground/70 dark:bg-mist">{BETA ? `정식 운영 소개 이용료 ${money(BEFORE_US.pricing.introduction)}(예정) · 부가세 포함` : "부가세 포함 · 자동 갱신 없음"}</p></div>
+            <p className="mt-6 border-t border-border pt-5 text-[15px] leading-[1.9] text-foreground/80">{BETA ? "베타 기간에는 서로 더 알아가기로 한 뒤의 3일 교류도 무료예요. 두 사람이 같은 방식과 시작일을 확인하면 3일이 시작돼요." : "서로 더 알아가기로 한 뒤의 교류비는, 결제하기 전에 화면에서 먼저 확인할 수 있어요. 두 사람 모두 확인해야 3일이 시작돼요."}</p>
+          </div>
+          <PlanFlow />
+          <div className={card}>
+            <p className="text-ink text-base font-semibold">분명히 해 두고 싶은 것들</p>
+            <ul className="mt-4 divide-y divide-border">{promises.map(item => <li key={item} className="flex gap-3.5 py-3.5 text-[15px] leading-[1.8] text-foreground/80 first:pt-1 last:pb-0"><span aria-hidden="true" className="mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 pt-3"><Button asChild className={`h-12 rounded-full px-6 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={16} /></Link></Button><Button asChild variant="link" className={`h-12 px-0 text-foreground hover:text-primary ${interaction}`}><a href="#faq">자주 묻는 질문 보기 <ArrowRight size={14} /></a></Button></div>
+        </div>
+      </div>
     </section>
   );
 }
