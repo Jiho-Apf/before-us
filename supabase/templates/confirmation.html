@@ -16,7 +16,7 @@
           <h1 style="margin:0 0 18px;font-size:26px;line-height:1.45;font-weight:700;">천천히 알아가는 시작,<br>비포어스에 오신 걸 환영해요.</h1>
           <p style="margin:0 0 26px;font-size:15px;line-height:1.85;color:#4A4670;">아래 버튼을 누르면 가입이 끝나고, 바로 <b style="color:#24204A;">소개 신청 화면</b>으로 이어져요.</p>
           <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:12px;background:#614CC4;">
-            <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:15px 28px;font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;">가입 마치고 소개 신청하기 →</a>
+            <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email&amp;next=/apply" style="display:inline-block;padding:15px 28px;font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;">가입 마치고 소개 신청하기 →</a>
           </td></tr></table>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:34px;border-top:1px solid #EEEAFA;">
             <tr><td style="padding-top:24px;font-size:13px;line-height:1.9;color:#4A4670;">
@@ -30,8 +30,8 @@
           </table>
         </td></tr>
         <tr><td style="padding:24px 8px 0;font-size:12px;line-height:1.8;color:#7A76A0;">
-          <p style="margin:0 0 6px;">버튼이 눌리지 않으면 이 주소를 브라우저에 붙여 넣어 주세요.<br><a href="{{ .ConfirmationURL }}" style="color:#614CC4;word-break:break-all;">{{ .ConfirmationURL }}</a></p>
-          <p style="margin:0 0 6px;">링크는 1시간 동안 쓸 수 있어요. 가입한 기기와 다른 기기에서 열었다면, 확인이 끝난 뒤 로그인하면 이어서 쓸 수 있어요.</p>
+          <p style="margin:0 0 6px;">버튼이 눌리지 않으면 이 주소를 브라우저에 붙여 넣어 주세요.<br><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email&amp;next=/apply" style="color:#614CC4;word-break:break-all;">{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email&amp;next=/apply</a></p>
+          <p style="margin:0 0 6px;">링크는 1시간 동안 쓸 수 있어요. 어느 휴대폰·앱에서 열어도 바로 이어져요.</p>
           <p style="margin:0 0 14px;">비포어스에 가입한 적이 없다면 이 메일은 무시해 주세요.</p>
           <p style="margin:0 0 14px;">메일이 스팸함에 있었다면 beforeus.official.kr@gmail.com을 주소록에 추가해 주세요. 소개 도착 같은 알림을 놓치지 않을 수 있어요.</p>
           <p style="margin:0;color:#A19DC0;">BEFORE US · 끌리는 사람을, 천천히 알아갑니다. · 19세 미만 이용 불가</p>

@@ -23,6 +23,8 @@ export const BEFORE_US = {
   letters: { opensAt: "09:00", closesAt: "23:59", timezone: "Asia/Seoul", recommendedMinimum: 300, recommendedMaximum: 600, scheduleResetPolicy: null },
   // 베타 운영(결제 없이). 베타는 언제든 끝날 수 있고, 끝내거나 정식 운영으로 바꾸기 7일 전에 사이트·메일로 알린다(운영진 ‘운영진’ 메뉴의 전체 공지).
   // 정식 운영으로 바꿀 때 active 를 false 로 바꾼다.
+  // 베타 나이 범위(출생 연도 · 한국 나이 20~35세). 서버의 birth_year_range() 와 같이 바꾼다.
+  ageBand: { minBirthYear: 1992, maxBirthYear: 2007, label: "1992~2007년생", korean: "한국 나이 20~35세", maxAge: 35 },
   beta: { active: true, startsOn: "2026-10-20", legalVersion: "beta-2026-10-20" },
   // 운영자(개인정보 보호책임자) 정보와 공식 SNS. 비어 있으면 화면에 ‘문의하기’로 대신 안내한다.
   operator: { name: "정지호", email: "beforeus.official.kr@gmail.com" },

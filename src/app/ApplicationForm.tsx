@@ -48,7 +48,9 @@ function BirthDatePicker({ id, value, onChange, invalid, describedBy }: { id: st
   // 바깥에서 값이 바뀌면(예시 채우기·저장본 불러오기) 고른 칸도 맞춘다.
   useEffect(() => { if (/^\d{4}-\d{2}-\d{2}$/.test(value)) { const [year, month, day] = value.split("-"); setParts({ year, month, day }); } }, [value]);
   const thisYear = Number(seoulDate().slice(0, 4));
-  const years = Array.from({ length: 62 }, (_, index) => String(thisYear - BEFORE_US.operatingDraft.minimumAge - index));
+  // 신청할 수 있는 출생 연도만 보여 준다(베타: 1992~2007년생).
+  const newest = Math.min(BEFORE_US.ageBand.maxBirthYear, thisYear - BEFORE_US.operatingDraft.minimumAge);
+  const years = Array.from({ length: Math.max(1, newest - BEFORE_US.ageBand.minBirthYear + 1) }, (_, index) => String(newest - index));
   const lastDay = parts.year && parts.month ? new Date(Number(parts.year), Number(parts.month), 0).getDate() : 31;
   const pick = (key: "year" | "month" | "day", next: string) => {
     const updated = { ...parts, [key]: next };

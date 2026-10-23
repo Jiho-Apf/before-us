@@ -14,7 +14,7 @@ const db = new PGlite()
 await db.exec(`
   create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
   create schema auth; create schema storage; create schema extensions;
-  create table auth.users (id uuid primary key default gen_random_uuid(), email text, raw_user_meta_data jsonb, created_at timestamptz default now());
+  create table auth.users (id uuid primary key default gen_random_uuid(), email text, raw_user_meta_data jsonb, created_at timestamptz default now(), email_confirmed_at timestamptz default now());
   create function auth.uid() returns uuid language sql stable as $$ select nullif(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub', '')::uuid $$;
   create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
   create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
@@ -557,6 +557,24 @@ await q("delete from public.programs where id = $1", [remindProgram])
 await q("set session_replication_role = replica")
 await q("delete from public.introductions where id = $1", [remindIntro])
 await q("set session_replication_role = origin")
+
+// ── 베타 나이 범위 · 신청서 이어 쓰기 알림
+await as("postgres")
+const H = await signup("h@example.test")
+await as(H)
+await q("select public.save_application_draft($1)", [draft("민준", "남성", "여성", "1990-05-05")])
+await photos(H, 60)
+await fails("1992년생보다 나이가 많으면 제출할 수 없다", "select public.submit_application()", [], /1992~2007년생/)
+await q("select public.save_application_draft($1)", [draft("민준", "남성", "여성", "1992-01-01")])
+eq("1992년생은 제출할 수 있다", (await one("select public.submit_application() r")).r.status, "submitted")
+await as("postgres")
+const I = await signup("i@example.test")
+await q("update public.profiles set created_at = now() - interval '2 days' where id = $1", [I])
+await one("select public.run_reminders()")
+eq("가입하고 하루가 지나도 신청서를 내지 않으면 한 번 알린다", (await one("select count(*)::int n from public.notifications where member_id = $1 and kind = 'reminder-application'", [I])).n, 1)
+await one("select public.run_reminders()")
+eq("이어 쓰기 알림은 한 번만", (await one("select count(*)::int n from public.notifications where member_id = $1 and kind = 'reminder-application'", [I])).n, 1)
+eq("제출한 회원에게는 이어 쓰기 알림을 보내지 않는다", (await one("select count(*)::int n from public.notifications where member_id = $1 and kind = 'reminder-application'", [H])).n, 0)
 
 // ── 역할 관리
 await as(O, "aal2")

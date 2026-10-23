@@ -211,6 +211,36 @@ function readLinkReturn(signedIn: boolean) {
   } catch { /* 주소 정리는 못 해도 안내는 보여 준다 */ }
 }
 
+// 메일 링크(가입 확인·비밀번호 재설정) 확인: 링크 안의 값으로 바로 로그인한다. 어느 브라우저·앱에서 열어도 된다.
+export async function confirmEmailLink(tokenHash: string, type: "email" | "recovery") {
+  if (!LIVE) return { error: null }
+  try {
+    const db = await supabase()
+    const { error } = await db.auth.verifyOtp({ token_hash: tokenHash, type })
+    if (!error) return { error: null }
+    if (/expired|invalid|not found/i.test(error.message)) return { error: "링크가 만료됐거나 이미 쓰였어요. 로그인해 보시고, ‘메일 확인이 필요해요’가 나오면 확인 메일을 다시 받아 주세요." }
+    return { error: friendlyError(error) }
+  } catch (error) {
+    return { error: friendlyError(error as Error) }
+  }
+}
+
+// 자주 틀리는 메일 주소(gmai.com → gmail.com 같은 오타)를 찾아 고칠 주소를 알려 준다.
+const DOMAIN_FIXES: Record<string, string> = {
+  "gmai.com": "gmail.com", "gmial.com": "gmail.com", "gamil.com": "gmail.com", "gmal.com": "gmail.com", "gmaill.com": "gmail.com", "gmail.co": "gmail.com", "gmail.con": "gmail.com", "gmail.cm": "gmail.com", "gmail.net": "gmail.com", "gnail.com": "gmail.com",
+  "naver.co": "naver.com", "naver.con": "naver.com", "naver.cm": "naver.com", "naver.net": "naver.com", "nave.com": "naver.com", "navr.com": "naver.com", "naer.com": "naver.com", "nver.com": "naver.com",
+  "daum.ner": "daum.net", "daum.nte": "daum.net", "daum.com": "daum.net", "duam.net": "daum.net", "hanmail.ent": "hanmail.net", "hanmail.nt": "hanmail.net", "hanmail.com": "hanmail.net", "hamail.net": "hanmail.net",
+  "nate.con": "nate.com", "nate.co": "nate.com", "kakao.con": "kakao.com", "icloud.con": "icloud.com", "naver.c": "naver.com", "gmail.c": "gmail.com",
+}
+export function suggestEmail(value: string) {
+  const email = normalize(value)
+  const at = email.lastIndexOf("@")
+  if (at < 1) return null
+  const domain = email.slice(at + 1)
+  const fixed = DOMAIN_FIXES[domain] ?? (domain.endsWith(".con") ? `${domain.slice(0, -4)}.com` : null)
+  return fixed ? `${email.slice(0, at)}@${fixed}` : null
+}
+
 // 가입 확인 메일 다시 보내기(링크가 만료됐거나 메일을 못 찾을 때)
 export async function resendConfirmation(emailInput: string) {
   const email = normalize(emailInput)

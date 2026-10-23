@@ -127,6 +127,8 @@ function rawFieldError(field: FieldDefinition, value: AnswerValue | undefined, t
     const age = ageOn(value, today);
     if (age === null) return "유효한 가상 생년월일을 입력해 주세요.";
     if (age < BEFORE_US.operatingDraft.minimumAge) return "만 19세 이상은 운영 초안 기준이에요. 현재 입력값은 기준 미충족이에요.";
+    const year = Number(value.slice(0, 4));
+    if (year < BEFORE_US.ageBand.minBirthYear || year > BEFORE_US.ageBand.maxBirthYear) return `지금은 ${BEFORE_US.ageBand.label}(${BEFORE_US.ageBand.korean})만 신청할 수 있어요.`;
   }
   return null;
 }

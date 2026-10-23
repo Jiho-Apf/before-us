@@ -1,13 +1,16 @@
-import { useState, type FormEvent, type ReactNode } from "react"
+import { useEffect, useState, type FormEvent, type ReactNode } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, LoaderCircle } from "lucide-react"
 import { Button } from "./components/ui/button"
 import { Input } from "./components/ui/input"
 import { Label } from "./components/ui/label"
 import { Checkbox } from "./components/ui/checkbox"
 import { BEFORE_US } from "./config"
 import { kstDay } from "./dates"
-import { PASSWORD_RULE, requestPasswordReset, resetPassword, signIn, signOut, signUp, useAuth, withdraw, resendConfirmation } from "./auth-service"
+import { PASSWORD_RULE, confirmEmailLink, requestPasswordReset, resetPassword, signIn, signOut, signUp, suggestEmail, useAuth, withdraw, resendConfirmation } from "./auth-service"
+
+// 누르는 동안 돌아가는 표시(두 번 누르지 않게)
+const Busy = ({ text }: { text: string }) => <><LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />{text}</>
 import { LIVE } from "./backend/client"
 
 // 계정 화면: 로그인 · 회원가입 · 비밀번호 재설정. 계정에는 사진이나 이상형을 받지 않는다(소개 신청은 따로 4단계).
@@ -59,7 +62,7 @@ export function LoginPage() {
         <Field id="login-password" label="비밀번호" type="password" autoComplete="current-password" value={password} onChange={(value) => { setPassword(value); setError("") }} />
         <ErrorText text={error} />
         {unconfirmed && <div className="rounded-xl bg-mist p-4 text-xs leading-6"><Button type="button" variant="outline" onClick={() => void resend()} className="h-10 rounded-xl border-border">확인 메일 다시 받기</Button>{resent && <p role="status" className="mt-2 text-primary">{resent}</p>}</div>}
-        <Button type="submit" disabled={busy} className={`h-12 w-full rounded-xl ${motion}`}>로그인 <ArrowRight size={16} /></Button>
+        <Button type="submit" disabled={busy} aria-busy={busy} className={`h-12 w-full rounded-xl ${motion}`}>{busy ? <Busy text="로그인하는 중이에요…" /> : <>로그인 <ArrowRight size={16} /></>}</Button>
       </form>
       {!LIVE && <Link to="/today" className="mt-5 block text-center text-xs text-muted-foreground underline-offset-4 hover:text-primary hover:underline">로그인 없이 회원 공간 둘러보기</Link>}
     </Frame>
@@ -77,9 +80,13 @@ export function SignupPage() {
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)
+  const [typoChecked, setTypoChecked] = useState("")
+  const [resent, setResent] = useState("")
+  const suggestion = suggestEmail(email)
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (password !== again) return setError("비밀번호가 서로 달라요.")
+    if (suggestion && typoChecked !== email) return setError(`메일 주소를 한 번 더 확인해 주세요. ${suggestion} 아닌가요?`)
     setBusy(true)
     const result = await signUp({ email, password, adult, terms, privacy })
     setBusy(false)
@@ -90,18 +97,32 @@ export function SignupPage() {
   const check = (id: string, checked: boolean, set: (value: boolean) => void, label: ReactNode) => (
     <label htmlFor={id} className="flex items-start gap-3 text-sm leading-6"><Checkbox id={id} className="mt-1" checked={checked} onCheckedChange={(value) => { set(value === true); setError("") }} />{label}</label>
   )
+  const resend = async () => { const result = await resendConfirmation(email); setResent(result.error || "확인 메일을 다시 보냈어요. 1~2분 안에 도착해요.") }
   if (sent) return (
     <Frame title="메일을 확인해 주세요" foot={<p><Link to="/login" className="underline underline-offset-4 hover:text-primary">로그인으로 가기</Link></p>}>
-      <div className="space-y-3 text-sm leading-7">
-        <p><span className="font-semibold">{email.trim().toLowerCase()}</span>(으)로 가입 확인 메일을 보냈어요. 메일의 링크를 누르면 가입이 끝나고 소개 신청으로 이어져요.</p>
-        <p className="text-muted-foreground">메일이 오지 않으면 스팸함을 확인해 주세요. 이미 가입한 이메일이라면 로그인하거나 비밀번호를 다시 설정해 주세요.</p>
+      <div className="space-y-4 text-sm leading-7">
+        <p><span className="font-semibold">{email.trim().toLowerCase()}</span>(으)로 가입 확인 메일을 보냈어요. 메일의 버튼을 누르면 가입이 끝나고 바로 소개 신청으로 이어져요. 어느 휴대폰·앱에서 열어도 괜찮아요.</p>
+        <div className="rounded-xl bg-mist p-4 text-xs leading-6">
+          <p className="font-semibold">메일이 오지 않나요?</p>
+          <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-muted-foreground">
+            <li>스팸함·프로모션함을 확인해 주세요. 보내는 주소는 beforeus.official.kr@gmail.com 이에요.</li>
+            <li>주소를 잘못 적었다면 아래 ‘다른 주소로 다시 가입’을 눌러 주세요.</li>
+            <li>그래도 없으면 확인 메일을 다시 받아 주세요.</li>
+          </ol>
+          <div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => void resend()} className="h-9 rounded-lg border-border text-xs">확인 메일 다시 받기</Button><Button type="button" variant="ghost" onClick={() => { setSent(false); setResent(""); setTypoChecked("") }} className="h-9 rounded-lg text-xs">다른 주소로 다시 가입</Button></div>
+          {resent && <p role="status" className="mt-2 text-primary">{resent}</p>}
+        </div>
+        <p className="text-xs text-muted-foreground">이미 가입한 이메일이라면 로그인하거나 비밀번호를 다시 설정해 주세요.</p>
       </div>
     </Frame>
   )
   return (
-    <Frame title="회원가입" lead="계정에는 이메일과 비밀번호만 받아요. 사진과 이야기는 가입 뒤 소개 신청에서 천천히 적어요." foot={<p>이미 계정이 있나요? <Link to="/login" className="text-foreground underline underline-offset-4 hover:text-primary">로그인</Link></p>}>
+    <Frame title="회원가입" lead={`계정에는 이메일과 비밀번호만 받아요. 사진과 이야기는 가입 뒤 소개 신청에서 천천히 적어요.${LIVE && BEFORE_US.beta.active ? ` 베타는 ${BEFORE_US.ageBand.label}(${BEFORE_US.ageBand.korean})만 신청할 수 있어요.` : ""}`} foot={<p>이미 계정이 있나요? <Link to="/login" className="text-foreground underline underline-offset-4 hover:text-primary">로그인</Link></p>}>
       <form className="space-y-5" onSubmit={submit} noValidate>
-        <Field id="signup-email" label="이메일" type="email" autoComplete="email" value={email} onChange={(value) => { setEmail(value); setError("") }} />
+        <div>
+          <Field id="signup-email" label="이메일" type="email" autoComplete="email" value={email} onChange={(value) => { setEmail(value); setError("") }} />
+          {suggestion && typoChecked !== email && <div role="status" className="mt-2 rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs leading-6"><p>혹시 <span className="font-semibold">{suggestion}</span> 아닌가요? 주소가 틀리면 가입 확인 메일을 받을 수 없어요.</p><div className="mt-2 flex flex-wrap gap-2"><Button type="button" size="sm" onClick={() => { setEmail(suggestion); setError("") }} className="h-8 rounded-lg text-xs">{suggestion}(으)로 고치기</Button><Button type="button" size="sm" variant="ghost" onClick={() => { setTypoChecked(email); setError("") }} className="h-8 rounded-lg text-xs">적은 그대로 쓸게요</Button></div></div>}
+        </div>
         <Field id="signup-password" label="비밀번호" type="password" autoComplete="new-password" value={password} onChange={(value) => { setPassword(value); setError("") }} hint={PASSWORD_RULE} />
         <Field id="signup-again" label="비밀번호 확인" type="password" autoComplete="new-password" value={again} onChange={(value) => { setAgain(value); setError("") }} />
         <div className="space-y-3 border-t border-border pt-5">
@@ -110,8 +131,29 @@ export function SignupPage() {
           {check("signup-privacy", privacy, setPrivacy, <span><Link to="/privacy" className="underline underline-offset-4">개인정보 수집·이용</Link>에 동의해요. <span className="text-muted-foreground">(필수 · 이메일, 비밀번호)</span></span>)}
         </div>
         <ErrorText text={error} />
-        <Button type="submit" disabled={busy} className={`h-12 w-full rounded-xl ${motion}`}>가입하고 소개 신청으로 <ArrowRight size={16} /></Button>
+        <Button type="submit" disabled={busy} aria-busy={busy} className={`h-12 w-full rounded-xl ${motion}`}>{busy ? <Busy text="가입하는 중이에요… 잠시만요" /> : <>가입하고 소개 신청으로 <ArrowRight size={16} /></>}</Button>
       </form>
+    </Frame>
+  )
+}
+
+// 메일 링크 확인(/auth/confirm?token_hash=…&type=email|recovery&next=…): 확인되면 바로 로그인해 다음 화면으로 보낸다.
+export function AuthConfirmPage() {
+  const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const [error, setError] = useState("")
+  useEffect(() => {
+    const tokenHash = params.get("token_hash") ?? ""
+    const type = params.get("type") === "recovery" ? "recovery" : "email"
+    const wanted = params.get("next") ?? ""
+    const next = type === "recovery" ? "/reset-password?token=recovery" : /^\/[a-z-]*$/.test(wanted) ? wanted : "/apply"
+    if (!tokenHash) { setError("링크가 올바르지 않아요. 메일의 버튼을 다시 눌러 주세요."); return }
+    void confirmEmailLink(tokenHash, type).then((result) => { if (result.error) setError(result.error); else navigate(next, { replace: true }) })
+  }, [])
+  return (
+    <Frame title={error ? "링크를 확인하지 못했어요" : "확인하고 있어요"} foot={<p><Link to="/login" className="underline underline-offset-4 hover:text-primary">로그인으로 가기</Link></p>}>
+      {error ? <div className="space-y-4 text-sm leading-7"><p>{error}</p><Button asChild className={`h-12 w-full rounded-xl ${motion}`}><Link to="/login">로그인하기 <ArrowRight size={16} /></Link></Button></div>
+        : <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />메일 확인이 끝나면 바로 이어져요.</p>}
     </Frame>
   )
 }

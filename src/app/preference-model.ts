@@ -324,10 +324,11 @@ export function validatePreferences(
       hasRange &&
       (!value ||
         !/^\d+$/.test(String(value)) ||
-        Number(value) < BEFORE_US.operatingDraft.minimumAge)
+        Number(value) < BEFORE_US.operatingDraft.minimumAge ||
+        Number(value) > BEFORE_US.ageBand.maxAge)
     )
       errors[id] =
-        `만 ${BEFORE_US.operatingDraft.minimumAge}세 이상의 정수를 입력해 주세요.`
+        `만 ${BEFORE_US.operatingDraft.minimumAge}~${BEFORE_US.ageBand.maxAge}세 사이의 정수를 입력해 주세요.`
     if (!hasRange && value)
       errors["desired.ageMode"] =
         "나이 범위와 선호 없음을 동시에 저장할 수 없어요."

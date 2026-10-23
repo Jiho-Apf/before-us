@@ -40,6 +40,7 @@ const InquiryPage = later(() => import("./InquiryPage"), "default");
 const LoginPage = later(() => import("./AuthPages"), "LoginPage");
 const SignupPage = later(() => import("./AuthPages"), "SignupPage");
 const ResetPasswordPage = later(() => import("./AuthPages"), "ResetPasswordPage");
+const AuthConfirmPage = later(() => import("./AuthPages"), "AuthConfirmPage");
 const TermsPage = later(() => import("./LegalPages"), "TermsPage");
 const PrivacyPage = later(() => import("./LegalPages"), "PrivacyPage");
 // 실제 서버 모드(VITE_BACKEND=supabase)에서 쓰는 회원·운영진 화면
@@ -328,6 +329,7 @@ const beforeUsRouter = createBrowserRouter([
     { path: "/login", element: <LoginPage /> },
     { path: "/signup", element: <SignupPage /> },
     { path: "/reset-password", element: <ResetPasswordPage /> },
+    { path: "/auth/confirm", element: <AuthConfirmPage /> },
     { path: "/apply", element: <ApplicationForm /> },
     { path: "*", element: <MissingFrame /> },
   ] },
