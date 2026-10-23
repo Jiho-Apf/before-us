@@ -239,3 +239,16 @@
   .complete-glow, .complete-ripple, .complete-shine { animation: none; }
   .complete-line { animation: none; transform: none; }
 }
+
+/* 홈 여정: 정오(03) 점이 흰색↔보라색으로 숨 쉬듯 바뀌고, 옅은 빛 고리가 퍼진다 */
+@keyframes journey-breathe {
+  0%, 100% { background-color: var(--card); color: var(--primary); box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 35%, transparent); }
+  50% { background-color: var(--primary); color: var(--primary-foreground); box-shadow: 0 0 0 6px color-mix(in oklch, var(--primary) 14%, transparent), 0 10px 24px -10px var(--primary); }
+}
+.journey-breathe { animation: journey-breathe 3.2s ease-in-out infinite; }
+@keyframes journey-ring { 0% { transform: scale(0.9); opacity: 0.55; } 70%, 100% { transform: scale(2.3); opacity: 0; } }
+.journey-ring { animation: journey-ring 3.2s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .journey-breathe { animation: none; background-color: var(--primary); color: var(--primary-foreground); }
+  .journey-ring { animation: none; opacity: 0; }
+}
