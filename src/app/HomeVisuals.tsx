@@ -51,7 +51,7 @@ export function HeroBackdrop() {
   return (
     <>
       <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-30 h-[460px] sm:h-[520px] lg:inset-y-0 lg:left-[22%] lg:h-auto">
-        <img src={src(1600)} srcSet={`${src(900)} 900w, ${src(1600)} 1600w, ${src(2400)} 2400w`} sizes="(min-width: 1024px) 78vw, 100vw" alt="" fetchPriority="high" decoding="async" className="h-full w-full object-cover object-[55%_55%]" />
+        <img src={src(1600)} srcSet={`${src(900)} 900w, ${src(1600)} 1600w, ${src(2400)} 2400w`} sizes="(min-width: 1024px) 78vw, 100vw" alt="" {...{ fetchpriority: "high" }} decoding="async" className="h-full w-full object-cover object-[55%_55%]" />
       </div>
       <div aria-hidden="true" className="absolute inset-0 -z-20 lg:hidden" style={{ backgroundImage: "linear-gradient(to bottom, color-mix(in oklch, var(--primary) 10%, transparent) 0px, transparent 90px, color-mix(in oklch, var(--primary) 55%, transparent) 230px, color-mix(in oklch, var(--primary) 90%, transparent) 340px, var(--primary) 450px)" }} />
       <div aria-hidden="true" className="absolute inset-0 -z-20 hidden lg:block" style={{ backgroundImage: "linear-gradient(90deg, var(--primary) 0%, var(--primary) 22%, color-mix(in oklch, var(--primary) 78%, transparent) 36%, color-mix(in oklch, var(--primary) 25%, transparent) 54%, transparent 68%)" }} />
