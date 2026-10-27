@@ -111,7 +111,7 @@ export default function InquiryPage() {
               <legend className="flex items-center gap-2 text-sm font-semibold"><span aria-hidden="true" className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[11px] text-primary">1</span>무엇이 궁금한가요?</legend>
               {/* 이용·소개·결제 관련(첫 줄)과 개인정보·안전·기타(둘째 줄)를 나눠 한눈에 고르기 쉽게 */}
               {[INQUIRY_TYPES.slice(0, 4), INQUIRY_TYPES.slice(4)].map((row, index) => (
-                <div key={index} className="flex flex-wrap gap-2">
+                <div key={index} className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                   {row.map((item) => (
                     <button key={item} type="button" aria-pressed={type === item} onClick={() => setType(item)} className={`${chip} ${type === item ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-primary/50"}`}>{item}</button>
                   ))}
