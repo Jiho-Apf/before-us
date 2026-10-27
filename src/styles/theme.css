@@ -254,10 +254,10 @@
 @media (prefers-reduced-motion: reduce) {
   .journey-breathe { animation: none; background-color: var(--breathe-on); color: #fff; }
 }
-/* 정오(03) 카드: 점과 같은 3.2초 박자로 그림자가 짙어졌다 옅어진다(색은 밖에서 변수로) */
+/* 정오(03) 카드: 점과 같은 3.2초 박자로 그림자가 짙어졌다 옅어진다(색은 밖에서 변수로). 가장 옅을 때가 다른 단계 카드의 그림자와 같다. */
 .journey-glow {
-  --glow-off: color-mix(in oklch, var(--primary) 28%, transparent);
-  --glow-on: color-mix(in oklch, var(--primary) 72%, transparent);
+  --glow-off: color-mix(in oklch, var(--primary) 55%, transparent);
+  --glow-on: color-mix(in oklch, var(--primary) 80%, transparent);
   animation: journey-glow 3.2s ease-in-out infinite;
 }
 @keyframes journey-glow {

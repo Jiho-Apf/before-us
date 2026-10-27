@@ -54,8 +54,8 @@ export default function ApplicationComplete({ name }: { name?: string }) {
               <p className="text-[11px] font-semibold tracking-[0.18em] text-accent">{cohort ? `${cohortName(cohort.number)} · ${cohortCode(cohort.number)}` : "내 기수"}</p>
               <span className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold leading-none text-primary-foreground tabular-nums">{countdown ?? "· · ·"}</span>
             </div>
-            <p className="relative mt-4 text-[26px] font-semibold text-ink">{cohort ? `${kstDay(cohort.startsOn)} 정오` : "날짜를 확인하고 있어요"}</p>
-            <p className="relative mt-2 text-xs leading-6 text-muted-foreground">첫 소개가 도착하는 날이에요. 전날 한 번 더 알려 드릴게요.</p>
+            <p className="relative mt-4 text-[26px] font-semibold text-ink">{cohort ? `${kstDay(cohort.startsOn)} 정오${countdown === "진행 중" ? " 시작" : ""}` : "날짜를 확인하고 있어요"}</p>
+            <p className="relative mt-2 text-xs leading-6 text-muted-foreground">{countdown === "진행 중" ? "이미 시작한 기수예요. 신청서 확인이 끝나면 준비되는 날 정오에 소개해요." : "첫 소개가 도착하는 날이에요. 전날 한 번 더 알려 드릴게요."}</p>
           </div>
         </div>
       </div>
