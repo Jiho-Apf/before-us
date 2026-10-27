@@ -11,7 +11,7 @@ import { cohortCode, cohortName, useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
 import DirectIntroduction from "./DirectIntroduction";
-import { CompareTable, HeroBackdrop, Journey, LetterMoment, NumberBand, PaymentSteps, Standards, Underline, useInView } from "./HomeVisuals";
+import { CompareTable, HeroBackdrop, Journey, LetterMoment, NumberBand, PathToContact, PaymentSteps, Standards, Underline, useInView } from "./HomeVisuals";
 import { HeroLetters } from "./HeroLetters";
 import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
@@ -577,7 +577,7 @@ function Together() {
 export function PublicInformation({ section }: { section: "introduction" | "exchange" | "pricing" | "faq" }) {
   usePageWidth();
   const title = { introduction: "진행 방식", exchange: "두 가지 시작", pricing: "이용 요금", faq: "자주 묻는 질문" }[section];
-  return <div className="break-keep [overflow-wrap:anywhere]"><h1 className="sr-only">{title}</h1>{section === "introduction" && <><Introduction /><FounderLetter /><InitialOperation detailsTo="/faq#faq-cohort" /></>}{section === "exchange" && <><TwoVoices /><Exchange /></>}{section === "pricing" && <><Pricing /><Faq /></>}{section === "faq" && <Faq />}</div>;
+  return <div className="break-keep [overflow-wrap:anywhere]"><h1 className="sr-only">{title}</h1>{section === "introduction" && <><Introduction /><FounderLetter /><InitialOperation detailsTo="/faq#faq-cohort" /></>}{section === "exchange" && <><PathToContact /><Exchange /></>}{section === "pricing" && <><Pricing /><Faq /></>}{section === "faq" && <Faq />}</div>;
 }
 
 // 휴대폰: 첫 화면을 지나면 아래에 작은 신청 버튼을 띄운다(맨 아래에 가까워지면 숨김).

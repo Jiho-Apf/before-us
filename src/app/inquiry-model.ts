@@ -3,7 +3,7 @@ import { getConsoleData, replaceConsoleData } from "./admin-console-data"
 
 // 공개 고객 문의 (V6-inquiry-01). 회원·비회원 모두 남길 수 있고, 답변은 남긴 이메일로 보낸다.
 // 데모에서는 브라우저 메모리에만 저장하며 실제 메일 발송은 연결되어 있지 않다.
-export const INQUIRY_POLICY = { version: "V6-inquiry-01", bodyMin: 10, bodyMax: 1000, nameMax: 20, retention: "답변 완료 후 3년(소비자 불만·분쟁 처리 기록) 보관 후 삭제 · 초안" } as const
+export const INQUIRY_POLICY = { version: "V6-inquiry-01", bodyMin: 10, bodyMax: 1000, nameMax: 20, retention: "답변을 마친 뒤 3년" } as const
 export const INQUIRY_TYPES = ["서비스 이용 방법", "신청·검토", "소개·교류", "결제·환불", "개인정보·탈퇴", "안전·신고", "제휴·기타", "베타 의견"] as const
 export type InquiryType = (typeof INQUIRY_TYPES)[number]
 export const INQUIRY_STATUS = { received: "접수", checking: "확인 중", answered: "답변 완료" } as const

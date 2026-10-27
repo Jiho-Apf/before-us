@@ -258,6 +258,55 @@ export function Standards() {
 }
 
 // 이용 흐름: 요금은 위 문단에 두고, 이 상자는 ‘언제 무엇을 하는지’만 조용히 보여 준다
+// 두 가지 시작 화면: 신청부터 연락까지 큰 흐름을 네 묶음으로 한눈에. 핵심인 3일은 버터 노랑으로 짚는다.
+const PATH = [
+  { phase: "소개까지", tone: "plain", steps: [
+    { title: "소개 신청", when: "언제든", note: "네 단계 신청서를 쓰면 운영진이 한 장씩 읽어요." },
+    { title: "정오의 소개", when: "준비된 날 12:00", note: "두 분에게 같은 순간, 한 분이 도착해요." },
+  ] },
+  { phase: "서로 고르기", tone: "plain", steps: [
+    { title: "알아가고 싶어요", when: "다음 날 11:00까지", note: "두 분 모두 고를 때만 이어져요. 내 답은 상대에게 바로 가지 않아요." },
+    { title: "방식과 시작일", when: "48시간 안", note: "A 편지 나누기 또는 B 첫 장면 만들기, 같은 방식을 함께 골라요." },
+  ] },
+  { phase: "3일 교류", tone: "core", steps: [
+    { title: "첫째~셋째 날", when: "매일 09:00~23:59", note: "하루 한 번씩 쓰고, 두 분 모두 보내면 함께 열려요." },
+  ] },
+  { phase: "만남까지", tone: "plain", steps: [
+    { title: "만남 선택", when: "넷째 날 09:00부터", note: "두 분 모두 ‘만나고 싶어요’일 때만 약속을 정해요." },
+    { title: "약속과 연락처", when: "만나는 날 00:00", note: "두 분이 동의하면 그날부터 서로의 번호가 보여요." },
+  ] },
+] as const;
+export function PathToContact() {
+  return (
+    <section className="py-16 sm:py-20" aria-labelledby="path-title">
+      <p className="text-[11px] font-semibold tracking-[0.2em] text-accent">FROM APPLY TO HELLO</p>
+      <h2 id="path-title" className="text-ink mt-4 text-3xl font-semibold leading-[1.5] sm:text-[34px]">신청부터 연락까지,<br />이렇게 이어져요.</h2>
+      <p className="mt-4 max-w-xl text-[15px] leading-[1.9] text-foreground/75">빠르게 넘기지 않는 대신, 단계마다 두 분의 마음이 같을 때만 다음으로 넘어가요.</p>
+      <ol className="mt-10 grid gap-4 lg:grid-cols-4 lg:gap-3">
+        {PATH.map((group, index) => (
+          <li key={group.phase} className={`relative flex flex-col rounded-3xl p-6 ${group.tone === "core" ? "bg-[#F8E5A6] text-[#2B2540] dark:bg-[#3B3424] dark:text-white" : "bg-mist ring-1 ring-primary/[0.06]"}`}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className={`text-[11px] font-semibold tracking-[0.14em] ${group.tone === "core" ? "text-[#7A5A10] dark:text-[#F3D98A]" : "text-accent"}`}>{group.phase}</span>
+              <span className={`text-3xl font-light tabular-nums ${group.tone === "core" ? "text-[#7A5A10]/70 dark:text-[#F3D98A]/70" : "text-primary/40"}`}>0{index + 1}</span>
+            </div>
+            <ul className="mt-5 flex flex-1 flex-col gap-5">
+              {group.steps.map(step => (
+                <li key={step.title} className="border-t border-current/10 pt-4 first:border-0 first:pt-0">
+                  <p className="text-[15px] font-semibold">{step.title}</p>
+                  <p className={`mt-1.5 inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${group.tone === "core" ? "bg-white/70 text-[#5A4310] dark:bg-white/10 dark:text-white" : "bg-card text-primary"}`}>{step.when}</p>
+                  <p className={`mt-2 text-[13px] leading-6 ${group.tone === "core" ? "text-[#2B2540]/80 dark:text-white/80" : "text-foreground/70"}`}>{step.note}</p>
+                </li>
+              ))}
+            </ul>
+            {index < PATH.length - 1 && <span aria-hidden="true" className="absolute -right-2.5 top-1/2 z-10 hidden size-5 -translate-y-1/2 items-center justify-center rounded-full bg-card text-primary shadow-sm ring-1 ring-primary/10 lg:flex">›</span>}
+          </li>
+        ))}
+      </ol>
+      <p className="mt-5 text-xs leading-6 text-muted-foreground">어느 단계에서든 한 분이 원하지 않으면 거기서 조용히 마무리돼요. 누가 어떤 답을 했는지는 알려 드리지 않아요.</p>
+    </section>
+  );
+}
+
 // 이용 요금: 신청부터 만남까지 네 단계에 금액을 붙여 '언제, 얼마를 내는지' 한눈에 보여 준다.
 // 베타에서는 정식 운영 금액을 흐리게 두고 '베타 무료'를 붙인다.
 const PAY_STEPS = [
