@@ -327,6 +327,18 @@
   .pair-orb-b { transform: translateX(-11px); }
   .pair-lens { transform: translateX(calc(-100% + 22px)); }
 }
+/* 04 이야기 끝의 작은 두 원(지름 24px): 14px 떨어져 있다가 8px 겹친다 */
+.pair-mini .pair-orb-a { transform: translateX(-7px); }
+.pair-mini .pair-orb-b { transform: translateX(7px); }
+.pair-mini.is-on .pair-orb-a { transform: translateX(4px); }
+.pair-mini.is-on .pair-orb-b { transform: translateX(-4px); }
+.pair-mini .pair-lens { transform: translateX(calc(-100% - 14px)); }
+.pair-mini.is-on .pair-lens { transform: translateX(calc(-100% + 8px)); }
+@media (prefers-reduced-motion: reduce) {
+  .pair-mini .pair-orb-a { transform: translateX(4px); }
+  .pair-mini .pair-orb-b { transform: translateX(-4px); }
+  .pair-mini .pair-lens { transform: translateX(calc(-100% + 8px)); }
+}
 
 
 /* 휴대폰·앱 안 브라우저: 가로로 돌려도 글자가 저절로 커지지 않게, 누를 때 회색 덮개가 번쩍이지 않게 */

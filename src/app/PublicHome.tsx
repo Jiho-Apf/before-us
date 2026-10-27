@@ -1,7 +1,7 @@
 import { usePageWidth, useScrollReveal } from "./scroll-reveal";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
-import { ArrowRight, ArrowUpRight, Check, Clock, Lock, Plus, RotateCcw } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Clock, Lock, LockOpen, Plus, RotateCcw } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./components/ui/accordion";
@@ -316,6 +316,7 @@ function SceneTrial() {
 }
 
 // 04 이야기: 세로로 이어지는 두 사람의 사흘(처음 배치 그대로). 강조는 담백하게 — 이야기 속 ‘…’ 구절은 보라색 글자로만, 그날의 질문은 조금 크게, 따옴표만 보라색으로.
+// 두 사람의 글은 첫 화면 편지처럼 가운데 선 쪽 모서리만 덜 둥근 옅은 카드(다은은 보라, 준호는 파랑 기운), 편지가 오간 DAY 01~03에는 ‘함께 열림’ 자물쇠, 끝에서 두 원이 천천히 만난다.
 function Quoted({ text }: { text: string }) {
   const parts = text.split(/(‘[^’]+’)/);
   return <>{parts.map((part, index) => part.startsWith("‘") ? <span key={index} className="font-medium text-primary">{part}</span> : part)}</>;
@@ -325,18 +326,31 @@ function StoryChapter({ label, prompt, left, right, leftClass, rightClass, nameL
   const question = prompt?.endsWith("?");
   const { ref, shown } = useInView<HTMLLIElement>(0.2);
   const step = (delay: number) => ({ className: `${STORY_EASE} ${shown ? "translate-y-0 opacity-100" : "translate-y-3.5 opacity-0"}`, style: { transitionDelay: `${delay}ms` } });
-  const head = step(0), one = step(140), two = step(280);
+  const head = step(0), one = step(160), two = step(340);
+  const opened = /^DAY 0[1-3]$/.test(label);
+  const letter = "rounded-[22px] border border-primary/[0.06] px-5 py-4 text-[15px] leading-[1.95] text-foreground/85 sm:px-6 sm:py-5 shadow-[0_22px_44px_-34px_color-mix(in_oklch,var(--primary)_55%,transparent)]";
   return (
-    <li ref={ref} className="relative pb-16 last:pb-4">
+    <li ref={ref} className="relative pb-14 last:pb-4 sm:pb-16">
       <div className={`relative z-10 mx-auto mb-8 max-w-md bg-mist px-4 text-center ${head.className}`} style={head.style}>
-        <span className="inline-block rounded-full border border-accent/30 px-3 py-1 text-[10px] font-semibold tracking-[0.14em] text-accent">{label}</span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-card px-3 py-1 text-[10px] font-semibold tracking-[0.14em] text-accent">{opened && <LockOpen size={11} strokeWidth={2.2} className="text-primary" aria-label="두 편지가 함께 열린 날" />}{label}</span>
         {prompt && <p className="text-ink mt-3.5 text-[17px] font-medium leading-8">{question ? <><span aria-hidden="true" className="text-primary">“</span>{prompt}<span aria-hidden="true" className="text-primary">”</span></> : prompt}</p>}
       </div>
-      <div className="grid gap-8 md:grid-cols-2 md:gap-16">
-        <div className={`md:pr-6 md:text-right ${leftClass}`}><div className={one.className} style={one.style}>{nameLeft}<p className="text-[15px] leading-[2] text-foreground/85 [text-wrap:balance]"><Quoted text={left} /></p></div></div>
-        <div className={`md:pl-6 ${rightClass}`}><div className={two.className} style={two.style}>{nameRight}<p className="text-[15px] leading-[2] text-foreground/85 [text-wrap:balance]"><Quoted text={right} /></p></div></div>
+      <div className="grid gap-5 md:grid-cols-2 md:gap-16">
+        <div className={`mr-6 md:mr-0 ${leftClass}`}><div className={one.className} style={one.style}>{nameLeft}<p className={`${letter} rounded-tl-md bg-[color-mix(in_oklch,var(--primary)_4%,var(--card))] md:rounded-tl-[22px] md:rounded-tr-md`}><Quoted text={left} /></p></div></div>
+        <div className={`ml-6 md:ml-0 ${rightClass}`}><div className={two.className} style={two.style}>{nameRight}<p className={`${letter} rounded-tr-md bg-[color-mix(in_oklch,var(--accent)_4%,var(--card))] md:rounded-tr-[22px] md:rounded-tl-md`}><Quoted text={right} /></p></div></div>
       </div>
     </li>
+  );
+}
+
+// 이야기 끝: 02 소개의 두 원을 작게 — 화면에 들어오면 천천히 다가가 살짝 겹친다(두 사람이 만난다).
+function StoryOrbs() {
+  const { ref, shown } = useInView<HTMLDivElement>(0.9);
+  return (
+    <div ref={ref} className={`pair-orbs pair-mini ${shown ? "is-on" : ""} mb-8 flex items-center justify-center`} aria-hidden="true">
+      <span className="pair-orb pair-orb-a size-6 rounded-full bg-primary" />
+      <span className="pair-orb pair-orb-b relative size-6 overflow-hidden rounded-full bg-accent"><span className="pair-lens" /></span>
+    </div>
   );
 }
 
@@ -347,7 +361,7 @@ function TwoVoices() {
   const { chapters, ending, people } = story;
   const show = (side: "left" | "right") => voice === "both" || voice === side;
   const Name = ({ side }: { side: "left" | "right" }) => (
-    <p className={`mb-3 flex items-center gap-2 text-xs font-semibold ${side === "left" ? "md:justify-end" : ""}`}>
+    <p className={`mb-2.5 flex items-center gap-2 px-1 text-xs font-semibold ${side === "left" ? "md:justify-end" : "justify-end md:justify-start"}`}>
       {side === "right" && <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />}
       {people[side]}
       {side === "left" && <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />}
@@ -385,7 +399,7 @@ function TwoVoices() {
         ))}
       </ol>
       <div className="mx-auto mt-10 max-w-2xl text-center">
-        <div aria-hidden="true" className="mb-8 flex justify-center gap-1.5"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></div>
+        <StoryOrbs />
         <p className="text-lg leading-[1.9]">{withUnderlines(ending, ["약속은 일요일 오전 열한 시", "두 사람은 다음 주 토요일 오후", "이야기는 여기까지예요."])}</p>
         <p className="mx-auto mt-6 max-w-md text-xs leading-6 text-muted-foreground">{STORY_NOTE}</p>
       </div>
@@ -454,7 +468,7 @@ const FAQ = BETA ? [BETA_FAQ, ...FIRST_FAQ, BETA_COHORT_FAQ, ...FAQ_BASE.filter(
 
 function Pricing() {
   const promises = BETA ? BETA_PROMISES : PROMISES;
-  const card = "rounded-2xl border border-border bg-card px-6 py-7 sm:px-8";
+  const card = "rounded-2xl border border-border bg-card px-6 py-7 shadow-[0_22px_44px_-34px_color-mix(in_oklch,var(--primary)_55%,transparent)] sm:px-8";
   return (
     <section id="pricing" className="bleed relative isolate overflow-clip bg-[#F8F9FC] py-20 dark:bg-mist sm:py-24" aria-labelledby="pricing-title">
       <SectionLabel number="06" ko="이용 요금">CLEAR FROM THE BEGINNING</SectionLabel>
@@ -485,7 +499,7 @@ function Faq() {
   }, [location.hash, location.key]);
   return (
     <section id="faq" className="grid gap-8 pt-20 pb-14 sm:pt-24 sm:pb-18 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="faq-title">
-      <div><SectionLabel number="07" ko="자주 묻는 질문">BEFORE YOU BEGIN</SectionLabel><h2 id="faq-title" className="text-ink text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청하기 전에 많이 묻는 것들을 모았어요.<br />더 궁금한 건 <Link to="/contact" className="font-semibold text-primary underline-offset-4 hover:underline">문의하기</Link>로 남겨 주세요.</p></div>
+      <div><SectionLabel number="07" ko="자주 묻는 질문">BEFORE YOU BEGIN</SectionLabel><h2 id="faq-title" className="text-ink text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청하기 전에 많이 묻는 것들을 모았어요.<br />더 궁금한 건 <Link to="/contact" className="font-semibold text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary">문의하기</Link>로 남겨 주세요.</p></div>
       <Accordion type="single" collapsible value={open} onValueChange={setOpen} className="border-t border-border [&_[data-slot=accordion-content]]:motion-reduce:animate-none [&_svg]:motion-reduce:transition-none">
         {FAQ.map(item => <AccordionItem key={item.id} value={item.id} id={`faq-${item.id}`}><AccordionTrigger className={`py-6 text-[15px] hover:no-underline hover:text-primary ${interaction}`}>{item.title}</AccordionTrigger><AccordionContent className="pb-6 text-sm leading-7 text-muted-foreground">{item.text}</AccordionContent></AccordionItem>)}
       </Accordion>

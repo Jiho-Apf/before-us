@@ -18,7 +18,7 @@ export const BEFORE_US = {
   provision: { version: "V6-provision-01", introductionView: "until-response-deadline", mutualView: "until-program-end", maxAfterMeetingDay: "next-day-23:59", snapshotDeleteDaysAfterEnd: 30, reopenArchive: false },
   operations: { version: "V6-ops-01", reviewersOnDuty: 1, newReviewsPerReviewerPerDay: 20, pairsPerReviewerPerDay: 10, activeMembersPerGender: 40, betaPerGender: 10 },
   conduct: { version: "V6-conduct-01", lateCancelHours: 24, noShowGraceMinutes: 30, noShowSuspensionDays: 14, repeatReviewMinimumDays: 30, nextIntroductionFee: 10000, exchangeFee: 29000, reverifyAfterDays: 90, reverifyFields: ["사진", "지역", "직업", "관계상태", "선호"] },
-  noonGuidance: { reviewAfterDays: 7, counselingAfterDays: 14, criteriaStatus: "operating-draft", kakaoApproved: false, sendingConnected: false },
+  noonGuidance: { waitingNoteAfterDays: 4, reviewAfterDays: 7, counselingAfterDays: 14, criteriaStatus: "operating-draft", kakaoApproved: false, sendingConnected: false },
   agreement: { defaultStartTime: "09:00", timezone: "Asia/Seoul", defaultStart: "day-after-both-confirmed", status: "operating-draft" },
   letters: { opensAt: "09:00", closesAt: "23:59", timezone: "Asia/Seoul", recommendedMinimum: 300, recommendedMaximum: 600, scheduleResetPolicy: null },
   // 베타 운영(결제 없이). 베타는 언제든 끝날 수 있고, 끝내거나 정식 운영으로 바꾸기 7일 전에 사이트·메일로 알린다(운영진 ‘운영진’ 메뉴의 전체 공지).

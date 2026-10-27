@@ -102,7 +102,9 @@ function todayState(data: MemberSnapshot): TodayState {
   if (application.status === "approved" && waitingForStart && cohort) return kstToday() === dayBefore(cohort.startsOn)
     ? { label: `${cohortName(cohort.number)} · 내일 시작`, title: "내일 정오에 첫 소개가 도착해요.", action: "내 정보 확인하기", to: "/profile", body: "잘 맞는 분을 준비해 두었어요. 내일 정오에 이 화면과 두 사람 화면에서 확인해 주세요." }
     : { label: `${cohortName(cohort.number)} · 시작 전`, title: `${cohortName(cohort.number)} 첫 소개는 ${noonOf(cohort.startsOn)} 정오에 도착해요.`, action: "내 정보 확인하기", to: "/profile", body: `같은 기수의 분들과 함께 첫 소개를 받아요. 시작 전날 한 번 더 알려 드릴게요.${BEFORE_US.beta.active ? "" : " 시작 전에는 소개비를 언제든 전액 환불받을 수 있어요."}` };
-  if (application.status === "approved") return { label: "소개 준비", title: "잘 맞는 분을 찾고 있어요.", action: "다음 정오 기다리기", to: null, body: "준비된 날 정오에 하루 최대 한 명을 소개해요. 매일 새 소개를 약속하지는 않아요." };
+  if (application.status === "approved") return waitedDays(data) >= BEFORE_US.noonGuidance.waitingNoteAfterDays
+    ? { label: "소개 준비", title: "잘 맞는 분을 찾는 데 시간이 걸리고 있어요.", action: "다음 소개 기다리기", to: null, body: "서두르기보다 잘 맞는 분을 고르고 있어요. 준비되면 그날 정오에 이 화면과 메일로 알려 드릴게요. 기다림이 길게 느껴지면 문의하기로 편하게 말씀해 주세요." }
+    : { label: "소개 준비", title: "잘 맞는 분을 찾고 있어요.", action: "다음 소개 기다리기", to: null, body: "준비된 날 정오에 한 분을 소개해요. 매일 오지는 않아요. 도착하면 이 화면과 메일로 알려 드릴게요." };
   if (application.status === "held") return { label: "확인 보류", title: "신청서 확인이 조금 늦어지고 있어요.", action: "문의하기", to: "/contact", body: application.decisionNote ? `운영진 안내 · ${application.decisionNote}` : "운영진이 확인할 일이 있어 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." };
   if (application.status === "rejected") return { label: "소개 어려움", title: "이번에는 소개를 이어 가기 어려워요.", action: "문의하기", to: "/contact", body: application.decisionNote ? `운영진 안내 · ${application.decisionNote}` : "자세한 사유가 궁금하면 문의하기로 남겨 주세요. 다르게 생각되면 문의·요청에서 재검토를 요청할 수 있어요." };
   if (application.status === "withdrawn") return { label: "신청 철회", title: "신청을 철회했어요.", action: "문의하기", to: "/contact", body: "다시 신청하고 싶다면 문의하기로 알려 주세요. 확인한 뒤 다시 열어 드릴게요." };
@@ -403,7 +405,13 @@ function nextIntroText(data: MemberSnapshot) {
   if (data.notices?.paused_at) return "다시 받으면 다음 정오부터";
   if (data.introduction.status === "published") return "지금 소개가 열려 있어요";
   if (data.introduction.status === "mutual") return "교류를 마치면 다음 소개를 준비해요";
-  return `다음 소개 · 빠르면 ${Date.now() < Date.parse(`${kstToday()}T12:00:00+09:00`) ? "오늘" : "내일"} 정오`;
+  return waitedDays(data) >= BEFORE_US.noonGuidance.waitingNoteAfterDays ? "찾는 데 시간이 걸리고 있어요" : "다음 소개 · 준비되는 날 정오";
+}
+// 새 소개를 기다린 날: 마지막 소개·교류가 끝난 때, 없으면 기수 시작·신청 접수 중 늦은 때부터 센다.
+function waitedDays(data: MemberSnapshot) {
+  const marks = [data.introduction.status !== "waiting" ? data.introduction.closedAt : null, data.program?.closedAt ?? null, data.cohort ? `${data.cohort.startsOn}T12:00:00+09:00` : null, data.application?.submittedAt ?? null]
+    .filter((value): value is string => !!value).map(value => Date.parse(value)).filter(Number.isFinite);
+  return marks.length ? Math.floor((Date.now() - Math.max(...marks)) / 86400000) : 0;
 }
 function LiveProfileView() {
   const { data, error, loading, reload } = useMemberSnapshot();

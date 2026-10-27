@@ -317,7 +317,7 @@ const PAY_STEPS = [
 const won = (amount: number) => `${amount.toLocaleString("ko-KR")}원`;
 export function PaymentSteps() {
   return (
-    <div className="rounded-2xl border border-border bg-card px-6 py-7 sm:px-8">
+    <div className="rounded-2xl border border-border bg-card px-6 py-7 shadow-[0_22px_44px_-34px_color-mix(in_oklch,var(--primary)_55%,transparent)] sm:px-8">
       <div className="flex flex-wrap items-baseline justify-between gap-2"><p className="text-ink text-base font-semibold">언제, 얼마를 내나요?</p><p className="text-xs text-foreground/60">1인 기준 · 부가세 포함</p></div>
       <ol className="mt-5 divide-y divide-border">
         {PAY_STEPS.map((item, index) => (
