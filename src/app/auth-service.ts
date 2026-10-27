@@ -176,7 +176,7 @@ export async function withdraw(password: string, now = new Date()): Promise<{ er
     if (wrong) return { error: "비밀번호가 맞지 않아요." }
     const { data, error } = await rpc<{ deletionDueAt: string }>("request_withdrawal")
     if (error || !data) return { error: error || "탈퇴 요청을 저장하지 못했어요. 다시 시도해 주세요." }
-    signOut()
+    // 로그아웃은 확인 화면을 보여 준 뒤 회원이 직접 한다(바로 로그아웃하면 확인 화면이 로그인 안내로 바뀐다).
     return { error: null, deletionDueAt: data.deletionDueAt }
   }
   const user = users.get(session.email)

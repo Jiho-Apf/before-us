@@ -85,21 +85,25 @@ function untilNoon(now: Date) {
   const left = Math.max(0, Math.floor((target - now.getTime()) / 1000));
   return { left, atNoon: now.getTime() >= noon && now.getTime() < noon + 60000 };
 }
-export function NoonClock({ tone = "light" }: { tone?: "light" | "plain" }) {
+// target을 주면 정오 대신 그 마감(예: 응답 마감 11:00)까지 센다.
+export function NoonClock({ tone = "light", target }: { tone?: "light" | "plain"; target?: { at: string; label: string; note: string } }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 1000); return () => window.clearInterval(timer); }, []);
-  const { left, atNoon } = untilNoon(now);
+  const noon = untilNoon(now);
+  const left = target ? Math.max(0, Math.floor((Date.parse(target.at) - now.getTime()) / 1000)) : noon.left;
+  const atNoon = !target && noon.atNoon;
   const pad = (value: number) => String(value).padStart(2, "0");
   const text = `${pad(Math.floor(left / 3600))}:${pad(Math.floor((left % 3600) / 60))}:${pad(left % 60)}`;
-  const filled = Math.round((1 - left / 86400) * 1000) / 10;
+  const filled = Math.max(0, Math.round((1 - left / 86400) * 1000) / 10);
+  const label = target ? target.label : atNoon ? "지금, 정오예요" : "다음 정오까지";
   const light = tone === "light";
   const muted = light ? "text-white/95" : "text-muted-foreground";
   return (
     <div className="w-full max-w-[17rem]">
-      <p className={`text-xs ${muted}`}>{atNoon ? "지금, 정오예요" : "다음 정오까지"}</p>
-      <p className="mt-1.5 text-[2.5rem] font-extralight leading-none tracking-[-0.02em] tabular-nums" role="timer" aria-label={`다음 정오까지 ${text}`}>{text}</p>
+      <p className={`text-xs ${muted}`}>{label}</p>
+      <p className="mt-1.5 text-[2.5rem] font-extralight leading-none tracking-[-0.02em] tabular-nums" role="timer" aria-label={`${label} ${text}`}>{text}</p>
       <div aria-hidden="true" className={`mt-4 h-px ${light ? "bg-white/25" : "bg-border"}`}><div className={`h-px ${light ? "bg-white" : "bg-primary"}`} style={{ width: `${filled}%` }} /></div>
-      <p className={`mt-3 text-xs leading-5 ${muted}`}>소개는 준비된 날, 정오 12시에 도착해요.</p>
+      <p className={`mt-3 text-xs leading-5 ${muted}`}>{target ? target.note : "소개는 준비된 날, 정오 12시에 도착해요."}</p>
     </div>
   );
 }

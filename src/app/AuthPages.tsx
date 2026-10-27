@@ -52,7 +52,9 @@ export function LoginPage() {
     const result = await signIn(email, password)
     setBusy(false)
     if (result.error) { setUnconfirmed("unconfirmed" in result && !!result.unconfirmed); return setError(result.error) }
-    navigate("/today")
+    // 알림 메일 링크 등으로 들어왔다면 원래 가려던 회원 화면으로 돌려보낸다(사이트 안 경로만).
+    const next = new URLSearchParams(window.location.search).get("next") ?? ""
+    navigate(/^\/(today|us|exchange|meeting|profile|support|apply|payments)(\?[\w=&%-]*)?$/.test(next) ? next : "/today")
   }
   const resend = async () => { const result = await resendConfirmation(email); setResent(result.error || "확인 메일을 다시 보냈어요. 이 브라우저에서 링크를 열면 바로 이어져요.") }
   return (
@@ -224,7 +226,7 @@ export function AccountPanel() {
   const [error, setError] = useState("")
   const [result, setResult] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
-  if (result) return <section className="border-t border-border pt-6 text-sm leading-7" aria-label="계정"><p className="font-semibold">탈퇴 요청을 받았어요.</p><p className="mt-1 text-muted-foreground">상대 노출과 알림은 바로 멈췄고, 일반 자료는 {result}까지 지워요.</p></section>
+  if (result) return <section className="border-t border-border pt-6 text-sm leading-7" aria-label="계정"><p className="font-semibold">탈퇴 요청을 받았어요.</p><p className="mt-1 text-muted-foreground">상대 노출과 알림은 바로 멈췄고, 일반 자료는 {result}까지 지워요. 그동안 고마웠어요.</p><Button className="mt-4 h-11 rounded-full px-6" onClick={() => { signOut(); navigate("/") }}>확인했어요 · 로그아웃</Button></section>
   if (!user) return (
     <section className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6 text-sm" aria-label="계정">
       <p className="text-muted-foreground">로그인하지 않고 둘러보는 중이에요.</p>

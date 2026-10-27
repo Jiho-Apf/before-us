@@ -67,12 +67,13 @@ export const SCENE_PROMPTS = [
 ] as const
 export const SCENE_ACTIVITY_LABEL: Record<string, string> = { exhibition: "전시", walk: "산책", bookstore: "서점" }
 export const END_REASON: Record<string, string> = {
-  "agreement-expired": "합의 기한(48시간)이 지나 마무리됐어요.",
+  "agreement-expired": "교류 방식과 시작일을 기한(48시간) 안에 함께 정하지 못해 마무리됐어요.",
   "meeting-declined": "이번 교류는 여기서 마무리됐어요. 누가 어떤 답을 했는지는 알려 드리지 않아요.",
   "meeting-nonresponse": "만남 선택 기한이 지나 마무리됐어요.",
   "arrange-expired": "7일 안에 약속이 정해지지 않아 마무리됐어요.",
-  completed: "만남까지 마친 교류예요. 불편한 일이 있었다면 문의·신고로 알려 주세요.",
-  blocked: "차단으로 교류가 닫혔어요.",
-  withdrawn: "한 분이 탈퇴해 교류가 닫혔어요.",
-  "admin-cancel": "운영 사정으로 교류를 마무리했어요.",
+  completed: "만남까지 마친 교류예요. 불편한 일이 있었다면 두 사람 화면에서 신고해 주세요.",
+  blocked: "상대의 사정으로 더 이어 가기 어려워졌어요.",
+  withdrawn: "상대의 사정으로 더 이어 가기 어려워졌어요.",
+  suspended: "상대의 사정으로 더 이어 가기 어려워졌어요.",
+  "admin-cancel": "운영 사정으로 교류를 마무리했어요. 불편을 드려 죄송해요.",
 }

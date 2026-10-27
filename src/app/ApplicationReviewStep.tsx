@@ -393,9 +393,7 @@ export default function ApplicationReviewStep({
               ))}
             </div>
             <p className="mt-4 text-xs leading-7 text-muted-foreground">
-              법적 문서·보유기간은 검토가 필요한 정책이에요. 법률 검토 완료나
-              실제 개인정보 처리 동의로 표시하지 않아요. 선택 마케팅과 정오
-              상태 알림은 체크하지 않아도 신청할 수 있어요.
+              {LIVE ? <>필수 항목에 동의해야 신청할 수 있어요. 자세한 내용은 <a href="/terms" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-primary">이용약관</a>과 <a href="/privacy" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-primary">개인정보처리방침</a>에서 볼 수 있어요. 선택 마케팅과 소개 없는 날 알림은 체크하지 않아도 신청할 수 있어요.</> : "법적 문서·보유기간은 검토가 필요한 정책이에요. 법률 검토 완료나 실제 개인정보 처리 동의로 표시하지 않아요. 선택 마케팅과 정오 상태 알림은 체크하지 않아도 신청할 수 있어요."}
             </p>
           </section>
         </div>

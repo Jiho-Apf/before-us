@@ -7,6 +7,7 @@ import { Calendar, User, Home, ArrowRight, X, Sun, Moon, Users, MessageCircle, M
 import PublicHome, { PublicInformation } from "./PublicHome";
 import RouteError from "./RouteError";
 import { LIVE } from "./backend/client";
+import { useUnreadCount } from "./backend/member";
 
 // 공개 홈만 바로 불러오고, 회원·데모·관리자 화면은 그 화면을 열 때 따로 불러온다.
 const later = <T, K extends keyof T>(load: () => Promise<T>, name: K) =>
@@ -210,13 +211,15 @@ const MEMBER_EXTRA = [{ to: "/support", label: "문의·요청" }, { to: "/payme
 function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }) {
   const location = useLocation();
   const current = MEMBER_NAV.find(item => item.to === location.pathname || (item.to === "/meeting" && location.pathname === "/meeting/contact")) ?? MEMBER_EXTRA.find(item => item.to === location.pathname);
+  const unread = useUnreadCount(LIVE ? location.pathname : null);
+  const dot = (to: string) => to === "/today" && unread > 0 ? <span className="ml-auto size-2 rounded-full bg-[#F2B705]" aria-label={`새 알림 ${unread}개`} /> : null;
   const memberPath = (to: string) => new URLSearchParams(location.search).get("demo") === "agreement" && ["/today", "/us", "/exchange", "/meeting", "/profile", "/payments", "/support"].includes(to) ? `${to}?demo=agreement` : to;
   return (
     <div className="flex min-h-dvh bg-background text-foreground">
       <aside className="sticky top-0 hidden h-dvh w-[200px] shrink-0 flex-col border-r border-border bg-card px-4 py-8 md:flex">
         <div className="px-2"><Brand compact /></div>
         <nav aria-label="회원 메뉴" className="mt-16 grid gap-2">
-          {MEMBER_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={memberPath(to)} className={({ isActive }) => `flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "bg-primary/8 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}><Icon size={18} strokeWidth={1.6} />{label}</NavLink>)}
+          {MEMBER_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={memberPath(to)} className={({ isActive }) => `flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "bg-primary/8 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}><Icon size={18} strokeWidth={1.6} />{label}{dot(to)}</NavLink>)}
         </nav>
         <div className="mt-auto border-t border-border pt-5">
           {!LIVE && <span className="block px-4 pb-3 text-xs text-muted-foreground">데모 둘러보기</span>}
@@ -233,10 +236,10 @@ function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
           {!LIVE && <p className="border-t border-border bg-muted/40 px-5 py-2 text-center text-xs text-muted-foreground">데모 화면이에요. 실제 신청·결제·발송은 일어나지 않고, 새로고침하면 입력한 내용이 지워져요.</p>}
         </header>
         {/* 회원 화면의 위아래 여백은 이 틀이 맡는다. 화면마다 덧붙인 첫·마지막 여백은 지워 높이를 맞춘다. */}
-        <main id="main-content" className="mx-auto w-full max-w-[1120px] flex-1 px-5 py-10 sm:px-8 lg:px-10 lg:py-14 [&>div>*:first-child]:!mt-0 [&>div>*:first-child]:!pt-0 [&>div>*:last-child]:!mb-0 [&>div>*:last-child]:!pb-0 [&>div>div:only-child>*:first-child]:!pt-0 [&>div>div:only-child>*:last-child]:!pb-0"><PageTransition /></main>
+        <main id="main-content" className="mx-auto w-full max-w-[1120px] flex-1 break-keep px-5 py-10 sm:px-8 lg:px-10 lg:py-14 [&>div>*:first-child]:!mt-0 [&>div>*:first-child]:!pt-0 [&>div>*:last-child]:!mb-0 [&>div>*:last-child]:!pb-0 [&>div>div:only-child>*:first-child]:!pt-0 [&>div>div:only-child>*:last-child]:!pb-0"><PageTransition /></main>
       </div>
       <nav aria-label="모바일 회원 메뉴" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
-        {MEMBER_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={memberPath(to)} className={({ isActive }) => `flex min-h-14 flex-col items-center justify-center gap-1.5 rounded-lg text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}><Icon size={20} strokeWidth={1.6} />{label}</NavLink>)}
+        {MEMBER_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={memberPath(to)} className={({ isActive }) => `flex min-h-14 flex-col items-center justify-center gap-1.5 rounded-lg text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}><span className="relative"><Icon size={20} strokeWidth={1.6} />{to === "/today" && unread > 0 && <span className="absolute -right-1 -top-0.5 size-2 rounded-full bg-[#F2B705] ring-2 ring-card" aria-label={`새 알림 ${unread}개`} />}</span>{label}</NavLink>)}
       </nav>
     </div>
   );

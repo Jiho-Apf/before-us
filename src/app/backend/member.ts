@@ -21,6 +21,8 @@ export type LiveIntroduction =
       opened: boolean
       mutual: boolean
       endReason: string | null
+      endedByMe?: boolean
+      counted?: boolean | null
       closedAt: string | null
     }
 export type LiveNotification = { id: string; kind: string; title: string; body: string | null; link: string | null; created_at: string; read_at: string | null }
@@ -28,7 +30,7 @@ export type MemberSnapshot = {
   application: { status: ApplicationStatus; decisionNote: string | null; submittedAt: string | null } | null
   introduction: LiveIntroduction
   notifications: LiveNotification[]
-  notices: { notice_daily_waiting: boolean; notice_new_introduction: boolean; marketing_opt_in: boolean; notify_kakao: boolean; notify_sms: boolean; notify_email: boolean; email_all: boolean; status: "active" | "withdrawal_requested" | "suspended"; paused_at: string | null; suspended_reason: string | null } | null
+  notices: { notice_daily_waiting: boolean; notice_new_introduction: boolean; marketing_opt_in: boolean; notify_kakao: boolean; notify_sms: boolean; notify_email: boolean; email_all: boolean; status: "active" | "withdrawal_requested" | "suspended"; paused_at: string | null; paused_by?: "member" | "operator" | "auto" | null; suspended_reason: string | null } | null
   cohort: { number: number; startsOn: string; applicationDeadline: string } | null
   program: Program | null
 }
@@ -42,7 +44,7 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
       db.from("applications").select("status, decision_note, submitted_at").eq("member_id", auth.user.id).maybeSingle(),
       db.rpc("my_introduction"),
       db.from("notifications").select("id, kind, title, body, link, created_at, read_at").order("created_at", { ascending: false }).limit(10),
-      db.from("profiles").select("notice_daily_waiting, notice_new_introduction, marketing_opt_in, notify_kakao, notify_sms, notify_email, email_all, status, paused_at, suspended_reason").eq("id", auth.user.id).maybeSingle(),
+      db.from("profiles").select("notice_daily_waiting, notice_new_introduction, marketing_opt_in, notify_kakao, notify_sms, notify_email, email_all, status, paused_at, paused_by, suspended_reason").eq("id", auth.user.id).maybeSingle(),
       db.rpc("my_cohort"),
       db.rpc("my_program"),
     ])
@@ -65,6 +67,15 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
 }
 
 // 로그인한 회원의 화면 자료를 불러오고, 다시 불러오는 함수를 함께 준다.
+// 다음 상태 변경 시각까지 남은 시간(서버 작업이 10분 주기라 1분 여유를 둔다)
+function untilNextBoundary(now = Date.now()) {
+  const kst = new Date(now + 9 * 3600000)
+  const base = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()) - 9 * 3600000
+  const marks = [[9, 11], [11, 11], [12, 1], [12, 6]].map(([h, m]) => base + (h * 60 + m) * 60000)
+  const next = marks.find(at => at > now + 1000) ?? marks[0] + 86400000
+  return Math.min(next - now, 6 * 3600000)
+}
+
 export function useMemberSnapshot() {
   const user = useAuth()
   const [state, setState] = useState<{ data: MemberSnapshot | null; error: string | null; loading: boolean }>({ data: null, error: null, loading: true })
@@ -73,10 +84,39 @@ export function useMemberSnapshot() {
     setState({ ...result, loading: false })
   }
   useEffect(() => { if (user) void reload(); else setState({ data: null, error: null, loading: false }) }, [user?.id])
+  // 창을 다시 볼 때와, 상태가 바뀌는 시각(09:00 교류·만남 마감, 11:00 응답 마감, 12:00·12:05 정오 소개)에 저절로 다시 불러온다.
+  useEffect(() => {
+    if (!user) return
+    const onVisible = () => { if (document.visibilityState === "visible") void reload() }
+    document.addEventListener("visibilitychange", onVisible)
+    let timer = 0
+    const schedule = () => { timer = window.setTimeout(() => { if (document.visibilityState === "visible") void reload(); schedule() }, untilNextBoundary()) }
+    schedule()
+    return () => { document.removeEventListener("visibilitychange", onVisible); window.clearTimeout(timer) }
+  }, [user?.id])
   return { ...state, reload }
 }
 
 export const markNotificationsRead = () => rpc<null>("mark_notifications_read")
+
+// 읽지 않은 알림 수(회원 메뉴 '오늘'의 점 표시). 화면을 옮길 때마다 다시 센다. key가 null이면 세지 않는다(데모).
+export function useUnreadCount(key: string | null) {
+  const user = useAuth()
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    if (!user || key === null) { setCount(0); return }
+    let alive = true
+    void (async () => {
+      try {
+        const db = await supabase()
+        const { count: n } = await db.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null)
+        if (alive) setCount(n ?? 0)
+      } catch { /* 표시만 생략 */ }
+    })()
+    return () => { alive = false }
+  }, [user?.id, key])
+  return count
+}
 export const recordIntroductionView = (id: string) => rpc<null>("record_introduction_view", { p_id: id })
 export const respondIntroduction = (id: string, choice: "positive" | "negative", reason?: string | null) =>
   rpc<LiveIntroduction>("respond_introduction", { p_id: id, p_choice: choice, p_reason: reason ?? null })

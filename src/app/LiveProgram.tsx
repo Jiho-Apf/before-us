@@ -48,7 +48,8 @@ function NotYet({ title }: { title: string }) {
 }
 
 function Closed({ program }: { program: Program }) {
-  return <Moment eyebrow="THANK YOU" title="이번 교류는 여기서 마무리됐어요." action={<Button asChild className="h-11 rounded-xl px-6"><Link to="/today">오늘 화면으로</Link></Button>}>{END_REASON[program.endReason ?? ""] ?? "다음 소개가 준비되면 정오에 알려 드릴게요."}</Moment>;
+  const done = program.endReason === "completed";
+  return <Moment eyebrow={done ? "THANK YOU" : "SEE YOU AGAIN"} title={done ? "만남까지 마친 교류예요." : "이번 교류는 여기서 마무리됐어요."} action={<div className="flex flex-wrap gap-2"><Button asChild className="h-11 rounded-full px-6"><Link to="/today">오늘 화면으로</Link></Button><Button asChild variant="outline" className="h-11 rounded-full border-border px-5 hover:bg-muted hover:text-foreground"><Link to="/us">불편한 일 신고하기</Link></Button></div>}>{END_REASON[program.endReason ?? ""] ?? "다음 소개가 준비되면 정오에 알려 드릴게요."}</Moment>;
 }
 
 // ─────────────────────────────────────────────

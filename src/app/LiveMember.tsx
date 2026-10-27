@@ -7,6 +7,7 @@ import { Checkbox } from "./components/ui/checkbox";
 import { Textarea } from "./components/ui/textarea";
 import { Eyebrow, Moment, PageHeader, QuietNote, Sheet, TwoDots } from "./editorial";
 import { NoonClock } from "./PublicHome";
+import { END_REASON } from "./backend/program";
 import { AccountPanel } from "./AuthPages";
 import { useAuth, useAuthReady } from "./auth-service";
 import { kstDateTime, kstDay } from "./dates";
@@ -33,40 +34,78 @@ export function Member({ children }: { children: ReactNode }) {
   const user = useAuth();
   const ready = useAuthReady();
   if (!ready) return <Waiting />;
-  if (!user) return <section><PageHeader mark="회원" label="로그인이 필요해요" en="MEMBERS ONLY" title="로그인한 뒤에 볼 수 있어요." lead="소개와 교류는 본인만 볼 수 있어요. 로그인하거나 새로 가입해 주세요." /><div className="mt-8 flex flex-wrap gap-2"><Button asChild className={`h-12 rounded-xl px-6 ${interaction}`}><Link to="/login">로그인 <ArrowRight size={16} /></Link></Button><Button asChild variant="outline" className={`h-12 rounded-xl ${interaction}`}><Link to="/signup">회원가입</Link></Button></div></section>;
+  if (!user) return <section><PageHeader mark="회원" label="로그인이 필요해요" en="MEMBERS ONLY" title="로그인한 뒤에 볼 수 있어요." lead="소개와 교류는 본인만 볼 수 있어요. 로그인하거나 새로 가입해 주세요." /><div className="mt-8 flex flex-wrap gap-2"><Button asChild className={`h-12 rounded-xl px-6 ${interaction}`}><Link to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`}>로그인 <ArrowRight size={16} /></Link></Button><Button asChild variant="outline" className={`h-12 rounded-xl ${interaction}`}><Link to="/signup">회원가입</Link></Button></div></section>;
   return <>{children}</>;
 }
+
+// 소개·교류가 끝난 까닭을 회원에게 보여 줄 말로. 상대의 선택(거절)은 드러내지 않되, 무응답·운영 사정은 사실대로 알린다.
+const BETA_ACTIVE = BEFORE_US.beta.active;
+function endedCopy(intro: Exclude<LiveIntroduction, { status: "waiting" }>, program: MemberSnapshot["program"]): { title: string; body: string } {
+  const notCounted = BETA_ACTIVE ? "" : " 이번 소개는 횟수에 넣지 않아요.";
+  const reason = intro.endReason ?? "";
+  if (program && program.introductionId === intro.id && program.status === "closed") {
+    if (program.endReason === "completed") return { title: "만남까지 마친 교류예요.", body: "어떠셨는지 궁금해요. 새 소개는 잠시 쉬어 두었어요. 다시 받고 싶을 때 내 정보에서 ‘다시 받기’를 눌러 주세요. 불편한 일이 있었다면 두 사람 화면에서 신고해 주세요." };
+    return { title: "이번 교류는 여기서 마무리됐어요.", body: `${END_REASON[program.endReason ?? ""] ?? "잘 맞는 분이 준비되면 다시 정오에 소개해 드릴게요."} 잘 맞는 분이 준비되면 다시 정오에 소개해 드릴게요.` };
+  }
+  if (reason === "nonresponse") return intro.ownResponse
+    ? intro.ownResponse === "positive"
+      ? { title: "상대가 기한 안에 답하지 않았어요.", body: `거절이 아니라 답이 오지 않아 이번 소개가 마무리됐어요.${notCounted} 잘 맞는 분이 준비되면 다시 정오에 소개해 드릴게요.` }
+      : { title: "이번 소개는 여기서 마무리됐어요.", body: "잘 맞는 분이 준비되면 다시 정오에 소개해 드릴게요." }
+    : { title: "답 기한이 지나 소개가 마무리됐어요.", body: "다음 소개부터는 다음 날 오전 11시 전에 답해 주세요. 두 번 이어서 답하지 않으면 새 소개를 잠시 쉬어요." };
+  if (reason === "blocked" && intro.endedByMe) return { title: "차단한 소개예요.", body: "다시는 서로 소개되지 않아요. 상대에게는 차단 사실을 알리지 않았어요." };
+  if (reason === "blocked" || reason === "withdrawn" || reason === "suspended") return { title: "이번 소개는 여기서 마무리됐어요.", body: `상대의 사정으로 더 이어 가기 어려워졌어요.${notCounted} 잘 맞는 분이 준비되면 다시 정오에 소개해 드릴게요.` };
+  if (reason === "admin-cancel") return { title: "운영진이 이번 소개를 마무리했어요.", body: `운영 사정으로 여기서 마무리했어요. 불편을 드려 죄송해요.${notCounted} 잘 맞는 분이 준비되면 다시 정오에 소개해 드릴게요.` };
+  return { title: "이번 소개는 여기서 마무리됐어요.", body: "누가 어떤 답을 했는지는 알려 드리지 않아요. 잘 맞는 분이 준비되면 정오에 다시 소개해 드릴게요." };
+}
+// 서로 선택한 뒤 이어지는 일(베타는 무료, 정식 운영은 각자 교류비)
+const AFTER_YES = BETA_ACTIVE
+  ? "두 분 모두 ‘알아가고 싶어요’를 고르면, 3일 교류 방식(A 편지·B 첫 장면)과 시작일을 48시간 안에 함께 정해요. 베타 기간에는 교류도 무료예요."
+  : `두 분 모두 ‘알아가고 싶어요’를 고르면, 각자 교류비 ${BEFORE_US.pricing.exchangePerPerson.toLocaleString("ko-KR")}원을 24시간 안에 내고 3일 교류 방식과 시작일을 함께 정해요. 한 분만 내면 낸 금액은 모두 돌려드려요.`;
 
 // 오늘 할 일을 한 문장으로 정한다.
 const kstToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 const dayBefore = (date: string) => new Date(Date.parse(`${date}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
 const noonOf = (date: string) => kstDay(`${date}T12:00:00+09:00`);
-function todayState(data: MemberSnapshot) {
+type TodayState = { label: string; title: string; action: string; to: string | null; body: string; clock?: { at: string; label: string; note: string } };
+function todayState(data: MemberSnapshot): TodayState {
   const application = data.application, intro = data.introduction, cohort = data.cohort;
   if (data.notices?.status === "suspended") return { label: "이용 정지", title: "지금은 소개를 받을 수 없어요.", action: "문의·요청 남기기", to: "/support", body: `운영진 안내 · ${(data.notices.suspended_reason || "운영 정책에 따라 이용이 잠시 멈췄어요").replace(/[.。\s]+$/, "")}. 다르게 생각되면 문의·요청에서 ‘결정 재검토 요청’을 남겨 주세요.` };
   const waitingForStart = !!cohort && kstToday() < cohort.startsOn && intro.status === "waiting";
   const program = data.program;
   if (program && program.status !== "closed") {
-    if (program.status === "choosing") return { label: "함께 정하기", title: "어떻게 시작할지 함께 정해요.", action: "교류 방식 정하기", to: "/exchange", body: `A 편지·B 첫 장면 중 하나와 시작일을 ${kstDateTime(program.agreeBy)}까지 함께 정해 주세요.` };
+    if (program.status === "choosing") return { label: "함께 정하기", title: "어떻게 시작할지 함께 정해요.", action: "교류 방식 정하기", to: "/exchange", body: `A 편지·B 첫 장면 중 하나와 시작일을 ${kstDateTime(program.agreeBy)}까지 함께 정해 주세요.`, clock: { at: program.agreeBy, label: "교류 방식 마감까지", note: "두 분이 같은 방식과 시작일을 확인하면 시작돼요." } };
     if (program.status === "scheduled") return { label: "교류 시작 전", title: `${program.startOn ? kstDay(`${program.startOn}T09:00:00+09:00`) : ""} 09:00에 첫날이 열려요.`, action: "교류 화면 보기", to: "/exchange", body: "시작하면 알림으로 알려 드릴게요." };
-    if (program.status === "started") return { label: program.day ? `교류 DAY 0${program.day}` : "교류 중", title: program.ownPlan === "B" ? "오늘의 첫 장면 질문이 열렸어요." : "오늘의 편지를 쓸 시간이에요.", action: "교류 화면으로", to: "/exchange", body: "그날 글은 09:00~23:59에 쓰고, 두 분 모두 보내면 함께 열려요." };
-    if (program.status === "deciding") return { label: "DAY 04", title: program.ownMeeting ? "상대의 답을 기다리고 있어요." : "만나고 싶은지 골라 주세요.", action: "만남 선택하기", to: "/exchange", body: `${kstDateTime(program.meetingBy)}까지예요. 상대의 답은 알려 드리지 않아요.` };
+    if (program.status === "started") { const sent = !!program.day && program.entries.some(entry => entry.day === program.day && entry.kind !== "reply" && !!entry.own); const beforeNine = new Date(Date.now() + 9 * 3600000).getUTCHours() < 9; return { label: program.day ? `교류 ${["첫", "둘", "셋"][program.day - 1] ?? ""}째 날` : "교류 중", title: beforeNine ? "오늘의 글은 오전 9시에 열려요." : sent ? "오늘의 글을 보냈어요." : program.ownPlan === "B" ? "오늘의 첫 장면 질문이 열렸어요." : "오늘의 편지를 쓸 시간이에요.", action: "교류 화면으로", to: "/exchange", body: sent ? "상대도 보내면 두 분의 글이 함께 열려요. 상대가 23:59까지 보내지 않으면 다음 날 함께 열리지 않아요." : "그날 글은 09:00~23:59에 쓰고, 두 분 모두 보내면 함께 열려요." }; }
+    if (program.status === "deciding") return { label: "넷째 날", title: program.ownMeeting ? "상대의 답을 기다리고 있어요." : "만나고 싶은지 골라 주세요.", action: "만남 선택하기", to: "/exchange", body: `${kstDateTime(program.meetingBy)}까지예요. 상대의 답은 알려 드리지 않아요.`, clock: program.meetingBy ? { at: program.meetingBy, label: "만남 선택 마감까지", note: "두 분 모두 만나고 싶다고 하면 약속을 정해요." } : undefined };
     return { label: "약속", title: program.meetingOn ? `${kstDay(`${program.meetingOn}T12:00:00+09:00`)}에 만나기로 했어요.` : "만날 약속을 함께 정해요.", action: "약속 화면으로", to: "/meeting", body: program.meetingOn ? "연락처는 두 분이 동의하면 만나는 날 00:00부터 열려요." : `${kstDateTime(program.arrangeBy)}까지 정해 주세요.` };
+  }
+  if (program && program.status === "closed" && program.closedAt && Date.now() - Date.parse(program.closedAt) < 86400000 && intro.status !== "waiting" && intro.id === program.introductionId) {
+    const copy = endedCopy(intro, program);
+    return { label: "교류 마무리", title: copy.title, action: program.endReason === "completed" ? "내 정보에서 다시 받기" : "다음 소개 기다리기", to: program.endReason === "completed" ? "/profile" : null, body: copy.body };
   }
   if (intro.status !== "waiting" && (intro.status === "published" || intro.status === "mutual" || intro.status === "expired" || intro.closedAt && Date.now() - Date.parse(intro.closedAt) < 86400000)) {
     if (intro.status === "mutual") return { label: "서로 선택", title: "두 분 모두 알아가고 싶다고 답했어요.", action: "교류 방식 정하기", to: "/exchange", body: "A 편지·B 첫 장면 중 하나와 시작일을 함께 정해요. 상대 프로필은 두 사람 화면에서 다시 볼 수 있어요." };
-    if (intro.status === "published" && !intro.ownResponse) return { label: "오늘의 인연", title: "오늘의 인연이 도착했어요.", action: "소개 확인하기", to: "/us", body: `${kstDateTime(intro.dueAt)}까지 답해 주세요. 상대에게는 내 답이 바로 전해지지 않고, 두 분 모두 답한 뒤에 결과만 알려 드려요.` };
-    if (intro.status === "published") return { label: "답을 기다리는 중", title: "상대의 답을 기다리고 있어요.", action: "두 사람 화면 보기", to: "/us", body: `${kstDateTime(intro.dueAt)}까지 기다려요. 결과는 이 화면과 알림으로 알려 드릴게요.` };
-    return { label: "소개 마무리", title: "이번 소개는 여기서 마무리됐어요.", action: "다음 소개 기다리기", to: null, body: "누가 어떤 답을 했는지는 알려 드리지 않아요. 잘 맞는 분이 준비되면 정오에 다시 소개해 드릴게요." };
+    const clock = { at: intro.dueAt, label: "응답 마감까지", note: "다음 날 오전 11시에 답이 마감돼요." };
+    if (intro.status === "published" && !intro.ownResponse) return { label: "오늘의 인연", title: "오늘의 인연이 도착했어요.", action: "소개 확인하기", to: "/us", body: `${kstDateTime(intro.dueAt)}까지 답해 주세요. 상대에게는 내 답이 바로 전해지지 않고, 두 분 모두 답한 뒤에 결과만 알려 드려요.`, clock };
+    if (intro.status === "published" && intro.ownResponse === "negative") return { label: "소개 마무리 예정", title: "이번에는 넘기겠다고 답했어요.", action: "두 사람 화면 보기", to: "/us", body: `이번 소개는 ${kstDateTime(intro.dueAt)}까지 마무리돼요. 상대에게는 누가 어떤 답을 했는지 알리지 않아요.`, clock };
+    if (intro.status === "published") return { label: "답을 기다리는 중", title: "상대의 답을 기다리고 있어요.", action: "두 사람 화면 보기", to: "/us", body: `상대는 ${kstDateTime(intro.dueAt)}까지 답할 수 있어요. 답이 없으면 자동으로 마무리되고, 결과는 알림과 메일로 알려 드릴게요.`, clock };
+    if (intro.status === "expired") return { label: "소개 마무리", title: "응답 기한이 지났어요.", action: "다음 소개 기다리기", to: null, body: "곧 결과를 알림으로 알려 드릴게요. 잘 맞는 분이 준비되면 다시 정오에 소개해 드릴게요." };
+    const copy = endedCopy(intro, program);
+    return { label: "소개 마무리", title: copy.title, action: "다음 소개 기다리기", to: null, body: copy.body };
   }
   if (!application || application.status === "draft") return { label: "신청 전", title: "소개 신청을 마저 적어 주세요.", action: application ? "이어서 작성하기" : "소개 신청하기", to: "/apply", body: "나에 대해 · 사진 · 원하는 만남 · 공개 확인, 네 단계예요. 단계마다 저장돼요." };
   if (application.status === "needs_changes") return { label: "보완 요청", title: "신청서에 보완할 부분이 있어요.", action: "보완하기", to: "/apply", body: application.decisionNote || "운영진 안내를 확인해 주세요." };
   if (application.status === "submitted" || application.status === "reviewing") return { label: "검토 중", title: "신청서를 확인하고 있어요.", action: "신청서 보기", to: "/apply", body: `운영진이 사진과 내용을 확인하고 있어요. 검토가 끝나면 이 화면에서 알려 드릴게요.${cohort ? ` ${cohortName(cohort.number)} 첫 소개는 ${noonOf(cohort.startsOn)} 정오예요.` : ""}` };
-  if (application.status === "approved" && data.notices?.paused_at) return { label: "잠시 쉬는 중", title: "새 소개를 잠시 쉬고 있어요.", action: "내 정보에서 다시 받기", to: "/profile", body: "쉬는 동안에는 새 소개를 준비하지 않아요. 다시 받기를 누르면 다음 정오부터 다시 준비해요." };
+  if (application.status === "approved" && data.notices?.paused_at) return data.notices.paused_by === "operator"
+    ? { label: "잠시 멈춤", title: "운영진이 새 소개를 잠시 멈췄어요.", action: "문의하기", to: "/contact", body: "확인할 일이 있어 새 소개 준비를 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." }
+    : { label: "잠시 쉬는 중", title: "새 소개를 잠시 쉬고 있어요.", action: "내 정보에서 다시 받기", to: "/profile", body: data.notices.paused_by === "auto" ? "답하지 않은 소개가 이어졌거나 교류를 마쳐서 새 소개를 쉬고 있어요. 다시 받기를 누르면 다음 정오부터 다시 준비해요." : "쉬는 동안에는 새 소개를 준비하지 않아요. 다시 받기를 누르면 다음 정오부터 다시 준비해요." };
   if (application.status === "approved" && waitingForStart && cohort) return kstToday() === dayBefore(cohort.startsOn)
     ? { label: `${cohortName(cohort.number)} · 내일 시작`, title: "내일 정오에 첫 소개가 도착해요.", action: "내 정보 확인하기", to: "/profile", body: "잘 맞는 분을 준비해 두었어요. 내일 정오에 이 화면과 두 사람 화면에서 확인해 주세요." }
     : { label: `${cohortName(cohort.number)} · 시작 전`, title: `${cohortName(cohort.number)} 첫 소개는 ${noonOf(cohort.startsOn)} 정오에 도착해요.`, action: "내 정보 확인하기", to: "/profile", body: `같은 기수의 분들과 함께 첫 소개를 받아요. 시작 전날 한 번 더 알려 드릴게요.${BEFORE_US.beta.active ? "" : " 시작 전에는 소개비를 언제든 전액 환불받을 수 있어요."}` };
   if (application.status === "approved") return { label: "소개 준비", title: "잘 맞는 분을 찾고 있어요.", action: "다음 정오 기다리기", to: null, body: "준비된 날 정오에 하루 최대 한 명을 소개해요. 매일 새 소개를 약속하지는 않아요." };
+  if (application.status === "held") return { label: "확인 보류", title: "신청서 확인이 조금 늦어지고 있어요.", action: "문의하기", to: "/contact", body: application.decisionNote ? `운영진 안내 · ${application.decisionNote}` : "운영진이 확인할 일이 있어 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." };
+  if (application.status === "rejected") return { label: "소개 어려움", title: "이번에는 소개를 이어 가기 어려워요.", action: "문의하기", to: "/contact", body: application.decisionNote ? `운영진 안내 · ${application.decisionNote}` : "자세한 사유가 궁금하면 문의하기로 남겨 주세요. 다르게 생각되면 문의·요청에서 재검토를 요청할 수 있어요." };
+  if (application.status === "withdrawn") return { label: "신청 철회", title: "신청을 철회했어요.", action: "문의하기", to: "/contact", body: "다시 신청하고 싶다면 문의하기로 알려 주세요. 확인한 뒤 다시 열어 드릴게요." };
   return { label: "신청 상태", title: "신청 상태를 확인해 주세요.", action: "신청서 보기", to: "/apply", body: application.decisionNote || "궁금한 점은 문의하기로 남겨 주세요." };
 }
 
@@ -88,7 +127,7 @@ function LiveTodayView() {
           <h1 id="today-title" className="mt-5 text-3xl font-semibold leading-[1.4] sm:text-[34px]">{state.title}</h1>
           <p className="mt-3 text-xs text-muted-foreground"><time dateTime={today()}>{kstDay(new Date())}</time> · 서울</p>
         </div>
-        <NoonClock tone="plain" />
+        <NoonClock tone="plain" target={state.clock} />
       </header>
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px]">
         <Sheet className="flex flex-col p-6 sm:p-10">
@@ -107,7 +146,7 @@ function LiveTodayView() {
       <section className="mt-14 border-t border-border pt-8" aria-labelledby="status-title">
         <h2 id="status-title" className="mb-5 text-sm font-semibold">지금 알아두면 좋은 것</h2>
         <dl className="grid gap-5 text-xs sm:grid-cols-3"><div><dt className="mb-2 text-muted-foreground">신청 접수</dt><dd>{data.application?.submittedAt ? kstDay(data.application.submittedAt) : "아직 접수 전"}</dd></div><div><dt className="mb-2 text-muted-foreground">최근 소개</dt><dd>{data.introduction.status !== "waiting" && data.introduction.publishedAt ? kstDay(data.introduction.publishedAt) : "아직 없어요"}</dd></div><div><dt className="mb-2 text-muted-foreground">{data.cohort ? "내 기수" : "소개 방식"}</dt><dd>{data.cohort ? `${cohortName(data.cohort.number)} · ${noonOf(data.cohort.startsOn)} 정오 시작` : "준비된 날 정오 · 하루 최대 한 명"}</dd></div></dl>
-        <div className="mt-6 flex flex-wrap gap-2"><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/profile">알림 설정·내 정보</Link></Button><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/support">일시정지·정정 요청</Link></Button><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/contact">문의하기</Link></Button></div>
+        <div className="mt-6 flex flex-wrap gap-2"><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/profile">알림 설정·내 정보</Link></Button><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/support">정정·삭제 요청</Link></Button><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/contact">문의하기</Link></Button></div>
       </section>
     </section>
   );
@@ -205,24 +244,49 @@ function LiveIntroductionView() {
   const [reportText, setReportText] = useState("");
   const [sending, setSending] = useState(false);
   const [urgent, setUrgent] = useState(false);
+  const [answerMessage, setAnswerMessage] = useState("");
+  const [flash, setFlash] = useState("");
   useEffect(() => { if (data) setIntro(data.introduction); }, [data]);
   useEffect(() => { if (intro && intro.status !== "waiting" && intro.profile && !intro.opened) void recordIntroductionView(intro.id).then(() => setIntro(current => current && current.status !== "waiting" ? { ...current, opened: true } : current)); }, [intro?.status !== "waiting" && intro?.id]);
+  // 끝난 소개도 신고할 수 있다(서버는 끝난 소개의 상대도 신고를 받는다).
+  const sendClosedReport = async () => {
+    if (sending || !intro || intro.status === "waiting") return;
+    if (!reportText.trim()) { setMessage("어떤 일이 있었는지 한 줄이라도 적어 주세요."); return; }
+    setSending(true);
+    try {
+      const result = await reportPartner(intro.id, "회원 신고", reportText, urgent);
+      setMessage(result.error || "신고를 받았어요. 운영진이 가장 먼저 확인해요. 상대에게는 신고 사실을 알리지 않아요.");
+      if (!result.error) { setSafety(null); setReportText(""); setUrgent(false); }
+    } finally { setSending(false); }
+  };
   if (loading || (!intro && !error)) return <Waiting />;
   if (error || !intro) return <section><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="outline" className="mt-5 rounded-xl" onClick={() => void reload()}>다시 불러오기</Button></section>;
-  if (intro.status === "waiting" || !intro.profile) return (
-    <section>
-      <PageHeader mark="두 사람" label={intro.status === "waiting" ? "소개 전" : "소개 마무리"} en="TWO OF US" title={intro.status === "waiting" ? "아직 소개된 분이 없어요." : "이번 소개는 여기서 마무리됐어요."} lead={intro.status === "waiting" ? "신청서 확인이 끝나고 잘 맞는 분이 준비되면, 정오에 이곳에서 소개해 드릴게요." : "끝난 소개의 프로필은 다시 볼 수 없어요. 누가 어떤 답을 했는지도 알려 드리지 않아요."} aside={<TwoDots apart faded />} />
-      <div className="mt-8"><Button asChild variant="outline" className={`rounded-xl ${interaction}`}><Link to="/today">오늘로 돌아가기 <ArrowRight size={15} /></Link></Button></div>
-    </section>
-  );
+  if (intro.status === "waiting" || !intro.profile) {
+    const ended = intro.status !== "waiting" ? endedCopy(intro, data?.program ?? null) : null;
+    const application = data?.application?.status;
+    const waitingLead = !application || application === "draft" ? "신청서를 내고 운영진 확인이 끝나면, 잘 맞는 분이 준비된 날 정오에 이곳에서 소개해 드릴게요." : application === "approved" ? "잘 맞는 분이 준비되면, 정오에 이곳에서 소개해 드릴게요." : "신청서 확인이 끝나고 잘 맞는 분이 준비되면, 정오에 이곳에서 소개해 드릴게요.";
+    return (
+      <section>
+        <PageHeader mark="두 사람" label={intro.status === "waiting" ? "소개 전" : "소개 마무리"} en="TWO OF US" title={intro.status === "waiting" ? "아직 소개된 분이 없어요." : ended!.title} lead={intro.status === "waiting" ? waitingLead : `${ended!.body} 끝난 소개의 프로필은 다시 볼 수 없어요.`} aside={<TwoDots apart faded />} />
+        {flash && <p role="status" className="mt-6 max-w-xl rounded-xl bg-muted p-4 text-sm leading-7">{flash}</p>}
+        <div className="mt-8 flex flex-wrap gap-2"><Button asChild variant="outline" className={`h-11 rounded-full px-5 ${interaction}`}><Link to="/today">오늘로 돌아가기 <ArrowRight size={15} /></Link></Button>{intro.status === "waiting" && (!application || application === "draft") && <Button asChild className={`h-11 rounded-full px-5 ${interaction}`}><Link to="/apply">신청서 쓰기 <ArrowRight size={15} /></Link></Button>}</div>
+        {intro.status !== "waiting" && <div className="mt-10 max-w-xl space-y-3 border-t border-border pt-5">
+          <p className="text-xs leading-6 text-muted-foreground">끝난 소개나 만남에서 불편한 일이 있었다면 지금도 신고할 수 있어요. 상대에게는 신고 사실을 알리지 않아요.</p>
+          <Button variant="ghost" onClick={() => setSafety(value => value === "report" ? null : "report")} aria-expanded={safety === "report"} className={`h-10 rounded-full px-4 text-xs text-muted-foreground hover:bg-muted hover:text-foreground ${interaction}`}><Flag size={13} />신고하기</Button>
+          {safety === "report" && <div className="space-y-3 rounded-2xl border border-border p-4"><Textarea aria-label="신고 내용" value={reportText} maxLength={1000} onChange={event => setReportText(event.target.value)} placeholder="어떤 일이 있었는지 적어 주세요. 캡처 등 증빙은 지우지 말고 보관해 주세요." className="min-h-24 rounded-xl text-base md:text-sm" /><label className="flex items-center gap-2 text-xs"><Checkbox checked={urgent} onCheckedChange={value => setUrgent(value === true)} />지금 위험하거나 급한 일이에요</label><Button disabled={sending} onClick={() => void sendClosedReport()} className={`h-11 rounded-full px-5 ${interaction}`}>{sending ? "보내는 중…" : "신고 보내기"}</Button></div>}
+          {message && <p role="status" className="rounded-xl bg-muted p-3 text-xs leading-6">{message}</p>}
+        </div>}
+      </section>
+    );
+  }
   const name = intro.profile.items.find(item => item.id === "self.name");
   const respond = async () => {
     if (!choice || sending) return;
     setSending(true);
     const result = await respondIntroduction(intro.id, choice, choice === "negative" ? reason : null);
     setSending(false);
-    if (result.error || !result.data) { setMessage(result.error || "답을 저장하지 못했어요."); return; }
-    setIntro(result.data); setMessage("");
+    if (result.error || !result.data) { setAnswerMessage(result.error || "답을 저장하지 못했어요."); return; }
+    setIntro(result.data); setAnswerMessage("");
   };
   // 신고·차단도 보내는 중에는 다시 보내지 않는다. 신고는 내용을 적어야 보낼 수 있다.
   const submitSafety = async () => {
@@ -230,7 +294,7 @@ function LiveIntroductionView() {
     if (safety === "report" && !reportText.trim()) { setMessage("어떤 일이 있었는지 한 줄이라도 적어 주세요."); return; }
     setSending(true);
     try {
-      if (safety === "block") { const result = await blockPartner(intro.id); if (result.error) { setMessage(result.error); return; } setSafety(null); await reload(); return; }
+      if (safety === "block") { const result = await blockPartner(intro.id); if (result.error) { setMessage(result.error); return; } setSafety(null); setFlash("차단했어요. 다시는 서로 소개되지 않고, 상대에게는 차단 사실을 알리지 않아요."); await reload(); return; }
       const result = await reportPartner(intro.id, "회원 신고", reportText, urgent);
       setMessage(result.error || "신고를 받았어요. 운영진이 가장 먼저 확인해요. 상대에게는 신고 사실을 알리지 않아요.");
       if (!result.error) { setSafety(null); setReportText(""); }
@@ -241,7 +305,7 @@ function LiveIntroductionView() {
   return (
     <section aria-labelledby="us-title">
       {intro.status === "mutual" && <div className="mb-10"><Moment eyebrow="WE BOTH SAID YES" title="두 분 모두 알아가고 싶다고 답했어요." action={<Button asChild className="h-11 rounded-xl px-6"><Link to="/exchange">함께 시작하는 방법 정하기 <ArrowRight size={14} /></Link></Button>}>3일 교류 방식(A 편지 · B 첫 장면)과 시작일을 함께 정해요.</Moment></div>}
-      <PageHeader mark="두 사람" label={intro.status === "mutual" ? "서로 선택" : "오늘의 인연"} en="TWO OF US" titleId="us-title" title={name ? `${valueOf(name.value)} 님을 소개해요.` : "오늘의 인연을 소개해요."} lead={intro.status === "published" ? `${kstDateTime(intro.dueAt)}까지 답해 주세요.` : undefined} aside={<TwoDots apart={intro.status !== "mutual"} />} />
+      <PageHeader mark="두 사람" label={intro.status === "mutual" ? "서로 선택" : "오늘의 인연"} en="TWO OF US" titleId="us-title" title={name ? `${valueOf(name.value)} 님을 소개해요.` : "오늘의 인연을 소개해요."} lead={intro.status === "published" ? intro.ownResponse ? `${kstDateTime(intro.dueAt)}에 답이 마감돼요.` : `${kstDateTime(intro.dueAt)}까지 답해 주세요.` : undefined} aside={<TwoDots apart={intro.status !== "mutual"} />} />
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div className="space-y-8">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{intro.profile.photos.map(photo => <PartnerPhoto key={photo.path} path={photo.path} label={PHOTO_SLOTS.find(slot => slot.id === photo.slot)?.label ?? "사진"} />)}</div>
@@ -253,12 +317,14 @@ function LiveIntroductionView() {
         <div className="space-y-6">
           <Sheet className="p-6 sm:p-8">
             <p className="text-xs font-semibold text-accent">나의 답</p>
-            {intro.ownResponse ? <><h2 className="mt-4 text-xl font-semibold">{intro.ownResponse === "positive" ? "알아가고 싶다고 답했어요." : "이번에는 넘기겠다고 답했어요."}</h2><p className="mt-3 text-sm leading-7 text-muted-foreground">{intro.status === "mutual" ? "두 분 모두 알아가고 싶다고 답했어요." : intro.status === "published" ? "상대의 답을 기다리고 있어요. 답은 바꿀 수 없어요." : "이번 소개는 마무리됐어요."}</p></> : intro.status === "published" ? <>
+            {intro.ownResponse ? <><h2 className="mt-4 text-xl font-semibold">{intro.ownResponse === "positive" ? "알아가고 싶다고 답했어요." : "이번에는 넘기겠다고 답했어요."}</h2><p className="mt-3 text-sm leading-7 text-muted-foreground">{intro.status === "mutual" ? "두 분 모두 알아가고 싶다고 답했어요." : intro.status === "published" ? intro.ownResponse === "positive" ? `상대는 ${kstDateTime(intro.dueAt)}까지 답할 수 있어요. 답이 없으면 자동으로 마무리되고, 결과는 알림과 메일로 알려 드릴게요. 보낸 답은 바꿀 수 없어요.` : `이번 소개는 ${kstDateTime(intro.dueAt)}까지 마무리돼요. 상대에게는 누가 어떤 답을 했는지 알리지 않아요.` : "이번 소개는 마무리됐어요."}</p></> : intro.status === "published" ? <>
               <h2 className="mt-4 text-xl font-semibold">이 분을 더 알아가고 싶나요?</h2>
               <div className="mt-5 grid gap-2">{([["positive", "알아가고 싶어요"], ["negative", "이번엔 넘길게요"]] as const).map(([value, label]) => <Button key={value} variant="outline" aria-pressed={choice === value} onClick={() => { setChoice(value); setReason(null); }} className={`h-12 justify-start rounded-xl ${choice === value ? "border-primary bg-primary/5 text-primary" : "border-border"} ${interaction}`}>{label}</Button>)}</div>
               {choice === "negative" && <div className="mt-5"><p className="text-xs leading-6 text-muted-foreground">이유를 골라 주시면 다음 소개에 참고해요(선택). 상대에게는 절대 보이지 않아요.</p><div className="mt-3 flex flex-wrap gap-2">{DECLINE_REASONS.map(item => <button key={item} type="button" aria-pressed={reason === item} onClick={() => setReason(value => value === item ? null : item)} className={`rounded-full border px-3 py-1.5 text-xs ${reason === item ? "border-primary bg-primary/5 text-primary" : "border-border"} ${interaction}`}>{item}</button>)}</div></div>}
               <Button disabled={!choice || sending} onClick={() => void respond()} className={`mt-6 h-12 w-full rounded-xl ${interaction}`}>답 보내기 <ArrowRight size={15} /></Button>
+              {answerMessage && <p role="alert" className="mt-3 rounded-xl bg-destructive/5 p-3 text-xs leading-6 text-destructive">{answerMessage}</p>}
               <p className="mt-3 text-[11px] leading-5 text-muted-foreground">보낸 답은 바꿀 수 없어요. 두 분 모두 답한 뒤에 결과만 알려 드려요.</p>
+              <div className="mt-5 rounded-2xl bg-mist p-4"><p className="text-xs font-semibold text-ink">두 분 모두 ‘알아가고 싶어요’라면</p><p className="mt-1.5 text-xs leading-6 text-muted-foreground">{AFTER_YES}</p></div>
             </> : <p className="mt-4 text-sm leading-7 text-muted-foreground">응답 기한이 지났어요.</p>}
           </Sheet>
           <div className="space-y-3 border-t border-border pt-5">
@@ -309,10 +375,10 @@ function LiveProfileView() {
         </div>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
-        <Sheet className="p-6"><p className="text-xs font-semibold text-accent">소개 신청서 고치기</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{!data?.application || data.application.status === "draft" ? "쓰던 곳부터 이어서 쓸 수 있어요." : data.application.status === "submitted" ? "검토 전이라 바로 고칠 수 있어요." : "고치면 운영진이 다시 확인해요. 그동안 새 소개 준비는 잠시 멈춰요."}</p><div className="mt-4 grid grid-cols-2 gap-2">{[["나에 대해", 0], ["사진", 1], ["원하는 만남", 2], ["공개·동의", 3]].map(([label, step]) => <Button key={label} asChild variant="outline" className={`h-auto justify-between rounded-xl border-border px-4 py-3 text-xs ${interaction}`}><Link to={`/apply?edit=1&step=${step}`}>{label} <ArrowUpRight size={13} /></Link></Button>)}</div></Sheet>
+        <Sheet className="p-6"><p className="text-xs font-semibold text-accent">소개 신청서 고치기</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{!data?.application || data.application.status === "draft" ? "쓰던 곳부터 이어서 쓸 수 있어요." : data.application.status === "submitted" ? "검토 전이라 바로 고칠 수 있어요." : ["rejected", "withdrawn"].includes(data.application.status) ? "" : "고친 내용을 ‘수정 내용 제출’로 보내면 운영진이 다시 확인해요. 그동안 새 소개 준비는 잠시 멈춰요."}</p>{data?.application && ["rejected", "withdrawn"].includes(data.application.status) ? <p className="mt-4 text-xs leading-6 text-muted-foreground">지금 상태에서는 신청서를 고칠 수 없어요. 문의하기로 남겨 주시면 확인해 드릴게요.</p> : <div className="mt-4 grid grid-cols-2 gap-2">{[["나에 대해", 0], ["사진", 1], ["원하는 만남", 2], ["공개·동의", 3]].map(([label, step]) => <Button key={label} asChild variant="outline" className={`h-auto justify-between rounded-xl border-border px-4 py-3 text-xs ${interaction}`}><Link to={`/apply?edit=1&step=${step}`}>{label} <ArrowUpRight size={13} /></Link></Button>)}</div>}</Sheet>
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">알림 설정</p><div className="mt-4 space-y-3 text-sm"><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.notice_daily_waiting} onCheckedChange={value => void toggle("notice_daily_waiting", value === true)} />소개가 없는 날에도 정오에 사이트에서 알려 주세요. <span className="text-muted-foreground">(선택)</span></label><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.marketing_opt_in} onCheckedChange={value => void toggle("marketing_opt_in", value === true)} />새 소식과 혜택 안내를 받을게요. <span className="text-muted-foreground">(선택 · 광고성 정보)</span></label></div><fieldset className="mt-5 border-t border-border pt-4"><legend className="sr-only">알림 받을 방법</legend><p className="text-xs font-semibold">알림 받을 방법 <span className="font-normal text-muted-foreground">· 카카오톡·문자 중 1개 이상</span></p><div className="mt-3 flex flex-wrap gap-2">{([["kakao", "카카오톡"], ["sms", "문자"], ["email", "메일"]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={channels[key]} onClick={() => void setChannel(key, !channels[key])} className={`rounded-full border px-4 py-2 text-xs ${interaction} ${channels[key] ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"}`}>{label}</button>)}</div><ChannelNotice kakao={channels.kakao} sms={channels.sms} email={channels.email} /></fieldset><fieldset className="mt-5 border-t border-border pt-4"><legend className="sr-only">메일로 받을 알림</legend><p className="text-xs font-semibold">메일로 받을 알림</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{([[false, "중요한 것만", "소개 도착·마감·약속처럼 할 일이 있을 때만"], [true, "모두 받기", "상대가 편지를 보냈을 때 같은 소식까지"]] as const).map(([all, label, sub]) => <button key={label} type="button" aria-pressed={!!notices?.email_all === all} onClick={() => void saveNoticeSettings({ email_all: all }).then(result => { setMessage(result.error || "메일 받을 범위를 바꿨어요."); return reload(); })} className={`rounded-xl border p-3 text-left ${interaction} ${!!notices?.email_all === all ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"}`}><span className="block text-xs font-semibold">{label}{!all && " (기본)"}</span><span className="mt-1 block text-[11px] leading-5 text-muted-foreground">{sub}</span></button>)}</div></fieldset><p className="mt-4 text-[11px] leading-5 text-muted-foreground">모든 알림은 사이트에서 늘 보여 드려요. 메일은 가입한 주소로 보내고, 밤 10시~아침 8시에는 보내지 않고 아침에 보내요. 카카오톡·문자는 정식 운영부터 보내요.</p>{message && <p role="status" className="mt-3 text-xs text-primary">{message}</p>}</Sheet>
       </div>
-      {data?.application?.status === "approved" && notices?.status === "active" && <Sheet className="flex flex-wrap items-center justify-between gap-5 p-6"><div className="min-w-0 max-w-xl"><p className="text-xs font-semibold text-accent">새 소개 {paused ? "다시 받기" : "잠시 쉬기"}</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{paused ? `${kstDay(notices.paused_at!)}부터 쉬고 있어요. 다시 받기를 누르면 다음 정오부터 소개를 준비해요.` : "여행·바쁜 시기처럼 잠시 쉬고 싶을 때 눌러 주세요. 진행 중인 소개는 그대로 이어지고, 새 소개만 멈춰요."}</p>{pauseMessage && <p role="status" className="mt-2 text-xs text-primary">{pauseMessage}</p>}</div><Button variant={paused ? "default" : "outline"} disabled={pausing} onClick={() => void togglePause()} className="h-11 shrink-0 rounded-xl border-border px-5">{paused ? "다시 받기" : "잠시 쉬기"}</Button></Sheet>}
+      {data?.application?.status === "approved" && notices?.status === "active" && <Sheet className="flex flex-wrap items-center justify-between gap-5 p-6"><div className="min-w-0 max-w-xl"><p className="text-xs font-semibold text-accent">새 소개 {paused ? "다시 받기" : "잠시 쉬기"}</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{paused ? notices.paused_by === "operator" ? "운영진이 확인할 일이 있어 새 소개를 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." : `${kstDay(notices.paused_at!)}부터 쉬고 있어요. 다시 받기를 누르면 다음 정오부터 소개를 준비해요.` : "여행·바쁜 시기처럼 잠시 쉬고 싶을 때 눌러 주세요. 진행 중인 소개는 그대로 이어지고, 새 소개만 멈춰요."}</p>{pauseMessage && <p role="status" className="mt-2 text-xs text-primary">{pauseMessage}</p>}</div><Button variant={paused ? "default" : "outline"} disabled={pausing || notices.paused_by === "operator"} onClick={() => void togglePause()} className="h-11 shrink-0 rounded-xl border-border px-5">{paused ? "다시 받기" : "잠시 쉬기"}</Button></Sheet>}
       <FirstWordCard />
       <AvoidContactsCard />
       {BEFORE_US.beta.active && <QuietNote>베타 테스터로 함께해 주셔서 고마워요. 불편했던 점이나 바라는 점이 있다면 <Link to="/contact?type=베타 의견" className="font-semibold text-primary underline-offset-4 hover:underline">베타 의견 남기기</Link>로 알려 주세요. 하나하나 읽고 반영할게요.</QuietNote>}
