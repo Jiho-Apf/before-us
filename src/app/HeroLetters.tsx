@@ -4,7 +4,7 @@ import { LockOpen } from "lucide-react";
 // 참고: 메시지 앱의 말풍선. 다만 채팅이 아니라 하루 한 통씩 ‘함께 열린’ 편지라, 날마다 그날의 질문을 위에 둔다.
 // 내용은 04 이야기의 다은·준호 이야기(home-story)와 맞춘다. 대화 전체가 한 덩어리로 천천히 떠 있다.
 // 처음 들어오면 질문·말풍선이 위에서부터 하나씩 살며시 내려앉는다(.letter-drop, 움직임 줄이기에서는 바로 보임).
-const drop = (order: number) => ({ className: "letter-drop", style: { animationDelay: `${0.8 + order * 0.55}s` } });
+const drop = (order: number) => ({ className: "letter-drop", style: { animationDelay: `${0.7 + order * 0.47}s` } });
 const INK = "text-[#221D3A]";
 const GLASS = "bg-white/80 ring-1 ring-white/70 backdrop-blur-xl shadow-[0_24px_50px_-28px_rgba(40,24,100,0.55)]";
 const NAME = "flex items-center gap-1.5 text-[11px] font-semibold text-white/90 [text-shadow:0_1px_8px_rgba(40,24,100,0.5)]";
