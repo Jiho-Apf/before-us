@@ -33,7 +33,7 @@ async function submitLive(input: { type: string; name: string; email: string; bo
 }
 
 const time = (at: string) => kstDateTime(at)
-const chip = "rounded-full border px-4 py-2 text-xs transition-colors duration-200 motion-reduce:transition-none"
+const chip = "min-h-10 rounded-full border px-4 py-2.5 text-[13px] transition-colors duration-200 motion-reduce:transition-none"
 
 function InquiryLookup() {
   useInquiries()
@@ -109,22 +109,25 @@ export default function InquiryPage() {
           <form className="space-y-7 rounded-3xl border border-border bg-card p-6 sm:p-8" onSubmit={async (event) => { event.preventDefault(); if (sending) return; setSending(true); const result = LIVE ? await submitLive({ type, name, email, body, consent, website }) : submitInquiry({ type, name, email, body, consent, website }); setSending(false); setError(result.error || ""); if (result.id) setReceipt(result.id) }}>
             <fieldset className="space-y-3">
               <legend className="flex items-center gap-2 text-sm font-semibold"><span aria-hidden="true" className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[11px] text-primary">1</span>무엇이 궁금한가요?</legend>
-              <div className="flex flex-wrap gap-2">
-                {INQUIRY_TYPES.map((item) => (
-                  <button key={item} type="button" aria-pressed={type === item} onClick={() => setType(item)} className={`${chip} ${type === item ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-primary/50"}`}>{item}</button>
-                ))}
-              </div>
+              {/* 이용·소개·결제 관련(첫 줄)과 개인정보·안전·기타(둘째 줄)를 나눠 한눈에 고르기 쉽게 */}
+              {[INQUIRY_TYPES.slice(0, 4), INQUIRY_TYPES.slice(4)].map((row, index) => (
+                <div key={index} className="flex flex-wrap gap-2">
+                  {row.map((item) => (
+                    <button key={item} type="button" aria-pressed={type === item} onClick={() => setType(item)} className={`${chip} ${type === item ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-primary/50"}`}>{item}</button>
+                  ))}
+                </div>
+              ))}
               {type === "안전·신고" && <p className="text-xs leading-6 text-accent">진행 중인 상대와 관련된 일이라면 ‘두 사람’ 화면의 신고하기를 쓰면 해당 소개에 바로 연결돼요. 위급하면 112에 먼저 연락해 주세요.</p>}
             </fieldset>
             <p className="flex items-center gap-2 text-sm font-semibold"><span aria-hidden="true" className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[11px] text-primary">2</span>어디로 답해 드릴까요?</p>
             <div className="-mt-3 grid grid-cols-1 gap-5 sm:grid-cols-2">
               <Label className="flex-col items-stretch gap-2 text-sm">
-                부를 이름 <span className="text-[11px] font-normal text-muted-foreground">선택</span>
-                <Input value={name} maxLength={INQUIRY_POLICY.nameMax} onChange={(event) => setName(event.target.value)} placeholder="예: 서연" />
+                <span className="flex items-baseline gap-1.5">부를 이름 <span className="text-[11px] font-normal text-muted-foreground">선택</span></span>
+                <Input value={name} maxLength={INQUIRY_POLICY.nameMax} onChange={(event) => setName(event.target.value)} placeholder="예: 서연" className="h-11" />
               </Label>
               <Label className="flex-col items-stretch gap-2 text-sm">
-                답변받을 이메일
-                <Input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" autoComplete="email" />
+                <span>답변받을 이메일</span>
+                <Input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" autoComplete="email" className="h-11" />
               </Label>
             </div>
             <Label className="flex-col items-stretch gap-2 text-sm">
@@ -141,7 +144,7 @@ export default function InquiryPage() {
               </Label>
             </div>
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="h-12 rounded-full px-7" disabled={sending || !type || !email.trim() || !body.trim() || !consent}>{sending ? "보내는 중…" : <>문의 남기기 <ArrowRight size={16} /></>}</Button>
+            <div className="flex justify-center"><Button type="submit" className="h-12 rounded-full px-8" disabled={sending || !type || !email.trim() || !body.trim() || !consent}>{sending ? "보내는 중…" : <>문의 남기기 <ArrowRight size={16} /></>}</Button></div>
           </form>
         )}
         <InquiryLookup />

@@ -168,10 +168,11 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
           <nav aria-label="공개 메뉴" className="hidden items-center gap-8 lg:flex">
             {PUBLIC_NAV.map(item => <NavLink key={item.to} to={item.to} className={({ isActive }) => `rounded-sm py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "text-primary" : "text-foreground hover:text-primary"}`}>{item.label}</NavLink>)}
           </nav>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <ShellThemeToggle isDark={isDark} toggle={toggle} />
+          {/* 아주 좁은 휴대폰(360px 미만)에서는 다크 모드 버튼을 메뉴 안으로 옮겨 메뉴 버튼이 밀려나지 않게 한다. */}
+          <div className="flex items-center gap-1.5 sm:gap-4">
+            <span className="max-[359px]:hidden"><ShellThemeToggle isDark={isDark} toggle={toggle} /></span>
             <Button asChild variant="ghost" className={`hidden hover:bg-muted hover:text-foreground sm:inline-flex ${CONTROL_MOTION}`}>{signedIn ? <Link to="/profile">내 정보</Link> : <Link to="/login">로그인</Link>}</Button>
-            <Button asChild className={`h-11 rounded-full px-4 text-[13px] sm:px-5 sm:text-sm ${CONTROL_MOTION}`}>{signedIn ? <Link to="/today">내 소개 보기 <ArrowRight size={15} className="hidden sm:block" /></Link> : <Link to="/apply">소개 신청하기 <ArrowRight size={15} className="hidden sm:block" /></Link>}</Button>
+            <Button asChild className={`h-11 rounded-full px-4 text-[13px] max-[359px]:px-3 max-[359px]:text-xs sm:px-5 sm:text-sm ${CONTROL_MOTION}`}>{signedIn ? <Link to="/today">내 소개 보기 <ArrowRight size={15} className="hidden sm:block" /></Link> : <Link to="/apply">소개 신청하기 <ArrowRight size={15} className="hidden sm:block" /></Link>}</Button>
             <Button variant="ghost" size="icon" aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"} aria-expanded={menuOpen} aria-controls="public-mobile-menu" onClick={() => setMenuOpen(open => !open)} className={`lg:hidden hover:bg-muted hover:text-foreground ${CONTROL_MOTION}`}>
               {menuOpen ? <X /> : <Menu />}
             </Button>
@@ -180,6 +181,7 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
         {menuOpen && <nav id="public-mobile-menu" aria-label="모바일 공개 메뉴" className="grid gap-1 border-t border-border px-5 py-4 lg:hidden">
           {PUBLIC_NAV.map(item => <Button key={item.to} asChild variant="ghost" className={`justify-start rounded-xl hover:bg-muted hover:text-primary ${CONTROL_MOTION}`}><NavLink to={item.to}>{item.label}</NavLink></Button>)}
           <Button asChild variant="ghost" className={`justify-start hover:bg-muted hover:text-primary ${CONTROL_MOTION}`}>{signedIn ? <Link to="/profile">내 정보</Link> : <Link to="/login">로그인</Link>}</Button>
+          <Button variant="ghost" onClick={toggle} className={`justify-start hover:bg-muted hover:text-primary min-[360px]:hidden ${CONTROL_MOTION}`}>{isDark ? <Sun size={16} /> : <Moon size={16} />}{isDark ? "라이트 모드로" : "다크 모드로"}</Button>
         </nav>}
       </header>
       <main id="main-content" className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5 sm:px-8 lg:px-12">
@@ -206,7 +208,7 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
 }
 
 // 회원 메뉴에는 없지만 회원 틀 안에서 여는 화면의 이름(머리 위치 표시·문서 제목에 쓴다)
-const MEMBER_EXTRA = [{ to: "/support", label: "문의·요청" }, { to: "/payments", label: "결제" }];
+const MEMBER_EXTRA = [{ to: "/support", label: "문의·요청" }, { to: "/payments", label: "결제" }, { to: "/apply", label: "신청서" }, { to: "/contact", label: "문의하기" }];
 
 function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }) {
   const location = useLocation();
@@ -264,9 +266,18 @@ function MissingFrame() {
 }
 
 function BeforeUsRoot() {
-  const [isDark, setIsDark] = useState(false);
+  // 다크 모드는 고른 값을 이 기기에 기억한다(새로고침·메일 링크로 들어와도 유지).
+  const [isDark, setIsDark] = useState(() => { try { return localStorage.getItem("before-us:theme") === "dark"; } catch { return false; } });
+  useEffect(() => {
+    try { localStorage.setItem("before-us:theme", isDark ? "dark" : "light"); } catch { /* 저장 공간이 막혀 있으면 이번 방문에만 */ }
+    // 입력칸·스크롤바 같은 기본 부품과 휴대폰 상단 막대 색도 고른 모드에 맞춘다.
+    document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isDark ? "#111827" : "#ffffff");
+  }, [isDark]);
   const location = useLocation();
-  const isMember = ["/payments","/support","/meeting/contact"].includes(location.pathname) || MEMBER_NAV.some(item => item.to === location.pathname);
+  // 로그인한 회원이 신청서·문의하기를 열면 회원 틀(휴대폰 아래 메뉴 포함) 안에서 보여 준다.
+  const signedIn = useSignedIn();
+  const isMember = ["/payments","/support","/meeting/contact"].includes(location.pathname) || MEMBER_NAV.some(item => item.to === location.pathname) || (LIVE && signedIn && ["/apply", "/contact"].includes(location.pathname));
   useEffect(() => {
     const label = [...PUBLIC_NAV, ...MEMBER_NAV, ...MEMBER_EXTRA, { to: "/contact", label: "문의하기" }, { to: "/login", label: "로그인" }, { to: "/apply", label: "소개 신청하기" }, { to: "/terms", label: "이용약관" }, { to: "/privacy", label: "개인정보처리방침" }, { to: "/how-it-works", label: "진행 방식" }, { to: "/signup", label: "회원가입" }, { to: "/reset-password", label: "비밀번호 다시 설정" }].find(item => item.to === location.pathname)?.label;
     document.title = label ? `${label} · ${BEFORE_US.brand.name}` : `${BEFORE_US.brand.name} · ${BEFORE_US.brand.english}`;

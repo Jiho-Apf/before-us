@@ -13,18 +13,18 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
-          "border bg-background text-foreground hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+          "border bg-background text-foreground hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+          "hover:bg-muted hover:text-foreground dark:hover:bg-muted",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
+        default: "h-10 px-4 py-2 has-[>svg]:px-3",
+        sm: "h-9 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9 rounded-md",
+        icon: "size-10 rounded-md",
       },
     },
     defaultVariants: {
@@ -45,11 +45,13 @@ function Button({
     asChild?: boolean;
   }) {
   const Comp = asChild ? Slot : "button";
+  // 사이트 전체의 버튼은 첫 화면처럼 둥근 알약 모양으로 맞춘다(화면마다 남아 있던 rounded-md·lg·xl은 알약으로 바꾼다).
+  const shaped = className?.replace(/\brounded-(md|lg|xl)\b/g, "rounded-full");
 
   return (
     <Comp
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={cn(buttonVariants({ variant, size }), "rounded-full", shaped)}
       {...props}
     />
   );

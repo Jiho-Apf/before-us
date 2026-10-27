@@ -23,6 +23,28 @@ import {
 
 const interaction =
   "transition-colors duration-200 motion-reduce:transition-none"
+// 동의마다 알려야 할 내용(개인정보 보호법 제15조 제2항·제17조 제2항): 받는 사람·목적·항목·기간·거부할 권리
+const CONSENT_DETAILS: Record<string, [string, string][]> = {
+  "consent.collection": [
+    ["항목", "활동용 이름, 생년월일(만 나이 계산용 · 상대에게 보이지 않아요), 휴대폰 번호(운영진만 봐요), 주 활동 지역, 관계 목적, 한 줄 소개, 필수 사진 3장, 소개받을 상대 조건, 교제·혼인 여부 서약, 알림 받을 방법"],
+    ["목적", "신청 검토, 소개할 상대 고르기, 소개·교류·만남 진행, 안내 연락, 부정 이용 방지"],
+    ["보유 기간", "탈퇴 요청 뒤 7일 안에 지워요(백업은 최대 30일). 분쟁·안전을 위해 따로 남기는 기록은 개인정보처리방침 ‘3. 보유 기간’을 따라요."],
+  ],
+  "consent.matching": [
+    ["항목", "추가 사진 1장, 키·체형·스타일, 흡연·음주, 생활 시간대, 관심사, 직업 분야, 성격·대화 성향, 질문 답변, 알게 된 경로"],
+    ["목적", "잘 맞는 상대를 고르는 데 참고하고, ‘상대 공개’로 켠 항목은 소개된 상대에게 보여 주기 위해"],
+    ["보유 기간", "필수 정보와 같아요."],
+  ],
+  "consent.provision": [
+    ["받는 사람", "운영진이 나에게 소개한 상대 회원(소개마다 1명)"],
+    ["목적", "상대가 나를 알아보고 ‘알아가고 싶어요’를 고를 수 있게 하고, 서로 선택하면 3일 교류와 만남을 이어 가기 위해"],
+    ["항목", "이 화면에서 ‘상대 공개’로 켠 항목과 운영진이 확인한 사진. 생년월일 원래 값·휴대폰 번호·이메일은 주지 않아요."],
+    ["기간", "소개가 공개된 날 정오부터 다음 날 오전 11시 응답 마감까지. 서로 알아가기로 하면 교류와 약속이 끝날 때까지(최대 약속일 다음 날 23:59). 끝나거나 쉬기·차단·탈퇴가 생기면 바로 볼 수 없어요."],
+    ["거부할 때", "거부할 수 있어요. 다만 소개 서비스의 핵심이라, 거부하면 소개를 받을 수 없어요."],
+    ["멈추기", "내 정보에서 ‘쉬기’를 누르면 새 소개를 멈추고, 아직 공개되지 않은 예약 소개는 취소돼요. 이미 공개된 소개는 ‘이번에는 넘길게요’로, 진행 중인 교류는 두 사람 화면의 차단이나 문의·요청으로 끝낼 수 있어요."],
+  ],
+};
+
 const text = (value: string | string[]) =>
   Array.isArray(value) ? value.join(" · ") : value
 
@@ -355,33 +377,16 @@ export default function ApplicationReviewStep({
                   <p className="ml-7 mt-2 text-xs leading-6 text-muted-foreground">
                     {field.purpose}
                   </p>
-                  {field.id === "consent.provision" && (
-                    <dl className="ml-7 mt-3 grid gap-x-4 gap-y-2 rounded-xl bg-muted/40 p-4 text-xs leading-6 text-muted-foreground sm:grid-cols-[64px_1fr] [&>div]:contents">
-                      <div>
-                        <dt className="font-semibold text-foreground">
-                          항목·목적
-                        </dt>
-                        <dd>
-                          오른쪽에서 확인한 사진·소개 정보로 일대일 소개를
-                          준비해요.
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold text-foreground">범위</dt>
-                        <dd>
-                          구체적인 소개 제안의 특정 상대만. 전체 회원·연락처
-                          공유·후기 게시·홍보 사진 사용은 포함하지 않아요.
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold text-foreground">기간</dt>
-                        <dd>
-                          소개된 날 정오부터 다음 날 11:00 응답 마감까지예요.
-                          서로 알아가기로 하면 교류·약속이 끝날 때까지(최대 약속일
-                          다음 날 23:59) 이어지고, 종료·중단·차단·탈퇴 시 바로
-                          닫혀요. 끝난 소개를 다시 보는 보관함은 없어요.
-                        </dd>
-                      </div>
+                  {CONSENT_DETAILS[field.id] && (
+                    <dl className="ml-7 mt-3 grid gap-x-4 gap-y-2 rounded-xl bg-muted/40 p-4 text-xs leading-6 text-muted-foreground sm:grid-cols-[72px_1fr] [&>div]:contents">
+                      {CONSENT_DETAILS[field.id].map(([title, body]) => (
+                        <div key={title}>
+                          <dt className="font-semibold text-foreground">
+                            {title}
+                          </dt>
+                          <dd>{body}</dd>
+                        </div>
+                      ))}
                     </dl>
                   )}
                   {errors[field.id] && (
@@ -393,7 +398,7 @@ export default function ApplicationReviewStep({
               ))}
             </div>
             <p className="mt-4 text-xs leading-7 text-muted-foreground">
-              {LIVE ? <>필수 항목에 동의해야 신청할 수 있어요. 자세한 내용은 <a href="/terms" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-primary">이용약관</a>과 <a href="/privacy" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-primary">개인정보처리방침</a>에서 볼 수 있어요. 선택 마케팅과 소개 없는 날 알림은 체크하지 않아도 신청할 수 있어요.</> : "법적 문서·보유기간은 검토가 필요한 정책이에요. 법률 검토 완료나 실제 개인정보 처리 동의로 표시하지 않아요. 선택 마케팅과 정오 상태 알림은 체크하지 않아도 신청할 수 있어요."}
+              {LIVE ? <>필수 항목에 동의하지 않으면 소개 신청을 마칠 수 없어요. 선택 항목(광고성 정보 수신, 정오 상태 알림)은 체크하지 않아도 신청할 수 있어요. 동의를 거두려면 신청을 철회하거나 ‘문의·요청’에서 처리정지를 요청해 주세요. 선택 항목은 내 정보 → 알림 설정에서 언제든 바꿀 수 있어요. 자세한 내용은 <a href="/terms" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-primary">이용약관</a>과 <a href="/privacy" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-primary">개인정보처리방침</a>에 있어요.</> : "데모 화면이라 실제 개인정보를 받지 않고, 여기의 체크는 실제 동의로 기록하지 않아요. 선택 항목(광고성 정보 수신, 정오 상태 알림)은 체크하지 않아도 신청할 수 있어요."}
             </p>
           </section>
         </div>
@@ -407,9 +412,9 @@ export default function ApplicationReviewStep({
           {[
             "신청 내용 검토",
             "사진·본인 확인",
-            "특정 상대·범위 안내",
-            "별도 제공 동의",
-            "준비 후 정오 소개",
+            "운영진이 상대 고르기",
+            "쉬기·취소 언제든",
+            "준비된 날 정오 공개",
           ].map((label, index) => (
             <div key={label} className="border border-border p-4">
               <span className="text-xl font-semibold text-accent">
@@ -420,14 +425,13 @@ export default function ApplicationReviewStep({
           ))}
         </div>
         <p className="mt-4 text-xs leading-7 text-muted-foreground">
-          구체적인 소개 제안 전에 제공받는 상대, 공개 항목·버전과 제공 기간을
-          확인해요. 이때는 프로필 제공 준비이지 최종 호감 선택이 아니에요.
-          필요한 준비와 동의가 실제로 완료된 뒤에만 준비된 날 정오 12:00,
-          Asia/Seoul에 소개를 공개해요.
+          운영진이 상대를 고르면 준비된 날 정오에 공개해요. 공개 직전에
+          두 분의 상태를 다시 확인하고, 쉬기를 누르면 아직 공개되지 않은 예약
+          소개는 취소돼요.
         </p>
         <p className="mt-3 text-xs leading-7 text-muted-foreground">
-          현재는 상대 미정 · 별도 제공 동의 전이며 실제 공개하지 않아요.
-          매일 새 소개를 보장하지 않아요.
+          신청 단계에서는 아직 누구에게도 보여 주지 않아요. 매일 새 소개를
+          보장하지 않아요.
         </p>
       </details>
       <section className="rounded-xl border border-border p-5">

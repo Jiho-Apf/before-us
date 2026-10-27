@@ -128,9 +128,9 @@ export function SignupPage() {
         <Field id="signup-password" label="비밀번호" type="password" autoComplete="new-password" value={password} onChange={(value) => { setPassword(value); setError("") }} hint={PASSWORD_RULE} />
         <Field id="signup-again" label="비밀번호 확인" type="password" autoComplete="new-password" value={again} onChange={(value) => { setAgain(value); setError("") }} />
         <div className="space-y-3 border-t border-border pt-5">
-          {check("signup-adult", adult, setAdult, <span>만 19세 이상이에요. <span className="text-muted-foreground">{LIVE ? "(필수 · 소개 신청서의 생년월일로 다시 확인해요)" : "(필수 · 소개 신청 때 휴대폰 본인 인증으로 다시 확인해요)"}</span></span>)}
+          {check("signup-adult", adult, setAdult, <span>만 19세 이상이에요. <span className="text-muted-foreground">{LIVE ? "(필수 · 소개 신청서의 생년월일로 다시 확인해요. 베타는 1992~2007년생 가운데 만 19세 이상)" : "(필수 · 소개 신청 때 휴대폰 본인 인증으로 다시 확인해요)"}</span></span>)}
           {check("signup-terms", terms, setTerms, <span><Link to="/terms" className="underline underline-offset-4">이용약관</Link>에 동의해요. <span className="text-muted-foreground">(필수)</span></span>)}
-          {check("signup-privacy", privacy, setPrivacy, <span><Link to="/privacy" className="underline underline-offset-4">개인정보 수집·이용</Link>에 동의해요. <span className="text-muted-foreground">(필수 · 이메일, 비밀번호)</span></span>)}
+          {check("signup-privacy", privacy, setPrivacy, <span><Link to="/privacy" className="underline underline-offset-4">개인정보 수집·이용</Link>에 동의해요. <span className="text-muted-foreground">(필수) · 이메일과 비밀번호(알아볼 수 없게 바꿔 저장)를 회원 확인·로그인·서비스 안내에 쓰고, 탈퇴 요청 뒤 7일 안에 지워요(백업 최대 30일). 거부하면 가입할 수 없어요.</span></span>)}
         </div>
         <ErrorText text={error} />
         <Button type="submit" disabled={busy} aria-busy={busy} className={`h-12 w-full rounded-xl ${motion}`}>{busy ? <Busy text="가입하는 중이에요… 잠시만요" /> : <>가입하고 소개 신청으로 <ArrowRight size={16} /></>}</Button>

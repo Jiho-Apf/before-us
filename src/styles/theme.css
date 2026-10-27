@@ -325,3 +325,9 @@
   .pair-lens { transform: translateX(calc(-100% + 22px)); }
   .pair-glow { opacity: 0.28; transform: translate(-50%, -50%); }
 }
+
+
+/* 휴대폰·앱 안 브라우저: 가로로 돌려도 글자가 저절로 커지지 않게, 누를 때 회색 덮개가 번쩍이지 않게 */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+/* 아이폰을 가로로 돌렸을 때 노치 쪽 내용이 가려지지 않게 */
+body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }

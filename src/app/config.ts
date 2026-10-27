@@ -25,7 +25,7 @@ export const BEFORE_US = {
   // 정식 운영으로 바꿀 때 active 를 false 로 바꾼다.
   // 베타 나이 범위(출생 연도 · 한국 나이 20~35세). 서버의 birth_year_range() 와 같이 바꾼다.
   ageBand: { minBirthYear: 1992, maxBirthYear: 2007, label: "1992~2007년생", korean: "한국 나이 20~35세", maxAge: 35 },
-  beta: { active: true, startsOn: "2026-10-20", legalUpdatedOn: "2026-10-27", legalVersion: "beta-2026-10-27" },
+  beta: { active: true, startsOn: "2026-10-20", legalUpdatedOn: "2026-10-28", legalVersion: "beta-2026-10-28" },
   // 운영자(개인정보 보호책임자) 정보와 공식 SNS. 비어 있으면 화면에 ‘문의하기’로 대신 안내한다.
   operator: { name: "정지호", email: "beforeus.official.kr@gmail.com" },
   social: { instagram: "beforeus.official.kr", threads: "beforeus.official.kr" },

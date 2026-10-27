@@ -64,8 +64,23 @@ export default function PhotoAdjuster({ bitmap, title, onCancel, onOriginal, onD
     const width = Math.round(box.clientWidth * Math.min(2, window.devicePixelRatio || 1));
     draw(canvas, bitmap, view, width);
   }, [bitmap, view]);
+  const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const onKey = (event: globalThis.KeyboardEvent) => { if (event.key === "Escape" && !saving) onCancel(); };
+    const before = document.activeElement as HTMLElement | null;
+    stage.current?.focus();
+    return () => before?.focus?.();
+  }, []);
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape" && !saving) onCancel();
+      if (event.key === "Tab" && panel.current) {
+        const items = [...panel.current.querySelectorAll<HTMLElement>("button:not([disabled]), input, [tabindex='0']")];
+        if (!items.length) return;
+        const first = items[0], last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
     window.addEventListener("keydown", onKey);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -102,7 +117,7 @@ export default function PhotoAdjuster({ bitmap, title, onCancel, onOriginal, onD
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[rgba(24,18,52,0.55)] p-0 backdrop-blur-sm sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby="adjust-title">
-      <div className="max-h-[100dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-[0_40px_80px_-30px_rgba(24,18,52,0.6)] sm:rounded-3xl sm:p-6">
+      <div ref={panel} className="max-h-[100dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-[0_40px_80px_-30px_rgba(24,18,52,0.6)] sm:rounded-3xl sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div><p className="text-xs font-semibold text-accent">{title}</p><h2 id="adjust-title" className="mt-1.5 text-lg font-semibold">사진 위치와 크기를 맞춰 주세요</h2></div>
           <Button variant="ghost" size="icon" aria-label="닫기" disabled={saving} onClick={onCancel} className="size-9 shrink-0 rounded-full hover:bg-muted hover:text-foreground"><X size={18} /></Button>
@@ -120,9 +135,9 @@ export default function PhotoAdjuster({ bitmap, title, onCancel, onOriginal, onD
           <span aria-hidden="true" className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,rgba(255,255,255,0.35)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.35)_1px,transparent_1px)] [background-position:33.33%_0,0_33.33%] [background-size:33.34%_100%,100%_33.34%]" />
         </div>
         <div className="mx-auto mt-5 flex max-w-[300px] items-center gap-3">
-          <Button variant="ghost" size="icon" aria-label="작게" disabled={view.zoom <= 1} onClick={() => set({ zoom: Math.max(1, view.zoom - 0.2) })} className="size-8 shrink-0 rounded-full hover:bg-muted hover:text-foreground"><Minus size={15} /></Button>
+          <Button variant="ghost" size="icon" aria-label="작게" disabled={view.zoom <= 1} onClick={() => set({ zoom: Math.max(1, view.zoom - 0.2) })} className="size-10 shrink-0 rounded-full hover:bg-muted hover:text-foreground"><Minus size={15} /></Button>
           <input type="range" min={1} max={MAX_ZOOM} step={0.01} value={view.zoom} aria-label="사진 크기" onChange={event => set({ zoom: Number(event.target.value) })} className="h-1.5 flex-1 cursor-pointer accent-[var(--primary)]" />
-          <Button variant="ghost" size="icon" aria-label="크게" disabled={view.zoom >= MAX_ZOOM} onClick={() => set({ zoom: Math.min(MAX_ZOOM, view.zoom + 0.2) })} className="size-8 shrink-0 rounded-full hover:bg-muted hover:text-foreground"><Plus size={15} /></Button>
+          <Button variant="ghost" size="icon" aria-label="크게" disabled={view.zoom >= MAX_ZOOM} onClick={() => set({ zoom: Math.min(MAX_ZOOM, view.zoom + 0.2) })} className="size-10 shrink-0 rounded-full hover:bg-muted hover:text-foreground"><Plus size={15} /></Button>
           <Button variant="outline" size="icon" aria-label="오른쪽으로 90° 돌리기" onClick={() => set({ turn: ((view.turn + 1) % 4) as View["turn"], x: 0, y: 0 })} className="size-9 shrink-0 rounded-full border-border hover:bg-muted hover:text-foreground"><RotateCw size={15} /></Button>
         </div>
         {error && <p role="alert" className="mt-3 text-center text-xs text-destructive">{error}</p>}

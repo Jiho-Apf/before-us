@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react"
 // 진한 색 면 대신 얇은 선·여백·큰 숫자로 무게를 준다.
 
 export function Sheet({ children, tone = "plain", className = "" }: { children: ReactNode; tone?: "plain" | "soft"; className?: string }) {
-  return <div className={`relative border border-border ${tone === "soft" ? "bg-muted/40" : "bg-card"} shadow-[0_1px_0_var(--border),0_24px_48px_-32px_color-mix(in_oklch,var(--primary)_35%,transparent)] ${className}`}>{children}</div>
+  return <div className={`relative rounded-3xl border border-border ${tone === "soft" ? "bg-muted/40" : "bg-card"} shadow-[0_1px_0_var(--border),0_24px_48px_-32px_color-mix(in_oklch,var(--primary)_35%,transparent)] ${className}`}>{children}</div>
 }
 
 export function TwoDots({ apart = false, faded = false }: { apart?: boolean; faded?: boolean }) {
@@ -80,7 +80,7 @@ export function Moment({ eyebrow, title, children, action }: { eyebrow: string; 
     return () => window.clearTimeout(timer)
   }, [])
   return (
-    <section role="status" className="relative overflow-hidden border border-border bg-card px-6 py-14 text-center sm:px-10 sm:py-20">
+    <section className="relative overflow-hidden rounded-3xl border border-border bg-card px-6 py-14 text-center sm:px-10 sm:py-20">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_50%_0%,color-mix(in_oklch,var(--primary)_10%,transparent),transparent)]" />
       <div aria-hidden="true" className="relative mx-auto flex h-6 w-40 items-center justify-center">
         <span className="absolute size-4 rounded-full bg-primary transition-transform duration-[1400ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none" style={{ transform: `translateX(${near ? -9 : -64}px)` }} />

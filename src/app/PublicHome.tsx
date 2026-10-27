@@ -590,7 +590,7 @@ function MobileApplyBar() {
     return () => window.removeEventListener("scroll", update);
   }, []);
   return (
-    <div aria-hidden={!show} className={`fixed inset-x-4 bottom-4 z-40 sm:hidden ${show ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"} transition-[transform,opacity] duration-300 motion-reduce:transition-none`}>
+    <div aria-hidden={!show} className={`fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 sm:hidden ${show ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-6 opacity-0"} transition-[transform,opacity] duration-300 motion-reduce:transition-none`}>
       <Button asChild tabIndex={show ? 0 : -1} className="h-12 w-full rounded-full shadow-[0_18px_36px_-14px_color-mix(in_oklch,var(--primary)_70%,transparent)]"><Link to="/apply">{BETA ? "베타 무료로 신청하기" : "소개 신청하기"} <ArrowUpRight size={16} /></Link></Button>
     </div>
   );

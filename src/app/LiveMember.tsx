@@ -181,7 +181,7 @@ export function FirstWordCard() {
 
 // ─────────────────────────────────────────────
 // 아는 사람 피하기: 적어 둔 번호로 신청한 분과는 서로 소개하지 않는다(한쪽만 적어도). 상대에게는 알리지 않는다.
-// 번호는 서버에서 되돌릴 수 없는 암호값으로만 저장하고, 화면에는 뒤 네 자리만 보인다(메모는 받지 않는다).
+// 번호는 원래 번호를 두지 않고 비밀 값과 섞은 암호값으로 저장하고, 화면에는 뒤 네 자리만 보인다(메모는 받지 않는다).
 type ContactPicker = { select: (properties: string[], options: { multiple: boolean }) => Promise<{ tel?: string[] }[]> };
 function AvoidContactsCard() {
   const [list, setList] = useState<AvoidContact[] | null>(null);
@@ -212,7 +212,7 @@ function AvoidContactsCard() {
   };
   return <Sheet className="p-6 sm:p-8">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="flex items-center gap-2 text-xs font-semibold text-accent"><UserX size={14} />아는 사람 피하기</p><h2 className="mt-3 text-xl font-semibold leading-[1.5]">마주치고 싶지 않은 사람이 있다면,<br />번호를 적어 두세요.</h2></div>{list && <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{list.length}개 적어 둠</span>}</div>
-    <p className="mt-3 text-sm leading-7 text-muted-foreground">적어 둔 번호로 신청한 분과는 서로 소개하지 않아요. 한쪽만 적어도 막히고, 상대에게는 알리지 않아요. 번호는 되돌릴 수 없는 암호값으로만 저장하고, 화면에는 뒤 네 자리만 보여요.</p>
+    <p className="mt-3 text-sm leading-7 text-muted-foreground">적어 둔 번호로 신청한 분과는 서로 소개하지 않아요. 한쪽만 적어도 막히고, 상대에게는 알리지 않아요. 원래 번호를 그대로 두지 않고 암호값으로 바꿔 두며, 화면에는 뒤 네 자리만 보여요. 번호 주인에게는 따로 알리지 않고, 소개를 막는 데에만 써요.</p>
     <Textarea aria-label="피하고 싶은 휴대폰 번호(한 줄에 하나)" value={text} onChange={event => setText(event.target.value)} rows={3} placeholder={"010-1234-5678\n한 줄에 하나씩, 여러 개도 괜찮아요"} className="mt-5 rounded-xl border-border bg-card text-sm leading-7" />
     <div className="mt-4 flex flex-wrap items-center gap-3"><Button disabled={!phones.length || sending} onClick={() => void add()} className={`h-11 rounded-xl px-5 ${interaction}`}>{sending ? "저장하는 중…" : `${phones.length ? `${phones.length}개 ` : ""}피하기 목록에 넣기`}</Button>{picker && <Button type="button" variant="outline" onClick={() => void fromContacts()} className="h-11 rounded-xl border-border hover:bg-muted hover:text-foreground"><Contact size={15} />연락처에서 고르기</Button>}{message && <p role="status" className="text-xs text-muted-foreground">{message}</p>}</div>
     {list && list.length > 0 && <ul className="mt-6 divide-y divide-border border-t border-border">{list.map(item => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-sm"><span className="tabular-nums">010-••••-{item.tail}</span><Button variant="ghost" size="sm" aria-label={`뒤 네 자리 ${item.tail} 번호 지우기`} onClick={() => void remove(item.id)} className="h-8 shrink-0 rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground"><X size={13} />지우기</Button></li>)}</ul>}
@@ -364,14 +364,14 @@ function LiveProfileView() {
     <section className="space-y-10">
       <PageHeader mark="내 정보" label="계정과 신청" en="ABOUT ME" title="내 정보" lead="지금 어디쯤인지, 다음에 무엇을 하면 되는지 먼저 보여 드려요." />
       {/* 한눈에 보는 요약(데모 내 정보와 같은 모양) */}
-      <div className="relative overflow-hidden rounded-3xl border border-lilac bg-mist p-6 sm:p-8">
+      <div className="relative overflow-hidden rounded-3xl border border-lilac bg-mist p-3 sm:p-8">
         <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--primary)_18%,transparent),transparent)]" />
-        <div className="relative grid gap-3 sm:grid-cols-3">
+        <div className="relative grid gap-2 sm:grid-cols-3 sm:gap-3">
           {[
             { label: "신청 상태", value: data?.application ? ({ draft: "작성 중", submitted: "접수 완료", reviewing: "검토 중", needs_changes: "보완 요청", approved: "소개 준비", held: "보류", withdrawn: "철회", rejected: "소개 어려움" } as Record<string, string>)[data.application.status] : "신청 전", sub: data?.application?.submittedAt ? `${kstDay(data.application.submittedAt)} 접수` : "신청은 무료예요" },
             { label: "내 기수", value: data?.cohort ? `${cohortName(data.cohort.number)} · D-${Math.max(0, Math.round((Date.parse(`${data.cohort.startsOn}T12:00:00+09:00`) - Date.now()) / 86400000))}` : "신청 뒤 정해져요", sub: data?.cohort ? `${noonOf(data.cohort.startsOn)} 정오 첫 소개` : BEFORE_US.beta.active ? "베타 기수 · 날짜는 신청 뒤 알려 드려요" : "매달 마지막 날 정오 시작" },
             { label: "알림", value: paused ? "새 소개 쉬는 중" : notices?.notice_daily_waiting ? "소개 없는 날도 알림" : "새 소개만 알림", sub: channelText ? `사이트 · ${channelText}` : "사이트 안 알림" },
-          ].map(item => <div key={item.label} className="rounded-2xl bg-card/90 p-5 shadow-[0_18px_36px_-30px_color-mix(in_oklch,var(--primary)_60%,transparent)]"><p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{item.label}</p><p className="mt-2 text-lg font-semibold text-ink">{item.value}</p><p className="mt-1 text-xs text-muted-foreground">{item.sub}</p></div>)}
+          ].map(item => <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl bg-card/90 px-4 py-3.5 shadow-[0_18px_36px_-30px_color-mix(in_oklch,var(--primary)_60%,transparent)] sm:block sm:p-5"><div className="min-w-0"><p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{item.label}</p><p className="mt-1 truncate text-xs text-muted-foreground sm:hidden">{item.sub}</p></div><p className="shrink-0 text-right text-base font-semibold text-ink sm:mt-2 sm:text-left sm:text-lg">{item.value}</p><p className="mt-1 hidden text-xs text-muted-foreground sm:block">{item.sub}</p></div>)}
         </div>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
