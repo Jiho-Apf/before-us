@@ -132,6 +132,16 @@ function withUnderlines(text: string, phrases: readonly string[]) {
   return text.split(pattern).map((part, index) => hits.includes(part) ? <Underline key={index}>{part}</Underline> : part);
 }
 
+// 첫 화면 세 가지 표시와 마감 배지(2026-10-27). 서비스의 핵심을 한눈에, 지금 신청할 이유는 버튼 바로 위에.
+const HERO_POINTS = ["운영진이 고른 한 사람", "정오 12시 도착", "만나기 전 3일 편지"];
+function HeroPoints() {
+  return <ul className="mt-6 flex flex-wrap gap-2" aria-label="비포어스의 소개 방식">{HERO_POINTS.map(point => <li key={point} className="flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/25 backdrop-blur-sm"><Check size={12} aria-hidden="true" />{point}</li>)}</ul>;
+}
+function HeroDeadline() {
+  const cohort = useRecruitingCohort();
+  return <p className={`mt-7 inline-flex min-h-7 items-center gap-2 rounded-full bg-[#F8E5A6] px-3.5 py-1.5 text-xs font-semibold text-[#2B2540] shadow-[0_10px_24px_-14px_rgba(40,20,90,0.7)] transition-opacity duration-300 ${cohort ? "opacity-100" : "opacity-0"}`} aria-hidden={!cohort}><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />{cohort ? <>{BETA ? "베타 무료" : `${cohortName(cohort.number)} 모집 중`} · 신청 마감 {kstDay(cohort.applicationDeadline).replace(" (", "(")}</> : "\u00a0"}</p>;
+}
+
 function Hero() {
   const part = DAY_PARTS[dayPart(useMinuteNow())];
   return (
@@ -143,7 +153,9 @@ function Hero() {
           <p className="mb-6 flex items-center gap-2.5 text-base font-semibold sm:text-lg"><span aria-hidden="true" className="size-1.5 rounded-full bg-white" />넘기는 소개팅에 지쳤다면.</p>
           <h1 id="home-title" className="text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>
           <p className="mt-7 max-w-lg text-sm leading-[1.95] text-white/95 dark:text-white sm:text-[15px]">한 번에 한 사람만. 운영진이 당신의 이야기를 끝까지 읽고 고른 한 분을, 준비된 날 정오에 소개해요. 서로의 끌림이 확인되면, 두 사람만의 3일이 시작돼요.</p>
-          <div className="mt-9 flex flex-wrap gap-3">
+          <HeroPoints />
+          <HeroDeadline />
+          <div className="mt-4 flex flex-wrap gap-3">
             <Button asChild className={`h-12 rounded-full bg-white px-6 text-primary hover:bg-white/90 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={17} /></Link></Button>
             <Button asChild variant="outline" className={`h-12 rounded-full border-white/35 bg-transparent px-5 text-white hover:bg-white/10 hover:text-white dark:bg-transparent ${interaction}`}><Link to="/two-starts">어떻게 알아가나요? <ArrowRight size={15} /></Link></Button>
           </div>

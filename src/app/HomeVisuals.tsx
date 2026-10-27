@@ -44,10 +44,11 @@ function Photo({ name, width, eager = false, className = "" }: { name: keyof typ
 }
 const Dots = ({ className = "size-1.5" }: { className?: string }) => <span aria-hidden="true" className="flex gap-1"><span className={`${className} rounded-full bg-primary`} /><span className={`${className} rounded-full bg-accent`} /></span>;
 
-// ① 첫 화면 사진: 분홍 노을 아래 초록 들판(Unsplash 1590706504556). 원본에 있던 두 사람만 지우고(그 둘레만 손대고 나머지 픽셀은 원본 그대로) public/images에 둔다.
+// ① 첫 화면 사진: ‘정오의 빛’ — 흰 벽에 비친 나뭇잎 그림자(Unsplash 1530651796427, 2026-10-27 사용자 선택).
+// 이전 사진(들판, public/images/hero-meadow-*)은 되돌릴 때를 위해 남겨 둔다.
 // 데스크톱은 오른쪽 넓게 깔고 보라색이 왼쪽에서 스며든다. 모바일은 아래쪽(카드 뒤)에 깔고 위에서 보라색이 내려와 녹아든다.
 export function HeroBackdrop() {
-  const src = (w: number) => `/images/hero-meadow-${w}.jpg`;
+  const src = (w: number) => `https://images.unsplash.com/photo-1530651796427-6edd0e06319e?auto=format&fit=crop&w=${w}&q=80`;
   return (
     <>
       <div aria-hidden="true" className="absolute inset-x-0 bottom-0 -z-30 h-[680px] sm:h-[760px] lg:inset-y-0 lg:left-[22%] lg:h-auto">
