@@ -142,12 +142,11 @@ export function FirstWordCard() {
 
 // ─────────────────────────────────────────────
 // 아는 사람 피하기: 적어 둔 번호로 신청한 분과는 서로 소개하지 않는다(한쪽만 적어도). 상대에게는 알리지 않는다.
-// 번호는 서버에서 되돌릴 수 없는 암호값으로만 저장하고, 화면에는 뒤 네 자리와 메모만 보인다.
+// 번호는 서버에서 되돌릴 수 없는 암호값으로만 저장하고, 화면에는 뒤 네 자리만 보인다(메모는 받지 않는다).
 type ContactPicker = { select: (properties: string[], options: { multiple: boolean }) => Promise<{ tel?: string[] }[]> };
 function AvoidContactsCard() {
   const [list, setList] = useState<AvoidContact[] | null>(null);
   const [text, setText] = useState("");
-  const [memo, setMemo] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const picker = typeof navigator !== "undefined" ? (navigator as Navigator & { contacts?: ContactPicker }).contacts : undefined;
@@ -157,11 +156,11 @@ function AvoidContactsCard() {
   const add = async () => {
     if (!phones.length || sending) return;
     setSending(true);
-    const { data, error } = await addAvoidContacts(phones, memo);
+    const { data, error } = await addAvoidContacts(phones);
     setSending(false);
     if (error) { setMessage(error); return; }
     setMessage(data ? `${data}개를 더했어요. 이 번호로 신청한 분과는 소개하지 않아요.` : "이미 적어 둔 번호예요.");
-    setText(""); setMemo("");
+    setText("");
     await refresh();
   };
   const remove = async (id: string) => { const { error } = await deleteAvoidContact(id); if (error) { setMessage(error); return; } setMessage("목록에서 지웠어요."); await refresh(); };
@@ -175,15 +174,9 @@ function AvoidContactsCard() {
   return <Sheet className="p-6 sm:p-8">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="flex items-center gap-2 text-xs font-semibold text-accent"><UserX size={14} />아는 사람 피하기</p><h2 className="mt-3 text-xl font-semibold leading-[1.5]">마주치고 싶지 않은 사람이 있다면,<br />번호를 적어 두세요.</h2></div>{list && <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{list.length}개 적어 둠</span>}</div>
     <p className="mt-3 text-sm leading-7 text-muted-foreground">적어 둔 번호로 신청한 분과는 서로 소개하지 않아요. 한쪽만 적어도 막히고, 상대에게는 알리지 않아요. 번호는 되돌릴 수 없는 암호값으로만 저장하고, 화면에는 뒤 네 자리만 보여요.</p>
-    <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_180px]">
-      <Textarea aria-label="피하고 싶은 휴대폰 번호(한 줄에 하나)" value={text} onChange={event => setText(event.target.value)} rows={3} placeholder={"010-1234-5678\n한 줄에 하나씩, 여러 개도 괜찮아요"} className="rounded-xl border-border bg-card text-sm leading-7" />
-      <div className="flex flex-col gap-2">
-        <input aria-label="메모(선택)" value={memo} maxLength={20} onChange={event => setMemo(event.target.value)} placeholder="메모(선택) · 예: 회사" className="h-11 rounded-xl border border-border bg-card px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-        {picker && <Button type="button" variant="outline" onClick={() => void fromContacts()} className="h-11 rounded-xl border-border hover:bg-muted hover:text-foreground"><Contact size={15} />연락처에서 고르기</Button>}
-      </div>
-    </div>
-    <div className="mt-4 flex flex-wrap items-center gap-3"><Button disabled={!phones.length || sending} onClick={() => void add()} className={`h-11 rounded-xl px-5 ${interaction}`}>{sending ? "저장하는 중…" : `${phones.length ? `${phones.length}개 ` : ""}피하기 목록에 넣기`}</Button>{message && <p role="status" className="text-xs text-muted-foreground">{message}</p>}</div>
-    {list && list.length > 0 && <ul className="mt-6 divide-y divide-border border-t border-border">{list.map(item => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-sm"><span className="flex min-w-0 items-center gap-3"><span className="tabular-nums">010-••••-{item.tail}</span>{item.memo && <span className="truncate rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">{item.memo}</span>}</span><Button variant="ghost" size="sm" aria-label={`뒤 네 자리 ${item.tail} 번호 지우기`} onClick={() => void remove(item.id)} className="h-8 shrink-0 rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground"><X size={13} />지우기</Button></li>)}</ul>}
+    <Textarea aria-label="피하고 싶은 휴대폰 번호(한 줄에 하나)" value={text} onChange={event => setText(event.target.value)} rows={3} placeholder={"010-1234-5678\n한 줄에 하나씩, 여러 개도 괜찮아요"} className="mt-5 rounded-xl border-border bg-card text-sm leading-7" />
+    <div className="mt-4 flex flex-wrap items-center gap-3"><Button disabled={!phones.length || sending} onClick={() => void add()} className={`h-11 rounded-xl px-5 ${interaction}`}>{sending ? "저장하는 중…" : `${phones.length ? `${phones.length}개 ` : ""}피하기 목록에 넣기`}</Button>{picker && <Button type="button" variant="outline" onClick={() => void fromContacts()} className="h-11 rounded-xl border-border hover:bg-muted hover:text-foreground"><Contact size={15} />연락처에서 고르기</Button>}{message && <p role="status" className="text-xs text-muted-foreground">{message}</p>}</div>
+    {list && list.length > 0 && <ul className="mt-6 divide-y divide-border border-t border-border">{list.map(item => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-sm"><span className="tabular-nums">010-••••-{item.tail}</span><Button variant="ghost" size="sm" aria-label={`뒤 네 자리 ${item.tail} 번호 지우기`} onClick={() => void remove(item.id)} className="h-8 shrink-0 rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground"><X size={13} />지우기</Button></li>)}</ul>}
     <p className="mt-4 text-[11px] leading-5 text-muted-foreground">이미 진행 중인 소개에는 적용되지 않아요. 지금 소개된 분이 아는 사람이라면 ‘두 사람’ 화면에서 차단해 주세요.</p>
   </Sheet>;
 }

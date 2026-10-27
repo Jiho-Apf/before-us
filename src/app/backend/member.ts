@@ -132,5 +132,5 @@ export const deleteGreeting = () => rpc<null>("delete_greeting")
 // 아는 사람 피하기: 적은 번호로 신청한 분과는 서로 소개하지 않는다. 번호는 서버에서 해시로만 저장하고, 뒤 네 자리와 메모만 돌려받는다.
 export type AvoidContact = { id: string; tail: string; memo: string | null; created_at: string }
 export const loadAvoidContacts = () => rpc<AvoidContact[]>("my_avoid_contacts")
-export const addAvoidContacts = (phones: string[], memo: string) => rpc<number>("add_avoid_contacts", { p_phones: phones, p_memo: memo.trim() || null })
+export const addAvoidContacts = (phones: string[]) => rpc<number>("add_avoid_contacts", { p_phones: phones })
 export const deleteAvoidContact = (id: string) => rpc<null>("delete_avoid_contact", { p_id: id })
