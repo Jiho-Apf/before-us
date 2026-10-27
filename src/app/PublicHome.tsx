@@ -11,7 +11,7 @@ import { cohortCode, cohortName, useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
 import DirectIntroduction from "./DirectIntroduction";
-import { CompareTable, HeroBackdrop, Journey, LetterMoment, NumberBand, PlanFlow, Standards, Underline, useInView } from "./HomeVisuals";
+import { CompareTable, HeroBackdrop, Journey, LetterMoment, NumberBand, PaymentSteps, Standards, Underline, useInView } from "./HomeVisuals";
 import { HeroLetters } from "./HeroLetters";
 import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
@@ -239,7 +239,7 @@ function InitialOperation({ detailsTo = "#faq-cohort" }: { detailsTo?: string })
   return (
     <section className="bleed relative isolate overflow-clip bg-[#F8E5A6] py-16 text-[#2B2540] sm:py-20 dark:bg-[#3B3424] dark:text-white" aria-labelledby="initial-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
-      <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.15em] text-[#7A5A10] dark:text-[#F3D98A]"><span aria-hidden="true" className="flex gap-1"><span className="size-1.5 rounded-full bg-primary" /><span className="size-1.5 rounded-full bg-accent" /></span>{cohortCode(cohort.number)} · TOGETHER AT NOON</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">{cohortName(cohort.number)} 첫 소개는,<br /><span className="text-primary dark:text-[#B9ABF2]">{kstDay(cohort.startsOn).replace(/ \(.\)$/, "")}</span> 정오에.</h2><p className="mt-6 inline-flex items-center gap-2.5 rounded-full bg-white/70 py-2 pl-3 pr-4 text-xs shadow-[0_10px_24px_-16px_rgba(120,90,20,0.6)] ring-1 ring-[#2B2540]/5 dark:bg-white/10"><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" /><span className="text-[#2B2540]/65 dark:text-white/70">신청 마감</span><span className="font-semibold text-primary dark:text-[#B9ABF2]">{kstDay(cohort.applicationDeadline)}</span></p></div><div className="space-y-4 text-sm leading-[1.95]">{cohort.number === 0 ? <><p>정식으로 열기 전에, 베타 테스터와 먼저 시작해요. 같은 날 신청을 마친 분들이 시작하는 날 정오에 함께 첫 소개를 받아요.</p><p className="opacity-95"><strong className="font-semibold">베타는 무료예요</strong> · 소개도, 서로 선택한 뒤의 3일 교류도 결제 없이 진행해요. 써 보신 의견으로 비포어스를 다듬어 갈게요.</p></> : <><p>처음에는 한 달 단위 기수제로 시작해요. 같은 기수의 분들이 모이면, 시작하는 날 정오에 함께 첫 소개를 받아요. 첫 소개 날짜를 미리 알려 드려서 오래 기다리지 않아요.</p><p className="opacity-95"><strong className="font-semibold">한 번 더, 5번</strong> · 2026년 12월 31일까지 소개비를 낸 분이 5번의 소개 동안 교류를 시작하지 못했다면, 한 번 더 5번을 추가 비용 없이 소개해 드려요. 계정마다 한 번이에요.</p></>}<p className="border-t border-current/20 pt-4 text-xs"><Link to={detailsTo} className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline">{cohort.number === 0 ? "베타 운영 자세히" : "기수제와 ‘한 번 더, 5번’ 자세히"} <ArrowRight size={13} /></Link></p></div></div>
+      <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.15em] text-[#7A5A10] dark:text-[#F3D98A]"><span aria-hidden="true" className="flex gap-1"><span className="size-1.5 rounded-full bg-primary" /><span className="size-1.5 rounded-full bg-accent" /></span>{cohortCode(cohort.number)} · TOGETHER AT NOON</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">{cohortName(cohort.number)} 첫 소개는,<br /><span className="text-primary dark:text-[#B9ABF2]">{kstDay(cohort.startsOn).replace(/ \(.\)$/, "")}</span> 정오에.</h2><p className="mt-6 inline-flex items-center gap-2.5 rounded-full bg-white/70 py-2 pl-3 pr-4 text-xs shadow-[0_10px_24px_-16px_rgba(120,90,20,0.6)] ring-1 ring-[#2B2540]/5 dark:bg-white/10"><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" /><span className="text-[#2B2540]/65 dark:text-white/70">신청 마감</span><span className="font-semibold text-primary dark:text-[#B9ABF2]">{kstDay(cohort.applicationDeadline)}</span></p></div><div className="space-y-4 text-sm leading-[1.95]">{cohort.number === 0 ? <><p>정식으로 열기 전에, 베타 테스터와 먼저 시작해요. 같은 날 신청을 마친 분들이 시작하는 날 정오에 함께 첫 소개를 받아요.</p><p className="opacity-95"><strong className="font-semibold">베타는 무료예요</strong> · 소개도, 서로 선택한 뒤의 3일 교류도 결제 없이 진행해요. 써 보신 의견으로 비포어스를 다듬어 갈게요.</p></> : BETA ? <><p>한 달 단위 기수제로 시작해요. 같은 기수의 분들이 시작하는 날 정오에 함께 첫 소개를 받아요. 첫 소개 날짜를 미리 알려 드려서 오래 기다리지 않아요.</p><p className="opacity-95"><strong className="font-semibold">베타라서 {cohortName(cohort.number)}도 무료예요</strong> · 소개도, 서로 선택한 뒤의 3일 교류도 결제 없이 진행해요. 유료 운영은 사업자등록을 마친 뒤 시작하고, 시작하기 전에 사이트와 메일로 미리 알려 드려요.</p></> : <><p>처음에는 한 달 단위 기수제로 시작해요. 같은 기수의 분들이 모이면, 시작하는 날 정오에 함께 첫 소개를 받아요. 첫 소개 날짜를 미리 알려 드려서 오래 기다리지 않아요.</p><p className="opacity-95"><strong className="font-semibold">한 번 더, 5번</strong> · 2026년 12월 31일까지 소개비를 낸 분이 5번의 소개 동안 교류를 시작하지 못했다면, 한 번 더 5번을 추가 비용 없이 소개해 드려요. 계정마다 한 번이에요.</p></>}<p className="border-t border-current/20 pt-4 text-xs"><Link to={detailsTo} className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline">{cohort.number === 0 || BETA ? "베타 운영 자세히" : "기수제와 ‘한 번 더, 5번’ 자세히"} <ArrowRight size={13} /></Link></p></div></div>
     </section>
   );
 }
@@ -418,20 +418,27 @@ function Exchange({ compact = false }: { compact?: boolean }) {
 // 첫 화면과 각 섹션에서 옮겨 온 운영 규칙. 자세한 기준은 FAQ에 두고 여기선 핵심만.
 const PROMISES = [
   "소개는 준비된 날 정오 12시에, 하루 최대 한 명이에요. 매일 새 소개를 보장하지는 않아요.",
-  "후보와 참여 시점이 맞기까지 기다림이 생길 수 있어요. 기다리는 동안에는 비용이 들지 않아요.",
-  "3일 교류는 상호 선택, 양쪽 결제, 같은 방식과 시작일 합의 뒤에 시작돼요. 만남을 강요하지 않아요.",
-  "소개비 한 번에 최대 5번 소개받아요. 평생 무제한 소개나 연애 성공을 약속하지는 않아요.",
+  "상대가 기한 안에 답하지 않았거나 운영 사정·상대 사정으로 끝난 소개는 5번에 넣지 않아요.",
+  "3일 교류는 서로 선택, 양쪽 결제, 같은 방식과 시작일 합의 뒤에 시작돼요. 만남을 강요하지 않아요.",
+  "평생 무제한 소개나 연애 성공을 약속하지는 않아요. 대신 한 분 한 분을 오래 고민해서 소개해요.",
+]
+const BETA_PROMISES = [
+  "소개는 준비된 날 정오 12시에, 하루 최대 한 명이에요. 매일 새 소개를 보장하지는 않아요.",
+  "상대가 기한 안에 답하지 않아 끝나면, 거절이 아니라 답이 오지 않았다고 알려 드려요.",
+  "3일 교류는 서로 선택하고 같은 방식·시작일을 함께 정한 뒤에 시작돼요. 만남을 강요하지 않아요.",
+  "베타는 운영 사정에 따라 끝날 수 있고, 정식 운영으로 바뀌기 전에 사이트와 메일로 미리 알려 드려요.",
 ]
 const BETA_FAQ = { id: "beta", title: "베타 기간에는 무엇이 다른가요?", text: `지금은 정식으로 열기 전 베타 기간이라 결제가 없어요. 소개도, 서로 선택한 뒤의 3일 교류도 무료로 진행하고, 교류는 두 분이 같은 방식과 시작일을 정하면 바로 시작해요. 아래의 요금·환불 안내는 정식 운영 기준이에요. 베타는 운영 사정에 따라 언제든 끝날 수 있고, 끝나거나 정식 운영으로 바뀌기 7일 전에 사이트와 메일로 알려 드려요. 그때 이어서 쓸지 직접 고를 수 있고, 자동으로 결제되는 일은 없어요. 써 보시며 불편한 점은 ‘문의하기 → 베타 의견’으로 남겨 주세요.` };
-const BETA_COHORT_FAQ = { id: "cohort", title: "기수제는 어떻게 운영되나요?", text: "기수마다 신청을 받아, 시작하는 날 정오에 함께 첫 소개를 받아요. 지금은 베타 기수를 모집하고 있고, 신청 마감과 첫 소개 날짜는 첫 화면의 기수 안내에 있어요. 마감 뒤에 신청하면 다음 기수로 이어지고, 내 기수와 첫 소개 날짜는 오늘 화면에서 볼 수 있어요. 정식 운영 일정은 정해지면 공지할게요." };
+const BETA_COHORT_FAQ = { id: "cohort", title: "기수제는 어떻게 운영되나요?", text: "기수마다 신청을 받아, 시작하는 날 정오에 함께 첫 소개를 받아요. 신청 마감과 첫 소개 날짜는 첫 화면의 기수 안내에 있어요. 마감 뒤에 신청하면 다음 기수로 이어지고, 내 기수와 첫 소개 날짜는 오늘 화면에서 볼 수 있어요. 베타 기간에는 어느 기수에 배정되든 무료예요. 11월 12일 뒤에 신청해 1기(12월 31일 시작)로 이어진 분도 베타가 끝날 때까지 결제하지 않아요. 정식 운영 일정은 정해지면 미리 알려 드릴게요." };
 const FAQ_BASE = [
   { id: "cohort", title: "기수제는 어떻게 운영되나요?", text: "처음에는 한 달 단위 기수제로 운영해요. 기수마다 신청을 받아, 시작하는 날 정오에 함께 첫 소개를 받아요. 1기는 2026년 12월 31일 정오에 시작하고 신청은 12월 27일까지 받아요. 이후 기수는 매달 마지막 날 시작하고, 신청은 시작 4일 전까지예요. 마감 뒤에 신청하면 다음 기수로 이어지고, 내 기수와 첫 소개 날짜는 오늘 화면에서 볼 수 있어요. 기수가 끝나도 남은 소개는 다음 기수 기간에 이어서 받아요. 회원이 많이 모이면 상시 운영으로 바꿀 수 있어요." },
   { id: "bonus", title: "‘한 번 더, 5번’은 무엇인가요?", text: `${PLAN_NOTICE.bonus} 기본 5번 동안 서로 선택이 없었거나, 서로 선택했지만 교류가 시작되지 않은 경우가 해당돼요. 한 번이라도 교류를 시작했다면 해당하지 않아요. 하루 최대 한 명이며, 매일 소개를 보장하지는 않아요.` },
-  { id: "waiting", title: "후보를 기다리는 동안은 어떻게 되나요?", text: "신청·검토·기수 시작 전 대기는 무료예요. 기수가 시작되기 전에 소개 이용료를 안내하고, 시작 전에는 언제든 전액 환불해요. 준비된 날 정오 12시에 하루 최대 한 명을 소개하며, 매일 새 소개를 보장하지 않아요. 활성 소개는 회원당 한 건이고, 상호 선택 뒤에는 새 소개를 멈춰요." },
+  { id: "waiting", title: "후보를 기다리는 동안은 어떻게 되나요?", text: `신청·검토와 기수 시작 전 대기는 무료예요. 정식 운영에서는 신청이 승인된 뒤 소개비를 내요. 내 기수 첫날부터 소개받으려면 기수 시작 전날 18:00까지 내 주세요. 첫 상대 프로필을 열기 전에는 언제든 전액 환불해요. 준비된 날 정오에 하루 최대 한 명을 소개하며, 매일 새 소개를 보장하지 않아요. 활성 소개는 회원당 한 건이고, 서로 선택한 뒤에는 새 소개를 멈춰요.${BETA ? " 지금은 베타라 결제가 없어요." : ""}` },
   { id: "three-days", title: "3일 동안 꼭 무언가를 해야 하나요?", text: "3일은 상호 선택·양쪽 결제·같은 방식과 시작일 합의 뒤 교류를 시작한 기간이며, 소개 대기 기간은 별도예요. 그 안에 친밀함·연애를 완성하거나 만남을 강제하지 않아요. 4일째에 두 분이 각자 만남 의사를 선택하고, 양쪽 모두 희망할 때만 시간과 장소를 조율해요." },
   { id: "not-started", title: "상호 선택 후 교류가 시작되지 못하면요?", text: "상호 선택 후 기본 결제 기한은 24시간이에요. 한쪽만 결제하고 상대가 결제하지 않으면, 낸 사람의 교류비는 전액 환불되고 소개 권리도 돌아와요. 양쪽 결제 뒤 A/B·시작일 합의는 기본 48시간, 양쪽 동의 시 24시간 한 번 연장할 수 있어요. 끝내 교류가 시작되지 않으면 교류비는 전액 환불되고 소개 권리는 그대로 남아요." },
-  { id: "cancellation", title: "신청이나 교류를 취소할 수 있나요?", text: "결제 후 첫 상대 프로필을 실제로 열람하기 전 취소는 소개비 전액 환불이에요. 교류비는 아직 열리지 않은 날만큼 돌려드려요. 요청을 받으면 운영진이 확인한 뒤 환불을 진행해요." },
-  { id: "refund", title: "환불과 보유기간, 재이용 기준은 무엇인가요?", text: `소개비는 첫 상대 프로필을 실제로 열람하기 전에 취소하면 10,000원 전액 환불이에요. 교류비는 아직 열리지 않은 날만큼 환불하고, 날짜별 금액은 결제 전에 안내해요. 법정 청약철회 권리와 약관에 따른 더 유리한 권리를 제한하지 않아요. 정상 교류를 마친 뒤 새 소개를 원하면 새 회차 소개비 10,000원부터 다시 시작해요. 교류 중단·약속 취소·노쇼 기준과 자료 보유·삭제 기간은 내 정보에서 확인할 수 있어요.` },
+  { id: "cancellation", title: "신청이나 교류를 취소할 수 있나요?", text: `정식 운영 기준으로, 첫 상대 프로필을 열기 전에는 소개비 전액을 돌려드려요. 프로필을 연 뒤에는 아직 받지 않은 소개 횟수만큼(1번에 2,000원) 돌려드려요. 교류비는 두 분이 모두 ‘알아가고 싶어요’를 고른 뒤 24시간 안에 각자 내고, 한 분만 내면 낸 교류비는 전액 돌려드리며 이 소개는 횟수에서 빼요. 교류가 시작된 뒤에는 아직 열리지 않은 날만큼 돌려드려요. 환불은 요청을 확인한 뒤 3영업일 안에 해요.${BETA ? " 지금은 베타라 결제가 없어요." : ""}` },
+  { id: "no-answer", title: "상대가 답하지 않으면 어떻게 되나요?", text: `상대는 다음 날 오전 11시까지 답할 수 있어요. 그때까지 답이 없으면 소개는 자동으로 마무리되고, 먼저 답한 분에게는 ‘상대가 기한 안에 답하지 않았어요’라고 알림과 메일로 알려 드려요. 거절과 무응답을 구분해서 알려 드려요.${BETA ? "" : " 상대가 답하지 않은 소개는 5번에 넣지 않아요."} 두 번 이어서 답하지 않은 분은 새 소개를 잠시 쉬게 되고, 내 정보에서 다시 받을 수 있어요.` },
+  { id: "refund", title: "환불과 보유기간, 재이용 기준은 무엇인가요?", text: `소개비는 첫 상대 프로필을 열기 전에 취소하면 10,000원 전액, 연 뒤에는 남은 소개 1번에 2,000원씩 돌려드려요. 교류비는 아직 열리지 않은 날만큼 환불하고, 날짜별 금액은 결제 전에 안내해요. 법정 청약철회 권리와 약관에 따른 더 유리한 권리를 제한하지 않아요. 정상 교류를 마친 뒤 새 소개를 원하면 새 회차 소개비 10,000원부터 다시 시작해요. 교류 중단·약속 취소·노쇼 기준과 자료 보유·삭제 기간은 내 정보에서 확인할 수 있어요.` },
   { id: "visibility", title: "어떤 정보가 상대에게 공개되나요?", text: "신청서 마지막 단계에서 상대에게 보일 항목을 직접 고르고, 특정 상대에게 제공하기 전에 한 번 더 동의를 받아요. 상대 프로필은 소개된 날 정오부터 다음 날 11:00 응답 마감까지 볼 수 있고, 서로 알아가기로 하면 교류와 약속이 끝날 때까지 이어져요. 끝난 소개를 다시 보는 보관함은 없어요." },
   { id: "contact", title: "문의는 어디에서 할 수 있나요?", text: "페이지 맨 아래의 ‘문의하기’에서 남길 수 있어요. 회원이라면 내 정보의 ‘문의·신고’에서 진행 중인 소개와 연결해 남기면 더 빨리 확인할 수 있어요." },
 ];
@@ -443,22 +450,18 @@ const FIRST_FAQ = [
   { id: "cost", title: "비용은 언제, 얼마인가요?", text: `${BETA ? "지금은 베타 기간이라 모두 무료예요. 정식 운영 기준으로는 " : ""}신청과 검토는 무료이고, 소개 이용료 ${money(BEFORE_US.pricing.introduction)}으로 최대 5번 소개받아요. 서로 선택해 3일 교류를 시작할 때만 1인 ${money(BEFORE_US.pricing.exchangePerPerson)}의 교류비가 들어요. 월정액이 아니고 자동 결제도 없어요.` },
   { id: "difference", title: "다른 소개 서비스와 무엇이 다른가요?", text: "넘기며 고르지 않아요. 운영진이 신청서를 직접 읽고 한 분을 골라 정오에 소개해요. 서로 선택해도 바로 연락처를 주고받지 않고, 3일 동안 편지나 ‘첫 장면’으로 먼저 알아가요. 만날지는 넷째 날 각자 정하고, 번호는 만나는 날에만 서로 보여요." },
 ];
-const FAQ = BETA ? [BETA_FAQ, ...FIRST_FAQ, BETA_COHORT_FAQ, ...FAQ_BASE.filter(item => item.id !== "cohort")] : [...FIRST_FAQ, ...FAQ_BASE];
+const FAQ = BETA ? [BETA_FAQ, ...FIRST_FAQ, BETA_COHORT_FAQ, ...FAQ_BASE.filter(item => item.id !== "cohort" && item.id !== "bonus")] : [...FIRST_FAQ, ...FAQ_BASE];
 
 function Pricing() {
-  const promises = BETA ? PROMISES.map(item => item.replace("상호 선택, 양쪽 결제, 같은 방식과 시작일 합의 뒤에", "상호 선택과 같은 방식·시작일 합의 뒤에").replace("소개비 한 번에 최대 5번 소개받아요. ", "")) : PROMISES;
+  const promises = BETA ? BETA_PROMISES : PROMISES;
   const card = "rounded-2xl border border-border bg-card px-6 py-7 sm:px-8";
   return (
     <section id="pricing" className="bleed relative isolate overflow-clip bg-[#F8F9FC] py-20 dark:bg-mist sm:py-24" aria-labelledby="pricing-title">
       <SectionLabel number="06" ko="이용 요금">CLEAR FROM THE BEGINNING</SectionLabel>
       <div className="grid gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16">
-        <div><h2 id="pricing-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">시작하기 전에,<br />분명하게 안내해요.</h2><p className="mt-5 text-[15px] leading-[1.9] text-foreground/75">{BETA ? <>지금은 베타 기간이라 결제가 없어요.<br />정식 운영으로 바뀌기 7일 전에 메일로 알려 드려요.</> : <>신청·검토·첫 소개 준비 전 대기는 무료.<br />첫 소개 준비와 현재 참여 가능성 확인 후 안내해요.</>}</p></div>
+        <div><h2 id="pricing-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">시작하기 전에,<br />분명하게 안내해요.</h2><p className="mt-5 text-[15px] leading-[1.9] text-foreground/75">{BETA ? <>지금은 베타 기간이라 결제가 없어요.<br />정식 운영으로 바뀌기 전에 사이트와 메일로 미리 알려 드려요.</> : <>돈이 드는 때는 딱 두 번이에요.<br />소개를 받기 전, 그리고 두 분이 서로 고른 뒤.</>}</p></div>
         <div className="space-y-4">
-          <div className={card}>
-            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2.5 text-[13px] font-medium text-foreground/70">{BETA ? "베타 기간 이용료 · 1인" : "소개 이용료 · 1인"}</p><strong className="text-[26px] font-semibold leading-none tabular-nums text-primary">{BETA ? "무료" : money(BEFORE_US.pricing.introduction)}</strong></div><p className="text-xs text-foreground/60">{BETA ? `정식 운영 소개 이용료 ${money(BEFORE_US.pricing.introduction)}(예정) · 부가세 포함` : "부가세 포함 · 자동 갱신 없음"}</p></div>
-            <p className="mt-6 border-t border-border pt-5 text-[15px] leading-[1.9] text-foreground/80">{BETA ? "베타 기간에는 서로 더 알아가기로 한 뒤의 3일 교류도 무료예요. 두 사람이 같은 방식과 시작일을 확인하면 3일이 시작돼요." : "서로 더 알아가기로 한 뒤의 교류비는, 결제하기 전에 화면에서 먼저 확인할 수 있어요. 두 사람 모두 확인해야 3일이 시작돼요."}</p>
-          </div>
-          <PlanFlow />
+          <PaymentSteps />
           <div className={card}>
             <p className="text-ink text-base font-semibold">분명히 해 두고 싶은 것들</p>
             <ul className="mt-4 divide-y divide-border">{promises.map(item => <li key={item} className="flex gap-3.5 py-3.5 text-[15px] leading-[1.8] text-foreground/80 first:pt-1 last:pb-0"><span aria-hidden="true" className="mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul>

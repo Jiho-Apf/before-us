@@ -258,6 +258,40 @@ export function Standards() {
 }
 
 // 이용 흐름: 요금은 위 문단에 두고, 이 상자는 ‘언제 무엇을 하는지’만 조용히 보여 준다
+// 이용 요금: 신청부터 만남까지 네 단계에 금액을 붙여 '언제, 얼마를 내는지' 한눈에 보여 준다.
+// 베타에서는 정식 운영 금액을 흐리게 두고 '베타 무료'를 붙인다.
+const PAY_STEPS = [
+  { step: "신청·검토", note: "신청서를 쓰면 운영진이 직접 읽고 확인해요.", price: 0, label: "" },
+  { step: "정오의 소개 · 최대 5번", note: "승인되면 기수 시작 전날 18:00까지 내요. 첫 상대 프로필을 열기 전에는 언제든 전액 돌려드려요.", price: BEFORE_US.pricing.introduction, label: "소개비" },
+  { step: "서로 ‘알아가고 싶어요’ → 3일 교류", note: "두 분 모두 고른 뒤에만, 각자 24시간 안에 내요. 한 분만 내면 낸 금액은 모두 돌려드려요.", price: BEFORE_US.pricing.exchangePerPerson, label: "교류비" },
+  { step: "만남 선택 · 약속", note: "넷째 날 각자 정하고, 만나는 날 번호가 보여요.", price: 0, label: "" },
+];
+const won = (amount: number) => `${amount.toLocaleString("ko-KR")}원`;
+export function PaymentSteps() {
+  return (
+    <div className="rounded-2xl border border-border bg-card px-6 py-7 sm:px-8">
+      <div className="flex flex-wrap items-baseline justify-between gap-2"><p className="text-ink text-base font-semibold">언제, 얼마를 내나요?</p><p className="text-xs text-foreground/60">1인 기준 · 부가세 포함</p></div>
+      <ol className="mt-5 divide-y divide-border">
+        {PAY_STEPS.map((item, index) => (
+          <li key={item.step} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 py-4 first:pt-1 last:pb-0 sm:grid-cols-[1.75rem_minmax(0,1fr)_auto] sm:items-center sm:gap-x-4">
+            <span aria-hidden="true" className="flex size-7 items-center justify-center rounded-full bg-primary/8 text-[11px] font-semibold text-primary tabular-nums">{index + 1}</span>
+            <div><p className="text-ink text-[15px] font-semibold">{item.step}</p><p className="mt-1 text-[13px] leading-6 text-foreground/70">{item.note}</p></div>
+            <div className="col-start-2 mt-2.5 sm:col-start-3 sm:mt-0 sm:text-right">
+              {item.price === 0 ? <span className="inline-flex rounded-full bg-muted px-3 py-1 text-xs font-semibold text-foreground/70">무료</span>
+                : BETA ? <span className="inline-flex flex-col items-start gap-1 sm:items-end"><span className="rounded-full bg-[#F8E5A6] px-3 py-1 text-xs font-semibold text-[#5A4310]">베타 무료</span><span className="text-[11px] text-foreground/50">정식 {item.label} {won(item.price)}</span></span>
+                : <span className="inline-flex rounded-full bg-primary/8 px-3 py-1 text-xs font-semibold text-primary tabular-nums">{item.label} {won(item.price)}</span>}
+            </div>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 rounded-xl bg-mist px-4 py-3.5 text-[13px]">
+        <span className="font-semibold text-ink">{BETA ? "지금은 베타라 모든 단계가 무료예요" : `첫 만남까지 1인 최대 ${won(BEFORE_US.pricing.firstExchangeTotalPerPerson)}`}</span>
+        <span className="text-foreground/65">월정액·자동 결제 없음</span>
+      </div>
+    </div>
+  );
+}
+
 const PLAN_FLOW = [
   { when: "신청·검토", note: "신청서를 적으면 운영진이 직접 확인해요" },
   { when: "정오의 소개", note: "준비된 날 12시에 한 분이 도착해요" },
