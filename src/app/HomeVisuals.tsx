@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { ArrowUpRight, BadgeAlert, CalendarX2, Check, Link2Off, LockOpen, ShieldCheck, Siren, Smartphone, UserCheck } from "lucide-react";
 import { Button } from "./components/ui/button";
@@ -14,6 +14,12 @@ const money = (amount: number) => `${amount.toLocaleString("ko-KR")}원`;
 const ApplyButton = ({ className = "" }: { className?: string }) => (
   <Button asChild className={`h-12 rounded-full bg-[#F7D96B] px-7 text-[#2B2540] shadow-[0_14px_30px_-16px_rgba(180,140,20,0.7)] hover:bg-[#F2CF52] ${interaction} ${className}`}><Link to="/apply">{BETA ? "베타 무료로 신청하기" : "소개 신청하기"} <ArrowUpRight size={16} /></Link></Button>
 );
+
+// 강조 밑줄: 문장 속 몇 군데만. 화면에 들어오면 얇은 보라 선이 왼쪽부터 천천히 그어진다(움직임 줄이기에서는 처음부터 그어져 있음).
+export function Underline({ children }: { children: ReactNode }) {
+  const { ref, shown } = useInView<HTMLSpanElement>(0.8);
+  return <span ref={ref} className={`soft-underline ${shown ? "is-on" : ""}`}>{children}</span>;
+}
 
 export function useInView<T extends HTMLElement>(threshold = 0.2) {
   const ref = useRef<T>(null);

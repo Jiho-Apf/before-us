@@ -11,7 +11,7 @@ import { cohortCode, cohortName, useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
 import DirectIntroduction from "./DirectIntroduction";
-import { CompareTable, HeroBackdrop, Journey, LetterMoment, NumberBand, PlanFlow, Standards, useInView } from "./HomeVisuals";
+import { CompareTable, HeroBackdrop, Journey, LetterMoment, NumberBand, PlanFlow, Standards, Underline, useInView } from "./HomeVisuals";
 import { HeroLetters } from "./HeroLetters";
 import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
@@ -120,11 +120,6 @@ function ScrollDots() {
   );
 }
 
-// 강조 밑줄: 문장 속 몇 군데만. 화면에 들어오면 얇은 보라 선이 왼쪽부터 천천히 그어진다(움직임 줄이기에서는 처음부터 그어져 있음).
-function Underline({ children }: { children: ReactNode }) {
-  const { ref, shown } = useInView<HTMLSpanElement>(0.8);
-  return <span ref={ref} className={`soft-underline ${shown ? "is-on" : ""}`}>{children}</span>;
-}
 function withUnderlines(text: string, phrases: readonly string[]) {
   const hits = phrases.filter(phrase => text.includes(phrase));
   if (!hits.length) return text;
@@ -152,7 +147,7 @@ function Hero() {
         <div className="relative z-10">
           <p className="mb-6 flex items-center gap-2.5 text-base font-semibold sm:text-lg"><span aria-hidden="true" className="size-1.5 rounded-full bg-white" />넘기는 소개팅에 지쳤다면.</p>
           <h1 id="home-title" className="text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>
-          <p className="mt-7 max-w-lg text-sm leading-[1.95] text-white/95 dark:text-white sm:text-[15px]">몇 명을 보여 줄지보다, 누구를 보여 줄지를 오래 고민해요. 서로 끌림이 확인될 때만 두 분을 이어 드려요.</p>
+          <p className="mt-7 max-w-lg text-sm leading-[1.95] text-white/95 dark:text-white sm:text-[15px]">몇 명을 보여 줄지보다, 누구를 보여 줄지를 오래 고민해요.<br />서로 끌림이 확인될 때만 두 분을 이어 드려요.</p>
           <HeroPoints />
           <HeroDeadline />
           <div className="mt-4 flex flex-wrap gap-3">
@@ -179,16 +174,29 @@ function Philosophy() {
   );
 }
 
+// 02 소개의 두 원: 화면에 들어오면 천천히 다가가 살짝 겹치고(겹친 곳은 보라·파랑이 섞인 밝은 빛), 뒤로 보라→파랑 빛이 은은하게 번진다.
+// 겹친 부분은 파란 원 안에 보라 원과 같은 자리의 원(pair-lens)을 두고 잘라 그린다.
+function PairOrbs() {
+  const { ref, shown } = useInView<HTMLDivElement>(0.6);
+  return (
+    <div ref={ref} className={`pair-orbs ${shown ? "is-on" : ""} relative isolate flex items-center justify-center py-7`} aria-hidden="true">
+      <span className="pair-glow" />
+      <span className="pair-orb pair-orb-a size-20 rounded-full bg-primary sm:size-24" />
+      <span className="pair-orb pair-orb-b relative size-20 overflow-hidden rounded-full bg-accent sm:size-24"><span className="pair-lens" /></span>
+    </div>
+  );
+}
+
 function Introduction() {
   return (
     <section id="how-it-works" className="bleed relative isolate overflow-clip bg-mist py-20 sm:py-24" aria-labelledby="introduction-title">
       <div className="grid gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16">
         <div className="relative flex min-h-72 flex-col justify-between overflow-hidden bg-[#F5F2FD] p-8 ring-1 ring-primary/[0.06] sm:min-h-80 sm:p-10 dark:bg-lilac">
           <span className="text-[11px] font-semibold tracking-[0.13em] text-muted-foreground">ONE PAIR, AT A TIME</span>
-          <div className="group/pair flex items-center justify-center gap-5 py-7" aria-hidden="true"><span className={`size-20 rounded-full bg-primary sm:size-24 group-hover/pair:translate-x-2 ${lift}`} /><span className={`size-20 rounded-full bg-accent sm:size-24 group-hover/pair:-translate-x-2 ${lift}`} /></div>
+          <PairOrbs />
           <div className="flex items-baseline justify-between"><span className="text-sm font-semibold">한 사람을 향한 집중</span><span className="text-5xl font-light text-primary">02</span></div>
         </div>
-        <div className="flex flex-col justify-center"><SectionLabel number="02" ko="소개">THE INTRODUCTION</SectionLabel><h2 id="introduction-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">많이 보여드리기보다,<br />한 사람을 신중하게.</h2><p className="mt-6 text-[15px] leading-[2] text-muted-foreground">사진 너머의 취향, 관계를 대하는 태도, 쉬는 날의 모습까지. 운영진이 두 사람의 이야기를 나란히 놓고 오래 들여다본 뒤에야 한 쌍을 제안해요.</p><div className="mt-7 flex items-start gap-3 border-t border-border pt-5"><Clock size={17} className="mt-1 shrink-0 text-accent" /><p className="text-sm leading-7">준비된 날, 정오 12시.<br /><span className="text-muted-foreground">두 사람에게 같은 순간에 도착해요.</span></p></div></div>
+        <div className="flex flex-col justify-center"><SectionLabel number="02" ko="소개">THE INTRODUCTION</SectionLabel><h2 id="introduction-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">많이 보여드리기보다,<br />한 사람을 신중하게.</h2><p className="mt-6 text-[15px] leading-[2] text-muted-foreground"><Underline>사진 너머의 취향</Underline>, <Underline>관계를 대하는 태도</Underline>, <Underline>쉬는 날의 모습</Underline>까지. 운영진이 두 사람의 이야기를 나란히 놓고 오래 들여다본 뒤에야 한 쌍을 제안해요.</p><div className="mt-7 flex items-start gap-3 border-t border-border pt-5"><Clock size={17} className="mt-1 shrink-0 text-accent" /><p className="text-sm leading-7">준비된 날, 정오 12시.<br /><span className="text-muted-foreground">두 사람에게 같은 순간에 도착해요.</span></p></div></div>
       </div>
       <NumberBand />
       <Journey />
@@ -208,8 +216,8 @@ function FounderLetter() {
         <div className="mb-7 flex gap-1.5" aria-hidden="true"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></div>
         <div className="space-y-5 text-[15px] leading-[2]">
           <p>안녕하세요, 비포어스를 만든 사람이에요.</p>
-          <p>끝없이 넘기는 프로필 속에서, 누군가를 정말 알아가 본 적이 언제였는지 생각해 봤어요. 많이 볼수록, 한 사람에게 마음을 쓰기는 오히려 어려워지니까요.</p>
-          <p>그래서 비포어스는 <Underline>한 번에 한 사람만</Underline> 소개해요. 신청서를 한 장씩 읽고, 두 분이 좋아하는 것과 중요하게 여기는 것을 나란히 놓고 오래 고민해요. 도구의 도움을 받더라도, 마지막에 ‘이 두 사람’이라고 정하는 건 <Underline>언제나 사람</Underline>이에요.</p>
+          <p>누군가를 진심으로 알아가 본 적이 언제였는지 생각해 봤어요.<br />많이 볼수록, 한 사람에게 마음을 쓰기는 오히려 어려워지니까요.</p>
+          <p>그래서 비포어스는 <Underline>한 번에 한 사람만</Underline> 소개해요. 신청서를 한 장씩 읽고, 두 분이 좋아하는 것과 중요하게 여기는 것을 나란히 놓고 오래 고민해요. ‘이 두 사람’이라고 정하는 건 처음부터 끝까지 <Underline>언제나 사람</Underline>이에요.</p>
           <p>빠르지는 않을 거예요. 대신 소개가 도착한 날에는, 그 한 사람에게 온전히 마음을 써 보셨으면 해요.</p>
         </div>
         <p className="mt-9 text-sm font-semibold text-primary">끌리는 사람을, 천천히 알아갑니다.</p>
