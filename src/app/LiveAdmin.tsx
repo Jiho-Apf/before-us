@@ -145,7 +145,7 @@ function AdminShell({ role }: { role: Role }) {
 // 대시보드: 오늘 처리할 일
 export function LiveAdminHome() {
   const { data, error } = useLoad(async () => {
-    const [applications, ready, intros, reports, inquiries, requests, jobs, mail, errors] = await Promise.all([
+    const [applications, ready, intros, reports, inquiries, requests, jobs, mail, errors, failedJobs] = await Promise.all([
       call<{ status: string; source: string | null; cohort: number | null }[]>("admin_list_applications"),
       call<unknown[]>("admin_ready_members").catch(() => []),
       call<{ status: string; reveal_at: string }[]>("admin_list_introductions"),
@@ -155,8 +155,10 @@ export function LiveAdminHome() {
       table<{ job: string; started_at: string; ok: boolean | null; detail: Record<string, unknown> | null }>("job_runs", query => query.select("job, started_at, ok, detail").order("started_at", { ascending: false }).limit(6)),
       table<{ started_at: string; ok: boolean | null; detail: { sent?: number; failed?: number; reason?: string } | null }>("job_runs", query => query.select("started_at, ok, detail").eq("job", "email").gt("started_at", new Date(Date.now() - 86400000).toISOString()).order("started_at", { ascending: false }).limit(1)),
       table<{ id: number; at: string; context: string | null; message: string | null; path: string | null }>("client_errors", query => query.select("id, at, context, message, path").gt("at", new Date(Date.now() - 7 * 86400000).toISOString()).order("id", { ascending: false }).limit(20)).catch(() => []),
+      // 정오 공개·응답 마감·교류·알림 작업이 실패하면 맨 위에 알린다(최근 24시간).
+      table<{ job: string; started_at: string; detail: { error?: string } | null }>("job_runs", query => query.select("job, started_at, detail").eq("ok", false).neq("job", "email").gt("started_at", new Date(Date.now() - 86400000).toISOString()).order("started_at", { ascending: false }).limit(5)).catch(() => []),
     ]);
-    return { applications, ready, intros, reports, inquiries, requests, jobs, mail: mail[0] ?? null, errors };
+    return { applications, ready, intros, reports, inquiries, requests, jobs, mail: mail[0] ?? null, errors, failedJobs };
   });
   if (error) return <Notice text={error} />;
   if (!data) return <p className="text-sm text-muted-foreground">불러오고 있어요.</p>;
@@ -176,6 +178,7 @@ export function LiveAdminHome() {
   const sources = Object.entries(submitted.reduce<Record<string, number>>((all, item) => ({ ...all, [item.source || "응답 없음"]: (all[item.source || "응답 없음"] ?? 0) + 1 }), {})).sort((a, b) => b[1] - a[1]);
   return <>
     <Title lead="실제 회원 자료예요. 열람과 처리는 모두 감사 기록에 남아요.">오늘 처리할 일</Title>
+    {data.failedJobs.length > 0 && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-destructive"><span className="font-semibold">예약 작업이 실패했어요</span> · {data.failedJobs.map(job => `${({ noon: "정오 공개", deadlines: "응답 마감", programs: "교류 진행", reminders: "알림" } as Record<string, string>)[job.job] ?? job.job} ${kstDateTime(job.started_at)}`).join(" · ")}<br /><span className="text-xs">정오 공개가 실패했다면 Supabase SQL 편집기에서 <code>select public.run_noon();</code>을 한 번 실행해 주세요. {data.failedJobs[0].detail?.error ? `오류: ${String(data.failedJobs[0].detail.error).slice(0, 120)}` : ""}</span></p>}
     {data.mail?.ok === false && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-destructive"><span className="font-semibold">메일 발송이 실패하고 있어요</span> · {kstDateTime(data.mail.started_at)} · 실패 {data.mail.detail?.failed ?? 0}통{data.mail.detail?.reason ? ` · ${data.mail.detail.reason.slice(0, 120)}` : ""}<br /><span className="text-xs">Supabase → Edge Functions → Secrets의 SMTP_USER(메일 주소)·SMTP_PASS(앱 비밀번호)를 확인해 주세요.</span></p>}
     {urgent > 0 && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-semibold text-destructive">긴급 신고 {urgent}건 · 먼저 확인해 주세요.</p>}
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{tiles.map(([label, count, to]) => <Link key={label} to={to} className={`${box} p-5 transition-colors hover:border-primary/40`}><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-3xl font-light tabular-nums text-primary">{count}</p></Link>)}</div>
@@ -290,7 +293,8 @@ function ApplicantDetail({ memberId, onChanged }: { memberId: string; onChanged:
 
 // ─────────────────────────────────────────────
 // 소개·매칭: 소개할 수 있는 회원 중 두 사람을 골라 정오 공개를 예약한다.
-type ReadyMember = { member_id: string; name: string | null; gender: string | null; desired: string | null; age: number | null; province: string | null; area: string | null; purpose: string | null; last_published_at: string | null; introductions: number; blocked: string[]; previous: string[]; avoided?: string[] };
+type ReadyMember = { member_id: string; name: string | null; gender: string | null; desired: string | null; age: number | null; province: string | null; area: string | null; purpose: string | null; last_published_at: string | null; introductions: number; blocked: string[]; previous: string[]; avoided?: string[]; released_at?: string | null; history?: string[] };
+const HISTORY: Record<string, string> = { suspended: "이용 정지", reported: "신고 대상", blocked: "차단 관계" };
 type IntroRow = { id: string; status: string; reveal_at: string; respond_by: string; name_a: string | null; name_b: string | null; response_a: string | null; response_b: string | null; opened_a: boolean; opened_b: boolean; end_reason: string | null; note: string };
 const nextNoonDate = () => { const now = new Date(); const kst = new Date(now.getTime() + 9 * 3600000); const date = kst.toISOString().slice(0, 10); return kst.getUTCHours() < 12 ? date : new Date(Date.parse(`${date}T00:00:00Z`) + 86400000).toISOString().slice(0, 10); };
 const ANSWER: Record<string, string> = { positive: "알아가고 싶어요", negative: "넘길게요" };
@@ -316,7 +320,7 @@ export function LiveIntroductions() {
   return <>
     <Title lead="승인된 회원 중 진행 중인 소개가 없는 분만 보여요. 예약한 소개는 그날 12:00에 두 사람에게 동시에 공개되고, 다음 날 11:00에 응답이 마감돼요.">소개·매칭</Title>
     <div className="grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-      <section className={`${box} divide-y divide-border`} aria-label="소개 가능한 회원">{members.length ? members.map(member => <button key={member.member_id} type="button" aria-pressed={pair.includes(member.member_id)} onClick={() => toggle(member.member_id)} className={`block w-full px-4 py-3 text-left text-sm ${pair.includes(member.member_id) ? "bg-primary/10" : "hover:bg-secondary"}`}><span className="font-semibold">{member.name}</span> <span className="text-muted-foreground">· {member.gender} → {member.desired} · {member.age}세 · {member.province} {member.area}</span><span className="mt-1 block text-xs text-muted-foreground">{member.purpose} · 소개 {member.introductions}번{member.last_published_at ? ` · 최근 ${kstDay(member.last_published_at)}` : " · 첫 소개 전"}{member.avoided?.length ? ` · 아는 사람 피하기 ${member.avoided.length}명` : ""}{pair.length === 1 && pair[0] !== member.member_id && member.avoided?.includes(pair[0]) ? " · 지금 고른 분과 서로 피하는 사이" : ""}</span></button>) : <p className="p-5 text-sm text-muted-foreground">{ready.loading ? "불러오고 있어요." : ready.error || "지금 소개할 수 있는 회원이 없어요."}</p>}</section>
+      <section className={`${box} divide-y divide-border`} aria-label="소개 가능한 회원">{members.length ? members.map(member => <button key={member.member_id} type="button" aria-pressed={pair.includes(member.member_id)} onClick={() => toggle(member.member_id)} className={`block w-full px-4 py-3 text-left text-sm ${pair.includes(member.member_id) ? "bg-primary/10" : "hover:bg-secondary"}`}><span className="font-semibold">{member.name}</span>{member.released_at && <span className="ml-2 rounded-full bg-[#F8E5A6] px-2 py-0.5 text-[11px] font-semibold text-[#5A4310]">방금 마무리 · {kstDateTime(member.released_at)}</span>}{member.history?.length ? <span className="ml-2 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold text-destructive">이전 계정 이력 · {member.history.map(item => HISTORY[item] ?? item).join(", ")}</span> : null} <span className="text-muted-foreground">· {member.gender} → {member.desired} · {member.age}세 · {member.province} {member.area}</span><span className="mt-1 block text-xs text-muted-foreground">{member.purpose} · 소개 {member.introductions}번{member.last_published_at ? ` · 최근 ${kstDay(member.last_published_at)}` : " · 첫 소개 전"}{member.avoided?.length ? ` · 아는 사람 피하기 ${member.avoided.length}명` : ""}{pair.length === 1 && pair[0] !== member.member_id && member.avoided?.includes(pair[0]) ? " · 지금 고른 분과 서로 피하는 사이" : ""}</span></button>) : <p className="p-5 text-sm text-muted-foreground">{ready.loading ? "불러오고 있어요." : ready.error || "지금 소개할 수 있는 회원이 없어요."}</p>}</section>
       <section className={`${box} space-y-4 p-5`} aria-label="정오 소개 예약">
         <h2 className="text-sm font-semibold">정오 소개 예약</h2>
         <p className="text-sm">{chosen.length ? chosen.map(member => member.name).join(" · ") : "왼쪽에서 두 사람을 골라 주세요."}</p>
