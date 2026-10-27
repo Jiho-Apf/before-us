@@ -508,7 +508,7 @@ await q("update public.profiles set notify_email = false where id <> $1", [A])
 await q("select set_config('app.now', $1, false)", [(await one("select public.kst_at(public.kst_today(), '13:00')::text t")).t])
 const mails = await q("select email from public.pending_email_notifications(500)")
 ok("베타 동안 중요한 알림은 메일 선택과 상관없이 메일로 간다", mails.some((r) => r.email !== "a@example.test"))
-ok("소개 없는 날·상대의 움직임 같은 알림은 메일로 가지 않는다", (await one("select count(*)::int n from public.pending_email_notifications(500) x join public.notifications n on n.id = x.id where n.kind in ('waiting', 'program-sent', 'program-open', 'program-plan', 'program-confirm')")).n === 0)
+ok("소개 없는 날·상대의 움직임 같은 알림은 메일로 가지 않는다", (await one("select count(*)::int n from public.pending_email_notifications(500) x join public.notifications n on n.id = x.id where n.kind in ('waiting', 'program-sent', 'program-open')")).n === 0)
 await q("update public.profiles set email_all = true where id = $1", [A])
 ok("‘모두 받기’를 고르면 사이트 알림도 메일로 간다", (await one("select count(*)::int n from public.pending_email_notifications(500) x join public.notifications n on n.id = x.id where n.kind in ('waiting', 'closed', 'program-sent', 'program-open', 'program-plan', 'program-confirm')")).n > 0)
 await q("update public.profiles set email_all = false where id = $1", [A])
@@ -672,6 +672,27 @@ await as(M)
 await one("select public.submit_report($1, '회원 신고', '약속 장소에서 불편한 말을 들었어요.', true)", [J])
 await as("postgres")
 ok("급한 신고는 운영진에게 바로 알린다", (await one("select count(*)::int n from public.notifications where member_id = $1 and kind = 'admin-report' and title = '급한 신고가 들어왔어요'", [O])).n === 1)
+
+// ── 3일 교류 다듬기: 시작일이 하루 미뤄져도 누른 사람의 확인은 남고 상대에게 알린다 · B 첫 장면 고를 거리
+await as("postgres")
+const P1 = await signup("p1@example.test"), P2 = await signup("p2@example.test")
+const exIntro = (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at, mutual_at) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'mutual', now() - interval '1 day', now() + interval '1 hour', 'infinity', $3, $3, now() - interval '1 day', now()) returning id", [P1, P2, snap])).id
+const exProgram = (await one("insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by) values ($1, $2, $3, 'choosing', 'B', 'B', public.kst_today(), now() + interval '1 day') returning id", [exIntro, P1, P2])).id
+await as(P1)
+const rolled = (await one("select public.confirm_program($1) r", [exProgram])).r
+ok("날짜가 지나 하루 미뤄졌다고 안내한다", (rolled.notice ?? "").includes("상대의 확인만 남았어요"))
+await as("postgres")
+const exRow = await one("select start_on::text s, confirm_a is not null a, confirm_b is not null b from public.programs where id = $1", [exProgram])
+eq("미뤄져도 누른 사람의 확인은 남는다", { a: exRow.a, b: exRow.b }, { a: true, b: false })
+ok("상대에게 다시 확인해 달라고 알린다", (await one("select count(*)::int n from public.notifications where member_id = $1 and kind = 'program-date'", [P2])).n === 1)
+await q("update public.programs set status = 'started', start_on = public.kst_date(public.app_now()), started_at = now() where id = $1", [exProgram])
+await q("select set_config('app.now', $1, false)", [(await one("select public.kst_at(public.kst_today(), '10:00')::text t")).t])
+await as(P1)
+await one("select public.submit_program_entry($1, 1, 'scene', '골목을 천천히 걷고 싶어요.', $2)", [exProgram, JSON.stringify({ activity: "market" })])
+await fails("목록에 없는 분위기는 고를 수 없다", "select public.submit_program_entry($1, 1, 'scene', null, $2)", [exProgram, JSON.stringify({ activity: "club" })], /분위기|이미 보낸/)
+await as("postgres")
+await q("select set_config('app.now', '', false)")
+ok("새로 더한 ‘시장 골목’을 고를 수 있다", (await one("select payload ->> 'activity' a from public.program_entries where program_id = $1 and author = $2", [exProgram, P1])).a === "market")
 
 // ── 역할 관리
 await as(O, "aal2")
