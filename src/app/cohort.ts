@@ -24,6 +24,13 @@ export function cohortByNumber(number: number): CohortInfo {
   return { number, startsOn, applicationDeadline: shift(startsOn, -C.deadlineDaysBefore), opensOn: null }
 }
 
+// 기수 시작까지 남은 날: 한국 날짜 기준 D-n, 시작일 정오 전은 D-DAY, 정오가 지나면 ‘진행 중’
+export function cohortCountdown(startsOn: string, now = new Date()) {
+  if (Date.parse(`${startsOn}T12:00:00+09:00`) <= now.getTime()) return "진행 중"
+  const days = Math.round((Date.parse(`${startsOn}T00:00:00Z`) - Date.parse(`${kstToday(now)}T00:00:00Z`)) / 86400000)
+  return days <= 0 ? "D-DAY" : `D-${days}`
+}
+
 // 지금 신청하면 들어가는 기수
 export function recruitingCohort(now = new Date()): CohortInfo {
   const today = kstToday(now)

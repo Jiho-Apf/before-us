@@ -127,7 +127,7 @@ const FLOW = [
 ] as const;
 function JourneyCard({ step, index, align, shown }: { step: (typeof FLOW)[number]; index: number; align: "left" | "right"; shown: boolean }) {
   return (
-    <div className={`relative rounded-2xl border border-border/70 bg-[linear-gradient(135deg,color-mix(in_oklch,var(--primary)_3%,var(--card)),var(--card)_60%)] p-5 transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none sm:p-6 ${"key" in step ? "shadow-[0_22px_44px_-34px_color-mix(in_oklch,var(--primary)_55%,transparent)]" : ""} ${align === "right" ? "sm:text-right" : ""} ${shown ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`} style={{ transitionDelay: `${index * 110}ms` }}>
+    <div className={`relative rounded-2xl border border-border/70 bg-[linear-gradient(135deg,color-mix(in_oklch,var(--primary)_3%,var(--card)),var(--card)_60%)] p-5 transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none sm:p-6 ${"key" in step ? "journey-glow" : ""} ${align === "right" ? "sm:text-right" : ""} ${shown ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`} style={{ transitionDelay: `${index * 110}ms` }}>
       <p className={`flex flex-wrap items-center gap-2 text-[11px] font-semibold tracking-[0.14em] text-primary ${align === "right" ? "sm:justify-end" : ""}`}>STEP {step.n}<span className="rounded-full bg-primary/8 px-2.5 py-0.5 text-[11px] font-medium tracking-normal text-primary">{step.meta}</span></p>
       <p className="text-ink mt-2.5 text-lg font-semibold leading-snug">{step.title}</p>
       <p className="mt-2 text-sm leading-[1.85] text-muted-foreground">{step.body}</p>
@@ -200,7 +200,6 @@ export function CompareTable() {
           })}
         </div>
       </div>
-      <p className="mx-auto mt-9 max-w-4xl text-center text-[11px] text-muted-foreground">일반적인 이용 방식을 비교한 것으로, 서비스마다 다를 수 있어요.</p>
     </div>
   );
 }

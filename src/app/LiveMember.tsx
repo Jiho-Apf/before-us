@@ -12,7 +12,7 @@ import { AccountPanel } from "./AuthPages";
 import { useAuth, useAuthReady } from "./auth-service";
 import { kstDateTime, kstDay } from "./dates";
 import { APPLICATION_FIELDS } from "./application-model";
-import { cohortName } from "./cohort";
+import { cohortCountdown, cohortName } from "./cohort";
 import { BEFORE_US } from "./config";
 import { PHOTO_SLOTS } from "./photo-model";
 import { DECLINE_REASONS } from "./introduction-model";
@@ -258,8 +258,8 @@ function MyPublicProfileCard() {
         <div><p className="text-xs font-semibold text-accent">상대에게 보이는 내 소개</p><h2 id="my-public-title" className="mt-2 text-xl font-semibold">{state.name ? `${state.name} 님은 이렇게 소개돼요.` : "이렇게 소개돼요."}</h2></div>
         <Button asChild variant="outline" className="h-10 rounded-full border-border px-4 text-xs"><Link to="/apply?edit=1&step=3">보일 항목 고치기 <ArrowUpRight size={13} /></Link></Button>
       </div>
-      <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <div>
+      <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-center">
+        <div className="flex flex-col justify-center">
           {state.photos.length ? <div className="grid grid-cols-3 gap-2">{state.photos.map(photo => <OwnPhoto key={photo.path} path={photo.path} label={PHOTO_SLOTS.find(slot => slot.id === photo.slot)?.label ?? "사진"} />)}</div> : <p className="rounded-2xl bg-mist p-5 text-xs leading-6 text-muted-foreground">운영진이 사진을 확인하면 여기에 보여요.</p>}
           {state.waitingPhotos > 0 && <p className="mt-3 text-[11px] leading-5 text-muted-foreground">확인 중인 사진 {state.waitingPhotos}장은 확인이 끝난 뒤에 보여요.</p>}
         </div>
@@ -275,8 +275,10 @@ function MyPublicProfileCard() {
 
 function PartnerPhoto({ path, label }: { path: string; label: string }) {
   const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => { let alive = true; void partnerPhotoUrl(path).then(next => { if (alive) setUrl(next); }); return () => { alive = false; }; }, [path]);
-  return <figure className="aspect-[4/5] overflow-hidden border border-border bg-muted">{url ? <img src={url} alt={label} className="h-full w-full object-cover" draggable={false} onContextMenu={event => event.preventDefault()} /> : <span className="sr-only">{label} 불러오는 중</span>}</figure>;
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => { let alive = true; setFailed(false); void partnerPhotoUrl(path).then(next => { if (!alive) return; if (next) setUrl(next); else setFailed(true); }); return () => { alive = false; }; }, [path, attempt]);
+  return <figure className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-border bg-muted">{url && !failed ? <img src={url} alt={label} className="h-full w-full object-cover" draggable={false} onContextMenu={event => event.preventDefault()} onError={() => setFailed(true)} /> : <span className="sr-only">{label}</span>}{failed && <figcaption className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3 text-center text-[11px] leading-5 text-muted-foreground">사진을 불러오지 못했어요<button type="button" onClick={() => { setUrl(null); setAttempt(value => value + 1); }} className="rounded-full border border-border bg-card px-3 py-1.5 text-[11px] text-foreground">다시 보기</button></figcaption>}</figure>;
 }
 
 export function LiveIntroductionPage() {
@@ -417,8 +419,8 @@ function LiveProfileView() {
         <div className="relative grid gap-2 sm:grid-cols-3 sm:gap-3">
           {[
             { label: "신청 상태", value: data?.application ? ({ draft: "작성 중", submitted: "접수 완료", reviewing: "검토 중", needs_changes: "보완 요청", approved: "소개 준비", held: "보류", withdrawn: "철회", rejected: "소개 어려움" } as Record<string, string>)[data.application.status] : "신청 전", sub: data?.application?.submittedAt ? `${kstDay(data.application.submittedAt)} 접수` : "신청은 무료예요" },
-            { label: "내 기수", value: data?.cohort ? `${cohortName(data.cohort.number)} · D-${Math.max(0, Math.round((Date.parse(`${data.cohort.startsOn}T12:00:00+09:00`) - Date.now()) / 86400000))}` : "신청 뒤 정해져요", sub: data?.cohort ? `${noonOf(data.cohort.startsOn)} 정오 첫 소개` : BEFORE_US.beta.active ? "베타 기수 · 날짜는 신청 뒤 알려 드려요" : "매달 마지막 날 정오 시작" },
-            { label: "알림", value: paused ? "새 소개 쉬는 중" : notices?.notice_daily_waiting ? "소개 없는 날도 알림" : "새 소개만 알림", sub: channelText ? `사이트 · ${channelText}` : "사이트 안 알림" },
+            { label: "내 기수", value: data?.cohort ? `${cohortName(data.cohort.number)} · ${cohortCountdown(data.cohort.startsOn)}` : "신청 뒤 정해져요", sub: data?.cohort ? `${noonOf(data.cohort.startsOn)} 정오 첫 소개` : BEFORE_US.beta.active ? "베타 기수 · 날짜는 신청 뒤 알려 드려요" : "매달 마지막 날 정오 시작" },
+            { label: "알림", value: paused ? "새 소개 쉬는 중" : notices?.notice_daily_waiting ? "소개 없는 날도 알림" : "새 소개만 알림", sub: BEFORE_US.beta.active ? "사이트 · 메일(베타 동안)" : channelText ? `사이트 · ${channelText}` : "사이트 안 알림" },
           ].map(item => <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl bg-card/90 px-4 py-3.5 shadow-[0_18px_36px_-30px_color-mix(in_oklch,var(--primary)_60%,transparent)] sm:block sm:p-5"><div className="min-w-0"><p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{item.label}</p><p className="mt-1 truncate text-xs text-muted-foreground sm:hidden">{item.sub}</p></div><p className="shrink-0 text-right text-base font-semibold text-ink sm:mt-2 sm:text-left sm:text-lg">{item.value}</p><p className="mt-1 hidden text-xs text-muted-foreground sm:block">{item.sub}</p></div>)}
         </div>
       </div>
@@ -448,7 +450,8 @@ function LiveSupportView() {
   const [kind, setKind] = useState<(typeof REQUEST_KINDS)[number] | null>(null);
   const [text, setText] = useState("");
   const [message, setMessage] = useState("");
-  const [list, setList] = useState<Awaited<ReturnType<typeof loadMyRequests>>>([]);
+  // undefined = 불러오는 중, null = 불러오지 못함
+  const [list, setList] = useState<Awaited<ReturnType<typeof loadMyRequests>> | undefined>(undefined);
   const refresh = async () => setList(await loadMyRequests());
   useEffect(() => { void refresh(); }, []);
   const [sending, setSending] = useState(false);
@@ -464,7 +467,7 @@ function LiveSupportView() {
         {message && <p role="status" className="mt-4 rounded-xl bg-muted p-3 text-xs leading-6">{message}</p>}
         <p className="mt-5 text-[11px] leading-5 text-muted-foreground">탈퇴는 내 정보 아래쪽 계정에서 할 수 있어요. 그 밖의 문의는 <Link to="/contact" className="underline underline-offset-4">문의하기</Link>로 남겨 주세요.</p>
       </Sheet>
-      <section aria-labelledby="requests-title"><h2 id="requests-title" className="text-sm font-semibold">내가 남긴 요청</h2>{list.length ? <ul className="mt-4 divide-y divide-border border-y border-border">{list.map(item => <li key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-4 text-sm"><span><span className="font-semibold">{REQUEST_LABELS[item.kind as keyof typeof REQUEST_LABELS] ?? item.kind}</span>{item.decision && <span className="mt-1 block text-xs leading-6 text-muted-foreground">운영진 답변 · {item.decision}</span>}</span><span className="text-xs text-muted-foreground">{REQUEST_STATUS[item.status] ?? item.status} · {kstDay(item.created_at)}</span></li>)}</ul> : <p className="mt-4 border-y border-border py-6 text-xs text-muted-foreground">아직 남긴 요청이 없어요.</p>}</section>
+      <section aria-labelledby="requests-title"><h2 id="requests-title" className="text-sm font-semibold">내가 남긴 요청</h2>{list === undefined ? <p role="status" className="mt-4 border-y border-border py-6 text-xs text-muted-foreground">요청 목록을 불러오고 있어요.</p> : list === null ? <p className="mt-4 flex flex-wrap items-center gap-3 border-y border-border py-6 text-xs text-muted-foreground">요청 목록을 불러오지 못했어요.<button type="button" onClick={() => { setList(undefined); void refresh(); }} className="font-semibold text-primary underline-offset-4 hover:underline">다시 불러오기</button></p> : list.length ? <ul className="mt-4 divide-y divide-border border-y border-border">{list.map(item => <li key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-4 text-sm"><span><span className="font-semibold">{REQUEST_LABELS[item.kind as keyof typeof REQUEST_LABELS] ?? item.kind}</span>{item.decision && <span className="mt-1 block text-xs leading-6 text-muted-foreground">운영진 답변 · {item.decision}</span>}</span><span className="text-xs text-muted-foreground">{REQUEST_STATUS[item.status] ?? item.status} · {kstDay(item.created_at)}</span></li>)}</ul> : <p className="mt-4 border-y border-border py-6 text-xs text-muted-foreground">아직 남긴 요청이 없어요.</p>}</section>
     </section>
   );
 }

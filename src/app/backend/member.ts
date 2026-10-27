@@ -146,10 +146,11 @@ export async function saveNoticeSettings(values: Partial<Pick<NonNullable<Member
 export async function loadMyRequests() {
   try {
     const db = await supabase()
-    const { data } = await db.from("member_requests").select("id, kind, description, status, decision, created_at").order("created_at", { ascending: false }).limit(20)
+    const { data, error } = await db.from("member_requests").select("id, kind, description, status, decision, created_at").order("created_at", { ascending: false }).limit(20)
+    if (error) return null
     return (data ?? []) as { id: string; kind: string; description: string | null; status: string; decision: string | null; created_at: string }[]
   } catch {
-    return []
+    return null
   }
 }
 

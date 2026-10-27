@@ -231,12 +231,10 @@
 .complete-glow-late { animation-duration: 15s; animation-delay: -6s; }
 @keyframes complete-ripple { 0% { transform: scale(0.4); opacity: 0; } 30% { opacity: 0.8; } 100% { transform: scale(2.6); opacity: 0; } }
 .complete-ripple { opacity: 0; animation: complete-ripple 1.8s ease-out 1.6s 2 both; }
-@keyframes complete-shine { from { transform: translateX(0); } to { transform: translateX(420%); } }
-.complete-shine { animation: complete-shine 1.6s ease-in-out 1.4s both; }
 @keyframes complete-line { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .complete-line { animation: complete-line 1.2s cubic-bezier(0.22, 0.61, 0.36, 1) 0.9s both; }
 @media (prefers-reduced-motion: reduce) {
-  .complete-glow, .complete-ripple, .complete-shine { animation: none; }
+  .complete-glow, .complete-ripple { animation: none; }
   .complete-line { animation: none; transform: none; }
 }
 
@@ -255,6 +253,19 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .journey-breathe { animation: none; background-color: var(--breathe-on); color: #fff; }
+}
+/* 정오(03) 카드: 점과 같은 3.2초 박자로 그림자가 짙어졌다 옅어진다(색은 밖에서 변수로) */
+.journey-glow {
+  --glow-off: color-mix(in oklch, var(--primary) 28%, transparent);
+  --glow-on: color-mix(in oklch, var(--primary) 72%, transparent);
+  animation: journey-glow 3.2s ease-in-out infinite;
+}
+@keyframes journey-glow {
+  0%, 100% { box-shadow: 0 22px 44px -34px var(--glow-off); }
+  50% { box-shadow: 0 26px 54px -28px var(--glow-on); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .journey-glow { animation: none; box-shadow: 0 22px 44px -34px var(--glow-on); }
 }
 
 /* 첫 화면: 정오 알림 카드가 아주 천천히 떠 있다 */

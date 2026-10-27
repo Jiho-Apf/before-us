@@ -12,7 +12,7 @@ import {
 } from "./application-model"
 import { publicApplicationProfile } from "./application-review"
 import { LIVE } from "./backend/client"
-import { PHOTO_SLOTS, photoError } from "./photo-model"
+import { PHOTO_REVIEW_TEXT, PHOTO_SLOTS, photoError } from "./photo-model"
 import {
   BASE_PUBLIC_FIELDS,
   OPTIONAL_PUBLIC_FIELDS,
@@ -268,7 +268,7 @@ export default function ApplicationReviewStep({
                         </p>
                         <p className="mt-1 text-xs leading-5 text-muted-foreground">
                           {photo.file
-                            ? LIVE ? `${photo.review === "대기" ? "검토 대기" : photo.review}` : `${photo.review} · 가상 사진 초안 v${photo.revision}`
+                            ? LIVE ? PHOTO_REVIEW_TEXT[photo.review] ?? photo.review : `${photo.review} · 가상 사진 초안 v${photo.revision}`
                             : "미등록"}
                           {photo.review !== "기준 확인" &&
                             " · 제공용 데이터에 포함되지 않음"}

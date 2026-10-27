@@ -239,6 +239,15 @@ function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
         </header>
         {/* 회원 화면의 위아래 여백은 이 틀이 맡는다. 화면마다 덧붙인 첫·마지막 여백은 지워 높이를 맞춘다. */}
         <main id="main-content" className="mx-auto w-full max-w-[1120px] flex-1 break-keep px-5 py-10 sm:px-8 lg:px-10 lg:py-14 [&>div>*:first-child]:!mt-0 [&>div>*:first-child]:!pt-0 [&>div>*:last-child]:!mb-0 [&>div>*:last-child]:!pb-0 [&>div>div:only-child>*:first-child]:!pt-0 [&>div>div:only-child>*:last-child]:!pb-0"><PageTransition /></main>
+        {/* 회원 화면에서도 약관·개인정보·문의로 바로 갈 수 있게 아주 작은 줄 하나 */}
+        <footer className="mx-auto w-full max-w-[1120px] px-5 pb-8 sm:px-8 lg:px-10">
+          <nav aria-label="정책과 문의" className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-primary/[0.07] pt-5 text-[11px] text-muted-foreground">
+            <Link to="/terms" className="underline-offset-4 hover:text-primary hover:underline">이용약관</Link>
+            <Link to="/privacy" className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">개인정보처리방침</Link>
+            <Link to="/faq" className="underline-offset-4 hover:text-primary hover:underline">자주 묻는 질문</Link>
+            <Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
+          </nav>
+        </footer>
       </div>
       <nav aria-label="모바일 회원 메뉴" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-primary/[0.07] bg-card/90 pt-2 backdrop-blur pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
         {MEMBER_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={memberPath(to)} className={({ isActive }) => `flex min-h-14 flex-col items-center justify-center gap-1.5 rounded-lg text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}><span className="relative"><Icon size={20} strokeWidth={1.6} />{to === "/today" && unread > 0 && <span className="absolute -right-1 -top-0.5 size-2 rounded-full bg-[#F2B705] ring-2 ring-card" aria-label={`새 알림 ${unread}개`} />}</span>{label}</NavLink>)}

@@ -10,6 +10,8 @@ export const PHOTO_SLOTS = [
 export type PhotoSlotId = typeof PHOTO_SLOTS[number]["id"];
 export const PHOTO_REVIEW_REASONS = ["얼굴 확인 어려움", "동일 사진", "흐림", "타인 등장", "현재 모습 재등록 필요"] as const;
 export type PhotoReview = "대기" | "기준 확인" | "재등록 요청";
+// 회원에게 보이는 사진 상태 말
+export const PHOTO_REVIEW_TEXT: Record<PhotoReview, string> = { "대기": "확인 대기", "기준 확인": "확인 완료", "재등록 요청": "다시 올려 주세요" };
 export type MockPhotoFile = { id: string; name: string; mime: string; bytes: number; width: number; height: number };
 export const MOCK_PHOTO_FILES: readonly MockPhotoFile[] = [
   { id: "mock-face", name: "가상_얼굴.jpg", mime: "image/jpeg", bytes: 1200000, width: 1200, height: 1600 },

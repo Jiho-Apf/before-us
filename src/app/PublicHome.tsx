@@ -149,7 +149,7 @@ function Hero() {
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10" style={{ backgroundImage: part.tint }} />
       <div className="relative grid gap-12 pt-14 pb-28 sm:pt-20 sm:pb-32 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:pt-20 lg:pb-32">
         <div className="relative z-10">
-          <p className="mb-4 inline-flex items-center rounded-full bg-white/12 px-3 py-1 text-xs font-semibold tracking-[0.04em] text-white/90 ring-1 ring-white/20">편지로 시작하는 1:1 소개팅</p>
+          <p className="-mt-3 mb-9 inline-flex items-center rounded-full bg-white/12 px-3 py-1 text-xs font-semibold tracking-[0.04em] text-white/90 ring-1 ring-white/20 sm:-mt-4 sm:mb-10">편지로 시작하는 1:1 소개팅</p>
           <p className="mb-6 flex items-center gap-2.5 text-base font-semibold sm:text-lg"><span aria-hidden="true" className="size-1.5 rounded-full bg-white" />넘기는 소개팅에 지쳤다면.</p>
           <h1 id="home-title" className="text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>
           <p className="mt-7 max-w-lg text-sm leading-[1.95] text-white/95 dark:text-white sm:text-[15px]">몇 명을 보여 줄지보다, 누구를 보여 줄지를 오래 고민해요.<br />서로 끌림이 확인될 때만 두 분을 이어 드려요.</p>

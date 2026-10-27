@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { kstDay } from "./dates";
 import { LIVE, rpc } from "./backend/client";
-import { cohortCode, cohortName, recruitingCohort, type CohortInfo } from "./cohort";
+import { cohortCode, cohortCountdown, cohortName, recruitingCohort, type CohortInfo } from "./cohort";
 
 // 소개 신청을 마친 직후의 화면.
 //  - 뒤에는 라벤더·푸른빛이 천천히 번지고, 내용은 위에서부터 한 줄씩 내려앉는다.
@@ -23,9 +23,9 @@ export default function ApplicationComplete({ name }: { name?: string }) {
   useEffect(() => {
     window.scrollTo(0, 0);
     if (!LIVE) return;
-    void rpc<{ number: number; startsOn: string; applicationDeadline: string } | null>("my_cohort").then(({ data }) => { if (data) setCohort({ ...data, opensOn: null }); });
+    void rpc<{ number: number; startsOn: string; applicationDeadline: string } | null>("my_cohort").then(({ data }) => { if (data && typeof data.number === "number" && typeof data.startsOn === "string") setCohort({ ...data, opensOn: null }); });
   }, []);
-  const days = cohort ? Math.max(0, Math.round((Date.parse(`${cohort.startsOn}T12:00:00+09:00`) - Date.now()) / 86400000)) : null;
+  const countdown = cohort ? cohortCountdown(cohort.startsOn) : null;
   const delay = (index: number) => ({ animationDelay: `${index * 130}ms` });
   return (
     <section aria-labelledby="complete-title" className="relative isolate mx-auto flex w-full max-w-3xl flex-col items-center py-12 text-center break-keep sm:py-16">
@@ -46,14 +46,13 @@ export default function ApplicationComplete({ name }: { name?: string }) {
       <h1 id="complete-title" className="drop-in mt-5 text-3xl font-semibold leading-[1.4] text-ink sm:text-[42px]" style={delay(2)}>{name ? <>{name} 님의 신청을<br />잘 받았어요.</> : <>소개 신청을<br />잘 받았어요.</>}</h1>
       <p className="drop-in mt-5 max-w-md text-sm leading-7 text-muted-foreground" style={delay(3)}>운영진이 사진과 이야기를 한 장씩 읽고, 잘 맞는 분을 천천히 준비해 둘게요.</p>
 
-      {/* 기수 카드: 그라데이션 테두리 + 깊은 그림자 + 한 번 지나가는 빛 */}
+      {/* 기수 카드: 옅은 라벤더 단색 카드(진한 그라데이션·지나가는 빛 없이) */}
       <div className="drop-in mt-11 w-full max-w-sm" style={delay(4)}>
-        <div className="complete-card rounded-[22px] bg-[linear-gradient(140deg,color-mix(in_oklch,var(--primary)_42%,transparent),color-mix(in_oklch,var(--accent)_24%,transparent)_45%,color-mix(in_oklch,var(--primary)_8%,transparent))] p-px shadow-[0_40px_72px_-30px_color-mix(in_oklch,var(--primary)_38%,transparent),0_16px_32px_-20px_color-mix(in_oklch,var(--accent)_22%,transparent)]">
-          <div className="relative overflow-hidden rounded-[21px] bg-[linear-gradient(180deg,var(--card),color-mix(in_oklch,var(--lilac)_30%,var(--card)))] px-7 py-7">
-            <span aria-hidden="true" className="complete-shine pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-[linear-gradient(100deg,transparent,rgba(255,255,255,0.65),transparent)]" />
+        <div className="complete-card rounded-[22px] border border-lilac bg-card shadow-[0_28px_56px_-36px_color-mix(in_oklch,var(--primary)_40%,transparent)]">
+          <div className="relative overflow-hidden rounded-[21px] bg-mist px-7 py-7">
             <div className="relative flex items-center justify-between">
               <p className="text-[11px] font-semibold tracking-[0.18em] text-accent">{cohort ? `${cohortName(cohort.number)} · ${cohortCode(cohort.number)}` : "내 기수"}</p>
-              <span className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold leading-none text-primary-foreground tabular-nums">{days === null ? "· · ·" : `D-${days}`}</span>
+              <span className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold leading-none text-primary-foreground tabular-nums">{countdown ?? "· · ·"}</span>
             </div>
             <p className="relative mt-4 text-[26px] font-semibold text-ink">{cohort ? `${kstDay(cohort.startsOn)} 정오` : "날짜를 확인하고 있어요"}</p>
             <p className="relative mt-2 text-xs leading-6 text-muted-foreground">첫 소개가 도착하는 날이에요. 전날 한 번 더 알려 드릴게요.</p>
