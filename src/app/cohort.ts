@@ -38,7 +38,7 @@ export function useRecruitingCohort(): CohortInfo | null {
   useEffect(() => {
     if (!LIVE) return
     void rpc<{ number: number; startsOn: string; applicationDeadline: string } | null>("public_cohort").then(({ data }) => {
-      if (data) setCohort({ number: data.number, startsOn: data.startsOn, applicationDeadline: data.applicationDeadline, opensOn: null })
+      if (data && typeof data.number === "number" && typeof data.startsOn === "string" && typeof data.applicationDeadline === "string") setCohort({ number: data.number, startsOn: data.startsOn, applicationDeadline: data.applicationDeadline, opensOn: null })
     })
   }, [])
   return cohort

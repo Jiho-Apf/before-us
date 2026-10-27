@@ -18,7 +18,8 @@ import { PHOTO_SLOTS } from "./photo-model";
 import { DECLINE_REASONS } from "./introduction-model";
 import { REQUEST_LABELS } from "./member-operations-model";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
-import { partnerPhotoUrl } from "./backend/applications";
+import { PHOTO_ORDER, loadMyApplication, partnerPhotoUrl, photoUrl, type PhotoRow } from "./backend/applications";
+import { publicApplicationProfile } from "./application-review";
 import { addAvoidContacts, deleteAvoidContact, loadAvoidContacts, type AvoidContact, blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
 
 // 실제 서버 모드의 회원 화면(오늘 · 두 사람 · 내 정보 · 문의·요청). 데모 화면과 같은 편집 톤을 쓴다.
@@ -131,7 +132,7 @@ function LiveTodayView() {
       </header>
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px]">
         <Sheet className="flex flex-col p-6 sm:p-10">
-          <p className="text-xs font-semibold text-accent">지금 할 일</p>
+          <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#F8E5A6] px-3 py-1 text-xs font-semibold text-[#5A4310] dark:bg-[#3B3424] dark:text-[#F3D98A]"><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />지금 할 일</p>
           <h2 className="mt-4 text-2xl font-semibold leading-[1.45] sm:text-[28px]">{state.action}</h2>
           <p className="mt-6 max-w-xl text-sm leading-7 text-muted-foreground">{state.body}</p>
           {state.to && <div className="mt-7"><Button asChild className={`h-12 rounded-xl px-6 ${interaction}`}><Link to={state.to}>{state.action} <ArrowUpRight size={17} /></Link></Button></div>}
@@ -224,6 +225,53 @@ function AvoidContactsCard() {
 // 두 사람: 지금의 소개(열람 기간 안에서만 상대 프로필이 보인다)
 const labelOf = (id: string) => id === "self.age" ? "만 나이" : APPLICATION_FIELDS.find(field => field.id === id)?.label ?? id;
 const valueOf = (value: string | string[]) => Array.isArray(value) ? value.join(" · ") : value;
+
+// 내 정보: 상대에게 보이는 내 소개. 신청서에서 ‘상대 공개’로 켠 항목과 운영진이 확인한 사진을, 상대가 정오에 보는 모양 그대로 미리 본다.
+type MyPublic = { name: string | null; items: { id: string; value: string | string[] }[]; photos: PhotoRow[]; waitingPhotos: number };
+function OwnPhoto({ path, label }: { path: string; label: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => { let alive = true; void photoUrl(path).then(next => { if (alive) setUrl(next); }); return () => { alive = false; }; }, [path]);
+  return <figure className="aspect-[4/5] overflow-hidden rounded-2xl bg-lilac">{url ? <img src={url} alt={label} onError={() => setUrl(null)} className="h-full w-full object-cover" /> : <span className="sr-only">{label}</span>}</figure>;
+}
+function MyPublicProfileCard() {
+  const [state, setState] = useState<MyPublic | "none" | null>(null);
+  const [all, setAll] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void loadMyApplication().then(({ data }) => {
+      if (!alive) return;
+      if (!data || data.status === "draft" || data.status === "withdrawn") { setState("none"); return; }
+      const profile = publicApplicationProfile(data.draft, today());
+      const shared = data.photoRows.filter(row => data.draft.sharing[row.slot] !== false);
+      const photos = shared.filter(row => row.review === "기준 확인").sort((a, b) => PHOTO_ORDER.indexOf(a.slot) - PHOTO_ORDER.indexOf(b.slot));
+      const name = profile.items.find(item => item.id === "self.name");
+      setState({ name: name ? valueOf(name.value) : null, items: profile.items.filter(item => item.id !== "self.name"), photos, waitingPhotos: shared.length - photos.length });
+    });
+    return () => { alive = false; };
+  }, []);
+  if (state === null) return null;
+  if (state === "none") return <Sheet tone="soft" className="p-6 sm:p-8"><p className="text-xs font-semibold text-accent">상대에게 보이는 내 소개</p><p className="mt-3 text-sm leading-7 text-muted-foreground">신청서를 내면, 소개된 상대가 정오에 보게 될 내 모습을 이곳에서 미리 볼 수 있어요.</p><Button asChild className="mt-4 h-11 rounded-full px-5"><Link to="/apply">신청서 쓰기 <ArrowRight size={14} /></Link></Button></Sheet>;
+  const items = all ? state.items : state.items.slice(0, 4);
+  return (
+    <section aria-labelledby="my-public-title" className="overflow-hidden rounded-3xl border border-lilac bg-card">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-lilac bg-mist px-6 py-5 sm:px-8">
+        <div><p className="text-xs font-semibold text-accent">상대에게 보이는 내 소개</p><h2 id="my-public-title" className="mt-2 text-xl font-semibold">{state.name ? `${state.name} 님은 이렇게 소개돼요.` : "이렇게 소개돼요."}</h2></div>
+        <Button asChild variant="outline" className="h-10 rounded-full border-border px-4 text-xs"><Link to="/apply?edit=1&step=3">보일 항목 고치기 <ArrowUpRight size={13} /></Link></Button>
+      </div>
+      <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div>
+          {state.photos.length ? <div className="grid grid-cols-3 gap-2">{state.photos.map(photo => <OwnPhoto key={photo.path} path={photo.path} label={PHOTO_SLOTS.find(slot => slot.id === photo.slot)?.label ?? "사진"} />)}</div> : <p className="rounded-2xl bg-mist p-5 text-xs leading-6 text-muted-foreground">운영진이 사진을 확인하면 여기에 보여요.</p>}
+          {state.waitingPhotos > 0 && <p className="mt-3 text-[11px] leading-5 text-muted-foreground">확인 중인 사진 {state.waitingPhotos}장은 확인이 끝난 뒤에 보여요.</p>}
+        </div>
+        <div>
+          <dl className="divide-y divide-border border-y border-border">{items.map(item => <div key={item.id} className="grid gap-1 py-3.5 sm:grid-cols-[120px_1fr]"><dt className="text-xs text-muted-foreground">{labelOf(item.id)}</dt><dd className="whitespace-pre-wrap break-words text-sm leading-7">{valueOf(item.value)}</dd></div>)}</dl>
+          {state.items.length > 4 && <Button variant="ghost" onClick={() => setAll(value => !value)} className="mt-2 h-10 rounded-full px-4 text-xs text-muted-foreground">{all ? "접기" : `${state.items.length - 4}개 더 보기`}</Button>}
+          <p className="mt-3 text-[11px] leading-5 text-muted-foreground">생년월일 원래 값·휴대폰 번호·이메일은 상대에게 보이지 않아요. 고친 내용은 운영진이 다시 확인한 뒤 다음 소개부터 반영돼요.</p>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function PartnerPhoto({ path, label }: { path: string; label: string }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -374,6 +422,7 @@ function LiveProfileView() {
           ].map(item => <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl bg-card/90 px-4 py-3.5 shadow-[0_18px_36px_-30px_color-mix(in_oklch,var(--primary)_60%,transparent)] sm:block sm:p-5"><div className="min-w-0"><p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{item.label}</p><p className="mt-1 truncate text-xs text-muted-foreground sm:hidden">{item.sub}</p></div><p className="shrink-0 text-right text-base font-semibold text-ink sm:mt-2 sm:text-left sm:text-lg">{item.value}</p><p className="mt-1 hidden text-xs text-muted-foreground sm:block">{item.sub}</p></div>)}
         </div>
       </div>
+      <MyPublicProfileCard />
       <div className="grid gap-6 lg:grid-cols-2">
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">소개 신청서 고치기</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{!data?.application || data.application.status === "draft" ? "쓰던 곳부터 이어서 쓸 수 있어요." : data.application.status === "submitted" ? "검토 전이라 바로 고칠 수 있어요." : ["rejected", "withdrawn"].includes(data.application.status) ? "" : "고친 내용을 ‘수정 내용 제출’로 보내면 운영진이 다시 확인해요. 그동안 새 소개 준비는 잠시 멈춰요."}</p>{data?.application && ["rejected", "withdrawn"].includes(data.application.status) ? <p className="mt-4 text-xs leading-6 text-muted-foreground">지금 상태에서는 신청서를 고칠 수 없어요. 문의하기로 남겨 주시면 확인해 드릴게요.</p> : <div className="mt-4 grid grid-cols-2 gap-2">{[["나에 대해", 0], ["사진", 1], ["원하는 만남", 2], ["공개·동의", 3]].map(([label, step]) => <Button key={label} asChild variant="outline" className={`h-auto justify-between rounded-xl border-border px-4 py-3 text-xs ${interaction}`}><Link to={`/apply?edit=1&step=${step}`}>{label} <ArrowUpRight size={13} /></Link></Button>)}</div>}</Sheet>
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">알림 설정</p><div className="mt-4 space-y-3 text-sm"><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.notice_daily_waiting} onCheckedChange={value => void toggle("notice_daily_waiting", value === true)} />소개가 없는 날에도 정오에 사이트에서 알려 주세요. <span className="text-muted-foreground">(선택)</span></label><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.marketing_opt_in} onCheckedChange={value => void toggle("marketing_opt_in", value === true)} />새 소식과 혜택 안내를 받을게요. <span className="text-muted-foreground">(선택 · 광고성 정보)</span></label></div><fieldset className="mt-5 border-t border-border pt-4"><legend className="sr-only">알림 받을 방법</legend><p className="text-xs font-semibold">알림 받을 방법 <span className="font-normal text-muted-foreground">· 카카오톡·문자 중 1개 이상</span></p><div className="mt-3 flex flex-wrap gap-2">{([["kakao", "카카오톡"], ["sms", "문자"], ["email", "메일"]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={channels[key]} onClick={() => void setChannel(key, !channels[key])} className={`rounded-full border px-4 py-2 text-xs ${interaction} ${channels[key] ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"}`}>{label}</button>)}</div><ChannelNotice kakao={channels.kakao} sms={channels.sms} email={channels.email} /></fieldset><fieldset className="mt-5 border-t border-border pt-4"><legend className="sr-only">메일로 받을 알림</legend><p className="text-xs font-semibold">메일로 받을 알림</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{([[false, "중요한 것만", "소개 도착·마감·약속처럼 할 일이 있을 때만"], [true, "모두 받기", "상대가 편지를 보냈을 때 같은 소식까지"]] as const).map(([all, label, sub]) => <button key={label} type="button" aria-pressed={!!notices?.email_all === all} onClick={() => void saveNoticeSettings({ email_all: all }).then(result => { setMessage(result.error || "메일 받을 범위를 바꿨어요."); return reload(); })} className={`rounded-xl border p-3 text-left ${interaction} ${!!notices?.email_all === all ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"}`}><span className="block text-xs font-semibold">{label}{!all && " (기본)"}</span><span className="mt-1 block text-[11px] leading-5 text-muted-foreground">{sub}</span></button>)}</div></fieldset><p className="mt-4 text-[11px] leading-5 text-muted-foreground">모든 알림은 사이트에서 늘 보여 드려요. 메일은 가입한 주소로 보내고, 밤 10시~아침 8시에는 보내지 않고 아침에 보내요. 카카오톡·문자는 정식 운영부터 보내요.</p>{message && <p role="status" className="mt-3 text-xs text-primary">{message}</p>}</Sheet>

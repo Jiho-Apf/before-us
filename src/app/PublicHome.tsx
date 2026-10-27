@@ -149,6 +149,7 @@ function Hero() {
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10" style={{ backgroundImage: part.tint }} />
       <div className="relative grid gap-12 pt-14 pb-28 sm:pt-20 sm:pb-32 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:pt-20 lg:pb-32">
         <div className="relative z-10">
+          <p className="mb-4 inline-flex items-center rounded-full bg-white/12 px-3 py-1 text-xs font-semibold tracking-[0.04em] text-white/90 ring-1 ring-white/20">편지로 시작하는 1:1 소개팅</p>
           <p className="mb-6 flex items-center gap-2.5 text-base font-semibold sm:text-lg"><span aria-hidden="true" className="size-1.5 rounded-full bg-white" />넘기는 소개팅에 지쳤다면.</p>
           <h1 id="home-title" className="text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>
           <p className="mt-7 max-w-lg text-sm leading-[1.95] text-white/95 dark:text-white sm:text-[15px]">몇 명을 보여 줄지보다, 누구를 보여 줄지를 오래 고민해요.<br />서로 끌림이 확인될 때만 두 분을 이어 드려요.</p>
@@ -178,13 +179,12 @@ function Philosophy() {
   );
 }
 
-// 02 소개의 두 원: 화면에 들어오면 천천히 다가가 살짝 겹치고(겹친 곳은 보라·파랑이 섞인 밝은 빛), 뒤로 보라→파랑 빛이 은은하게 번진다.
+// 02 소개의 두 원: 화면에 들어오면 천천히 다가가 살짝 겹친다(겹친 곳은 보라·파랑이 섞인 한 가지 색).
 // 겹친 부분은 파란 원 안에 보라 원과 같은 자리의 원(pair-lens)을 두고 잘라 그린다.
 function PairOrbs() {
   const { ref, shown } = useInView<HTMLDivElement>(0.6);
   return (
     <div ref={ref} className={`pair-orbs ${shown ? "is-on" : ""} relative isolate flex items-center justify-center py-7`} aria-hidden="true">
-      <span className="pair-glow" />
       <span className="pair-orb pair-orb-a size-20 rounded-full bg-primary sm:size-24" />
       <span className="pair-orb pair-orb-b relative size-20 overflow-hidden rounded-full bg-accent sm:size-24"><span className="pair-lens" /></span>
     </div>
@@ -200,7 +200,7 @@ function Introduction() {
           <PairOrbs />
           <div className="flex items-baseline justify-between"><span className="text-sm font-semibold">한 사람을 향한 집중</span><span className="text-5xl font-light text-primary">02</span></div>
         </div>
-        <div className="flex flex-col justify-center"><SectionLabel number="02" ko="소개">THE INTRODUCTION</SectionLabel><h2 id="introduction-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">많이 보여드리기보다,<br />한 사람을 신중하게.</h2><p className="mt-6 text-[15px] leading-[2] text-muted-foreground"><Underline>사진 너머의 취향</Underline>, <Underline>관계를 대하는 태도</Underline>, <Underline>쉬는 날의 모습</Underline>까지. 운영진이 두 사람의 이야기를 나란히 놓고 오래 들여다본 뒤에야 한 쌍을 제안해요.</p><div className="mt-7 flex items-start gap-3 border-t border-border pt-5"><Clock size={17} className="mt-1 shrink-0 text-accent" /><p className="text-sm leading-7">준비된 날, 정오 12시.<br /><span className="text-muted-foreground">두 사람에게 같은 순간에 도착해요.</span></p></div></div>
+        <div className="flex flex-col justify-center"><SectionLabel number="02" ko="소개">THE INTRODUCTION</SectionLabel><h2 id="introduction-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">많이 보여드리기보다,<br />한 사람을 신중하게.</h2><p className="mt-6 text-[15px] leading-[2] text-muted-foreground">사진 너머의 취향, 관계를 대하는 태도, 쉬는 날의 모습까지. 운영진이 두 사람의 이야기를 나란히 놓고 오래 들여다본 뒤에야 한 쌍을 제안해요.</p><div className="mt-7 flex items-start gap-3 border-t border-border pt-5"><Clock size={17} className="mt-1 shrink-0 text-accent" /><p className="text-sm leading-7">준비된 날, 정오 12시.<br /><span className="text-muted-foreground">두 사람에게 같은 순간에 도착해요.</span></p></div></div>
       </div>
       <NumberBand />
       <Journey />
@@ -333,8 +333,8 @@ function StoryChapter({ label, prompt, left, right, leftClass, rightClass, nameL
         {prompt && <p className="text-ink mt-3.5 text-[17px] font-medium leading-8">{question ? <><span aria-hidden="true" className="text-primary">“</span>{prompt}<span aria-hidden="true" className="text-primary">”</span></> : prompt}</p>}
       </div>
       <div className="grid gap-8 md:grid-cols-2 md:gap-16">
-        <div className={`md:pr-6 md:text-right ${leftClass}`}><div className={one.className} style={one.style}>{nameLeft}<p className="text-[15px] leading-[2] text-foreground/85"><Quoted text={left} /></p></div></div>
-        <div className={`md:pl-6 ${rightClass}`}><div className={two.className} style={two.style}>{nameRight}<p className="text-[15px] leading-[2] text-foreground/85"><Quoted text={right} /></p></div></div>
+        <div className={`md:pr-6 md:text-right ${leftClass}`}><div className={one.className} style={one.style}>{nameLeft}<p className="text-[15px] leading-[2] text-foreground/85 [text-wrap:balance]"><Quoted text={left} /></p></div></div>
+        <div className={`md:pl-6 ${rightClass}`}><div className={two.className} style={two.style}>{nameRight}<p className="text-[15px] leading-[2] text-foreground/85 [text-wrap:balance]"><Quoted text={right} /></p></div></div>
       </div>
     </li>
   );
@@ -426,7 +426,7 @@ const BETA_PROMISES = [
   "소개는 준비된 날 정오 12시에, 하루 최대 한 명이에요. 매일 새 소개를 보장하지는 않아요.",
   "상대가 기한 안에 답하지 않아 끝나면, 거절이 아니라 답이 오지 않았다고 알려 드려요.",
   "3일 교류는 서로 선택하고 같은 방식·시작일을 함께 정한 뒤에 시작돼요. 만남을 강요하지 않아요.",
-  "베타는 운영 사정에 따라 끝날 수 있고, 정식 운영으로 바뀌기 전에 사이트와 메일로 미리 알려 드려요.",
+  "베타는 운영 사정에 따라 끝날 수 있어요. 정식 운영 전에는 사이트와 메일로 미리 알려 드려요.",
 ]
 const BETA_FAQ = { id: "beta", title: "베타 기간에는 무엇이 다른가요?", text: `지금은 정식으로 열기 전 베타 기간이라 결제가 없어요. 소개도, 서로 선택한 뒤의 3일 교류도 무료로 진행하고, 교류는 두 분이 같은 방식과 시작일을 정하면 바로 시작해요. 아래의 요금·환불 안내는 정식 운영 기준이에요. 베타는 운영 사정에 따라 언제든 끝날 수 있고, 끝나거나 정식 운영으로 바뀌기 7일 전에 사이트와 메일로 알려 드려요. 그때 이어서 쓸지 직접 고를 수 있고, 자동으로 결제되는 일은 없어요. 써 보시며 불편한 점은 ‘문의하기 → 베타 의견’으로 남겨 주세요.` };
 const BETA_COHORT_FAQ = { id: "cohort", title: "기수제는 어떻게 운영되나요?", text: "기수마다 신청을 받아, 시작하는 날 정오에 함께 첫 소개를 받아요. 신청 마감과 첫 소개 날짜는 첫 화면의 기수 안내에 있어요. 마감 뒤에 신청하면 다음 기수로 이어지고, 내 기수와 첫 소개 날짜는 오늘 화면에서 볼 수 있어요. 베타 기간에는 어느 기수에 배정되든 무료예요. 11월 12일 뒤에 신청해 1기(12월 31일 시작)로 이어진 분도 베타가 끝날 때까지 결제하지 않아요. 정식 운영 일정은 정해지면 미리 알려 드릴게요." };
@@ -464,7 +464,7 @@ function Pricing() {
           <PaymentSteps />
           <div className={card}>
             <p className="text-ink text-base font-semibold">분명히 해 두고 싶은 것들</p>
-            <ul className="mt-4 divide-y divide-border">{promises.map(item => <li key={item} className="flex gap-3.5 py-3.5 text-[15px] leading-[1.8] text-foreground/80 first:pt-1 last:pb-0"><span aria-hidden="true" className="mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul>
+            <ul className="mt-4 divide-y divide-border">{promises.map(item => <li key={item} className="flex gap-3.5 py-3.5 text-[15px] leading-[1.8] text-foreground/80 [text-wrap:balance] first:pt-1 last:pb-0"><span aria-hidden="true" className="mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul>
           </div>
           <div className="flex flex-wrap items-center gap-3 pt-3"><Button asChild className={`h-12 rounded-full bg-[#F7D96B] px-6 text-[#2B2540] shadow-[0_14px_30px_-16px_rgba(180,140,20,0.7)] hover:bg-[#F2CF52] ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={16} /></Link></Button><Button asChild variant="link" className={`h-12 px-0 text-foreground hover:text-primary ${interaction}`}><a href="#faq">자주 묻는 질문 보기 <ArrowRight size={14} /></a></Button></div>
         </div>
@@ -485,7 +485,7 @@ function Faq() {
   }, [location.hash, location.key]);
   return (
     <section id="faq" className="grid gap-8 pt-20 pb-14 sm:pt-24 sm:pb-18 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="faq-title">
-      <div><SectionLabel number="07" ko="자주 묻는 질문">BEFORE YOU BEGIN</SectionLabel><h2 id="faq-title" className="text-ink text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청하기 전에 많이 묻는 것들을 모았어요.<br />더 궁금한 건 <Link to="/contact" className="text-foreground underline underline-offset-4 hover:text-primary">문의하기</Link>로 남겨 주세요.</p></div>
+      <div><SectionLabel number="07" ko="자주 묻는 질문">BEFORE YOU BEGIN</SectionLabel><h2 id="faq-title" className="text-ink text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청하기 전에 많이 묻는 것들을 모았어요.<br />더 궁금한 건 <Link to="/contact" className="font-semibold text-primary underline-offset-4 hover:underline">문의하기</Link>로 남겨 주세요.</p></div>
       <Accordion type="single" collapsible value={open} onValueChange={setOpen} className="border-t border-border [&_[data-slot=accordion-content]]:motion-reduce:animate-none [&_svg]:motion-reduce:transition-none">
         {FAQ.map(item => <AccordionItem key={item.id} value={item.id} id={`faq-${item.id}`}><AccordionTrigger className={`py-6 text-[15px] hover:no-underline hover:text-primary ${interaction}`}>{item.title}</AccordionTrigger><AccordionContent className="pb-6 text-sm leading-7 text-muted-foreground">{item.text}</AccordionContent></AccordionItem>)}
       </Accordion>

@@ -217,8 +217,8 @@ function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
   const dot = (to: string) => to === "/today" && unread > 0 ? <span className="ml-auto size-2 rounded-full bg-[#F2B705]" aria-label={`새 알림 ${unread}개`} /> : null;
   const memberPath = (to: string) => new URLSearchParams(location.search).get("demo") === "agreement" && ["/today", "/us", "/exchange", "/meeting", "/profile", "/payments", "/support"].includes(to) ? `${to}?demo=agreement` : to;
   return (
-    <div className="flex min-h-dvh bg-background text-foreground">
-      <aside className="sticky top-0 hidden h-dvh w-[200px] shrink-0 flex-col border-r border-border bg-card px-4 py-8 md:flex">
+    <div className="member-wash flex min-h-dvh bg-mist text-foreground">
+      <aside className="sticky top-0 hidden h-dvh w-[200px] shrink-0 flex-col border-r border-primary/[0.07] bg-card/70 px-4 py-8 backdrop-blur md:flex">
         <div className="px-2"><Brand compact /></div>
         <nav aria-label="회원 메뉴" className="mt-16 grid gap-2">
           {MEMBER_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={memberPath(to)} className={({ isActive }) => `flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "bg-primary/8 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}><Icon size={18} strokeWidth={1.6} />{label}{dot(to)}</NavLink>)}
@@ -240,7 +240,7 @@ function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
         {/* 회원 화면의 위아래 여백은 이 틀이 맡는다. 화면마다 덧붙인 첫·마지막 여백은 지워 높이를 맞춘다. */}
         <main id="main-content" className="mx-auto w-full max-w-[1120px] flex-1 break-keep px-5 py-10 sm:px-8 lg:px-10 lg:py-14 [&>div>*:first-child]:!mt-0 [&>div>*:first-child]:!pt-0 [&>div>*:last-child]:!mb-0 [&>div>*:last-child]:!pb-0 [&>div>div:only-child>*:first-child]:!pt-0 [&>div>div:only-child>*:last-child]:!pb-0"><PageTransition /></main>
       </div>
-      <nav aria-label="모바일 회원 메뉴" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
+      <nav aria-label="모바일 회원 메뉴" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-primary/[0.07] bg-card/90 pt-2 backdrop-blur pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden">
         {MEMBER_NAV.map(({ to, label, icon: Icon }) => <NavLink key={to} to={memberPath(to)} className={({ isActive }) => `flex min-h-14 flex-col items-center justify-center gap-1.5 rounded-lg text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}><span className="relative"><Icon size={20} strokeWidth={1.6} />{to === "/today" && unread > 0 && <span className="absolute -right-1 -top-0.5 size-2 rounded-full bg-[#F2B705] ring-2 ring-card" aria-label={`새 알림 ${unread}개`} />}</span>{label}</NavLink>)}
       </nav>
     </div>
@@ -280,7 +280,7 @@ function BeforeUsRoot() {
   const isMember = ["/payments","/support","/meeting/contact"].includes(location.pathname) || MEMBER_NAV.some(item => item.to === location.pathname) || (LIVE && signedIn && ["/apply", "/contact"].includes(location.pathname));
   useEffect(() => {
     const label = [...PUBLIC_NAV, ...MEMBER_NAV, ...MEMBER_EXTRA, { to: "/contact", label: "문의하기" }, { to: "/login", label: "로그인" }, { to: "/apply", label: "소개 신청하기" }, { to: "/terms", label: "이용약관" }, { to: "/privacy", label: "개인정보처리방침" }, { to: "/how-it-works", label: "진행 방식" }, { to: "/signup", label: "회원가입" }, { to: "/reset-password", label: "비밀번호 다시 설정" }].find(item => item.to === location.pathname)?.label;
-    document.title = label ? `${label} · ${BEFORE_US.brand.name}` : `${BEFORE_US.brand.name} · ${BEFORE_US.brand.english}`;
+    document.title = label ? `${label} · ${BEFORE_US.brand.name}` : `${BEFORE_US.brand.name} · 편지로 시작하는 1:1 소개팅`;
   }, [location.pathname]);
   return (
     <div className={isDark ? "dark overflow-x-clip font-sans" : "overflow-x-clip font-sans"}>

@@ -141,7 +141,7 @@ export function Journey() {
       <div className="mx-auto max-w-xl text-center">
         <p className="text-[11px] font-semibold tracking-[0.24em] text-accent">THE JOURNEY</p>
         <h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">신청부터 만남까지,<br /><span className="text-primary">한눈에 볼게요.</span></h3>
-        <p className="mt-4 text-sm leading-7 text-muted-foreground">한 번에 한 분만 소개해요. 서로 선택해 교류하는 동안에는 새 소개를 멈추고, 마무리되면 다음 분을 소개해요.</p>
+        <p className="mt-4 text-sm leading-7 text-muted-foreground">한 번에 한 분만 소개해요. 서로 선택해 교류하는 동안에는 새 소개를 멈추고,<br className="hidden sm:block" /> 마무리되면 다음 분을 소개해요.</p>
       </div>
       <ol ref={ref} className="relative mx-auto mt-14 max-w-3xl">
         <span aria-hidden="true" className={`absolute bottom-6 left-[19px] top-6 w-px origin-top bg-[color-mix(in_oklch,var(--primary)_28%,transparent)] transition-transform duration-[1800ms] ease-out motion-reduce:transition-none sm:left-1/2 sm:-translate-x-1/2 ${shown ? "scale-y-100" : "scale-y-0"}`} />
