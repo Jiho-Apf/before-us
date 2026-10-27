@@ -30,7 +30,7 @@ export type MemberSnapshot = {
   application: { status: ApplicationStatus; decisionNote: string | null; submittedAt: string | null } | null
   introduction: LiveIntroduction
   notifications: LiveNotification[]
-  notices: { notice_daily_waiting: boolean; notice_new_introduction: boolean; marketing_opt_in: boolean; notify_kakao: boolean; notify_sms: boolean; notify_email: boolean; email_all: boolean; status: "active" | "withdrawal_requested" | "suspended"; paused_at: string | null; paused_by?: "member" | "operator" | "auto" | null; suspended_reason: string | null } | null
+  notices: { notice_daily_waiting: boolean; notice_new_introduction: boolean; marketing_opt_in: boolean; notify_kakao: boolean; notify_sms: boolean; notify_email: boolean; email_all: boolean; status: "active" | "withdrawal_requested" | "suspended"; paused_at: string | null; resumed_at?: string | null; paused_by?: "member" | "operator" | "auto" | null; suspended_reason: string | null } | null
   cohort: { number: number; startsOn: string; applicationDeadline: string } | null
   program: Program | null
 }
@@ -44,7 +44,7 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
       db.from("applications").select("status, decision_note, submitted_at").eq("member_id", auth.user.id).maybeSingle(),
       db.rpc("my_introduction"),
       db.from("notifications").select("id, kind, title, body, link, created_at, read_at").order("created_at", { ascending: false }).limit(10),
-      db.from("profiles").select("notice_daily_waiting, notice_new_introduction, marketing_opt_in, notify_kakao, notify_sms, notify_email, email_all, status, paused_at, paused_by, suspended_reason").eq("id", auth.user.id).maybeSingle(),
+      db.from("profiles").select("notice_daily_waiting, notice_new_introduction, marketing_opt_in, notify_kakao, notify_sms, notify_email, email_all, status, paused_at, resumed_at, paused_by, suspended_reason").eq("id", auth.user.id).maybeSingle(),
       db.rpc("my_cohort"),
       db.rpc("my_program"),
     ])

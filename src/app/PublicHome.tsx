@@ -322,13 +322,20 @@ function Quoted({ text }: { text: string }) {
   return <>{parts.map((part, index) => part.startsWith("‘") ? <span key={index} className="font-medium text-primary">{part}</span> : part)}</>;
 }
 const STORY_EASE = "transition-[opacity,transform] duration-[600ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none";
-function StoryChapter({ label, prompt, left, right, leftClass, rightClass, nameLeft, nameRight }: { label: string; prompt: string | null; left: string; right: string; leftClass: string; rightClass: string; nameLeft: ReactNode; nameRight: ReactNode }) {
+// 편지 카드 색: 1번은 옅은 보라·파랑 기운, 2번(서정적인 이야기)은 그보다 더 옅게
+const LETTER_TONE = {
+  plain: { left: "bg-[color-mix(in_oklch,var(--primary)_4%,var(--card))]", right: "bg-[color-mix(in_oklch,var(--accent)_4%,var(--card))]", shadow: "shadow-[0_22px_44px_-34px_color-mix(in_oklch,var(--primary)_55%,transparent)]" },
+  lyrical: { left: "bg-[color-mix(in_oklch,var(--primary)_1.5%,var(--card))]", right: "bg-[color-mix(in_oklch,var(--accent)_1.5%,var(--card))]", shadow: "shadow-[0_22px_44px_-36px_color-mix(in_oklch,var(--primary)_36%,transparent)]" },
+} as const;
+function StoryChapter({ label, prompt, left, right, leftClass, rightClass, nameLeft, nameRight, tone }: { label: string; prompt: string | null; left: string; right: string; leftClass: string; rightClass: string; nameLeft: ReactNode; nameRight: ReactNode; tone: keyof typeof LETTER_TONE }) {
   const question = prompt?.endsWith("?");
   const { ref, shown } = useInView<HTMLLIElement>(0.2);
   const step = (delay: number) => ({ className: `${STORY_EASE} ${shown ? "translate-y-0 opacity-100" : "translate-y-3.5 opacity-0"}`, style: { transitionDelay: `${delay}ms` } });
   const head = step(0), one = step(160), two = step(340);
   const opened = /^DAY 0[1-3]$/.test(label);
-  const letter = "rounded-[22px] border border-primary/[0.06] px-5 py-4 text-[15px] leading-[1.95] text-foreground/85 sm:px-6 sm:py-5 shadow-[0_22px_44px_-34px_color-mix(in_oklch,var(--primary)_55%,transparent)]";
+  const color = LETTER_TONE[tone];
+  const letter = `flex flex-1 items-center justify-center rounded-[22px] border border-primary/[0.06] px-6 py-5 text-[15px] leading-[1.95] text-foreground/85 sm:px-7 sm:py-6 ${color.shadow}`;
+  const words = "text-center break-keep [text-wrap:balance]";
   return (
     <li ref={ref} className="relative pb-14 last:pb-4 sm:pb-16">
       <div className={`relative z-10 mx-auto mb-8 max-w-md bg-mist px-4 text-center ${head.className}`} style={head.style}>
@@ -336,8 +343,8 @@ function StoryChapter({ label, prompt, left, right, leftClass, rightClass, nameL
         {prompt && <p className="text-ink mt-3.5 text-[17px] font-medium leading-8">{question ? <><span aria-hidden="true" className="text-primary">“</span>{prompt}<span aria-hidden="true" className="text-primary">”</span></> : prompt}</p>}
       </div>
       <div className="grid gap-5 md:grid-cols-2 md:gap-16">
-        <div className={`mr-6 md:mr-0 ${leftClass}`}><div className={one.className} style={one.style}>{nameLeft}<p className={`${letter} rounded-tl-md bg-[color-mix(in_oklch,var(--primary)_4%,var(--card))] md:rounded-tl-[22px] md:rounded-tr-md`}><Quoted text={left} /></p></div></div>
-        <div className={`ml-6 md:ml-0 ${rightClass}`}><div className={two.className} style={two.style}>{nameRight}<p className={`${letter} rounded-tr-md bg-[color-mix(in_oklch,var(--accent)_4%,var(--card))] md:rounded-tr-[22px] md:rounded-tl-md`}><Quoted text={right} /></p></div></div>
+        <div className={`mr-6 md:mr-0 ${leftClass}`}><div className={`flex flex-1 flex-col ${one.className}`} style={one.style}>{nameLeft}<div className={`${letter} ${color.left} rounded-tl-md md:rounded-tl-[22px] md:rounded-tr-md`}><p className={words}><Quoted text={left} /></p></div></div></div>
+        <div className={`ml-6 md:ml-0 ${rightClass}`}><div className={`flex flex-1 flex-col ${two.className}`} style={two.style}>{nameRight}<div className={`${letter} ${color.right} rounded-tr-md md:rounded-tr-[22px] md:rounded-tl-md`}><p className={words}><Quoted text={right} /></p></div></div></div>
       </div>
     </li>
   );
@@ -367,7 +374,7 @@ function TwoVoices() {
       {side === "left" && <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />}
     </p>
   );
-  const voiceClass = (side: "left" | "right") => `${show(side) ? "" : "hidden md:block md:opacity-25"} transition-opacity duration-200 motion-reduce:transition-none`;
+  const voiceClass = (side: "left" | "right") => `${show(side) ? "flex flex-col" : "hidden md:flex md:flex-col md:opacity-25"} transition-opacity duration-200 motion-reduce:transition-none`;
   return (
     <section className="bleed bg-mist py-20 sm:py-24" aria-labelledby="story-title">
       <div className="mx-auto max-w-2xl text-center">
@@ -395,7 +402,7 @@ function TwoVoices() {
       <ol key={storyId} className="relative mx-auto mt-16 max-w-4xl">
         <span aria-hidden="true" className="absolute top-2 bottom-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-primary/5 via-primary/40 to-primary/5 md:block" />
         {chapters.map(chapter => (
-          <StoryChapter key={chapter.id} label={chapter.label} prompt={chapter.prompt} left={chapter.left} right={chapter.right} leftClass={voiceClass("left")} rightClass={voiceClass("right")} nameLeft={<Name side="left" />} nameRight={<Name side="right" />} />
+          <StoryChapter key={chapter.id} label={chapter.label} prompt={chapter.prompt} left={chapter.left} right={chapter.right} leftClass={voiceClass("left")} rightClass={voiceClass("right")} nameLeft={<Name side="left" />} nameRight={<Name side="right" />} tone={storyId} />
         ))}
       </ol>
       <div className="mx-auto mt-10 max-w-2xl text-center">

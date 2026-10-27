@@ -66,7 +66,7 @@ const AFTER_YES = BETA_ACTIVE
 const kstToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 const dayBefore = (date: string) => new Date(Date.parse(`${date}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
 const noonOf = (date: string) => kstDay(`${date}T12:00:00+09:00`);
-type TodayState = { label: string; title: string; action: string; to: string | null; body: string; clock?: { at: string; label: string; note: string } };
+type TodayState = { label: string; title: string; action: string; to: string | null; body: string; clock?: { at: string; label: string; note: string }; extra?: { label: string; to: string } };
 function todayState(data: MemberSnapshot): TodayState {
   const application = data.application, intro = data.introduction, cohort = data.cohort;
   if (data.notices?.status === "suspended") return { label: "이용 정지", title: "지금은 소개를 받을 수 없어요.", action: "문의·요청 남기기", to: "/support", body: `운영진 안내 · ${(data.notices.suspended_reason || "운영 정책에 따라 이용이 잠시 멈췄어요").replace(/[.。\s]+$/, "")}. 다르게 생각되면 문의·요청에서 ‘결정 재검토 요청’을 남겨 주세요.` };
@@ -103,7 +103,7 @@ function todayState(data: MemberSnapshot): TodayState {
     ? { label: `${cohortName(cohort.number)} · 내일 시작`, title: "내일 정오에 첫 소개가 도착해요.", action: "내 정보 확인하기", to: "/profile", body: "잘 맞는 분을 준비해 두었어요. 내일 정오에 이 화면과 두 사람 화면에서 확인해 주세요." }
     : { label: `${cohortName(cohort.number)} · 시작 전`, title: `${cohortName(cohort.number)} 첫 소개는 ${noonOf(cohort.startsOn)} 정오에 도착해요.`, action: "내 정보 확인하기", to: "/profile", body: `같은 기수의 분들과 함께 첫 소개를 받아요. 시작 전날 한 번 더 알려 드릴게요.${BEFORE_US.beta.active ? "" : " 시작 전에는 소개비를 언제든 전액 환불받을 수 있어요."}` };
   if (application.status === "approved") return waitedDays(data) >= BEFORE_US.noonGuidance.waitingNoteAfterDays
-    ? { label: "소개 준비", title: "잘 맞는 분을 찾는 데 시간이 걸리고 있어요.", action: "다음 소개 기다리기", to: null, body: "서두르기보다 잘 맞는 분을 고르고 있어요. 준비되면 그날 정오에 이 화면과 메일로 알려 드릴게요. 기다림이 길게 느껴지면 문의하기로 편하게 말씀해 주세요." }
+    ? { label: "소개 준비", title: "잘 맞는 분을 찾는 데 시간이 걸리고 있어요.", action: "다음 소개 기다리기", to: null, body: "서두르기보다 잘 맞는 분을 고르고 있어요. 준비되면 그날 정오에 이 화면과 메일로 알려 드릴게요. 기다림이 길게 느껴지면 편하게 말씀해 주세요.", extra: { label: "문의하기", to: "/contact?type=소개·교류" } }
     : { label: "소개 준비", title: "잘 맞는 분을 찾고 있어요.", action: "다음 소개 기다리기", to: null, body: "준비된 날 정오에 한 분을 소개해요. 매일 오지는 않아요. 도착하면 이 화면과 메일로 알려 드릴게요." };
   if (application.status === "held") return { label: "확인 보류", title: "신청서 확인이 조금 늦어지고 있어요.", action: "문의하기", to: "/contact", body: application.decisionNote ? `운영진 안내 · ${application.decisionNote}` : "운영진이 확인할 일이 있어 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." };
   if (application.status === "rejected") return { label: "소개 어려움", title: "이번에는 소개를 이어 가기 어려워요.", action: "문의하기", to: "/contact", body: application.decisionNote ? `운영진 안내 · ${application.decisionNote}` : "자세한 사유가 궁금하면 문의하기로 남겨 주세요. 다르게 생각되면 문의·요청에서 재검토를 요청할 수 있어요." };
@@ -136,7 +136,7 @@ function LiveTodayView() {
           <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#F8E5A6] px-3 py-1 text-xs font-semibold text-[#5A4310] dark:bg-[#3B3424] dark:text-[#F3D98A]"><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />지금 할 일</p>
           <h2 className="mt-4 text-2xl font-semibold leading-[1.45] sm:text-[28px]">{state.action}</h2>
           <p className="mt-6 max-w-xl text-sm leading-7 text-muted-foreground">{state.body}</p>
-          {state.to && <div className="mt-7"><Button asChild className={`h-12 rounded-xl px-6 ${interaction}`}><Link to={state.to}>{state.action} <ArrowUpRight size={17} /></Link></Button></div>}
+          {(state.to || state.extra) && <div className="mt-7 flex flex-wrap items-center gap-3">{state.to && <Button asChild className={`h-12 rounded-xl px-6 ${interaction}`}><Link to={state.to}>{state.action} <ArrowUpRight size={17} /></Link></Button>}{state.extra && <Button asChild variant="outline" className={`h-12 rounded-xl border-border px-6 ${interaction}`}><Link to={state.extra.to}>{state.extra.label} <ArrowUpRight size={17} /></Link></Button>}</div>}
           <div className="mt-auto pt-10"><QuietNote>한 번에 한 사람, 서두르지 않는 시작.</QuietNote></div>
         </Sheet>
         <aside aria-labelledby="notice-title" className="border-t border-border pt-6 lg:border-t-0 lg:pt-0">
@@ -407,9 +407,9 @@ function nextIntroText(data: MemberSnapshot) {
   if (data.introduction.status === "mutual") return "교류를 마치면 다음 소개를 준비해요";
   return waitedDays(data) >= BEFORE_US.noonGuidance.waitingNoteAfterDays ? "찾는 데 시간이 걸리고 있어요" : "다음 소개 · 준비되는 날 정오";
 }
-// 새 소개를 기다린 날: 마지막 소개·교류가 끝난 때, 없으면 기수 시작·신청 접수 중 늦은 때부터 센다.
+// 새 소개를 기다린 날: 마지막 소개·교류가 끝난 때, 쉬기를 풀고 다시 받은 때, 기수 시작, 신청 접수 중 가장 늦은 때부터 센다(쉰 기간은 세지 않는다).
 function waitedDays(data: MemberSnapshot) {
-  const marks = [data.introduction.status !== "waiting" ? data.introduction.closedAt : null, data.program?.closedAt ?? null, data.cohort ? `${data.cohort.startsOn}T12:00:00+09:00` : null, data.application?.submittedAt ?? null]
+  const marks = [data.introduction.status !== "waiting" ? data.introduction.closedAt : null, data.program?.closedAt ?? null, data.notices?.resumed_at ?? null, data.cohort ? `${data.cohort.startsOn}T12:00:00+09:00` : null, data.application?.submittedAt ?? null]
     .filter((value): value is string => !!value).map(value => Date.parse(value)).filter(Number.isFinite);
   return marks.length ? Math.floor((Date.now() - Math.max(...marks)) / 86400000) : 0;
 }
