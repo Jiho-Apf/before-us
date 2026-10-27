@@ -334,17 +334,16 @@ function StoryChapter({ label, prompt, left, right, leftClass, rightClass, nameL
   const head = step(0), one = step(160), two = step(340);
   const opened = /^DAY 0[1-3]$/.test(label);
   const color = LETTER_TONE[tone];
-  const letter = `flex flex-1 items-center justify-center rounded-[22px] border border-primary/[0.06] px-6 py-5 text-[15px] leading-[1.95] text-foreground/85 sm:px-7 sm:py-6 ${color.shadow}`;
-  const words = "text-center break-keep [text-wrap:balance]";
+  const letter = `rounded-[22px] border border-primary/[0.06] px-5 py-4 text-[15px] leading-[1.95] text-foreground/85 sm:px-6 sm:py-5 ${color.shadow}`;
   return (
     <li ref={ref} className="relative pb-14 last:pb-4 sm:pb-16">
       <div className={`relative z-10 mx-auto mb-8 max-w-md bg-mist px-4 text-center ${head.className}`} style={head.style}>
         <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-card px-3 py-1 text-[10px] font-semibold tracking-[0.14em] text-accent">{opened && <LockOpen size={11} strokeWidth={2.2} className="text-primary" aria-label="두 편지가 함께 열린 날" />}{label}</span>
         {prompt && <p className="text-ink mt-3.5 text-[17px] font-medium leading-8">{question ? <><span aria-hidden="true" className="text-primary">“</span>{prompt}<span aria-hidden="true" className="text-primary">”</span></> : prompt}</p>}
       </div>
-      <div className="grid gap-5 md:grid-cols-2 md:gap-16">
-        <div className={`mr-6 md:mr-0 ${leftClass}`}><div className={`flex flex-1 flex-col ${one.className}`} style={one.style}>{nameLeft}<div className={`${letter} ${color.left} rounded-tl-md md:rounded-tl-[22px] md:rounded-tr-md`}><p className={words}><Quoted text={left} /></p></div></div></div>
-        <div className={`ml-6 md:ml-0 ${rightClass}`}><div className={`flex flex-1 flex-col ${two.className}`} style={two.style}>{nameRight}<div className={`${letter} ${color.right} rounded-tr-md md:rounded-tr-[22px] md:rounded-tl-md`}><p className={words}><Quoted text={right} /></p></div></div></div>
+      <div className="grid gap-5 md:grid-cols-2 md:items-center md:gap-16">
+        <div className={`mr-6 md:mr-0 ${leftClass}`}><div className={one.className} style={one.style}>{nameLeft}<p className={`${letter} ${color.left} rounded-tl-md md:rounded-tl-[22px] md:rounded-tr-md`}><Quoted text={left} /></p></div></div>
+        <div className={`ml-6 md:ml-0 ${rightClass}`}><div className={two.className} style={two.style}>{nameRight}<p className={`${letter} ${color.right} rounded-tr-md md:rounded-tr-[22px] md:rounded-tl-md`}><Quoted text={right} /></p></div></div>
       </div>
     </li>
   );
@@ -374,7 +373,7 @@ function TwoVoices() {
       {side === "left" && <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />}
     </p>
   );
-  const voiceClass = (side: "left" | "right") => `${show(side) ? "flex flex-col" : "hidden md:flex md:flex-col md:opacity-25"} transition-opacity duration-200 motion-reduce:transition-none`;
+  const voiceClass = (side: "left" | "right") => `${show(side) ? "" : "hidden md:block md:opacity-25"} transition-opacity duration-200 motion-reduce:transition-none`;
   return (
     <section className="bleed bg-mist py-20 sm:py-24" aria-labelledby="story-title">
       <div className="mx-auto max-w-2xl text-center">

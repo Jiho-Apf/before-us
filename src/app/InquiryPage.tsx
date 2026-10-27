@@ -1,6 +1,6 @@
 import { kstDateTime } from "./dates"
 import { useState } from "react"
-import { Link } from "react-router"
+import { Link, useLocation } from "react-router"
 import { ArrowRight, ChevronDown, Inbox, MailCheck, Search } from "lucide-react"
 import { Button } from "./components/ui/button"
 import { Checkbox } from "./components/ui/checkbox"
@@ -76,7 +76,9 @@ export default function InquiryPage() {
   const [type, setType] = useState<InquiryType | "">(() => { const wanted = new URLSearchParams(window.location.search).get("type"); return (INQUIRY_TYPES as readonly string[]).includes(wanted ?? "") ? wanted as InquiryType : "" })
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
-  const [body, setBody] = useState("")
+  // 회원 화면에서 넘어오며 미리 적어 둔 문장(예: ‘소개를 기다린 지 ○일째예요.’)이 있으면 내용 칸에 채운다
+  const location = useLocation()
+  const [body, setBody] = useState(() => { const prefill = (location.state as { prefill?: unknown } | null)?.prefill; return typeof prefill === "string" ? prefill : "" })
   const [consent, setConsent] = useState(false)
   const [website, setWebsite] = useState("")
   const [error, setError] = useState("")
