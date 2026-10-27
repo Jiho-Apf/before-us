@@ -1,7 +1,7 @@
 import { ChannelNotice } from "./ChannelNotice";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { ArrowRight, ArrowUpRight, Bell, Flag, ShieldOff } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Bell, Contact, Flag, ShieldOff, UserX, X } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Checkbox } from "./components/ui/checkbox";
 import { Textarea } from "./components/ui/textarea";
@@ -18,7 +18,7 @@ import { DECLINE_REASONS } from "./introduction-model";
 import { REQUEST_LABELS } from "./member-operations-model";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
 import { partnerPhotoUrl } from "./backend/applications";
-import { blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
+import { addAvoidContacts, deleteAvoidContact, loadAvoidContacts, type AvoidContact, blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
 
 // 실제 서버 모드의 회원 화면(오늘 · 두 사람 · 내 정보 · 문의·요청). 데모 화면과 같은 편집 톤을 쓴다.
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -137,6 +137,54 @@ export function FirstWordCard() {
     <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-border p-4 text-sm leading-6"><Checkbox className="mt-1" checked={home} onCheckedChange={value => setHome(value === true)} /><span>홈에도 이 문장을 보여 줄게요. <span className="block text-xs text-muted-foreground">이름·사진 없이 문장만, 운영진이 확인한 뒤에 보여요. 언제든 끌 수 있어요.</span></span></label>
     {saved?.homeStatus === "rejected" && saved.homeReason && <p className="mt-3 rounded-xl bg-muted p-3 text-xs leading-6">운영진 안내 · {saved.homeReason}</p>}
     <div className="mt-5 flex flex-wrap items-center gap-2"><Button disabled={!changed || length < 5} onClick={() => void save()} className={`h-11 rounded-xl px-5 ${interaction}`}>첫 마디 저장</Button>{saved && <Button variant="ghost" onClick={() => void remove()} className={`h-11 rounded-xl text-xs text-muted-foreground ${interaction}`}>지우기</Button>}{message && <p role="status" className="text-xs text-primary">{message}</p>}</div>
+  </Sheet>;
+}
+
+// ─────────────────────────────────────────────
+// 아는 사람 피하기: 적어 둔 번호로 신청한 분과는 서로 소개하지 않는다(한쪽만 적어도). 상대에게는 알리지 않는다.
+// 번호는 서버에서 되돌릴 수 없는 암호값으로만 저장하고, 화면에는 뒤 네 자리와 메모만 보인다.
+type ContactPicker = { select: (properties: string[], options: { multiple: boolean }) => Promise<{ tel?: string[] }[]> };
+function AvoidContactsCard() {
+  const [list, setList] = useState<AvoidContact[] | null>(null);
+  const [text, setText] = useState("");
+  const [memo, setMemo] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const picker = typeof navigator !== "undefined" ? (navigator as Navigator & { contacts?: ContactPicker }).contacts : undefined;
+  const refresh = async () => { const { data, error } = await loadAvoidContacts(); if (error) setMessage(error); setList(data ?? []); };
+  useEffect(() => { void refresh(); }, []);
+  const phones = text.split(/[\n,;]+/).map(item => item.trim()).filter(Boolean);
+  const add = async () => {
+    if (!phones.length || sending) return;
+    setSending(true);
+    const { data, error } = await addAvoidContacts(phones, memo);
+    setSending(false);
+    if (error) { setMessage(error); return; }
+    setMessage(data ? `${data}개를 더했어요. 이 번호로 신청한 분과는 소개하지 않아요.` : "이미 적어 둔 번호예요.");
+    setText(""); setMemo("");
+    await refresh();
+  };
+  const remove = async (id: string) => { const { error } = await deleteAvoidContact(id); if (error) { setMessage(error); return; } setMessage("목록에서 지웠어요."); await refresh(); };
+  const fromContacts = async () => {
+    try {
+      const picked = await picker!.select(["tel"], { multiple: true });
+      const numbers = picked.flatMap(item => item.tel ?? []);
+      if (numbers.length) setText(current => [current.trim(), ...numbers].filter(Boolean).join("\n"));
+    } catch { /* 고르기를 취소했어요 */ }
+  };
+  return <Sheet className="p-6 sm:p-8">
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="flex items-center gap-2 text-xs font-semibold text-accent"><UserX size={14} />아는 사람 피하기</p><h2 className="mt-3 text-xl font-semibold leading-[1.5]">마주치고 싶지 않은 사람이 있다면,<br />번호를 적어 두세요.</h2></div>{list && <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{list.length}개 적어 둠</span>}</div>
+    <p className="mt-3 text-sm leading-7 text-muted-foreground">적어 둔 번호로 신청한 분과는 서로 소개하지 않아요. 한쪽만 적어도 막히고, 상대에게는 알리지 않아요. 번호는 되돌릴 수 없는 암호값으로만 저장하고, 화면에는 뒤 네 자리만 보여요.</p>
+    <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_180px]">
+      <Textarea aria-label="피하고 싶은 휴대폰 번호(한 줄에 하나)" value={text} onChange={event => setText(event.target.value)} rows={3} placeholder={"010-1234-5678\n한 줄에 하나씩, 여러 개도 괜찮아요"} className="rounded-xl border-border bg-card text-sm leading-7" />
+      <div className="flex flex-col gap-2">
+        <input aria-label="메모(선택)" value={memo} maxLength={20} onChange={event => setMemo(event.target.value)} placeholder="메모(선택) · 예: 회사" className="h-11 rounded-xl border border-border bg-card px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        {picker && <Button type="button" variant="outline" onClick={() => void fromContacts()} className="h-11 rounded-xl border-border hover:bg-muted hover:text-foreground"><Contact size={15} />연락처에서 고르기</Button>}
+      </div>
+    </div>
+    <div className="mt-4 flex flex-wrap items-center gap-3"><Button disabled={!phones.length || sending} onClick={() => void add()} className={`h-11 rounded-xl px-5 ${interaction}`}>{sending ? "저장하는 중…" : `${phones.length ? `${phones.length}개 ` : ""}피하기 목록에 넣기`}</Button>{message && <p role="status" className="text-xs text-muted-foreground">{message}</p>}</div>
+    {list && list.length > 0 && <ul className="mt-6 divide-y divide-border border-t border-border">{list.map(item => <li key={item.id} className="flex items-center justify-between gap-3 py-3 text-sm"><span className="flex min-w-0 items-center gap-3"><span className="tabular-nums">010-••••-{item.tail}</span>{item.memo && <span className="truncate rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">{item.memo}</span>}</span><Button variant="ghost" size="sm" aria-label={`뒤 네 자리 ${item.tail} 번호 지우기`} onClick={() => void remove(item.id)} className="h-8 shrink-0 rounded-lg text-xs text-muted-foreground hover:bg-muted hover:text-foreground"><X size={13} />지우기</Button></li>)}</ul>}
+    <p className="mt-4 text-[11px] leading-5 text-muted-foreground">이미 진행 중인 소개에는 적용되지 않아요. 지금 소개된 분이 아는 사람이라면 ‘두 사람’ 화면에서 차단해 주세요.</p>
   </Sheet>;
 }
 
@@ -273,6 +321,7 @@ function LiveProfileView() {
       </div>
       {data?.application?.status === "approved" && notices?.status === "active" && <Sheet className="flex flex-wrap items-center justify-between gap-5 p-6"><div className="min-w-0 max-w-xl"><p className="text-xs font-semibold text-accent">새 소개 {paused ? "다시 받기" : "잠시 쉬기"}</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{paused ? `${kstDay(notices.paused_at!)}부터 쉬고 있어요. 다시 받기를 누르면 다음 정오부터 소개를 준비해요.` : "여행·바쁜 시기처럼 잠시 쉬고 싶을 때 눌러 주세요. 진행 중인 소개는 그대로 이어지고, 새 소개만 멈춰요."}</p>{pauseMessage && <p role="status" className="mt-2 text-xs text-primary">{pauseMessage}</p>}</div><Button variant={paused ? "default" : "outline"} disabled={pausing} onClick={() => void togglePause()} className="h-11 shrink-0 rounded-xl border-border px-5">{paused ? "다시 받기" : "잠시 쉬기"}</Button></Sheet>}
       <FirstWordCard />
+      <AvoidContactsCard />
       {BEFORE_US.beta.active && <QuietNote>베타 테스터로 함께해 주셔서 고마워요. 불편했던 점이나 바라는 점이 있다면 <Link to="/contact?type=베타 의견" className="font-semibold text-primary underline-offset-4 hover:underline">베타 의견 남기기</Link>로 알려 주세요. 하나하나 읽고 반영할게요.</QuietNote>}
       <AccountPanel />
     </section>

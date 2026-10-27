@@ -288,3 +288,8 @@
 .soft-underline.is-on { background-size: 100% 2px; }
 @media (prefers-reduced-motion: reduce) { .soft-underline { transition: none; background-size: 100% 2px; } }
 
+
+/* 첫 화면 편지: 처음 들어오면 위에서부터 하나씩 살며시 내려앉는다 */
+@keyframes letter-drop { from { opacity: 0; transform: translateY(-18px); } to { opacity: 1; transform: none; } }
+.letter-drop { animation: letter-drop 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) { .letter-drop { animation: none; } }

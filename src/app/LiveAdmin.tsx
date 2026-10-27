@@ -290,7 +290,7 @@ function ApplicantDetail({ memberId, onChanged }: { memberId: string; onChanged:
 
 // ─────────────────────────────────────────────
 // 소개·매칭: 소개할 수 있는 회원 중 두 사람을 골라 정오 공개를 예약한다.
-type ReadyMember = { member_id: string; name: string | null; gender: string | null; desired: string | null; age: number | null; province: string | null; area: string | null; purpose: string | null; last_published_at: string | null; introductions: number; blocked: string[]; previous: string[] };
+type ReadyMember = { member_id: string; name: string | null; gender: string | null; desired: string | null; age: number | null; province: string | null; area: string | null; purpose: string | null; last_published_at: string | null; introductions: number; blocked: string[]; previous: string[]; avoided?: string[] };
 type IntroRow = { id: string; status: string; reveal_at: string; respond_by: string; name_a: string | null; name_b: string | null; response_a: string | null; response_b: string | null; opened_a: boolean; opened_b: boolean; end_reason: string | null; note: string };
 const nextNoonDate = () => { const now = new Date(); const kst = new Date(now.getTime() + 9 * 3600000); const date = kst.toISOString().slice(0, 10); return kst.getUTCHours() < 12 ? date : new Date(Date.parse(`${date}T00:00:00Z`) + 86400000).toISOString().slice(0, 10); };
 const ANSWER: Record<string, string> = { positive: "알아가고 싶어요", negative: "넘길게요" };
@@ -307,6 +307,7 @@ export function LiveIntroductions() {
   const toggle = (id: string) => setPair(current => current.includes(id) ? current.filter(item => item !== id) : current.length < 2 ? [...current, id] : [current[1], id]);
   const warnings = chosen.length === 2 ? [
     chosen[0].blocked.includes(chosen[1].member_id) && "차단 관계예요.",
+    (chosen[0].avoided ?? []).includes(chosen[1].member_id) && "아는 사람 피하기 관계예요. 예약할 수 없어요.",
     chosen[0].previous.includes(chosen[1].member_id) && "이미 소개한 적 있어요.",
     !([chosen[1].gender, "선호 없음"].includes(chosen[0].desired) && [chosen[0].gender, "선호 없음"].includes(chosen[1].desired)) && "서로 원하는 상대 성별이 맞지 않아요.",
   ].filter(Boolean) as string[] : [];
@@ -315,7 +316,7 @@ export function LiveIntroductions() {
   return <>
     <Title lead="승인된 회원 중 진행 중인 소개가 없는 분만 보여요. 예약한 소개는 그날 12:00에 두 사람에게 동시에 공개되고, 다음 날 11:00에 응답이 마감돼요.">소개·매칭</Title>
     <div className="grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-      <section className={`${box} divide-y divide-border`} aria-label="소개 가능한 회원">{members.length ? members.map(member => <button key={member.member_id} type="button" aria-pressed={pair.includes(member.member_id)} onClick={() => toggle(member.member_id)} className={`block w-full px-4 py-3 text-left text-sm ${pair.includes(member.member_id) ? "bg-primary/10" : "hover:bg-secondary"}`}><span className="font-semibold">{member.name}</span> <span className="text-muted-foreground">· {member.gender} → {member.desired} · {member.age}세 · {member.province} {member.area}</span><span className="mt-1 block text-xs text-muted-foreground">{member.purpose} · 소개 {member.introductions}번{member.last_published_at ? ` · 최근 ${kstDay(member.last_published_at)}` : " · 첫 소개 전"}</span></button>) : <p className="p-5 text-sm text-muted-foreground">{ready.loading ? "불러오고 있어요." : ready.error || "지금 소개할 수 있는 회원이 없어요."}</p>}</section>
+      <section className={`${box} divide-y divide-border`} aria-label="소개 가능한 회원">{members.length ? members.map(member => <button key={member.member_id} type="button" aria-pressed={pair.includes(member.member_id)} onClick={() => toggle(member.member_id)} className={`block w-full px-4 py-3 text-left text-sm ${pair.includes(member.member_id) ? "bg-primary/10" : "hover:bg-secondary"}`}><span className="font-semibold">{member.name}</span> <span className="text-muted-foreground">· {member.gender} → {member.desired} · {member.age}세 · {member.province} {member.area}</span><span className="mt-1 block text-xs text-muted-foreground">{member.purpose} · 소개 {member.introductions}번{member.last_published_at ? ` · 최근 ${kstDay(member.last_published_at)}` : " · 첫 소개 전"}{member.avoided?.length ? ` · 아는 사람 피하기 ${member.avoided.length}명` : ""}{pair.length === 1 && pair[0] !== member.member_id && member.avoided?.includes(pair[0]) ? " · 지금 고른 분과 서로 피하는 사이" : ""}</span></button>) : <p className="p-5 text-sm text-muted-foreground">{ready.loading ? "불러오고 있어요." : ready.error || "지금 소개할 수 있는 회원이 없어요."}</p>}</section>
       <section className={`${box} space-y-4 p-5`} aria-label="정오 소개 예약">
         <h2 className="text-sm font-semibold">정오 소개 예약</h2>
         <p className="text-sm">{chosen.length ? chosen.map(member => member.name).join(" · ") : "왼쪽에서 두 사람을 골라 주세요."}</p>

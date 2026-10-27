@@ -76,11 +76,15 @@ export const withdrawMyApplication = () => rpc<null>("withdraw_application")
 const MAX_SIDE = 2048
 const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("")
 
-export async function preparePhoto(file: File): Promise<{ blob: Blob; width: number; height: number; sha256: string } | { error: string }> {
+// 사진 읽기: 형식·크기를 확인하고(올린 파일일 때), 아이폰 HEIC는 JPG로 바꾼 뒤 방향을 바로잡아 그림으로 읽는다.
+export async function decodePhoto(file: Blob): Promise<{ bitmap: ImageBitmap } | { error: string }> {
+  const named = file instanceof File ? file : null
   const type = file.type.toLowerCase()
-  const heic = /heic|heif/.test(type) || /\.(heic|heif)$/i.test(file.name)
-  if (!heic && !["image/jpeg", "image/png", "image/webp"].includes(type)) return { error: "JPG·PNG·WebP·HEIC 사진만 올릴 수 있어요." }
-  if (file.size > BEFORE_US.photoFiles.maximumBytes) return { error: "한 장에 10MB 이하인 사진을 골라 주세요." }
+  const heic = /heic|heif/.test(type) || (!!named && /\.(heic|heif)$/i.test(named.name))
+  if (named) {
+    if (!heic && !["image/jpeg", "image/png", "image/webp"].includes(type)) return { error: "JPG·PNG·WebP·HEIC 사진만 올릴 수 있어요." }
+    if (file.size > BEFORE_US.photoFiles.maximumBytes) return { error: "한 장에 10MB 이하인 사진을 골라 주세요." }
+  }
   let source: Blob = file
   if (heic) {
     // 아이폰 HEIC 사진: 사파리는 바로 읽고, 다른 브라우저는 변환 도구를 그때 불러와 JPG로 바꾼다.
@@ -93,8 +97,23 @@ export async function preparePhoto(file: File): Promise<{ blob: Blob; width: num
       } catch { return { error: "HEIC 사진을 바꾸지 못했어요. 휴대폰 설정에서 JPG로 바꾸거나 캡처해서 올려 주세요." } }
     }
   }
-  let bitmap: ImageBitmap
-  try { bitmap = await createImageBitmap(source, { imageOrientation: "from-image" }) } catch { return { error: "사진을 읽지 못했어요. 다른 사진으로 다시 시도해 주세요." } }
+  try { return { bitmap: await createImageBitmap(source, { imageOrientation: "from-image" }) } } catch { return { error: "사진을 읽지 못했어요. 다른 사진으로 다시 시도해 주세요." } }
+}
+
+// 사진 저장 형식: 다시 그린 캔버스를 JPG로 바꾸고 지문(sha256)을 붙인다. 이때 촬영 위치 같은 정보는 남지 않는다.
+export async function encodePhoto(canvas: HTMLCanvasElement): Promise<{ blob: Blob; width: number; height: number; sha256: string } | { error: string }> {
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9))
+  if (!blob) return { error: "사진을 저장 형식으로 바꾸지 못했어요." }
+  const sha256 = hex(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()))
+  return { blob, width: canvas.width, height: canvas.height, sha256 }
+}
+export type PreparedPhoto = { blob: Blob; width: number; height: number; sha256: string }
+
+// 자르지 않고 올릴 때: 긴 변을 2048px 안으로 줄여 그대로 다시 그린다.
+export async function preparePhoto(file: File): Promise<PreparedPhoto | { error: string }> {
+  const decoded = await decodePhoto(file)
+  if ("error" in decoded) return decoded
+  const { bitmap } = decoded
   const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height))
   const width = Math.round(bitmap.width * scale), height = Math.round(bitmap.height * scale)
   const canvas = document.createElement("canvas")
@@ -104,15 +123,17 @@ export async function preparePhoto(file: File): Promise<{ blob: Blob; width: num
   context.fillStyle = "#fff"; context.fillRect(0, 0, width, height)
   context.drawImage(bitmap, 0, 0, width, height)
   bitmap.close()
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9))
-  if (!blob) return { error: "사진을 저장 형식으로 바꾸지 못했어요." }
-  const sha256 = hex(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()))
-  return { blob, width, height, sha256 }
+  return encodePhoto(canvas)
 }
 
 export async function uploadPhoto(slot: PhotoSlotId, file: File, previousPath: string | null): Promise<{ error: string | null }> {
   const prepared = await preparePhoto(file)
   if ("error" in prepared) return { error: prepared.error }
+  return uploadPreparedPhoto(slot, prepared, previousPath)
+}
+
+// 위치·크기를 조절해 다시 그린 사진을 올린다(새 사진을 먼저 등록한 뒤 이전 사진을 지운다).
+export async function uploadPreparedPhoto(slot: PhotoSlotId, prepared: PreparedPhoto, previousPath: string | null): Promise<{ error: string | null }> {
   try {
     const db = await supabase()
     const { data: auth } = await db.auth.getUser()

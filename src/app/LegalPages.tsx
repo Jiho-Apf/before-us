@@ -89,9 +89,11 @@ const PRIVACY: Article[] = [
     "소개 신청(선택): 사진 1장 추가, 키·체형·스타일, 흡연·음주, 생활·편한 시간, 관심사, 직업 분야, 성격·대화 성향, 질문 답변, 유입 경로",
     "서비스 이용: 알림 받을 방법(카카오톡·문자 중 1개 이상, 메일 선택), 편지·답장·첫 장면 선택, 약속 날짜·시간·장소, 만남 뒤 소감, 신고 내용, 접속 기록, 화면 오류 기록(화면 주소·브라우저 종류 · 이메일·전화번호 모양의 글자는 지운 뒤)",
     BETA ? "결제: 베타 기간에는 결제가 없어 수집하지 않습니다" : "결제: 결제·환불 기록(카드 정보는 결제대행사가 처리하며 서비스는 저장하지 않습니다)",
+    "아는 사람 피하기(선택): 회원이 직접 적은 휴대폰 번호는 원래 번호를 저장하지 않고 되돌릴 수 없는 암호값(해시)으로만 바꿔 저장하며, 화면 표시용 뒤 네 자리와 메모만 함께 둡니다. 같은 번호로 신청한 회원과 소개하지 않는 데에만 쓰고, 상대에게 알리지 않습니다",
     "문의: 이메일, 부를 이름(선택), 문의 내용",
   ]] },
   { title: "3. 보유 기간", body: [[
+    "아는 사람 피하기 목록: 회원이 지우거나 탈퇴하면 함께 삭제",
     `탈퇴 후 일반 자료 ${P.activeDeleteDays}일 안에 삭제, 백업은 최대 ${P.backupMaxDays}일`,
     `상대에게 제공된 프로필 사본: 소개·교류 종료 ${BEFORE_US.provision.snapshotDeleteDaysAfterEnd}일 뒤 삭제`,
     `편지·답장: 교류 종료 ${P.letterDaysAfterExchangeEnd}일 뒤 삭제, 약속 상세: 만난 날부터 ${P.appointmentDetailDaysAfterMeeting}일 뒤 삭제`,
@@ -135,7 +137,7 @@ function LegalPage({ kind }: { kind: "terms" | "privacy" }) {
           </li>
         ))}
       </ol>
-      <div className="mt-12 flex items-baseline justify-between gap-3"><h2 className="text-sm font-semibold">전문</h2><span className="text-xs text-muted-foreground">{BETA ? `베타 · 시행 ${BEFORE_US.beta.startsOn.replace(/^(\d+)-0?(\d+)-0?(\d+)$/, "$1년 $2월 $3일")}` : "초안 · 시행일 미정"}</span></div>
+      <div className="mt-12 flex items-baseline justify-between gap-3"><h2 className="text-sm font-semibold">전문</h2><span className="text-xs text-muted-foreground">{BETA ? `베타 · 시행 ${BEFORE_US.beta.startsOn.replace(/^(\d+)-0?(\d+)-0?(\d+)$/, "$1년 $2월 $3일")} · 개정 ${BEFORE_US.beta.legalUpdatedOn.replace(/^(\d+)-0?(\d+)-0?(\d+)$/, "$1년 $2월 $3일")}` : "초안 · 시행일 미정"}</span></div>
       <div className="mt-3 space-y-7 border-t border-border pt-6 text-sm leading-7">
         {articles.map((article) => (
           <article key={article.title}>

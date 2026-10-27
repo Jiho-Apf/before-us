@@ -212,6 +212,30 @@ await as("postgres")
 await q("update public.cohorts set starts_on = public.kst_today() - 1, application_deadline = public.kst_today() - 2 where number = 1")
 await as(O, "aal2")
 
+// ── 아는 사람 피하기: 번호는 해시로만, 한쪽만 적어도 서로 소개하지 않는다
+await as("postgres")
+await q("update public.applications set draft = jsonb_set(draft, '{values,self.phone}', '\"010-2222-3333\"') where member_id = $1", [B])
+await as(A)
+eq("형식이 맞는 번호만, 같은 번호는 한 번만 더한다", (await one("select public.add_avoid_contacts(array['010-2222-3333', '+82 10 2222 3333', '02-123-4567'], '회사 동료') n")).n, 1)
+await fails("휴대폰 번호가 하나도 없으면 막힌다", "select public.add_avoid_contacts(array['12345'])", [], /형식/)
+const avoidList = await q("select * from public.my_avoid_contacts()")
+eq("내 목록에는 뒤 네 자리와 메모만 보인다", avoidList.map(row => [row.tail, row.memo]), [["3333", "회사 동료"]])
+await fails("회원은 피하기 표를 직접 볼 수 없다", "select * from public.avoid_contacts")
+await fails("회원은 비밀 값을 볼 수 없다", "select * from public.private_values")
+await as(B)
+eq("남이 적은 번호는 보이지 않는다", (await q("select * from public.my_avoid_contacts()")).length, 0)
+await as("postgres")
+ok("원래 번호는 저장하지 않는다", !JSON.stringify(await q("select * from public.avoid_contacts")).includes("2222"))
+await as(O, "aal2")
+const readyA = (await q("select * from public.admin_ready_members()")).find(row => row.member_id === A)
+eq("운영진 후보 목록에 서로 피하는 사이로 보인다", readyA.avoided, [B])
+const tomorrowAvoid = (await one("select (public.kst_today() + 1)::text d")).d
+await fails("서로 피하는 두 사람은 소개를 예약할 수 없다", "select public.admin_reserve_introduction($1, $2, $3::date, '두 분 모두 천천히 알아가는 연애를 원하셨어요.')", [B, A, tomorrowAvoid], /아는 사람 피하기/)
+await as(A)
+await q("select public.delete_avoid_contact($1)", [avoidList[0].id])
+eq("지우면 목록에서 빠진다", (await q("select * from public.my_avoid_contacts()")).length, 0)
+await as(O, "aal2")
+
 const tomorrow = (await one("select (public.kst_today() + 1)::text d")).d
 const intro1 = (await one("select public.admin_reserve_introduction($1, $2, $3::date, '두 분 모두 천천히 알아가는 연애를 원하셨어요.') id", [A, B, tomorrow])).id
 await fails("같은 사람을 겹쳐 예약할 수 없다", "select public.admin_reserve_introduction($1, $2, $3::date, '다른 소개 이유를 적어 봅니다.')", [A, C, tomorrow], /진행 중|예약된/)
