@@ -7,13 +7,14 @@ import { Textarea } from "./components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./components/ui/accordion";
 import { BEFORE_US } from "./config";
 import { LIVE, rpc } from "./backend/client";
+import { LETTER_PROMPTS, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_FLOWS, SCENE_RESTS, SCENE_TOPIC_EXAMPLES } from "./backend/program";
 import { cohortCode, cohortName, useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
 import DirectIntroduction from "./DirectIntroduction";
 import { CompareTable, HeroBackdrop, Journey, LetterMoment, SceneMoment, NumberBand, PathToContact, PaymentSteps, Standards, Underline, useInView } from "./HomeVisuals";
 import { HeroLetters } from "./HeroLetters";
-import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
+import { DAY_PARTS, STORIES, STORY_NOTE, dayPart } from "./home-story";
 
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
 const lift = "transition-transform duration-200 ease-out motion-reduce:transition-none";
@@ -150,7 +151,7 @@ function Hero() {
       <div className="relative grid gap-12 pt-14 pb-28 sm:pt-20 sm:pb-32 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:pt-20 lg:pb-32">
         <div className="relative z-10">
           <p className="-mt-3 mb-9 inline-flex items-center rounded-full bg-white/12 px-3 py-1 text-xs font-semibold tracking-[0.04em] text-white/90 ring-1 ring-white/20 sm:-mt-4 sm:mb-10">편지로 시작하는 1:1 소개팅</p>
-          <p className="mb-6 flex items-center gap-2.5 text-base font-semibold text-[#F7D96B] sm:text-lg"><span aria-hidden="true" className="size-1.5 rounded-full bg-[#F7D96B]" />넘기는 소개팅에 지쳤다면.</p>
+          <p className="mb-6 flex items-center gap-2.5 text-base font-semibold text-[#F8E5A6] sm:text-lg"><span aria-hidden="true" className="size-1.5 rounded-full bg-[#F8E5A6]" />넘기는 소개팅에 지쳤다면.</p>
           <h1 id="home-title" className="text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>
           <p className="mt-7 max-w-lg text-sm leading-[1.95] text-white/95 dark:text-white sm:text-[15px]">몇 명을 보여 줄지보다, 누구를 보여 줄지를 오래 고민해요.<br />서로 끌림이 확인될 때만 두 분을 이어 드려요.</p>
           <HeroPoints />
@@ -244,71 +245,59 @@ function InitialOperation({ detailsTo = "#faq-cohort" }: { detailsTo?: string })
   );
 }
 
-const SCENES = ["조용한 동네를 함께 걷기", "좋아하는 음악을 함께 듣기", "작은 전시를 천천히 둘러보기"];
-// 지난 2주의 질문을 넘겨 볼 수 있는 달력. 내일 질문은 잠겨 있고, 다른 사람의 답은 보여 주지 않는다.
-function QuestionCalendar({ today, selected, onSelect }: { today: number; selected: number; onSelect: (day: number) => void }) {
-  const days = Array.from({ length: 15 }, (_, index) => today - 13 + index);
-  return (
-    <div className="mt-4 border-t border-border pt-4">
-      <p className="mb-3 text-[10px] tracking-[0.12em] text-muted-foreground">지난 질문 · 하루에 하나씩 열려요</p>
-      <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-8">
-        {days.map(day => {
-          const future = day > today;
-          const label = kstLabel(day);
-          return (
-            <button key={day} type="button" disabled={future} aria-pressed={selected === day} aria-label={future ? `${label} · 내일 열려요` : `${label} 질문 보기`} onClick={() => onSelect(day)}
-              className={`flex h-12 flex-col items-center justify-center rounded-lg border text-[11px] ${interaction} ${selected === day ? "border-accent bg-accent text-white" : future ? "border-dashed border-border text-muted-foreground" : day === today ? "border-accent/60 text-accent hover:bg-accent/5" : "border-border hover:border-accent/50"}`}>
-              {future ? <Lock size={12} /> : <span className="font-mono text-sm tabular-nums">{new Date(day * 86400000).getUTCDate()}</span>}
-              <span className="text-xs opacity-90">{future ? "내일" : day === today ? "오늘" : label.split(" ").pop()}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+// A 체험: 실제 교류의 사흘 질문과 첫 문장 도움말 그대로(쓴 글은 저장하지 않는다)
 function LetterTrial() {
-  const today = kstDayNumber(new Date());
-  const [day, setDay] = useState(today);
-  const question = questionForDay(day);
+  const [day, setDay] = useState(0);
+  const prompt = LETTER_PROMPTS[day];
   const [text, setText] = useState("");
   const [sent, setSent] = useState(false);
-  const [calendar, setCalendar] = useState(false);
   return (
     <div className="mt-8 border border-border bg-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs font-medium text-accent"><span>{day === today ? "오늘의 질문" : `${kstLabel(day)}의 질문`}</span></div>
-      <p className="mt-4 text-[15px] font-semibold leading-7" aria-live="polite">{question}</p>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs font-medium text-accent"><span>실제 교류의 질문 · {prompt.title}</span><span className="flex gap-1">{LETTER_PROMPTS.map((item, index) => <button key={item.title} type="button" aria-pressed={day === index} onClick={() => { setDay(index); setSent(false); setText(""); }} className={`rounded-full border px-2.5 py-1 text-[11px] ${interaction} ${day === index ? "border-accent bg-accent text-white" : "border-border text-muted-foreground hover:border-accent/50"}`}>DAY 0{index + 1}</button>)}</span></div>
+      <p className="mt-4 text-[15px] font-semibold leading-7" aria-live="polite">{prompt.question}</p>
       {sent ? (
         <div className="mt-4 space-y-3" aria-live="polite">
           <div className="flex items-center gap-3 rounded-xl bg-accent/5 p-4 text-sm"><Lock size={16} className="shrink-0 text-accent" />한 통을 봉투에 넣었어요.</div>
-          <p className="text-xs leading-6 text-muted-foreground">실제 교류에서는 두 사람 모두 보낸 뒤, 함께 열려요. 방금 쓴 글은 어디에도 저장되지 않았어요.</p>
+          <p className="text-xs leading-6 text-muted-foreground">실제 교류에서는 두 분 모두 보낸 뒤 함께 열리고, 열린 편지에는 다음 날 09:00까지 답장을 한 번 보낼 수 있어요. 방금 쓴 글은 어디에도 저장되지 않았어요.</p>
           <Button variant="ghost" size="sm" onClick={() => { setSent(false); setText(""); }}><RotateCcw size={14} />다시 써 보기</Button>
         </div>
       ) : (
         <div className="mt-4 space-y-3">
-          <Textarea aria-label="오늘의 질문 답장 체험 · 저장되지 않음" maxLength={200} value={text} onChange={event => setText(event.target.value)} placeholder="한두 문장이면 충분해요." className="min-h-24 bg-background leading-7" />
-          <div className="flex items-center justify-between"><span className="text-[11px] text-muted-foreground">{text.length}/200</span><Button size="sm" disabled={!text.trim()} onClick={() => setSent(true)}>한 통 보내 보기</Button></div>
+          {!text && <div className="flex flex-wrap gap-1.5" aria-label="첫 문장 도움말">{prompt.hints.map(hint => <button key={hint} type="button" onClick={() => setText(hint)} className={`rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground/80 hover:border-accent/50 ${interaction}`}>{hint.trim()}…</button>)}</div>}
+          <Textarea aria-label="편지 쓰기 체험 · 저장되지 않음" maxLength={200} value={text} onChange={event => setText(event.target.value)} placeholder="첫 문장 도움말을 눌러 시작해 보세요." className="min-h-24 bg-background leading-7" />
+          <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-muted-foreground">{text.length}/200 · 실제 편지는 300~600자를 권해요</span><Button size="sm" disabled={!text.trim()} onClick={() => setSent(true)}>한 통 보내 보기</Button></div>
         </div>
       )}
-      <Button variant="link" size="sm" className="mt-2 h-auto px-0 text-xs text-muted-foreground hover:text-accent" aria-expanded={calendar} onClick={() => setCalendar(open => !open)}>{calendar ? "지난 질문 접기" : "지난 질문 넘겨 보기"}</Button>
-      {calendar && <QuestionCalendar today={today} selected={day} onSelect={next => { setDay(next); setSent(false); setText(""); }} />}
     </div>
   );
 }
+// B 체험: 실제 교류와 같은 고를 거리·순서(장소 → 머무는 방식·쉬어 갈 곳 → 나눌 이야기). 고른 것은 저장하지 않는다.
 function SceneTrial() {
-  const [picked, setPicked] = useState<string | null>(null);
+  const [picks, setPicks] = useState<Record<string, string>>({});
+  const steps = [
+    { day: "DAY 01", title: PLAN_COPY.B.days[0], groups: [{ key: "activity", label: "", options: Object.values(SCENE_ACTIVITY_LABEL) }] },
+    { day: "DAY 02", title: PLAN_COPY.B.days[1], groups: [{ key: "flow", label: "머무는 방식", options: [...SCENE_FLOWS] }, { key: "rest", label: "쉬어 갈 곳", options: [...SCENE_RESTS] }] },
+    { day: "DAY 03", title: PLAN_COPY.B.days[2], groups: [{ key: "topic", label: "예시 · 실제로는 직접 적어요", options: [...SCENE_TOPIC_EXAMPLES] }] },
+  ];
+  const step = steps.findIndex(item => item.groups.some(group => !picks[group.key]));
+  const current = steps[step];
   return (
     <div className="mt-8 space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs font-medium text-accent"><span>일요일 오후, 어디서 시작할까요?</span></div>
-      {SCENES.map(scene => (
-        <button key={scene} type="button" aria-pressed={picked === scene} onClick={() => setPicked(scene)} className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm ${interaction} ${picked === scene ? "border-accent bg-accent/5 text-accent" : "border-border bg-card hover:border-accent/60"}`}>
-          {scene}{picked === scene && <Check size={15} />}
-        </button>
-      ))}
-      {picked && (
-        <div className="grid grid-cols-2 gap-3 pt-1" aria-live="polite">
-          <div className="rounded-xl border border-accent bg-accent/5 p-3 text-xs leading-5"><span className="block text-xs text-accent">나의 선택</span>{picked}</div>
+      {current ? <>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs font-medium text-accent"><span>{current.day} · {current.title}</span><span className="text-muted-foreground">{step + 1} / 3</span></div>
+        {current.groups.map(group => <div key={group.key} className="space-y-2">{group.label && <p className="text-[11px] text-muted-foreground">{group.label}</p>}<div className="flex flex-wrap gap-2">{group.options.map(option => (
+          <button key={option} type="button" aria-pressed={picks[group.key] === option} onClick={() => setPicks(prev => ({ ...prev, [group.key]: option }))} className={`rounded-full border px-3.5 py-2 text-sm ${interaction} ${picks[group.key] === option ? "border-accent bg-accent/5 text-accent" : "border-border bg-card hover:border-accent/60"}`}>{option}</button>
+        ))}</div></div>)}
+        {step > 0 && <div className="grid grid-cols-2 gap-3 pt-1" aria-live="polite">
+          <div className="rounded-xl border border-accent bg-accent/5 p-3 text-xs leading-5"><span className="block text-xs text-accent">어제 나의 선택</span>{steps[step - 1].groups.map(group => picks[group.key]).join(" · ")}</div>
           <div className="flex items-center gap-2 rounded-xl border border-dashed border-border p-3 text-xs leading-5 text-muted-foreground"><Lock size={14} className="shrink-0" />상대도 고르면 함께 열려요</div>
+        </div>}
+        <p className="text-[11px] leading-5 text-muted-foreground">실제로는 날마다 나를 소개하는 짧은 질문에도 답하고, 전날 함께 열린 상대의 선택에 한마디를 남겨요.</p>
+      </> : (
+        <div className="space-y-3" aria-live="polite">
+          <div className="rounded-xl border border-accent bg-accent/5 p-4 text-sm leading-6"><span className="block text-xs text-accent">내가 고른 첫 장면</span>{picks.activity} · {picks.flow} · {picks.rest}<span className="mt-1 block">“{picks.topic}”</span></div>
+          <p className="text-xs leading-6 text-muted-foreground">실제 교류에서는 셋째 날 두 분의 답이 함께 열리면, 두 분이 고른 것 중에서 하나씩 골라 첫 장면을 맞춰요. 고른 것은 어디에도 저장되지 않았어요.</p>
+          <Button variant="ghost" size="sm" onClick={() => setPicks({})}><RotateCcw size={14} />다시 골라 보기</Button>
         </div>
       )}
     </div>
@@ -413,6 +402,16 @@ function TwoVoices() {
   );
 }
 
+// 두 가지 시작의 A·B 예시: 홈 05와 /two-starts에 같이 쓴다
+function ExchangeExamples() {
+  return (
+    <>
+        <div className="mt-20 grid items-center gap-14 border-t border-border pt-16 lg:grid-cols-[6fr_5fr] lg:gap-16"><div><p className="text-[11px] font-semibold tracking-[0.24em] text-accent">OPENED TOGETHER</p><h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">두 분 모두 보내야,<br /><span className="text-primary">같은 순간에 열려요.</span></h3><p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground">먼저 쓴 사람도, 늦게 쓴 사람도 서두를 필요 없어요. 그날 23:59까지 두 분이 모두 보내면, 편지는 같은 순간에 함께 열려요.</p><ul className="mt-6 space-y-2.5 text-sm">{["하루 한 통 · 09:00~23:59", "열린 편지에는 답장 한 번", "연락처·링크는 자동으로 막혀요"].map(item => <li key={item} className="flex items-center gap-2.5"><span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul></div><LetterMoment /></div>
+      <div className="mt-20 grid items-center gap-14 border-t border-border pt-16 lg:grid-cols-[5fr_6fr] lg:gap-16"><SceneMoment className="order-2 lg:order-1" /><div className="order-1 lg:order-2"><p className="text-[11px] font-semibold tracking-[0.24em] text-accent">CHOSEN TOGETHER</p><h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">하루에 하나씩 고르면,<br /><span className="text-accent">첫 만남이 그려져요.</span></h3><p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground">어디서 만날지, 얼마나 머물지, 무슨 이야기를 나눌지. 사흘 동안 하루에 하나씩 함께 골라요. 두 분이 모두 고르면 함께 열리고, 셋째 날에는 고른 것들이 ‘두 사람의 첫 장면’으로 정리돼요.</p><ul className="mt-6 space-y-2.5 text-sm">{["DAY 01 · 만나고 싶은 곳과 그 이유", "DAY 02 · 머무는 시간과 쉬어 갈 곳", "DAY 03 · 나누고 싶은 이야기 하나"].map(item => <li key={item} className="flex items-center gap-2.5"><span className="flex size-5 items-center justify-center rounded-full bg-accent text-white"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul></div></div>
+    </>
+  );
+}
+
 function Exchange({ compact = false }: { compact?: boolean }) {
   return (
     <section id="two-starts" className="py-20 sm:py-24" aria-labelledby="exchange-title">
@@ -420,18 +419,20 @@ function Exchange({ compact = false }: { compact?: boolean }) {
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end"><h2 id="exchange-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[38px]">마주하기 전,<br />우리만의 3일.</h2><p className="max-w-sm text-sm leading-7 text-muted-foreground">얼굴을 마주하기 전에, 서로의 생각과 취향을 먼저 만나요. 두 사람이 함께 고른 방식으로.</p></div>
       <div className="mt-10 grid border border-border md:grid-cols-2">
         <article className="flex flex-col border-b border-border bg-mist p-7 sm:p-10 md:border-r md:border-b-0"><div className="mb-8 flex items-start justify-between"><span className="text-6xl font-light leading-none text-primary">A</span><span className="pt-2 text-[10px] tracking-[0.12em] text-muted-foreground">ONE LETTER A DAY</span></div><h3 className="text-2xl font-semibold">편지 나누기</h3><p className="mt-4 min-h-14 text-sm leading-7 text-muted-foreground">각자 하루 한 통의 편지.<br />서로의 생각과 일상을 천천히 나눠요.</p>{!compact && <LetterTrial />}</article>
-        <article className="flex flex-col bg-background p-7 sm:p-10"><div className="mb-8 flex items-start justify-between"><span className="text-6xl font-light leading-none text-accent">B</span><span className="pt-2 text-[10px] tracking-[0.12em] text-muted-foreground">CHOOSE A SCENE TOGETHER</span></div><h3 className="text-2xl font-semibold">첫 장면 만들기</h3><p className="mt-4 min-h-14 text-sm leading-7 text-muted-foreground">함께 고르며 서로를 알아가요.<br />같은 장면을 고른 순간, 대화가 시작돼요.</p>{!compact && <SceneTrial />}</article>
+        <article className="flex flex-col bg-background p-7 sm:p-10"><div className="mb-8 flex items-start justify-between"><span className="text-6xl font-light leading-none text-accent">B</span><span className="pt-2 text-[10px] tracking-[0.12em] text-muted-foreground">CHOOSE A SCENE TOGETHER</span></div><h3 className="text-2xl font-semibold">첫 장면 만들기</h3><p className="mt-4 min-h-14 text-sm leading-7 text-muted-foreground">하루에 하나씩 고르며 서로를 알아가요.<br />셋째 날, 둘이 고른 것으로 첫 장면을 맞춰요.</p>{!compact && <SceneTrial />}</article>
       </div>
       {compact ? (
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm"><Link to="/two-starts" className={`inline-flex items-center gap-1.5 font-medium text-primary underline-offset-4 hover:underline ${interaction}`}>편지·장면 미리 해 보고, 자세히 알아보기 <ArrowRight size={14} /></Link></div>
+        <>
+        <ExchangeExamples />
+        <div className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm"><Link to="/two-starts" className={`inline-flex items-center gap-1.5 font-medium text-primary underline-offset-4 hover:underline ${interaction}`}>편지·장면 미리 해 보고, 자세히 알아보기 <ArrowRight size={14} /></Link></div>
+        </>
       ) : (
         <>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-4 border-t border-border pt-6 text-center text-xs"><span className="font-semibold text-accent">DAY 01—03 <span className="ml-2 font-normal text-foreground">교류</span></span><ArrowRight size={14} className="text-muted-foreground" /><span className="font-semibold text-accent">DAY 04 <span className="ml-2 font-normal text-foreground">각자 만남 의사 확인</span></span><span className="text-muted-foreground">양쪽이 희망하면 시간·장소 조율</span></div>
-        <div className="mt-20 grid items-center gap-14 border-t border-border pt-16 lg:grid-cols-[6fr_5fr] lg:gap-16"><div><p className="text-[11px] font-semibold tracking-[0.24em] text-accent">OPENED TOGETHER</p><h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">두 분 모두 보내야,<br /><span className="text-primary">같은 순간에 열려요.</span></h3><p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground">먼저 쓴 사람도, 늦게 쓴 사람도 서두를 필요 없어요. 그날 23:59까지 두 분이 모두 보내면, 편지는 같은 순간에 함께 열려요.</p><ul className="mt-6 space-y-2.5 text-sm">{["하루 한 통 · 09:00~23:59", "열린 편지에는 답장 한 번", "연락처·링크는 자동으로 막혀요"].map(item => <li key={item} className="flex items-center gap-2.5"><span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul></div><LetterMoment /></div>
-        <div className="mt-20 grid items-center gap-14 border-t border-border pt-16 lg:grid-cols-[5fr_6fr] lg:gap-16"><SceneMoment className="order-2 lg:order-1" /><div className="order-1 lg:order-2"><p className="text-[11px] font-semibold tracking-[0.24em] text-accent">CHOSEN TOGETHER</p><h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">하루에 하나씩 고르면,<br /><span className="text-accent">첫 만남이 그려져요.</span></h3><p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground">어디서 만날지, 얼마나 머물지, 무슨 이야기를 나눌지. 사흘 동안 하루에 하나씩 함께 골라요. 두 분이 모두 고르면 함께 열리고, 셋째 날에는 고른 것들이 ‘두 사람의 첫 장면’으로 정리돼요.</p><ul className="mt-6 space-y-2.5 text-sm">{["DAY 01 · 만나고 싶은 곳과 그 이유", "DAY 02 · 머무는 시간과 쉬어 갈 곳", "DAY 03 · 나누고 싶은 이야기 하나"].map(item => <li key={item} className="flex items-center gap-2.5"><span className="flex size-5 items-center justify-center rounded-full bg-accent text-white"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul></div></div>
+        <ExchangeExamples />
         </>
       )}
-      {compact && <Standards />}
+      <Standards />
     </section>
   );
 }

@@ -40,3 +40,6 @@ verify_jwt = false
 
 [functions.partner-photo]
 verify_jwt = false
+
+[functions.match-insight]
+verify_jwt = false
