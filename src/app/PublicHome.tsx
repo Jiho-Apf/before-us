@@ -11,7 +11,7 @@ import { cohortCode, cohortName, useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
 import DirectIntroduction from "./DirectIntroduction";
-import { CompareTable, HeroBackdrop, Journey, LetterMoment, NumberBand, PathToContact, PaymentSteps, Standards, Underline, useInView } from "./HomeVisuals";
+import { CompareTable, HeroBackdrop, Journey, LetterMoment, SceneMoment, NumberBand, PathToContact, PaymentSteps, Standards, Underline, useInView } from "./HomeVisuals";
 import { HeroLetters } from "./HeroLetters";
 import { DAY_PARTS, STORIES, STORY_NOTE, dayPart, kstDayNumber, kstLabel, questionForDay } from "./home-story";
 
@@ -150,7 +150,7 @@ function Hero() {
       <div className="relative grid gap-12 pt-14 pb-28 sm:pt-20 sm:pb-32 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:pt-20 lg:pb-32">
         <div className="relative z-10">
           <p className="-mt-3 mb-9 inline-flex items-center rounded-full bg-white/12 px-3 py-1 text-xs font-semibold tracking-[0.04em] text-white/90 ring-1 ring-white/20 sm:-mt-4 sm:mb-10">편지로 시작하는 1:1 소개팅</p>
-          <p className="mb-6 flex items-center gap-2.5 text-base font-semibold sm:text-lg"><span aria-hidden="true" className="size-1.5 rounded-full bg-white" />넘기는 소개팅에 지쳤다면.</p>
+          <p className="mb-6 flex items-center gap-2.5 text-base font-semibold text-[#F7D96B] sm:text-lg"><span aria-hidden="true" className="size-1.5 rounded-full bg-[#F7D96B]" />넘기는 소개팅에 지쳤다면.</p>
           <h1 id="home-title" className="text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>
           <p className="mt-7 max-w-lg text-sm leading-[1.95] text-white/95 dark:text-white sm:text-[15px]">몇 명을 보여 줄지보다, 누구를 보여 줄지를 오래 고민해요.<br />서로 끌림이 확인될 때만 두 분을 이어 드려요.</p>
           <HeroPoints />
@@ -428,9 +428,10 @@ function Exchange({ compact = false }: { compact?: boolean }) {
         <>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-4 border-t border-border pt-6 text-center text-xs"><span className="font-semibold text-accent">DAY 01—03 <span className="ml-2 font-normal text-foreground">교류</span></span><ArrowRight size={14} className="text-muted-foreground" /><span className="font-semibold text-accent">DAY 04 <span className="ml-2 font-normal text-foreground">각자 만남 의사 확인</span></span><span className="text-muted-foreground">양쪽이 희망하면 시간·장소 조율</span></div>
         <div className="mt-20 grid items-center gap-14 border-t border-border pt-16 lg:grid-cols-[6fr_5fr] lg:gap-16"><div><p className="text-[11px] font-semibold tracking-[0.24em] text-accent">OPENED TOGETHER</p><h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">두 분 모두 보내야,<br /><span className="text-primary">같은 순간에 열려요.</span></h3><p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground">먼저 쓴 사람도, 늦게 쓴 사람도 서두를 필요 없어요. 그날 23:59까지 두 분이 모두 보내면, 편지는 같은 순간에 함께 열려요.</p><ul className="mt-6 space-y-2.5 text-sm">{["하루 한 통 · 09:00~23:59", "열린 편지에는 답장 한 번", "연락처·링크는 자동으로 막혀요"].map(item => <li key={item} className="flex items-center gap-2.5"><span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul></div><LetterMoment /></div>
+        <div className="mt-20 grid items-center gap-14 border-t border-border pt-16 lg:grid-cols-[5fr_6fr] lg:gap-16"><SceneMoment className="order-2 lg:order-1" /><div className="order-1 lg:order-2"><p className="text-[11px] font-semibold tracking-[0.24em] text-accent">CHOSEN TOGETHER</p><h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">하루에 하나씩 고르면,<br /><span className="text-accent">첫 만남이 그려져요.</span></h3><p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground">어디서 만날지, 얼마나 머물지, 무슨 이야기를 나눌지. 사흘 동안 하루에 하나씩 함께 골라요. 두 분이 모두 고르면 함께 열리고, 셋째 날에는 고른 것들이 ‘두 사람의 첫 장면’으로 정리돼요.</p><ul className="mt-6 space-y-2.5 text-sm">{["DAY 01 · 만나고 싶은 곳과 그 이유", "DAY 02 · 머무는 시간과 쉬어 갈 곳", "DAY 03 · 나누고 싶은 이야기 하나"].map(item => <li key={item} className="flex items-center gap-2.5"><span className="flex size-5 items-center justify-center rounded-full bg-accent text-white"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul></div></div>
         </>
       )}
-      <Standards />
+      {compact && <Standards />}
     </section>
   );
 }

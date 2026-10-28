@@ -94,6 +94,33 @@ export function LetterMoment({ className = "" }: { className?: string }) {
   );
 }
 
+// ③ 두 가지 시작 B: 첫날 두 사람이 각자 고른 곳과 이유가 함께 열리고, 셋째 날 ‘두 사람의 첫 장면’으로 정리된다
+export function SceneMoment({ className = "" }: { className?: string }) {
+  const picks = [
+    { who: "나", time: "20:31 고름", place: "서점", why: "책 고르는 걸 옆에서 구경하는 게 좋아서요.", tilt: "-rotate-2" },
+    { who: "상대", time: "22:05 고름", place: "서점", why: "조용히 같이 걸을 수 있을 것 같아서요.", tilt: "ml-auto -mt-2 rotate-2" },
+  ];
+  const scene = [["분위기", "서점"], ["흐름", "천천히 머물기"], ["쉬어 갈 곳", "디저트·빵집"]];
+  return (
+    <figure className={`relative mx-auto w-full max-w-[440px] rounded-[2rem] bg-[linear-gradient(160deg,color-mix(in_oklch,var(--accent)_12%,var(--card)),color-mix(in_oklch,var(--primary)_7%,var(--card)))] p-5 shadow-[0_40px_80px_-50px_color-mix(in_oklch,var(--accent)_70%,transparent)] sm:p-7 ${className}`} aria-label="화면 예시: 두 사람이 고른 장면이 함께 열리고, 첫 장면으로 정리돼요">
+      {picks.map(pick => (
+        <div key={pick.who} className={`w-[80%] bg-[#FFFEFA] px-5 py-4 text-[#1F1B33] shadow-[0_26px_50px_-28px_rgba(30,40,110,0.6)] ${pick.tilt}`}>
+          <p className="flex items-center justify-between text-[10px] font-semibold tracking-[0.12em] text-[#1F1B33]/55"><span className="flex items-center gap-2"><Dots className="size-1" />DAY 01 · {pick.who}</span><span className="tracking-normal">{pick.time}</span></p>
+          <p className="mt-2.5 flex flex-wrap items-center gap-2 text-[12.5px] leading-6"><span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold text-accent">{pick.place}</span>{pick.why}</p>
+        </div>
+      ))}
+      <p className="mx-auto mt-5 flex w-fit items-center gap-2 whitespace-nowrap rounded-full bg-white px-4 py-2.5 text-[12px] font-semibold text-[#2B2540] shadow-[0_18px_40px_-18px_rgba(30,20,80,0.6)]">
+        <span className="flex size-6 items-center justify-center rounded-full bg-accent text-white"><LockOpen size={12} /></span>두 분 모두 골라 · 함께 열렸어요
+      </p>
+      <div className="mt-5 rounded-2xl bg-card/90 px-5 py-4 shadow-[0_18px_40px_-30px_rgba(30,20,80,0.5)]">
+        <p className="text-[10px] font-semibold tracking-[0.14em] text-accent">DAY 03 · 두 사람의 첫 장면</p>
+        <dl className="mt-3 grid grid-cols-3 gap-2 text-[11px]">{scene.map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="mt-0.5 font-semibold text-foreground">{value}</dd></div>)}</dl>
+        <p className="mt-3 border-t border-border pt-3 text-[12px] leading-5 text-foreground">“요즘 읽고 있는 책 이야기”</p>
+      </div>
+    </figure>
+  );
+}
+
 // 큰 숫자 띠: 상자 없이, 얇은 선으로만 나눈다
 const NUMBERS = [
   { big: "1명", label: "한 번에 한 사람", note: "여러 명과 동시에 연락하지 않아요" },
