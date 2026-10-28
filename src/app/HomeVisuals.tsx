@@ -70,8 +70,8 @@ export function HeroBackdrop() {
 const RULED = "bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent_25px,rgba(97,76,196,0.14)_25px,rgba(97,76,196,0.14)_26px)]";
 export function LetterMoment({ className = "" }: { className?: string }) {
   const letters = [
-    { who: "나", time: "21:14 보냄", text: "어제 말한 빵집, 저도 가 보고 싶어요. 아침에 가면 줄이 없나요?", place: "left-[5%] top-[9%] -rotate-3" },
-    { who: "상대", time: "22:40 보냄", text: "평일 아침이면 바로 들어가요. 소금빵이 제일 먼저 나와요.", place: "right-[5%] top-[41%] rotate-2" },
+    { who: "나", time: "21:14 보냄", text: "쉬는 날엔 동네 빵집에서 아침을 먹고 오래 걸어요. 그 시간이 제일 저다워요.", place: "left-[5%] top-[9%] -rotate-3" },
+    { who: "상대", time: "22:40 보냄", text: "저는 도서관 창가 자리에서 책을 읽어요. 해가 질 때쯤 집에 와요.", place: "right-[5%] top-[41%] rotate-2" },
   ];
   return (
     <figure className={`relative mx-auto aspect-[5/6] w-full max-w-[440px] ${className}`} aria-label="화면 예시: 두 사람의 편지가 같은 순간에 열려요">
@@ -82,7 +82,7 @@ export function LetterMoment({ className = "" }: { className?: string }) {
       {letters.map(letter => (
         <div key={letter.who} className={`absolute w-[70%] ${letter.place}`}>
           <div className="bg-[#FFFEFA] px-5 pb-4 pt-4 text-[#1F1B33] shadow-[0_26px_50px_-24px_rgba(30,20,80,0.65)]">
-            <p className="flex items-center justify-between text-[10px] font-semibold tracking-[0.12em] text-[#1F1B33]/55"><span className="flex items-center gap-2"><Dots className="size-1" />DAY 02 · {letter.who}</span><span className="tracking-normal">{letter.time}</span></p>
+            <p className="flex items-center justify-between text-[10px] font-semibold tracking-[0.12em] text-[#1F1B33]/55"><span className="flex items-center gap-2"><Dots className="size-1" />DAY 01 · {letter.who}</span><span className="tracking-normal">{letter.time}</span></p>
             <p className={`mt-2 text-[12.5px] leading-[26px] ${RULED}`}>{letter.text}</p>
           </div>
         </div>
@@ -100,7 +100,7 @@ export function SceneMoment({ className = "" }: { className?: string }) {
     { who: "나", time: "20:31 고름", place: "서점", why: "책 고르는 걸 옆에서 구경하는 게 좋아서요.", tilt: "-rotate-2" },
     { who: "상대", time: "22:05 고름", place: "서점", why: "조용히 같이 걸을 수 있을 것 같아서요.", tilt: "ml-auto -mt-2 rotate-2" },
   ];
-  const scene = [["분위기", "서점"], ["흐름", "천천히 머물기"], ["쉬어 갈 곳", "디저트·빵집"]];
+  const scene = [["장소", "서점"], ["머무는 방식", "각자 한 권씩 골라 보기"], ["쉬어 갈 곳", "서점 안 카페"]];
   return (
     <figure className={`relative mx-auto w-full max-w-[440px] rounded-[2rem] bg-[linear-gradient(160deg,color-mix(in_oklch,var(--accent)_12%,var(--card)),color-mix(in_oklch,var(--primary)_7%,var(--card)))] p-5 shadow-[0_40px_80px_-50px_color-mix(in_oklch,var(--accent)_70%,transparent)] sm:p-7 ${className}`} aria-label="화면 예시: 두 사람이 고른 장면이 함께 열리고, 셋째 날 둘이 고른 것으로 첫 장면을 맞춰요">
       {picks.map(pick => (

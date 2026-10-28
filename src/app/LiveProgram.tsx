@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { ArrowRight, Check, LockOpen } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, LockOpen } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
@@ -9,7 +9,7 @@ import { Member, Waiting } from "./LiveMember";
 import { kstDateTime, kstDay } from "./dates";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
 import { APPOINTMENT_ACTIVITIES, QUICK_TIMES } from "./appointment-details";
-import { END_REASON, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_FLOWS, SCENE_PROMPTS, SCENE_RESTS, SCENE_TO_APPOINTMENT, SCENE_TOPIC_EXAMPLES, acceptAppointment, chooseFirstScene, chooseMeeting, choosePlan, confirmProgram, contactProblem, letterPrompt, loadMyProgram, proposeAppointment, proposeStart, sceneNote, setContactConsent, submitEntry, type EntryContent, type Program, type ProgramEntry, type ScenePick, type Slot } from "./backend/program";
+import { END_REASON, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_ACTIVITY_ROWS, SCENE_PROMPTS, SCENE_REASON_MAX, SCENE_STAY, SCENE_TO_APPOINTMENT, SCENE_TOPIC_EXAMPLES, acceptAppointment, chooseFirstScene, chooseMeeting, choosePlan, confirmProgram, contactProblem, letterPrompt, loadMyProgram, loadReadablePrograms, proposeAppointment, proposeStart, sceneNote, setContactConsent, submitEntry, type EntryContent, type Program, type ProgramEntry, type ReadableProgram, type ScenePick, type Slot } from "./backend/program";
 
 // 실제 서버 모드의 교류(/exchange)와 약속·연락처(/meeting). 데모 화면과 같은 편집 톤을 쓴다.
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -67,6 +67,9 @@ export function LiveExchangePage() {
 function ExchangeView() {
   const { data, error, loading, reload, run } = useProgram();
   const [message, setMessage] = useState("");
+  // 지난 교류: 새 교류가 시작돼도, 다시 읽을 수 있는 마무리된 교류는 따로 불러 둔다(실패하면 조용히 숨긴다).
+  const [past, setPast] = useState<ReadableProgram[]>([]);
+  useEffect(() => { void loadReadablePrograms().then(result => setPast(result.data ?? [])); }, []);
   if (loading) return <Waiting />;
   if (error) return <section><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="outline" className="mt-5 rounded-xl" onClick={() => void reload()}>다시 불러오기</Button></section>;
   if (!data) return <NotYet title="교류" />;
@@ -93,6 +96,7 @@ function ExchangeView() {
       {reread && <QuietNote>두 분이 주고받은 글이에요. {data.readableUntil ? `${kstDateTime(data.readableUntil)}까지` : "보관 기간 동안"} 다시 읽을 수 있고, 그 뒤에는 이 화면에서 사라져요.</QuietNote>}
       {data.ownPlan === "B" && (data.status === "deciding" || data.status === "arranging" || reread || (data.status === "started" && !!data.startOn && data.today >= shift(data.startOn, 2))) && <FirstScene program={data} act={act} />}
       {(data.status === "started" || data.status === "deciding" || data.status === "arranging" || reread) && <Days program={data} act={act} />}
+      <PastExchanges items={past.filter(item => item.id !== data.id)} />
       <QuietNote>{SAFETY_COMPOSE_NOTE}</QuietNote>
     </section>
   );
@@ -178,8 +182,8 @@ function Days({ program, act }: { program: Program; act: Act }) {
         <EntryPair entry={main} plan={plan} day={day} past={!today} />
         {today && !main?.own && main?.partnerSent && <p className={`mt-4 inline-flex items-center gap-2 ${butter}`}><Check size={13} />상대는 이미 보냈어요. 내 글을 보내면 바로 함께 열려요.</p>}
         {today && !main?.own && (plan === "A"
-          ? <LetterComposer draftKey={`${program.id}:${day}:letter`} hints={letter.hints} onSend={body => act(() => submitEntry(program.id, day, "letter", body), main?.partnerSent ? "보냈어요. 두 분의 편지가 함께 열렸어요." : "보냈어요. 상대도 보내면 함께 열려요.")} />
-          : <SceneComposer draftKey={`${program.id}:${day}:scene`} day={day} previous={previousOpened ? previous : undefined} onSend={(body, payload) => act(() => submitEntry(program.id, day, "scene", body, payload), main?.partnerSent ? "보냈어요. 두 분의 답이 함께 열렸어요." : "보냈어요. 상대도 보내면 함께 열려요.")} />)}
+          ? <LetterComposer draftKey={`${program.id}:${day}:letter`} examples={letter.examples} onSend={body => act(() => submitEntry(program.id, day, "letter", body), main?.partnerSent ? "보냈어요. 두 분의 편지가 함께 열렸어요." : "보냈어요. 상대도 보내면 함께 열려요.")} />
+          : <SceneComposer draftKey={`${program.id}:${day}:scene`} day={day} previous={previousOpened ? previous : undefined} first={find(1)} onSend={(body, payload) => act(() => submitEntry(program.id, day, "scene", body, payload), main?.partnerSent ? "보냈어요. 두 분의 답이 함께 열렸어요." : "보냈어요. 상대도 보내면 함께 열려요.")} />)}
         {today && !main?.own && <p className="mt-3 text-[11px] text-muted-foreground">오늘 23:59까지 {untilMidnight()} 남았어요. 두 분 모두 보내야 함께 열려요.</p>}
         {plan === "A" && opened && <div className="mt-6 border-t border-border pt-5">
           <p className="text-xs font-semibold text-accent">답장 · 한 번 · {replyUntil}까지</p>
@@ -205,8 +209,9 @@ function EntryCard({ who, content, plan, day, tone }: { who: string; content: En
   const payload = content.payload ?? {};
   return <article className={`rounded-2xl p-5 ${tone}`}>
     <p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{who}{content.at && ` · ${kstDateTime(content.at)}`}</p>
-    {plan === "B" && sceneText(payload) && <p className="mt-2 text-sm font-semibold">{sceneText(payload)}</p>}
-    {content.body && <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{content.body}</p>}
+    {plan === "B" && payload.place && <p className="mt-2 text-[11px] text-muted-foreground">떠올린 곳 · {SCENE_ACTIVITY_LABEL[payload.place] ?? payload.place}</p>}
+    {plan === "B" && sceneText(payload) && <p className={`${payload.place ? "mt-1" : "mt-2"} text-sm font-semibold`}>{sceneText(payload)}</p>}
+    {content.body && (plan === "B" ? <p className="mt-2 text-sm leading-7"><span className="text-xs text-muted-foreground">고른 이유 · </span>{content.body}</p> : <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{content.body}</p>)}
     {plan === "B" && payload.reaction && <p className="mt-2 text-sm leading-7"><span className="text-xs text-muted-foreground">어제 선택에 · </span>{payload.reaction}</p>}
     {plan === "B" && payload.about && <p className="mt-3 border-t border-border/70 pt-3 text-sm leading-7"><span className="block text-[11px] font-semibold text-muted-foreground">{SCENE_PROMPTS[day - 1].about}</span>{payload.about}</p>}
   </article>;
@@ -223,7 +228,16 @@ function EntryPair({ entry, plan, day = 1, reply = false, past = false, until = 
 const DRAFT_PREFIX = "before-us:letter-draft:";
 const readDraft = (key: string) => { try { return localStorage.getItem(DRAFT_PREFIX + key) ?? ""; } catch { return ""; } };
 const writeDraft = (key: string, value: string) => { try { if (value.trim()) localStorage.setItem(DRAFT_PREFIX + key, value); else localStorage.removeItem(DRAFT_PREFIX + key); } catch { /* 저장 공간이 막혀 있으면 이 화면에서만 유지 */ } };
-function LetterComposer({ onSend, reply = false, draftKey, hints = [] }: { onSend: (body: string) => Promise<boolean>; reply?: boolean; draftKey: string; hints?: readonly string[] }) {
+// 예시 보기: 그날 질문에 맞는 예시 답 몇 개를 읽기만 하게 보여 준다(편지에 넣거나 복사하는 버튼은 두지 않는다).
+export function LetterExamples({ examples, className = "" }: { examples: readonly string[]; className?: string }) {
+  const [open, setOpen] = useState(false);
+  if (!examples.length) return null;
+  return <div className={className}>
+    <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)} className={`inline-flex items-center gap-1 rounded-full text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring ${interaction}`}>{open ? "예시 닫기" : "예시 보기"}<ChevronDown size={13} className={`transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} /></button>
+    {open && <ul aria-label="이 질문의 예시 답" className="mt-2 space-y-1.5 rounded-xl bg-mist px-4 py-3 text-xs leading-6 text-foreground/75">{examples.map(example => <li key={example}>“{example}”</li>)}</ul>}
+  </div>;
+}
+function LetterComposer({ onSend, reply = false, draftKey, examples = [] }: { onSend: (body: string) => Promise<boolean>; reply?: boolean; draftKey: string; examples?: readonly string[] }) {
   const [body, setBody] = useState(() => readDraft(draftKey));
   const [sending, setSending] = useState(false);
   const [warning, setWarning] = useState("");
@@ -239,8 +253,8 @@ function LetterComposer({ onSend, reply = false, draftKey, hints = [] }: { onSen
     setSending(false);
   };
   return <div className="mt-5 space-y-3">
-    {!reply && hints.length > 0 && !body && <div className="flex flex-wrap gap-2" aria-label="첫 문장 도움말">{hints.map(hint => <button key={hint} type="button" onClick={() => setBody(hint)} className={`rounded-full border border-border bg-card px-3.5 py-2 text-xs text-foreground/80 hover:border-primary/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring ${interaction}`}>{hint.trim()}…</button>)}</div>}
-    <Textarea aria-label={reply ? "열린 편지에 답장 쓰기" : "오늘의 편지 쓰기"} value={body} onChange={event => { setBody(event.target.value); setWarning(""); }} maxLength={max} rows={reply ? 3 : 7} placeholder={reply ? "열린 편지에 한 번 답해요." : "위의 첫 문장을 눌러 시작해도 좋아요. 보낸 뒤에는 고칠 수 없어요."} className="rounded-xl border-border bg-card text-base leading-7 md:text-sm" />
+    {!reply && <LetterExamples examples={examples} />}
+    <Textarea aria-label={reply ? "열린 편지에 답장 쓰기" : "오늘의 편지 쓰기"} value={body} onChange={event => { setBody(event.target.value); setWarning(""); }} maxLength={max} rows={reply ? 3 : 7} placeholder={reply ? "열린 편지에 한 번 답해요." : "나를 소개하듯 편하게 적어 주세요. 보낸 뒤에는 고칠 수 없어요."} className="rounded-xl border-border bg-card text-base leading-7 md:text-sm" />
     {warning && <p role="alert" className="text-xs leading-6 text-destructive">{warning}</p>}
     <div className="flex flex-wrap items-center justify-between gap-3">
       <span className="text-xs text-muted-foreground">{length} / {max}자{!reply && (length < 20 ? " · 20자부터 보낼 수 있어요" : sweet ? " · 읽기 좋은 길이예요" : length < 300 ? " · 300~600자를 권해요" : "")}{body && " · 이 기기에 저장 중"}</span>
@@ -249,15 +263,19 @@ function LetterComposer({ onSend, reply = false, draftKey, hints = [] }: { onSen
   </div>;
 }
 
+// 고르는 칩. 장소 일곱 곳이 모두 나올 때는 늘 두 줄(전시 산책 서점 카페 / 공원·피크닉 시장 골목 작은 공연)로 나눈다.
 function Chips({ options, value, onPick, label }: { options: [string, string][]; value?: string; onPick: (value: string) => void; label: string }) {
-  return <div className="flex flex-wrap gap-2" role="group" aria-label={label}>{options.map(([key, text]) => <button key={key} type="button" aria-pressed={value === key} onClick={() => onPick(key)} className={`rounded-full border px-4 py-2 text-sm ${interaction} ${value === key ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"}`}>{text}</button>)}</div>;
+  const chip = ([key, text]: [string, string]) => <button key={key} type="button" aria-pressed={value === key} onClick={() => onPick(key)} className={`rounded-full border px-4 py-2 text-sm ${interaction} ${value === key ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"}`}>{text}</button>;
+  const allPlaces = options.length === ACTIVITY_OPTIONS.length && ACTIVITY_OPTIONS.every(([key]) => options.some(([option]) => option === key));
+  if (allPlaces) return <div className="space-y-2" role="group" aria-label={label}>{SCENE_ACTIVITY_ROWS.map(row => <div key={row[0]} className="flex flex-wrap gap-2">{row.map(key => chip(options.find(([option]) => option === key)!))}</div>)}</div>;
+  return <div className="flex flex-wrap gap-2" role="group" aria-label={label}>{options.map(chip)}</div>;
 }
 const ACTIVITY_OPTIONS = Object.entries(SCENE_ACTIVITY_LABEL) as [string, string][];
 const pairs = (items: readonly string[]) => items.map(item => [item, item] as [string, string]);
 // 그날 쓰는 칸(서버도 이 칸만 저장한다)
-const SCENE_KEYS = [["activity", "about"], ["flow", "rest", "reaction", "about"], ["topic", "reaction", "about"]];
+const SCENE_KEYS = [["activity", "about"], ["place", "flow", "rest", "reaction", "about"], ["topic", "reaction", "about"]];
 
-function SceneComposer({ day, draftKey, previous, onSend }: { day: number; draftKey: string; previous?: ProgramEntry; onSend: (body: string | null, payload: Record<string, string>) => Promise<boolean> }) {
+function SceneComposer({ day, draftKey, previous, first, onSend }: { day: number; draftKey: string; previous?: ProgramEntry; first?: ProgramEntry; onSend: (body: string | null, payload: Record<string, string>) => Promise<boolean> }) {
   // 쓰던 답은 편지처럼 이 기기에 저장해 둔다.
   const [draft, setDraft] = useState<{ payload: Record<string, string>; body: string }>(() => { try { const saved = JSON.parse(readDraft(draftKey) || "null"); return saved && typeof saved === "object" ? { payload: saved.payload ?? {}, body: saved.body ?? "" } : { payload: {}, body: "" }; } catch { return { payload: {}, body: "" }; } });
   const [sending, setSending] = useState(false);
@@ -267,9 +285,17 @@ function SceneComposer({ day, draftKey, previous, onSend }: { day: number; draft
   const pick = (key: string, value: string) => { setWarning(""); setDraft(current => ({ ...current, payload: { ...current.payload, [key]: value } })); };
   const prompt = SCENE_PROMPTS[day - 1];
   const opened = !!previous?.own && !!previous?.partner;
+  // 둘째 날 기준이 되는 곳(서버와 같은 기준): 첫날 답이 함께 열렸으면 두 분이 고른 곳, 아니면 내가 고른 곳, 그것도 없으면 일곱 곳 중에서 하나를 먼저 고른다.
+  const ownFirst = first?.own?.payload?.activity, partnerFirst = first?.own && first?.partner ? first.partner.payload?.activity : undefined;
+  const places = [...new Set([ownFirst, partnerFirst].filter((key): key is string => !!key && !!SCENE_STAY[key]))];
+  const choosePlace = !places.length;
+  const stayPlaces = choosePlace ? (payload.place && SCENE_STAY[payload.place] ? [payload.place] : []) : places;
+  // 머무는 방식·쉬어 갈 곳은 한 곳을 기준으로 고른다(다른 곳의 칩을 누르면 그곳으로 바꾸고 다른 칸은 비운다).
+  const pickStay = (place: string, key: "flow" | "rest", value: string) => { setWarning(""); setDraft(current => ({ ...current, payload: current.payload.place === place ? { ...current.payload, [key]: value } : { ...current.payload, place, flow: "", rest: "", [key]: value } })); };
   const clean: Record<string, string> = Object.fromEntries(SCENE_KEYS[day - 1].map(key => [key, (payload[key] ?? "").trim()]).filter(([, value]) => value));
-  const reason = day === 1 ? body.trim() : "";
-  const ready = !!clean.about && (day === 1 ? !!clean.activity && !!reason : day === 2 ? !!clean.flow && !!clean.rest && (!opened || !!clean.reaction) : !!clean.topic && (!opened || !!clean.reaction));
+  const reason = day < 3 ? body.trim() : "";
+  const placeOk = !!clean.place && (choosePlace ? !!SCENE_STAY[clean.place] : places.includes(clean.place)) && SCENE_STAY[clean.place].flows.includes(clean.flow) && SCENE_STAY[clean.place].rests.includes(clean.rest);
+  const ready = !!clean.about && Array.from(reason).length <= SCENE_REASON_MAX && (day === 1 ? !!clean.activity : day === 2 ? placeOk && (!opened || !!clean.reaction) : !!clean.topic && (!opened || !!clean.reaction));
   const send = async () => {
     const problem = contactProblem(reason, ...Object.values(clean));
     if (problem) { setWarning(problem); return; }
@@ -280,10 +306,17 @@ function SceneComposer({ day, draftKey, previous, onSend }: { day: number; draft
   const field = (label: string, control: ReactNode) => <label className="grid gap-1.5 text-xs font-semibold">{label}{control}</label>;
   const theirs = previous?.partner;
   return <div className="mt-5 space-y-4">
-    {day === 1 && <><Chips label="끌리는 장소" options={ACTIVITY_OPTIONS} value={payload.activity} onPick={value => pick("activity", value)} />{field("끌리는 이유 한 줄", <Textarea value={body} maxLength={300} onChange={event => { setWarning(""); setDraft(current => ({ ...current, body: event.target.value })); }} rows={2} placeholder="예: 책 고르는 걸 옆에서 구경하는 게 좋아서요." className="rounded-xl border-border bg-card text-sm font-normal" />)}</>}
-    {day === 2 && <><p className="text-xs font-semibold">머무는 방식</p><Chips label="머무는 방식" options={pairs(SCENE_FLOWS)} value={payload.flow} onPick={value => pick("flow", value)} /><p className="text-xs font-semibold">쉬어 갈 곳</p><Chips label="쉬어 갈 곳" options={pairs(SCENE_RESTS)} value={payload.rest} onPick={value => pick("rest", value)} /></>}
+    {day === 1 && <Chips label="끌리는 장소" options={ACTIVITY_OPTIONS} value={payload.activity} onPick={value => pick("activity", value)} />}
+    {day === 2 && choosePlace && <div className="space-y-2"><p className="text-xs font-semibold">어느 곳을 떠올리며 고를까요?</p><Chips label="떠올릴 곳" options={ACTIVITY_OPTIONS} value={payload.place} onPick={value => setDraft(current => ({ ...current, payload: { ...current.payload, place: value, flow: current.payload.place === value ? current.payload.flow : "", rest: current.payload.place === value ? current.payload.rest : "" } }))} /></div>}
+    {day === 2 && stayPlaces.map(place => <div key={place} className={`space-y-3 rounded-2xl border p-4 ${interaction} ${payload.place === place ? "border-primary/40 bg-primary/5" : "border-border"}`}>
+      {(stayPlaces.length > 1 || !choosePlace) && <p className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-[#F8E5A6] px-2.5 py-1 text-[11px] font-semibold text-[#5A4310]">{SCENE_ACTIVITY_LABEL[place]}</span><span className="text-[11px] text-muted-foreground">{place === ownFirst && place === partnerFirst ? "두 분이 고른 곳" : place === ownFirst ? "내가 고른 곳" : "상대가 고른 곳"}</span></p>}
+      <p className="text-xs font-semibold">머무는 방식</p><Chips label={`${SCENE_ACTIVITY_LABEL[place]} · 머무는 방식`} options={pairs(SCENE_STAY[place].flows)} value={payload.place === place ? payload.flow : undefined} onPick={value => pickStay(place, "flow", value)} />
+      <p className="text-xs font-semibold">쉬어 갈 곳</p><Chips label={`${SCENE_ACTIVITY_LABEL[place]} · 쉬어 갈 곳`} options={pairs(SCENE_STAY[place].rests)} value={payload.place === place ? payload.rest : undefined} onPick={value => pickStay(place, "rest", value)} />
+    </div>)}
+    {day === 2 && stayPlaces.length > 1 && <p className="text-[11px] leading-5 text-muted-foreground">두 곳 중 한 곳을 정해, 그곳에서 머무는 방식과 쉬어 갈 곳을 골라 주세요.</p>}
+    {day < 3 && field("고른 이유 한 줄(선택)", <Input value={body} maxLength={SCENE_REASON_MAX} onChange={event => { setWarning(""); setDraft(current => ({ ...current, body: event.target.value })); }} placeholder={prompt.reasonHint} className="h-11 rounded-xl border-border bg-card font-normal" />)}
     {day === 3 && <>{field("나누고 싶은 이야기", <Input value={payload.topic ?? ""} maxLength={80} onChange={event => pick("topic", event.target.value)} placeholder="예: 요즘 가장 오래 머문 장소 이야기" className="h-11 rounded-xl border-border bg-card font-normal" />)}{!payload.topic && <div className="flex flex-wrap gap-2" aria-label="이야기 예시">{SCENE_TOPIC_EXAMPLES.map(example => <button key={example} type="button" onClick={() => pick("topic", example)} className={`rounded-full border border-border bg-card px-3.5 py-2 text-xs text-foreground/80 hover:border-primary/40 hover:text-foreground ${interaction}`}>{example}</button>)}</div>}</>}
-    {day > 1 && theirs && <div className="rounded-2xl bg-mist p-4"><p className="text-[11px] font-semibold text-muted-foreground">어제 상대가 고른 것</p><p className="mt-1 text-sm font-semibold">{sceneText(theirs.payload)}</p>{theirs.body && <p className="mt-1 text-xs leading-6 text-muted-foreground">“{theirs.body}”</p>}</div>}
+    {day > 1 && theirs && <div className="rounded-2xl bg-mist p-4"><p className="text-[11px] font-semibold text-muted-foreground">어제 상대가 고른 것</p><p className="mt-1 text-sm font-semibold">{sceneText(theirs.payload)}</p>{theirs.body && <p className="mt-1 text-xs leading-6 text-muted-foreground">고른 이유 · “{theirs.body}”</p>}</div>}
     {day > 1 && field(opened ? prompt.reaction : prompt.reactionAlt, <Input value={payload.reaction ?? ""} maxLength={150} onChange={event => pick("reaction", event.target.value)} placeholder={opened ? (day === 2 ? "예: 서점이라니, 요즘 읽는 책이 궁금해졌어요" : "예: 천천히 머무는 거 저도 좋아요") : "예: 조용한 곳을 좋아하실 것 같아요"} className="h-11 rounded-xl border-border bg-card font-normal" />)}
     {field(prompt.about, <Input value={payload.about ?? ""} maxLength={100} onChange={event => pick("about", event.target.value)} placeholder={prompt.aboutHint} className="h-11 rounded-xl border-border bg-card font-normal" />)}
     {ready && <div><p className="mb-2 text-[11px] font-semibold text-muted-foreground">상대에게는 이렇게 보여요</p><EntryCard who="내 답" content={{ body: reason || null, payload: clean, at: "" }} plan="B" day={day} tone="bg-mist" /></div>}
@@ -306,6 +339,29 @@ function MeetingDecision({ program, act }: { program: Program; act: Act }) {
       {confirm && <div className="mt-5 flex justify-end"><Button onClick={() => void act(() => chooseMeeting(program.id, confirm), "답을 남겼어요.")} className="h-11 rounded-xl px-6">이 답으로 보내기</Button></div>}
     </>}
   </Sheet>;
+}
+
+// 지난 교류 다시 읽기: 넷째 날 두 분 모두 만나고 싶다고 했던 교류는 새 교류가 시작돼도 마무리 후 30일 동안 다시 읽을 수 있다.
+const pastProgram = (item: ReadableProgram): Program => ({ ...item, agreeBy: item.closedAt, ownConfirmed: true, partnerConfirmed: true, startedAt: null, day: null, meetingOpensAt: null, meetingBy: null, ownMeeting: "positive", arrangeBy: null, meetingTime: null, proposals: [], ownContact: false, contactReleaseAt: null, contactUntil: null, contactReleased: false, partnerPhone: null });
+const readOnly: Act = async () => false;
+function PastExchanges({ items }: { items: ReadableProgram[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  if (!items.length) return null;
+  const opened = items.find(item => item.id === openId);
+  return <>
+    <Sheet tone="soft" className="p-6 sm:p-8">
+      <Eyebrow label="지난 교류 다시 읽기" en="LOOK BACK" />
+      <p className="mt-3 text-xs leading-6 text-muted-foreground">넷째 날 두 분 모두 만나고 싶다고 했던 교류는, 마무리된 뒤 30일 동안 주고받은 글을 다시 읽을 수 있어요.</p>
+      <ul className="mt-5 space-y-2">{items.map(item => <li key={item.id}><button type="button" aria-expanded={openId === item.id} onClick={() => setOpenId(current => current === item.id ? null : item.id)} className={`flex w-full items-center justify-between gap-3 rounded-2xl border bg-card px-4 py-3 text-left ${interaction} ${openId === item.id ? "border-primary/40" : "border-border hover:border-primary/40"}`}>
+        <span className="min-w-0"><span className="block text-sm font-semibold">{item.partnerName ?? "상대"} 님과의 교류{item.ownPlan && <span className="font-normal text-muted-foreground"> · {planName(item.ownPlan)}</span>}</span><span className="mt-0.5 block text-[11px] text-muted-foreground">{item.startOn && `${dayLabel(item.startOn)} 시작 · `}{kstDateTime(item.readableUntil)}까지 읽을 수 있어요</span></span>
+        <ChevronDown size={16} className={`shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none ${openId === item.id ? "rotate-180" : ""}`} />
+      </button></li>)}</ul>
+    </Sheet>
+    {opened && <div className="space-y-6" aria-label={`${opened.partnerName ?? "상대"} 님과 주고받은 글`}>
+      {opened.ownPlan === "B" && <FirstScene key={`scene:${opened.id}`} program={pastProgram(opened)} act={readOnly} />}
+      <Days key={`days:${opened.id}`} program={pastProgram(opened)} act={readOnly} />
+    </div>}
+  </>;
 }
 
 // ─────────────────────────────────────────────
@@ -356,15 +412,19 @@ function FirstScene({ program, act }: { program: Program; act: Act }) {
   const scene = (day: number) => program.entries.find(entry => entry.day === day && entry.kind === "scene");
   // 그날 답이 함께 열렸으면 두 분이 고른 것, 열리지 않았으면 처음 목록에서 고른다(서버와 같은 기준).
   const both = (day: number, key: string) => { const entry = scene(day); return entry?.own && entry.partner ? [...new Set([entry.own.payload?.[key], entry.partner.payload?.[key]].filter(Boolean) as string[])] : null; };
-  const options: Record<keyof ScenePick, string[]> = { activity: both(1, "activity") ?? Object.keys(SCENE_ACTIVITY_LABEL), flow: both(2, "flow") ?? [...SCENE_FLOWS], rest: both(2, "rest") ?? [...SCENE_RESTS], topic: both(3, "topic") ?? [] };
   const final = program.entries.find(entry => entry.kind === "final");
   const own = final?.own?.payload as ScenePick | undefined, theirs = final?.partner?.payload as ScenePick | undefined;
-  const agreed = !!own && !!theirs && SCENE_FIELDS.every(([key]) => own[key] === theirs[key]);
-  const canPick = ["started", "deciding", "arranging"].includes(program.status) && !program.meetingOn && options.topic.length > 0 && !agreed;
   const [pick, setPick] = useState<Partial<ScenePick>>(() => own ?? {});
   const [editing, setEditing] = useState(false);
   useEffect(() => { if (own) setPick(own); }, [final?.own?.at]);
-  const value = (key: keyof ScenePick) => pick[key] ?? (options[key].length === 1 ? options[key][0] : undefined);
+  const activities = both(1, "activity") ?? Object.keys(SCENE_ACTIVITY_LABEL);
+  const activity = pick.activity && activities.includes(pick.activity) ? pick.activity : activities.length === 1 ? activities[0] : undefined;
+  // 둘째 날 답이 함께 열리지 않았으면 맞추려는 장소에 맞는 목록에서 고른다(서버와 같은 기준).
+  const stay = activity ? SCENE_STAY[activity] : undefined;
+  const options: Record<keyof ScenePick, string[]> = { activity: activities, flow: both(2, "flow") ?? [...(stay?.flows ?? [])], rest: both(2, "rest") ?? [...(stay?.rests ?? [])], topic: both(3, "topic") ?? [] };
+  const agreed = !!own && !!theirs && SCENE_FIELDS.every(([key]) => own[key] === theirs[key]);
+  const canPick = ["started", "deciding", "arranging"].includes(program.status) && !program.meetingOn && options.topic.length > 0 && !agreed;
+  const value = (key: keyof ScenePick) => pick[key] && options[key].includes(pick[key]!) ? pick[key] : options[key].length === 1 ? options[key][0] : undefined;
   const complete = SCENE_FIELDS.every(([key]) => !!value(key));
   const submit = async (next: ScenePick) => { if (await act(() => chooseFirstScene(program.id, next), "골랐어요.")) setEditing(false); };
   const table = (rows: Partial<ScenePick> | undefined) => <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">{SCENE_FIELDS.map(([key, label]) => rows?.[key] ? <div key={key}><dt className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{label}</dt><dd className="mt-1 font-semibold">{key === "topic" ? `“${rows[key]}”` : sceneValue(key, rows[key])}</dd></div> : null)}</dl>;
@@ -389,7 +449,7 @@ function FirstScene({ program, act }: { program: Program; act: Act }) {
       <p className="mt-5 text-xs leading-6 text-muted-foreground">{program.status === "closed" ? "두 분이 함께 맞춘 장면이에요." : "두 분 모두 만나고 싶다고 하면, 약속 제안에 이 장면이 미리 채워져요. 날짜·지역은 그때 함께 정해요."}</p>
     </> : canPick && (!own || editing) ? <>
       <p className="mt-3 text-sm leading-7 text-muted-foreground">두 분이 고른 것 중에서 하나씩 골라 주세요. 두 분의 선택이 같으면 첫 장면이 정해져요. 상대의 선택은 나도 고른 뒤에 보여요.</p>
-      <div className="mt-5 space-y-4">{SCENE_FIELDS.map(([key, label]) => <div key={key} className="space-y-2"><p className="text-xs font-semibold">{label}{!both(key === "activity" ? 1 : key === "topic" ? 3 : 2, key) && <span className="ml-2 font-normal text-muted-foreground">그날은 함께 열리지 않아 처음 목록에서 골라요</span>}</p><Chips label={label} options={options[key].map(item => [item, key === "topic" ? `“${item}”` : sceneValue(key, item)] as [string, string])} value={value(key)} onPick={next => setPick(current => ({ ...current, [key]: next }))} /></div>)}</div>
+      <div className="mt-5 space-y-4">{SCENE_FIELDS.map(([key, label]) => <div key={key} className="space-y-2"><p className="text-xs font-semibold">{label}{!both(key === "activity" ? 1 : key === "topic" ? 3 : 2, key) && <span className="ml-2 font-normal text-muted-foreground">{key === "activity" ? "그날은 함께 열리지 않아 처음 목록에서 골라요" : options[key].length ? "그날은 함께 열리지 않아 고른 장소에 맞는 것 중에서 골라요" : "장소를 먼저 고르면 보여요"}</span>}</p><Chips label={label} options={options[key].map(item => [item, key === "topic" ? `“${item}”` : sceneValue(key, item)] as [string, string])} value={value(key)} onPick={next => setPick(current => ({ ...current, [key]: next }))} /></div>)}</div>
       <div className="mt-6 flex justify-end gap-2">{editing && <Button variant="ghost" onClick={() => { setEditing(false); setPick(own ?? {}); }} className="h-11">닫기</Button>}<Button disabled={!complete} onClick={() => void submit({ activity: value("activity")!, flow: value("flow")!, rest: value("rest")!, topic: value("topic")! })} className="h-11 rounded-full px-6">이 장면으로 고르기</Button></div>
     </> : own && theirs ? <>
       <p className="mt-3 text-sm leading-7 text-muted-foreground">두 분의 선택에 다른 부분이 있어요. 다른 줄만 맞추면 첫 장면이 정해져요.</p>

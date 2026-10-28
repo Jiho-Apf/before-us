@@ -13,8 +13,8 @@ import { cohortCode, cohortCountdown, cohortName, recruitingCohort, type CohortI
 //  - ‘동작 줄이기’ 설정이면 움직임 없이 바로 보인다(theme.css).
 const STEPS = [
   { title: "운영진 확인", body: "사진과 이야기를 한 장씩 읽어요. 보완할 점이 있으면 오늘 화면에서 알려 드려요." },
-  { title: "시작 전날 알림", body: "내 기수가 시작하기 하루 전, 내일 정오에 첫 소개가 온다고 알려 드려요." },
-  { title: "정오의 첫 소개", body: "하루 최대 한 명. 두 분 모두 알아가고 싶다고 하면 3일이 시작돼요." },
+  { title: "시작 전날 알림", body: "내 기수가 시작하기 하루 전, 첫 소개 준비 상황을 알려 드려요." },
+  { title: "정오의 첫 소개", body: "잘 맞는 분이 준비되면 정오에 한 분을 소개해요. 두 분 모두 알아가고 싶다고 하면 3일이 시작돼요." },
 ];
 
 export default function ApplicationComplete({ name }: { name?: string }) {
@@ -55,7 +55,7 @@ export default function ApplicationComplete({ name }: { name?: string }) {
               <span className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-semibold leading-none text-primary-foreground tabular-nums">{countdown ?? "· · ·"}</span>
             </div>
             <p className="relative mt-4 text-[26px] font-semibold text-ink">{cohort ? `${kstDay(cohort.startsOn)} 정오${countdown === "진행 중" ? " 시작" : ""}` : "날짜를 확인하고 있어요"}</p>
-            <p className="relative mt-2 text-xs leading-6 text-muted-foreground">{countdown === "진행 중" ? "이미 시작한 기수예요. 신청서 확인이 끝나면 준비되는 날 정오에 소개해요." : "첫 소개가 도착하는 날이에요. 전날 한 번 더 알려 드릴게요."}</p>
+            <p className="relative mt-2 text-xs leading-6 text-muted-foreground">{countdown === "진행 중" ? "이미 시작한 기수예요. 신청서 확인이 끝나면 준비되는 날 정오에 소개해요." : "첫 소개는 이날 정오부터 시작돼요. 잘 맞는 분이 준비되는 대로 소개하고, 전날 한 번 더 알려 드릴게요."}</p>
           </div>
         </div>
       </div>

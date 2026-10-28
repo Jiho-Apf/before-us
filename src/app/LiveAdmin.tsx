@@ -155,7 +155,7 @@ function AdminShell({ role }: { role: Role }) {
 // ─────────────────────────────────────────────
 // 대시보드: 오늘 처리할 일. 역할마다 볼 수 있는 자료가 달라서, 못 불러온 칸은 빼고 나머지를 보여 준다.
 const JOB_LABEL: Record<string, string> = { noon: "정오 공개", deadlines: "응답 마감", retention: "보존 기간 정리", email: "메일 발송", reminders: "마감 전 알림", programs: "교류 진행", "program-retention": "교류 글 정리", "cohort-eve": "기수 전날 알림" };
-const JOB_KEYS: Record<string, string> = { sent: "보냄", failed: "실패", reason: "사유", closed: "마감", published: "공개", cancelled: "취소", entries: "교류 글", proposals: "약속 제안", orphanPhotos: "남은 사진", error: "오류", deleted: "삭제", reminded: "알림" };
+const JOB_KEYS: Record<string, string> = { sent: "보냄", failed: "실패", reason: "사유", closed: "마감", published: "공개", cancelled: "취소", entries: "교류 글", proposals: "약속 제안", orphanPhotos: "남은 사진", error: "오류", deleted: "삭제", reminded: "알림", gaveUp: "3번 실패해 멈춤" };
 const jobDetail = (detail: Record<string, unknown> | null) => Object.entries(detail ?? {}).map(([key, value]) => `${JOB_KEYS[key] ?? key} ${typeof value === "object" ? JSON.stringify(value) : String(value)}`.slice(0, 120)).join(" · ") || "처리할 것 없음";
 const maybe = <T,>(task: Promise<T>) => task.then(value => value, () => null);
 
@@ -170,7 +170,7 @@ export function LiveAdminHome() {
       maybe(call<{ status: string }[]>("admin_list_inquiries").then(rows => rows.filter(row => row.status !== "answered"))),
       maybe(call<{ status: string }[]>("admin_list_requests").then(rows => rows.filter(row => row.status !== "decided"))),
       maybe(table<{ job: string; started_at: string; ok: boolean | null; detail: Record<string, unknown> | null }>("job_runs", query => query.select("job, started_at, ok, detail").order("started_at", { ascending: false }).limit(8))),
-      maybe(table<{ started_at: string; ok: boolean | null; detail: { sent?: number; failed?: number; reason?: string } | null }>("job_runs", query => query.select("started_at, ok, detail").eq("job", "email").gt("started_at", day).order("started_at", { ascending: false }).limit(1))),
+      maybe(table<{ started_at: string; ok: boolean | null; detail: { sent?: number; failed?: number; gaveUp?: number; reason?: string } | null }>("job_runs", query => query.select("started_at, ok, detail").eq("job", "email").gt("started_at", day).order("started_at", { ascending: false }).limit(1))),
       maybe(table<{ id: number; at: string; context: string | null; message: string | null; path: string | null }>("client_errors", query => query.select("id, at, context, message, path").gt("at", new Date(Date.now() - 7 * 86400000).toISOString()).order("id", { ascending: false }).limit(20))),
       // 정오 공개·응답 마감·교류·알림 작업이 실패하면 맨 위에 알린다(최근 24시간).
       maybe(table<{ job: string; started_at: string; detail: { error?: string } | null }>("job_runs", query => query.select("job, started_at, detail").eq("ok", false).neq("job", "email").gt("started_at", day).order("started_at", { ascending: false }).limit(5))),
@@ -197,7 +197,7 @@ export function LiveAdminHome() {
   return <>
     <Title lead="실제 회원 자료예요. 열람과 처리는 모두 감사 기록에 남아요.">오늘 처리할 일</Title>
     {data.failedJobs.length > 0 && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-destructive"><span className="font-semibold">예약 작업이 실패했어요</span> · {data.failedJobs.map(job => `${JOB_LABEL[job.job] ?? job.job} ${kstDateTime(job.started_at)}`).join(" · ")}<br /><span className="text-xs">정오 공개가 실패했다면 Supabase SQL 편집기에서 <code>select public.run_noon();</code>을 한 번 실행해 주세요. {data.failedJobs[0].detail?.error ? `오류: ${String(data.failedJobs[0].detail.error).slice(0, 120)}` : ""}</span></p>}
-    {data.mail?.ok === false && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-destructive"><span className="font-semibold">메일 발송이 실패하고 있어요</span> · {kstDateTime(data.mail.started_at)} · 실패 {data.mail.detail?.failed ?? 0}통{data.mail.detail?.reason ? ` · ${data.mail.detail.reason.slice(0, 120)}` : ""}<br /><span className="text-xs">Supabase → Edge Functions → Secrets의 SMTP_USER(메일 주소)·SMTP_PASS(앱 비밀번호)를 확인해 주세요.</span></p>}
+    {data.mail?.ok === false && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-destructive"><span className="font-semibold">메일 발송이 실패하고 있어요</span> · {kstDateTime(data.mail.started_at)} · 실패 {data.mail.detail?.failed ?? 0}통{data.mail.detail?.gaveUp ? ` · 3번 실패해 더 보내지 않는 메일 ${data.mail.detail.gaveUp}통` : ""}{data.mail.detail?.reason ? ` · ${data.mail.detail.reason.slice(0, 120)}` : ""}<br /><span className="text-xs">Supabase → Edge Functions → Secrets의 MAIL_FROM·SMTP_USER(메일 주소)·SMTP_PASS(앱 비밀번호)를 확인해 주세요. 사이트 안 알림은 그대로 보여요.</span></p>}
     {urgent > 0 && <Link to="/admin/safety?tab=reports" role="alert" className="mb-5 block rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-semibold text-destructive">긴급 신고 {urgent}건 · 먼저 확인해 주세요 →</Link>}
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{tiles.map(([label, count, to]) => <Link key={label} to={to} className={`${box} p-5 transition-colors hover:border-primary/40`}><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-3xl font-light tabular-nums text-primary">{count}</p></Link>)}</div>
     <section className={`${box} mt-6 p-5`}><h2 className="flex items-center gap-2 text-sm font-semibold"><Bell size={15} className="text-accent" />예약 작업 기록</h2>{data.jobs.length ? <ul className="mt-3 divide-y divide-border text-xs">{data.jobs.map((job, index) => <li key={index} className="flex flex-wrap justify-between gap-2 py-2"><span><span className="font-semibold">{JOB_LABEL[job.job] ?? job.job}</span> · {job.ok === false ? <span className="font-semibold text-destructive">실패</span> : "완료"} · <span className="text-muted-foreground">{jobDetail(job.detail)}</span></span><span className="text-muted-foreground">{kstDateTime(job.started_at)}</span></li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">아직 실행 기록이 없어요. 정오 작업은 매일 12:00에 돌아요.</p>}</section>
@@ -357,13 +357,21 @@ function ApplicantDetail({ memberId, row, cohorts, canDecide, onChanged }: { mem
     setMessage(error || `${cohortName(Number(moveTo))}로 옮겼어요.`); if (!error) { setMoveTo(""); await onChanged(); }
   });
   const actions = NEXT[data.status] ?? [];
+  // 철회한 신청서 다시 열기: 회원이 문의로 다시 신청하고 싶다고 알려 온 경우에만.
+  const reopen = () => run("reopen", async () => {
+    const reason = await ask({ title: `${name}님 신청서를 다시 열까요?`, confirm: "다시 열기", body: <><p>작성 중으로 바뀌어 회원이 이어서 고치고 다시 제출할 수 있어요. 회원에게 알림이 가요.</p><p>회원이 다시 신청하고 싶다고 직접 알려 온 경우에만 열어 주세요.</p></>, reason: { label: "다시 여는 이유(감사 기록에 남아요)", required: true, placeholder: "예: 문의로 다시 신청하고 싶다고 했어요." } });
+    if (reason === null) return;
+    const { error } = await rpc("admin_reopen_application", { p_member: memberId, p_reason: reason });
+    setMessage(error || "신청서를 다시 열었어요. 회원에게 알렸어요.");
+    if (!error) { await detail.reload(); await onChanged(); }
+  });
   return <section className={`${box} space-y-6 p-5`}>
     <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs text-muted-foreground">프로필 버전 {data.profileVersion} · 접수 {data.submittedAt ? kstDateTime(data.submittedAt) : "—"}{row?.cohort != null ? ` · ${cohortName(row.cohort)}` : ""}</p><h2 className="mt-1 text-xl font-semibold">{name} · 만 {show(values["self.age"])}세</h2></div><div className="flex flex-wrap items-center gap-2">{data.status === "approved" && <Link to={`/admin/introductions?member=${memberId}`} className="rounded-full bg-primary/8 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/12">소개·매칭에서 보기 →</Link>}<span className="rounded-full border border-primary/30 px-3 py-1 text-xs text-primary">{STATUS_LABEL[data.status]}</span></div></div>
     {data.decisionNote && <p className="rounded-lg bg-muted p-3 text-xs leading-6">회원에게 보낸 안내 · {data.decisionNote}</p>}
     <div><h3 className="text-sm font-semibold">사진</h3><div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">{PHOTO_SLOTS.map(slot => { const photo = data.photos.find(item => item.slot === slot.id); return <div key={slot.id} className="space-y-2 text-xs"><p className="font-semibold">{slot.number}. {slot.label}</p>{photo ? <><AdminPhoto path={photo.path} /><p className="text-muted-foreground">{photo.width}×{photo.height} · {photo.review}{photo.reason ? ` · ${photo.reason}` : ""}</p>{canDecide && <div className="flex flex-wrap gap-1"><Button size="sm" variant={photo.review === "기준 확인" ? "default" : "outline"} disabled={!!busy || photo.review === "기준 확인"} className="h-7 px-2 text-[11px]" onClick={() => void act(`photo-${slot.id}`, () => call("admin_review_photo", { p_member: memberId, p_slot: slot.id, p_review: "기준 확인" }), `${slot.label} 기준 확인`)}>기준 확인</Button><select aria-label={`${slot.label} 재등록 사유`} value={reasons[slot.id] ?? ""} onChange={event => setReasons(current => ({ ...current, [slot.id]: event.target.value }))} className="h-7 rounded-md border border-border bg-card px-1 text-[11px]"><option value="">재등록 사유</option>{PHOTO_REVIEW_REASONS.map(reason => <option key={reason}>{reason}</option>)}</select><Button size="sm" variant="outline" disabled={!reasons[slot.id] || !!busy} className="h-7 px-2 text-[11px]" onClick={() => void act(`photo-${slot.id}`, () => call("admin_review_photo", { p_member: memberId, p_slot: slot.id, p_review: "재등록 요청", p_reason: reasons[slot.id] }), `${slot.label} 재등록 요청`)}>재등록 요청</Button></div>}</> : <p className="text-muted-foreground">{slot.required ? "미등록 · 필수" : "미등록"}</p>}</div>; })}</div></div>
     <div><h3 className="text-sm font-semibold">신청 내용</h3><div className="mt-3"><ProfileSheet detail={data} full /></div></div>
     {canDecide && cohorts.length > 0 && <div className="flex flex-wrap items-center gap-2 border-t border-border pt-5 text-xs"><span className="font-semibold">기수 옮기기</span><select aria-label="옮길 기수" value={moveTo} onChange={event => setMoveTo(event.target.value)} className="h-8 rounded-md border border-border bg-card px-2"><option value="">기수 고르기</option>{cohorts.filter(item => item.number !== row?.cohort).map(item => <option key={item.number} value={item.number}>{cohortName(item.number)} · {kstDay(item.startsOn)} 시작</option>)}</select><Button size="sm" variant="outline" className="h-8" disabled={!moveTo || !!busy} onClick={() => void move()}>옮기기</Button></div>}
-    {canDecide && <div className="space-y-3 border-t border-border pt-5"><h3 className="text-sm font-semibold">결정</h3>{actions.length ? <><Textarea aria-label="회원에게 보낼 안내" value={note} maxLength={500} onChange={event => setNote(event.target.value)} placeholder="보완·보류·소개 어려움·승인 취소일 때 회원에게 보일 안내를 적어 주세요. 평가하는 말은 쓰지 않아요." className="min-h-20" /><div className="flex flex-wrap gap-2">{actions.map(action => <Button key={action.status} size="sm" variant={action.tone === "primary" ? "default" : action.tone === "ghost" ? "ghost" : "outline"} disabled={!!busy || (action.note && !note.trim())} title={action.note && !note.trim() ? "회원에게 보낼 안내를 먼저 적어 주세요" : undefined} onClick={() => void decide(action)}>{busy === `decide-${action.status}` ? "기록하고 있어요" : action.label}</Button>)}</div>{actions.some(action => action.note) && !note.trim() && <p className="text-[11px] text-muted-foreground">보완 요청·보류·소개 어려움은 안내를 적어야 눌러져요.</p>}</> : <p className="text-xs text-muted-foreground">{data.status === "withdrawn" ? "회원이 철회한 신청서예요." : "회원이 다시 제출하면 결정할 수 있어요."}</p>}</div>}
+    {canDecide && <div className="space-y-3 border-t border-border pt-5"><h3 className="text-sm font-semibold">결정</h3>{actions.length ? <><Textarea aria-label="회원에게 보낼 안내" value={note} maxLength={500} onChange={event => setNote(event.target.value)} placeholder="보완·보류·소개 어려움·승인 취소일 때 회원에게 보일 안내를 적어 주세요. 평가하는 말은 쓰지 않아요." className="min-h-20" /><div className="flex flex-wrap gap-2">{actions.map(action => <Button key={action.status} size="sm" variant={action.tone === "primary" ? "default" : action.tone === "ghost" ? "ghost" : "outline"} disabled={!!busy || (action.note && !note.trim())} title={action.note && !note.trim() ? "회원에게 보낼 안내를 먼저 적어 주세요" : undefined} onClick={() => void decide(action)}>{busy === `decide-${action.status}` ? "기록하고 있어요" : action.label}</Button>)}</div>{actions.some(action => action.note) && !note.trim() && <p className="text-[11px] text-muted-foreground">보완 요청·보류·소개 어려움은 안내를 적어야 눌러져요.</p>}</> : data.status === "withdrawn" ? <div className="flex flex-wrap items-center gap-3"><p className="text-xs text-muted-foreground">회원이 철회한 신청서예요.</p><Button size="sm" variant="outline" disabled={!!busy} onClick={() => void reopen()}>{busy === "reopen" ? "여는 중이에요" : "신청서 다시 열기…"}</Button></div> : <p className="text-xs text-muted-foreground">회원이 다시 제출하면 결정할 수 있어요.</p>}</div>}
     <Notice text={message} />
     {dialog}
   </section>;
@@ -580,7 +588,7 @@ export function LivePrograms() {
 
 // ─────────────────────────────────────────────
 // 회원: 찾기 · 상태(쉬기·이용 정지) · 연락처(운영진만)
-type MemberRow = { id: string; email: string; status: "active" | "withdrawal_requested" | "suspended"; pausedAt: string | null; pausedBy: "member" | "auto" | "operator" | null; resumedAt: string | null; suspendedReason: string | null; createdAt: string; name: string | null; phone: string | null; gender: string | null; age: number | null; area: string | null; application: string | null; cohort: number | null; channels: { kakao: boolean; sms: boolean; email: boolean }; introductions: number; reports: number };
+type MemberRow = { id: string; email: string; status: "active" | "withdrawal_requested" | "suspended"; withdrawalRequestedAt?: string | null; deletionDueAt?: string | null; pausedAt: string | null; pausedBy: "member" | "auto" | "operator" | null; resumedAt: string | null; suspendedReason: string | null; createdAt: string; name: string | null; phone: string | null; gender: string | null; age: number | null; area: string | null; application: string | null; cohort: number | null; channels: { kakao: boolean; sms: boolean; email: boolean }; introductions: number; reports: number };
 export function LiveMembers() {
   const role = useRole();
   const initial = new URLSearchParams(useLocation().search).get("q") ?? "";
@@ -603,6 +611,16 @@ export function LiveMembers() {
     setMessage(error || "바꿨어요. 감사 기록에 남았어요.");
     await list.reload();
   });
+  // 탈퇴 요청 취소(삭제 예정 시각 전) · 철회한 신청서 다시 열기: 둘 다 회원이 문의로 직접 요청한 경우에만.
+  const restore = (member: MemberRow, kind: "withdrawal" | "reopen") => run(`${member.id}-${kind}`, async () => {
+    const reason = kind === "withdrawal"
+      ? await ask({ title: `${who(member)}님 탈퇴 요청을 취소할까요?`, confirm: "탈퇴 요청 취소", body: <><p>이용 중으로 돌아가고 삭제 예약({member.deletionDueAt ? kstDateTime(member.deletionDueAt) : "-"})이 지워져요. 회원에게 알림이 가요.</p><p>탈퇴 요청 때 끝난 소개와 교류는 다시 열리지 않아요. 회원이 문의로 직접 요청한 경우에만 취소해 주세요.</p></>, reason: { label: "취소하는 이유(감사 기록에 남아요)", required: true, placeholder: "예: 문의로 탈퇴를 취소하고 싶다고 했어요." } })
+      : await ask({ title: `${who(member)}님 신청서를 다시 열까요?`, confirm: "다시 열기", body: <p>작성 중으로 바뀌어 회원이 이어서 고치고 다시 제출할 수 있어요. 회원에게 알림이 가요.</p>, reason: { label: "다시 여는 이유(감사 기록에 남아요)", required: true, placeholder: "예: 문의로 다시 신청하고 싶다고 했어요." } });
+    if (reason === null) return;
+    const { error } = await rpc(kind === "withdrawal" ? "admin_cancel_withdrawal" : "admin_reopen_application", { p_member: member.id, p_reason: reason });
+    setMessage(error || (kind === "withdrawal" ? "탈퇴 요청을 취소했어요. 회원에게 알렸어요." : "신청서를 다시 열었어요. 회원에게 알렸어요."));
+    await list.reload();
+  });
   const submit = (event: FormEvent) => { event.preventDefault(); setSearch(query.trim()); };
   return <>
     <Title lead="이름·이메일·휴대폰 번호로 찾아요. 휴대폰 번호는 운영진만 보고, 연락이 꼭 필요할 때만 써 주세요.">회원</Title>
@@ -612,7 +630,7 @@ export function LiveMembers() {
     <div className="mt-3 space-y-3">{(list.data ?? []).map(member => <article key={member.id} className={`${box} p-4 text-sm`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0"><p className="font-semibold">{member.name ?? "이름 없음"} <span className="font-normal text-muted-foreground">· {[member.gender, member.age !== null ? `만 ${member.age}세` : null, member.area].filter(Boolean).join(" · ")}</span></p><p className="mt-1 text-xs text-muted-foreground">{member.email} · {member.phone ?? "번호 없음"} · 가입 {kstDay(member.createdAt)}</p></div>
-        <p className="flex flex-wrap gap-1.5 text-[11px]"><span className={`rounded-full px-2.5 py-1 ${member.status === "suspended" ? "bg-destructive/10 text-destructive" : "bg-muted"}`}>{MEMBER_STATE[member.status]}</span>{member.pausedAt && <span className="rounded-full bg-lilac px-2.5 py-1">{PAUSED_BY[member.pausedBy ?? "member"]} · {kstDay(member.pausedAt)}</span>}<span className="rounded-full bg-muted px-2.5 py-1">{member.application ? STATUS_LABEL[member.application] ?? member.application : "신청 전"}{member.cohort != null ? ` · ${cohortName(member.cohort)}` : ""}</span></p>
+        <p className="flex flex-wrap gap-1.5 text-[11px]"><span className={`rounded-full px-2.5 py-1 ${member.status === "suspended" ? "bg-destructive/10 text-destructive" : "bg-muted"}`}>{MEMBER_STATE[member.status]}{member.status === "withdrawal_requested" && member.deletionDueAt ? ` · ${kstDateTime(member.deletionDueAt)} 삭제 예정` : ""}</span>{member.pausedAt && <span className="rounded-full bg-lilac px-2.5 py-1">{PAUSED_BY[member.pausedBy ?? "member"]} · {kstDay(member.pausedAt)}</span>}<span className="rounded-full bg-muted px-2.5 py-1">{member.application ? STATUS_LABEL[member.application] ?? member.application : "신청 전"}{member.cohort != null ? ` · ${cohortName(member.cohort)}` : ""}</span></p>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">알림 {[member.channels.kakao && "카카오톡", member.channels.sms && "문자", member.channels.email && "메일"].filter(Boolean).join("·") || "미선택"} · 소개 {member.introductions}회 · 받은 신고 {member.reports}건{member.resumedAt ? ` · 다시 받기 ${kstDay(member.resumedAt)}` : ""}{member.suspendedReason ? ` · 정지 사유: ${member.suspendedReason}` : ""}</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -623,6 +641,8 @@ export function LiveMembers() {
           : <Button size="sm" variant="outline" disabled={!!busy} onClick={() => void change(member, "pause")}>운영진 쉬기</Button>)}
         {canOperate(role) && member.status === "active" && <Button size="sm" variant="ghost" className="text-destructive" disabled={!!busy} onClick={() => void change(member, "suspend")}>이용 정지…</Button>}
         {canOperate(role) && member.status === "suspended" && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => void change(member, "unsuspend")}>정지 풀기</Button>}
+        {canOperate(role) && member.status === "withdrawal_requested" && (!member.deletionDueAt || Date.parse(member.deletionDueAt) > Date.now()) && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => void restore(member, "withdrawal")}>탈퇴 요청 취소…</Button>}
+        {canOperate(role) && member.status === "active" && member.application === "withdrawn" && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => void restore(member, "reopen")}>신청서 다시 열기…</Button>}
       </div>
     </article>)}{list.data && !list.data.length && <p className="text-sm text-muted-foreground">찾는 회원이 없어요.</p>}</div>
     {dialog}
@@ -659,7 +679,7 @@ function Broadcast() {
   });
   return <section className={`${box} mt-8 space-y-3 p-5`}>
     <h2 className="text-sm font-semibold">전체 공지 · 사이트 알림 + 메일</h2>
-    <p className="text-xs leading-6 text-muted-foreground">대표만 보낼 수 있어요. ‘메일 알림’을 고르지 않은 회원에게도 메일로 가요. 베타를 끝내거나 정식 운영으로 바꿀 때는 적어도 7일 전에 보내 주세요(약관 부칙).</p>
+    <p className="text-xs leading-6 text-muted-foreground">대표만 보낼 수 있어요. 가입 확인을 마친 이용 중인 회원에게 가고, ‘메일 알림’을 고르지 않은 회원에게도 메일로 가요. 베타를 끝내거나 정식 운영으로 바꿀 때는 적어도 7일 전에 보내 주세요(약관 부칙).</p>
     <Input aria-label="공지 제목" value={title} maxLength={60} onChange={event => setTitle(event.target.value)} placeholder="제목(5~60자) · 예: 비포어스 정식 운영 안내" />
     <Textarea aria-label="공지 내용" value={body} maxLength={1000} onChange={event => setBody(event.target.value)} rows={5} placeholder="내용(10~1000자) · 바뀌는 날짜, 무엇이 바뀌는지, 원하지 않으면 탈퇴할 수 있다는 안내" />
     <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">{body.trim().length} / 1000자</span><Button disabled={!!busy || title.trim().length < 5 || body.trim().length < 10} onClick={() => void send()}>{busy ? "보내고 있어요" : "모든 회원에게 보내기"}</Button></div>

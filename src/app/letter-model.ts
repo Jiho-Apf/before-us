@@ -5,9 +5,9 @@ import { agreementGate, agreementView, shiftDay, type AgreementState } from "./a
 import { canOpenMeeting, meetingDecisionAt, startedExchangeGate } from "./exchange-common";
 
 export const LETTER_DAYS = [
-  { title: "내 하루 한 장면", question: "최근의 나를 가장 잘 보여 주는 하루는 어떤 하루였나요?" },
-  { title: "당신의 말이 궁금해졌어요", question: "어제 받은 편지에서 기억에 남은 말 하나에 답하고, 궁금한 것을 물어보세요." },
-  { title: "만나면 이어가고 싶은 이야기", question: "직접 만나게 된다면 어떤 시간을 보내고 싶나요?" },
+  { title: "나의 쉬는 날", question: "쉬는 날, 보통 어떤 시간을 보내나요?" },
+  { title: "요즘 마음을 쓰는 것", question: "요즘 가장 마음을 쓰고 있는 건 무엇인가요? 왜 소중한지도 들려주세요." },
+  { title: "함께 보내고 싶은 시간", question: "만나게 된다면, 함께 어떤 시간을 보내고 싶나요?" },
 ] as const;
 type Submission = { body: string; at: string };
 // replies: 그날 함께 열린 상대 편지에 보내는 답장. 키는 답장을 쓴 사람.

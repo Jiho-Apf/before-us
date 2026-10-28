@@ -27,7 +27,19 @@ const LOCK_MINUTES = 5
 const RESET_MINUTES = 30
 const WRONG = "이메일 또는 비밀번호가 맞지 않아요."
 const LOCKED = `로그인 시도가 많아 ${LOCK_MINUTES}분 동안 잠겼어요. 잠시 뒤 다시 시도하거나 비밀번호를 다시 설정해 주세요.`
-const WITHDRAWN = "탈퇴를 요청한 계정이에요. 다시 이용하려면 문의하기로 남겨 주세요."
+const WITHDRAWN = "탈퇴를 요청한 계정이에요. 삭제 예정일 전에 다시 이용하려면 문의하기로 남겨 주세요. 운영진이 확인한 뒤 탈퇴 요청을 취소해 드려요."
+// 회원가입 뒤 ‘메일을 확인해 주세요’ 화면의 안내. 가입 여부를 알려 주지 않으려고 이미 가입된 이메일에도 같은 화면을 보여 주지만,
+// 이때는 확인 메일이 가지 않는다(탈퇴를 요청해 삭제를 기다리는 계정도 마찬가지). 그래서 그 경우를 미리 솔직하게 알린다.
+export const EXISTING_EMAIL_NOTE = "이미 가입한 이메일이면 확인 메일이 새로 가지 않아요. 로그인하거나 비밀번호를 다시 설정해 주세요. 탈퇴를 요청한 이메일은 삭제 예정일까지 다시 가입할 수 없어요. 그 전에 다시 이용하려면 문의하기로 남겨 주세요."
+
+// 탈퇴를 요청한 계정은 로그인 상태로 두지 않는다. 로그아웃한 뒤에도 회원 화면에 안내(삭제 예정일 · 취소는 문의하기)를 보여 주려고 따로 둔다.
+export type WithdrawnNotice = { deletionDueAt: string | null }
+let withdrawnNotice: WithdrawnNotice | null = null
+export const getWithdrawnNotice = () => withdrawnNotice
+export const clearWithdrawnNotice = () => { withdrawnNotice = null; emit() }
+export function useWithdrawnNotice() {
+  return useSyncExternalStore(subscribe, () => withdrawnNotice, () => withdrawnNotice)
+}
 
 const normalize = (email: string) => email.trim().toLowerCase()
 const validEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)
@@ -45,7 +57,15 @@ if (LIVE) {
     const apply = async (current: { user: { id: string; email?: string; created_at: string } } | null) => {
       if (!current) { session = null; ready = true; emit(); return }
       const { data } = await db.from("profiles").select("status, deletion_due_at").eq("id", current.user.id).maybeSingle()
-      session = { id: current.user.id, email: current.user.email ?? "", createdAt: current.user.created_at, status: data?.status === "withdrawal_requested" ? "withdrawal-requested" : "active", deletionDueAt: data?.deletion_due_at ?? null }
+      // 탈퇴를 요청한 계정이면 안내를 남기고 바로 로그아웃한다(이 기기의 로그인만).
+      if (data?.status === "withdrawal_requested") {
+        withdrawnNotice = { deletionDueAt: data.deletion_due_at ?? null }
+        session = null; ready = true; emit()
+        void db.auth.signOut({ scope: "local" })
+        return
+      }
+      withdrawnNotice = null
+      session = { id: current.user.id, email: current.user.email ?? "", createdAt: current.user.created_at, status: "active", deletionDueAt: data?.deletion_due_at ?? null }
       ready = true
       emit()
     }
@@ -95,8 +115,12 @@ export async function signIn(emailInput: string, password: string, now = Date.no
       return { error: WRONG }
     }
     attempts.delete(email)
-    const { data: profile } = await db.from("profiles").select("status").eq("id", data.user.id).maybeSingle()
-    if (profile?.status === "withdrawal_requested") { await db.auth.signOut(); return { error: WITHDRAWN } }
+    const { data: profile } = await db.from("profiles").select("status, deletion_due_at").eq("id", data.user.id).maybeSingle()
+    if (profile?.status === "withdrawal_requested") {
+      await db.auth.signOut({ scope: "local" })
+      const due = profile.deletion_due_at ? new Date(profile.deletion_due_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric" }) : null
+      return { error: due ? `탈퇴를 요청한 계정이에요. ${due}에 계정과 자료를 지워요. 그 전에 다시 이용하려면 문의하기로 남겨 주세요. 운영진이 확인한 뒤 탈퇴 요청을 취소해 드려요.` : WITHDRAWN }
+    }
     return { error: null }
   }
   const user = users.get(email)
@@ -176,7 +200,11 @@ export async function withdraw(password: string, now = new Date()): Promise<{ er
     if (wrong) return { error: "비밀번호가 맞지 않아요." }
     const { data, error } = await rpc<{ deletionDueAt: string }>("request_withdrawal")
     if (error || !data) return { error: error || "탈퇴 요청을 저장하지 못했어요. 다시 시도해 주세요." }
-    // 로그아웃은 확인 화면을 보여 준 뒤 회원이 직접 한다(바로 로그아웃하면 확인 화면이 로그인 안내로 바뀐다).
+    // 바로 로그아웃한다. 회원 화면은 로그아웃한 뒤에도 탈퇴 안내(삭제 예정일 · 취소는 문의하기)를 보여 준다.
+    withdrawnNotice = { deletionDueAt: data.deletionDueAt }
+    session = null
+    emit()
+    void db.auth.signOut({ scope: "local" })
     return { error: null, deletionDueAt: data.deletionDueAt }
   }
   const user = users.get(session.email)

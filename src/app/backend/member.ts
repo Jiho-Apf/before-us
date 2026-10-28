@@ -35,6 +35,40 @@ export type MemberSnapshot = {
   program: Program | null
 }
 
+// 오늘 화면은 처음에 10개를 보여 주고 ‘지난 알림 더 보기’로 30개까지 펼친다. 읽음은 화면에 보여 준 것만 바꾼다.
+export const NOTIFICATION_LOAD = 30
+export const NOTIFICATION_FIRST = 10
+
+// 신청서를 고칠 수 없는 때(회원이 이미 볼 수 있는 진행 중 소개·교류가 있을 때)의 안내. 없으면 null.
+// 서버(prepare_application_edit)도 같은 기준으로 막는다. 회원이 모르는 정오 예약은 여기서 말하지 않는다.
+export const EDIT_BLOCKED = "지금 진행 중인 소개나 교류가 있어요. 고친 내용은 이번 소개·교류가 끝난 뒤에 보낼 수 있어요. 그동안 지금 신청서 그대로 이어져요."
+export function editBlockReason(introduction: LiveIntroduction, program: Program | null) {
+  const live = introduction.status === "published" || introduction.status === "mutual"
+  return live || (program && program.status !== "closed") ? EDIT_BLOCKED : null
+}
+export async function loadEditBlock(): Promise<string | null> {
+  try {
+    const db = await supabase()
+    const [introduction, program] = await Promise.all([db.rpc("my_introduction"), db.rpc("my_program")])
+    return editBlockReason((introduction.data ?? { status: "waiting" }) as LiveIntroduction, program.error ? null : ((program.data as Program | null) ?? null))
+  } catch {
+    return null // 확인하지 못하면 막지 않는다(제출할 때 서버가 다시 확인한다).
+  }
+}
+
+// 내 정보의 알림 설정(신청서를 다시 고칠 때 신청서 칸을 이 값으로 맞춘다).
+export async function loadNoticeSettings() {
+  try {
+    const db = await supabase()
+    const { data: auth } = await db.auth.getUser()
+    if (!auth.user) return null
+    const { data } = await db.from("profiles").select("notice_daily_waiting, marketing_opt_in, notify_kakao, notify_sms, notify_email").eq("id", auth.user.id).maybeSingle()
+    return (data ?? null) as { notice_daily_waiting: boolean; marketing_opt_in: boolean; notify_kakao: boolean; notify_sms: boolean; notify_email: boolean } | null
+  } catch {
+    return null
+  }
+}
+
 export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | null; error: string | null }> {
   try {
     const db = await supabase()
@@ -43,7 +77,7 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
     const [application, introduction, notifications, profile, cohort, program] = await Promise.all([
       db.from("applications").select("status, decision_note, submitted_at").eq("member_id", auth.user.id).maybeSingle(),
       db.rpc("my_introduction"),
-      db.from("notifications").select("id, kind, title, body, link, created_at, read_at").order("created_at", { ascending: false }).limit(10),
+      db.from("notifications").select("id, kind, title, body, link, created_at, read_at").order("created_at", { ascending: false }).limit(NOTIFICATION_LOAD),
       db.from("profiles").select("notice_daily_waiting, notice_new_introduction, marketing_opt_in, notify_kakao, notify_sms, notify_email, email_all, status, paused_at, resumed_at, paused_by, suspended_reason").eq("id", auth.user.id).maybeSingle(),
       db.rpc("my_cohort"),
       db.rpc("my_program"),
@@ -97,7 +131,8 @@ export function useMemberSnapshot() {
   return { ...state, reload }
 }
 
-export const markNotificationsRead = () => rpc<null>("mark_notifications_read")
+// 화면에 보여 준 알림만 읽음으로 바꾼다(보여 주지 않은 지난 알림은 그대로).
+export const markNotificationsRead = (ids: string[]) => rpc<number>("mark_shown_notifications_read", { p_ids: ids })
 
 // 읽지 않은 알림 수(회원 메뉴 '오늘'의 점 표시). 화면을 옮길 때마다 다시 센다. key가 null이면 세지 않는다(데모).
 export function useUnreadCount(key: string | null) {

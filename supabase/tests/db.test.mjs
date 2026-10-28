@@ -483,17 +483,10 @@ ok("다시 받기로 바꾸면 그때를 기록하고 회원 본인이 읽을 �
 await as(O, "aal2")
 ok("다시 받기로 바꾸면 목록에 돌아온다", (await q("select member_id from public.admin_ready_members()")).some((r) => r.member_id === A))
 eq("후보 목록의 ‘기다리기 시작한 때’는 다시 받은 때 이후로 센다", await one("select (select waiting_since from public.admin_ready_members() where member_id = $1) >= (select resumed_at from public.profiles where id = $1) ok", [A]), { ok: true })
-// 매칭 궁합 분석에 넘기는 두 사람의 신청서: 운영진만, 이름·휴대폰·생년월일 원래 값은 빼고, 열람은 감사 기록에 남는다
+// 궁합 분석은 운영진 화면 안에서만 한다(20261029003500): 외부 분석용으로 두 사람의 신청서를 꺼내 주던 함수는 없앴다.
 await as("postgres")
-const matchOther = (await one("select member_id from public.applications where status = 'approved' and member_id <> $1 order by member_id limit 1", [A])).member_id
-await as(A)
-await fails("회원은 궁합 분석용 신청서를 불러올 수 없다", "select public.admin_match_profiles($1, $2)", [A, matchOther], /운영 권한/)
+eq("외부 분석용 신청서 함수(admin_match_profiles)는 남아 있지 않다", (await one("select to_regprocedure('public.admin_match_profiles(uuid, uuid)') is null gone")).gone, true)
 await as(O, "aal2")
-const matchPair = (await one("select public.admin_match_profiles($1, $2) r", [A, matchOther])).r
-ok("궁합 분석용 신청서는 두 사람(a·b)을 돌려준다", matchPair.a && matchPair.b && typeof matchPair.a.values === "object")
-ok("궁합 분석용 신청서에는 이름·휴대폰·생년월일 원래 값이 없다", ["self.name", "self.phone", "self.birthDate"].every(key => !(key in matchPair.a.values) && !(key in matchPair.b.values)))
-ok("궁합 분석용 신청서 열람은 감사 기록에 남는다", (await one("select count(*)::int n from public.audit_log where action = 'match-insight'")).n >= 1)
-await fails("같은 회원 둘로는 부를 수 없다", "select public.admin_match_profiles($1, $1)", [A], /서로 다른/)
 await fails("이용 정지에는 사유가 필요하다", "select public.admin_set_member_state($1, 'suspend', '')", [A], /사유/)
 await q("select public.admin_set_member_state($1, 'suspend', '반복된 연락처 요구')", [A])
 await fails("같은 상태로 두 번 바꿀 수 없다", "select public.admin_set_member_state($1, 'suspend', '다시')", [A], /이미 그 상태/)
@@ -702,7 +695,7 @@ ok("상대에게 다시 확인해 달라고 알린다", (await one("select count
 await q("update public.programs set status = 'started', start_on = public.kst_date(public.app_now()), started_at = now() where id = $1", [exProgram])
 await q("select set_config('app.now', $1, false)", [(await one("select public.kst_at(public.kst_today(), '10:00')::text t")).t])
 await as(P1)
-await one("select public.submit_program_entry($1, 1, 'scene', '골목을 천천히 걷고 싶어요.', $2)", [exProgram, JSON.stringify({ activity: "market" })])
+await one("select public.submit_program_entry($1, 1, 'scene', '골목을 천천히 걷고 싶어요.', $2)", [exProgram, JSON.stringify({ activity: "market", about: "주말엔 시장 구경을 자주 가요." })])
 await fails("목록에 없는 분위기는 고를 수 없다", "select public.submit_program_entry($1, 1, 'scene', null, $2)", [exProgram, JSON.stringify({ activity: "club" })], /분위기|이미 보낸/)
 await as("postgres")
 await q("select set_config('app.now', '', false)")
@@ -913,6 +906,369 @@ await db.exec("reset role")
   ok("차단 관계가 생기면 마무리된 교류의 글도 보이지 않는다", (await mine()).entries.length === 0)
   await as("postgres")
   await clock(null)
+}
+
+// ── 처음부터 끝까지(2026-10-29): 정오 소개 → 서로 선택 → 방식·시작일 → 3일 → 넷째 날 → 약속 → 연락처 → 마무리 → 다시 읽기
+{
+  await as("postgres")
+  await clock(null)
+  const at = async (date, time) => clock((await one("select public.kst_at($1::date, $2::time)::text t", [date, time])).t)
+  const plus = async (date, days) => (await one("select ($1::date + $2::int)::text d", [date, days])).d
+  const count = async (sql, params = []) => { await as("postgres"); return (await one(sql, params)).n }
+  const notes = (key) => count("select count(*)::int n from public.notifications where dedupe_key like $1", [key])
+  const run = async () => { await as("postgres"); const r = (await one("select public.run_programs() r")).r; assert.ok(!r.error, r.error); return r }
+  const statusOf = async (id) => { await as("postgres"); return (await one("select status from public.programs where id = $1", [id])).status }
+  // 새 회원: 신청서·사진 → 운영진 확인·승인 → 1기
+  const fresh = async (email, name, gender, desired, base, phone) => {
+    await as("postgres")
+    const id = await signup(email)
+    await as(id)
+    const d = draft(name, gender, desired, "1995-06-06")
+    await q("select public.save_application_draft($1)", [{ ...d, values: { ...d.values, "self.phone": phone } }])
+    await photos(id, base)
+    await q("select public.submit_application()")
+    await as(O, "aal2")
+    for (const slot of ["photo.face", "photo.upper", "photo.style"]) await q("select public.admin_review_photo($1, $2, '기준 확인')", [id, slot])
+    await q("select public.admin_decide_application($1, 'approved')", [id])
+    await q("select public.admin_move_member_cohort($1, 1)", [id])
+    return id
+  }
+  // 운영진이 정오 소개를 예약하고, 정오가 된 것처럼 공개한다 → 두 분 모두 열어 보고 알아가고 싶어요
+  const noonIntro = async (a, b) => {
+    await as(O, "aal2")
+    const intro = (await one("select public.admin_reserve_introduction($1, $2, (public.kst_today() + 3), '두 분 모두 쉬는 날 천천히 걷는 걸 좋아하셨어요.') id", [a, b])).id
+    await as("postgres")
+    await q("update public.introductions set reveal_at = now() - interval '1 minute', respond_by = now() + interval '23 hours', view_until = now() + interval '23 hours' where id = $1", [intro])
+    eq("여정: 정오 작업이 소개를 공개한다", (await one("select public.run_noon() r")).r.published >= 1, true)
+    eq("여정: 정오 소개 알림이 두 분에게 간다", await notes(`intro:${intro}:%`), 2)
+    for (const m of [a, b]) { await as(m); await q("select public.record_introduction_view($1)", [intro]); await q("select public.respond_introduction($1, 'positive')", [intro]) }
+    await as(a)
+    eq("여정: 두 분 모두 ‘알아가고 싶어요’면 서로 선택", (await one("select public.my_introduction() v")).v.status, "mutual")
+    eq("여정: 서로 선택 알림이 두 분에게 간다", await notes(`mutual:${intro}:%`), 2)
+    await as(a)
+    return intro
+  }
+
+  // ── 여정 A: 편지 나누기 → 만남까지 → 마무리 뒤 다시 읽기
+  const JA = await fresh("ja@example.test", "나연", "여성", "남성", 3001, "010-3101-0001")
+  const JB = await fresh("jb@example.test", "태오", "남성", "여성", 3011, "010-3101-0002")
+  await noonIntro(JA, JB)
+  let pa = await mine()
+  eq("A 여정: 서로 선택하면 교류 합의가 열리고 상대 이름이 보인다", [pa.status, pa.partnerName], ["choosing", "태오"])
+  await q("select public.choose_program_plan($1, 'A')", [pa.id])
+  eq("A 여정: 방식을 고르면 상대에게 고른 방식을 알린다", await count("select count(*)::int n from public.notifications where member_id = $1 and kind = 'program-plan' and title = '상대가 A 편지 나누기를 골랐어요'", [JB]), 1)
+  await as(JB)
+  ok("A 여정: 같은 방식을 고르면 시작일 확인으로 넘어간다", (await one("select public.choose_program_plan($1, 'A') v", [pa.id])).v.notice.includes("같아졌어요"))
+  const startA = (await one("select (public.kst_today() + 2)::text d")).d
+  const proposedA = (await one("select public.propose_program_start($1, $2::date) v", [pa.id, startA])).v
+  eq("A 여정: 시작일을 제안한 사람은 그 날짜로 확인한 것이 된다", [proposedA.startOn, proposedA.ownConfirmed, proposedA.partnerConfirmed], [startA, true, false])
+  eq("A 여정: 상대에게 시작일 제안을 알린다", await notes(`date:${pa.id}:${JB}:%`), 1)
+  await as(JA)
+  eq("A 여정: 상대가 확인하면 일정이 정해진다", (await one("select public.confirm_program($1) v", [pa.id])).v.status, "scheduled")
+  eq("A 여정: 일정이 정해졌다고 두 분에게 알린다", await notes(`scheduled:${pa.id}:%`), 2)
+  await at(startA, "08:50"); await run()
+  eq("A 여정: 시작일 09:00 전에는 열리지 않는다", await statusOf(pa.id), "scheduled")
+  await at(startA, "09:30"); await run()
+  eq("A 여정: 시작일 09:00에 첫날이 열린다", await statusOf(pa.id), "started")
+  eq("A 여정: DAY01 알림이 두 분에게 간다", await notes(`day:${pa.id}:1:%`), 2)
+  // 편지: 예시·도움말은 화면에만 있다. 편지와 함께 다른 값을 보내도 서버는 본문만 저장한다.
+  const letter = async (who, day, kind, body) => { await as(who); return (await one("select public.submit_program_entry($1, $2, $3, $4, $5) v", [pa.id, day, kind, body, JSON.stringify({ hint: "쉬는 날엔 늦잠을 자고", example: 0 })])).v }
+  await letter(JA, 1, "letter", "쉬는 날엔 늦잠을 자고 오후에 도서관 창가 자리에서 책을 읽어요.")
+  eq("A 여정: 먼저 보내면 상대에게 ‘상대가 보냈어요’를 알린다", await notes(`sent:${pa.id}:1:letter:${JA}`), 1)
+  await as(JA)
+  eq("A 여정: 상대가 보내기 전에는 내 편지만 보인다", (await mine()).entries.find((e) => e.day === 1 && e.kind === "letter").partner, null)
+  const openedA = (await letter(JB, 1, "letter", "토요일 아침마다 친구들과 배드민턴을 치고 국밥을 먹어요.")).entries.find((e) => e.day === 1 && e.kind === "letter")
+  eq("A 여정: 두 분 모두 보내면 함께 열린다", openedA.partner.body, "쉬는 날엔 늦잠을 자고 오후에 도서관 창가 자리에서 책을 읽어요.")
+  eq("A 여정: 편지가 열렸다는 알림(메일로도 가는 알림)이 두 분에게", await count("select count(*)::int n from public.notifications where dedupe_key like $1 and public.email_class(kind) = 'important'", [`open:${pa.id}:1:letter:%`]), 2)
+  eq("A 여정: 예시·도움말 값은 편지에 저장되지 않는다(본문만)", await count("select count(*)::int n from public.program_entries where program_id = $1 and payload is not null", [pa.id]), 0)
+  await at(startA, "17:00")
+  await letter(JA, 1, "reply", "배드민턴 치고 먹는 국밥, 상상만 해도 좋아요.")
+  await at(startA, "18:30")
+  await as("postgres"); await one("select public.run_reminders()")
+  eq("A 여정: 18:00에 아직 답장하지 않은 사람에게만 알린다", (await q("select member_id from public.notifications where dedupe_key like $1", [`remind-reply:${pa.id}:1:%`])).map((r) => r.member_id), [JB])
+  await at(await plus(startA, 1), "08:30")
+  await letter(JB, 1, "reply", "도서관 창가 자리, 저도 좋아하는 자리예요.")
+  eq("A 여정: 다음 날 아침에 보낸 답장으로 두 분의 답장이 함께 열린다", await notes(`open:${pa.id}:1:reply:%`), 2)
+  await as(JA)
+  eq("A 여정: 열린 답장이 보인다", (await mine()).entries.find((e) => e.day === 1 && e.kind === "reply").partner.body, "도서관 창가 자리, 저도 좋아하는 자리예요.")
+  await at(await plus(startA, 1), "10:00"); await run()
+  eq("A 여정: DAY02 알림에 어제 편지가 열렸다고 적는다", await count("select count(*)::int n from public.notifications where dedupe_key like $1 and body like '어제 편지가 함께 열렸어요%'", [`day:${pa.id}:2:%`]), 2)
+  await letter(JA, 2, "letter", "요즘은 가족과 저녁을 함께 먹는 시간을 가장 아껴요.")
+  await letter(JB, 2, "letter", "작은 약속이라도 지키는 사람이고 싶어서 요즘 노력하고 있어요.")
+  await at(await plus(startA, 2), "10:00")
+  await letter(JB, 3, "letter", "만나게 된다면 강가를 같이 천천히 걷고 싶어요.")
+  await letter(JA, 3, "letter", "조용한 전시를 보고 근처 카페에서 이야기를 나누고 싶어요.")
+  await as(JA)
+  eq("A 여정: 사흘 편지가 모두 함께 열렸다", (await mine()).entries.filter((e) => e.kind === "letter" && e.own && e.partner).map((e) => e.day), [1, 2, 3])
+  await at(await plus(startA, 3), "09:05"); await run()
+  eq("A 여정: DAY04 09:00에 만남 선택이 열린다", await statusOf(pa.id), "deciding")
+  eq("A 여정: 만남 선택 알림에 DAY03 글이 열렸다고 적는다", await count("select count(*)::int n from public.notifications where dedupe_key like $1 and body like 'DAY03 글도 함께 열렸어요%'", [`decide:${pa.id}:%`]), 2)
+  await as(JA); await q("select public.choose_meeting($1, 'positive')", [pa.id])
+  eq("A 여정: 한 분만 답하면 아직 결과를 알리지 않는다", await notes(`meet:${pa.id}:%`), 0)
+  await as(JB)
+  eq("A 여정: 두 분 모두 만나고 싶으면 약속 정하기로", (await one("select public.choose_meeting($1, 'positive') v", [pa.id])).v.status, "arranging")
+  eq("A 여정: 두 분 모두 만나고 싶다고 알린다", await notes(`meet:${pa.id}:%`), 2)
+  const meetA = await plus(startA, 6)
+  await as(JA)
+  const proposalA = (await one("select public.propose_appointment($1, $2, '전시·미술관', '종로구', '공개된 미술관', '천천히 보고 카페에서 이야기해요') v", [pa.id, JSON.stringify([{ date: meetA, start: "14:00", end: "17:00" }, { date: await plus(startA, 7), start: "11:00", end: "14:00" }])])).v.proposals[0]
+  eq("A 여정: 약속 제안이 상대에게 간다", await count("select count(*)::int n from public.notifications where member_id = $1 and kind = 'appointment-new' and dedupe_key like $2", [JB, `proposal:${pa.id}:${JA}:%`]), 1)
+  await as(JB)
+  const acceptedA = (await one("select public.accept_appointment($1, 0) v", [proposalA.id])).v
+  eq("A 여정: 상대가 시간을 고르면 약속이 정해진다", [acceptedA.meetingOn, acceptedA.meetingTime], [meetA, "14:00~17:00"])
+  eq("A 여정: 약속이 정해졌다고 두 분에게 알린다", await notes(`final:${proposalA.id}:%`), 2)
+  for (const m of [JA, JB]) { await as(m); await q("select public.set_contact_consent($1, true)", [pa.id]) }
+  await as(JB)
+  eq("A 여정: 만나는 날 전에는 번호가 보이지 않는다", (await mine()).partnerPhone, null)
+  await at(meetA, "08:00")
+  await as(JB)
+  eq("A 여정: 만나는 날에는 두 분이 동의한 번호가 열린다", [(await mine()).contactReleased, (await mine()).partnerPhone], [true, "010-3101-0001"])
+  await run()
+  eq("A 여정: 연락처가 열렸다고 두 분에게 알린다", await notes(`contact:${pa.id}:${meetA}:%`), 2)
+  await at(await plus(meetA, 2), "00:05"); await run()
+  await as("postgres")
+  eq("A 여정: 만남 다음 날이 지나면 ‘만남까지 마친 교류’로 닫힌다", { ...(await one("select status, end_reason from public.programs where id = $1", [pa.id])) }, { status: "closed", end_reason: "completed" })
+  eq("A 여정: 마치면 두 분 모두 새 소개를 잠시 쉰다(자동)", (await q("select paused_by from public.profiles where id in ($1, $2) and paused_at is not null", [JA, JB])).map((r) => r.paused_by), ["auto", "auto"])
+  eq("A 여정: 마무리 알림이 두 분에게 간다", await notes(`done:${pa.id}:%`), 2)
+  await as(JA)
+  const doneA = await mine()
+  ok("A 여정: 마무리된 교류를 다시 읽을 수 있다(글·상대 이름·보관 기한)", doneA.status === "closed" && doneA.partnerName === "태오" && !!doneA.readableUntil && doneA.entries.filter((e) => e.partner).length >= 4)
+  eq("A 여정: 마무리 뒤 번호는 더 보이지 않는다", [doneA.contactReleased, "partnerPhone" in doneA], [false, false])
+  let listA = (await one("select public.my_readable_programs() v")).v
+  eq("A 여정: 지난 교류 목록에 다시 읽을 수 있는 교류가 있다", listA.map((p) => [p.id, p.partnerName, p.ownPlan]), [[pa.id, "태오", "A"]])
+  ok("A 여정: 지난 교류 목록에도 주고받은 글이 함께 온다", listA[0].entries.some((e) => e.kind === "reply" && e.partner) && !!listA[0].readableUntil)
+  // 새 교류가 시작돼도 지난 교류는 목록에서 다시 읽을 수 있다
+  await as("postgres")
+  const JC = await signup("jc@example.test")
+  const newerIntro = (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at, mutual_at) values ($1, $2, '두 분 모두 음악을 좋아하셨어요.', 'mutual', now() - interval '1 day', now() + interval '1 hour', 'infinity', $3, $3, now() - interval '1 day', now()) returning id", [JA, JC, snap])).id
+  const newer = (await one("insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at) values ($1, $2, $3, 'started', 'B', 'B', public.kst_today(), now(), now()) returning id", [newerIntro, JA, JC])).id
+  await as(JA)
+  eq("A 여정: 새 교류가 시작되면 교류 화면은 새 교류를 보여 준다", (await mine()).id, newer)
+  listA = (await one("select public.my_readable_programs() v")).v
+  eq("A 여정: 새 교류가 시작돼도 지난 교류는 다시 읽을 수 있다", listA.map((p) => p.id), [pa.id])
+  await as(JC)
+  eq("A 여정: 다른 사람의 지난 교류는 보이지 않는다", (await one("select public.my_readable_programs() v")).v, [])
+  await as("anon")
+  await fails("A 여정: 비회원은 지난 교류 목록을 부를 수 없다", "select public.my_readable_programs()")
+  await as("postgres")
+  await q("delete from public.programs where id = $1", [newer])
+  await clock(null)
+
+  // ── 여정 B: 첫 장면 만들기 → 첫날 서로 다른 곳 → 장소별 둘째 날 → 첫 장면 맞추기 → 넷째 날 한 분 거절
+  const KB1 = await fresh("kb1@example.test", "수아", "여성", "남성", 3021, "010-3101-0003")
+  const KB2 = await fresh("kb2@example.test", "지호", "남성", "여성", 3031, "010-3101-0004")
+  await noonIntro(KB1, KB2)
+  let pb = await mine()
+  await q("select public.choose_program_plan($1, 'B')", [pb.id])
+  await as(KB2)
+  pb = (await one("select public.choose_program_plan($1, 'B') v", [pb.id])).v
+  const startB = pb.startOn
+  eq("B 여정: 같은 방식이면 기본 시작일은 내일", startB, (await one("select (public.kst_today() + 1)::text d")).d)
+  await q("select public.confirm_program($1)", [pb.id])
+  eq("B 여정: 상대가 확인했다고 알린다", await notes(`confirm:${pb.id}:${KB2}:%`), 1)
+  await as(KB1)
+  eq("B 여정: 두 분이 모두 확인하면 일정이 정해진다", (await one("select public.confirm_program($1) v", [pb.id])).v.status, "scheduled")
+  await at(startB, "09:30"); await run()
+  eq("B 여정: 시작일 09:00에 첫날이 열린다", await statusOf(pb.id), "started")
+  const scene = async (who, day, body, payload) => { await as(who); return (await one("select public.submit_program_entry($1, $2, 'scene', $3, $4) v", [pb.id, day, body, JSON.stringify(payload)])).v }
+  const sceneFails = (label, who, day, body, payload, pattern) => as(who).then(() => fails(label, "select public.submit_program_entry($1, $2, 'scene', $3, $4)", [pb.id, day, body, JSON.stringify(payload)], pattern))
+  await sceneFails("B 여정: 나를 소개하는 짧은 질문에 답하지 않으면 보낼 수 없다", KB1, 1, null, { activity: "exhibition" }, /나를 소개하는 짧은 질문/)
+  await sceneFails("B 여정: 목록에 없는 장소는 고를 수 없다", KB1, 1, null, { activity: "club", about: "주말엔 전시를 자주 봐요." }, /분위기/)
+  await sceneFails("B 여정: 고른 이유는 한 줄(60자 안)로", KB1, 1, "가".repeat(61), { activity: "exhibition", about: "주말엔 전시를 자주 봐요." }, /60자/)
+  const firstB = await scene(KB1, 1, null, { activity: "exhibition", about: "주말엔 전시를 자주 봐요.", example: "예시 문장" })
+  const ownFirst = firstB.entries.find((e) => e.day === 1).own
+  eq("B 여정: 고른 이유는 적지 않아도 되고, 예시 같은 다른 값은 저장되지 않는다", [ownFirst.body, Object.keys(ownFirst.payload).sort()], [null, ["about", "activity"]])
+  eq("B 여정: 먼저 보내면 상대에게 알린다", await notes(`sent:${pb.id}:1:scene:${KB1}`), 1)
+  await scene(KB2, 1, "날이 좋으면 밖에서 오래 이야기하고 싶어서요.", { activity: "park", about: "주말엔 한강에서 자전거를 타요." })
+  eq("B 여정: 첫날 답이 함께 열렸다고 두 분에게 알린다", await notes(`open:${pb.id}:1:scene:%`), 2)
+  await as(KB1)
+  eq("B 여정: 첫날 두 분이 서로 다른 곳을 골랐다", (await mine()).entries.find((e) => e.day === 1).partner.payload.activity, "park")
+  await at(await plus(startB, 1), "10:00")
+  const reaction = "공원 피크닉이라니 날씨 좋은 날 꼭 가 보고 싶어요."
+  await sceneFails("B 여정: 둘째 날은 두 분이 첫날 고른 곳만 기준으로 고를 수 있다", KB1, 2, null, { place: "cafe", flow: "한 곳에서 오래 이야기하기", rest: "디저트 가게", reaction, about: "걸으면서 이야기하면 편해져요." }, /첫날 고른 곳/)
+  await sceneFails("B 여정: 고른 곳과 맞지 않는 머무는 방식은 고를 수 없다", KB1, 2, null, { place: "park", flow: "한 전시만 천천히 보기", rest: "나무 그늘 아래", reaction, about: "걸으면서 이야기하면 편해져요." }, /첫날 고른 곳/)
+  await sceneFails("B 여정: 목록에 없는 쉬어 갈 곳은 고를 수 없다", KB1, 2, null, { place: "park", flow: "돗자리 펴고 오래 머물기", rest: "노래방", reaction, about: "걸으면서 이야기하면 편해져요." }, /첫날 고른 곳/)
+  await sceneFails("B 여정: 전날 답이 함께 열렸으면 한마디가 필요하다", KB1, 2, null, { place: "park", flow: "돗자리 펴고 오래 머물기", rest: "나무 그늘 아래", about: "걸으면서 이야기하면 편해져요." }, /한마디/)
+  await scene(KB1, 2, "공원 이야기를 듣고 나니 가 보고 싶어졌어요.", { place: "park", flow: "돗자리 펴고 오래 머물기", rest: "나무 그늘 아래", reaction, about: "걸으면서 이야기하면 편해져요." })
+  const secondB = (await scene(KB2, 2, null, { place: "exhibition", flow: "한 전시만 천천히 보기", rest: "미술관 안 카페", reaction: "전시 좋아요. 요즘 본 전시가 궁금해요.", about: "처음엔 조금 조용한 편이에요." })).entries.find((e) => e.day === 2)
+  eq("B 여정: 둘째 날은 장소별 선택과 (적었다면) 이유가 함께 열린다", [secondB.own.payload.place, secondB.own.body, secondB.partner.payload.place, secondB.partner.payload.flow, secondB.partner.body], ["exhibition", null, "park", "돗자리 펴고 오래 머물기", "공원 이야기를 듣고 나니 가 보고 싶어졌어요."])
+  await at(await plus(startB, 2), "10:00")
+  const thirdB = (await scene(KB1, 3, "셋째 날 이유는 받지 않아요", { topic: "요즘 읽는 책 이야기", reaction: "미술관 카페 좋아요.", about: "친구들은 저를 느긋하다고 해요." })).entries.find((e) => e.day === 3)
+  eq("B 여정: 셋째 날에는 이유를 저장하지 않는다", thirdB.own.body, null)
+  await scene(KB2, 3, null, { topic: "최근에 다녀온 곳", reaction: "돗자리 피크닉 좋아요.", about: "궁금한 건 바로 물어보는 편이에요." })
+  eq("B 여정: 셋째 날 답이 열리면 첫 장면을 맞추자고 알린다", await count("select count(*)::int n from public.notifications where dedupe_key like $1 and body like '%첫 장면을 함께 맞춰요%'", [`open:${pb.id}:3:scene:%`]), 2)
+  const pickB = { activity: "exhibition", flow: "한 전시만 천천히 보기", rest: "나무 그늘 아래", topic: "최근에 다녀온 곳" }
+  await as(KB1)
+  ok("B 여정: 두 분이 고른 것 중에서 고르면 상대를 기다린다", (await one("select public.choose_first_scene($1, $2) v", [pb.id, JSON.stringify(pickB)])).v.notice.includes("상대도 고르면"))
+  eq("B 여정: 상대에게 첫 장면을 골랐다고 알린다", await notes(`final-sent:${pb.id}:${KB1}`), 1)
+  await as(KB2)
+  await fails("B 여정: 두 분이 고르지 않은 쉬어 갈 곳은 첫 장면에 넣을 수 없다", "select public.choose_first_scene($1, $2)", [pb.id, JSON.stringify({ ...pickB, rest: "디저트 가게" })], /하나씩/)
+  const diffB = (await one("select public.choose_first_scene($1, $2) v", [pb.id, JSON.stringify({ ...pickB, activity: "park", flow: "돗자리 펴고 오래 머물기" })])).v
+  ok("B 여정: 다르면 서로의 선택이 보이고 다시 고를 수 있다", diffB.notice.includes("다른 부분") && diffB.entries.find((e) => e.kind === "final").partner.payload.activity === "exhibition")
+  const agreedB = (await one("select public.choose_first_scene($1, $2) v", [pb.id, JSON.stringify(pickB)])).v
+  ok("B 여정: 같은 장면을 고르면 첫 장면이 정해진다", agreedB.notice.includes("정해졌어요"))
+  eq("B 여정: 첫 장면이 정해졌다고 두 분에게 알린다", await notes(`final-agreed:${pb.id}:%`), 2)
+  await as(KB1)
+  const finalB = (await mine()).entries.find((e) => e.kind === "final")
+  eq("B 여정: 약속 제안에 미리 채울 첫 장면(장소·머무는 방식·쉬어 갈 곳·이야기)이 두 분 모두에게 있다", [finalB.own.payload, finalB.partner.payload], [pickB, pickB])
+  await at(await plus(startB, 3), "09:05"); await run()
+  eq("B 여정: DAY04 09:00에 만남 선택이 열린다", await statusOf(pb.id), "deciding")
+  await as(KB1); await q("select public.choose_meeting($1, 'positive')", [pb.id])
+  await as(KB2)
+  eq("B 여정: 한 분이라도 ‘이번에는 여기까지’면 조용히 마무리된다", (await one("select public.choose_meeting($1, 'negative') v", [pb.id])).v.endReason, "meeting-declined")
+  eq("B 여정: 누가 어떻게 답했는지 밝히지 않는 마무리 알림이 두 분에게", await count("select count(*)::int n from public.notifications where dedupe_key like $1 and body like '누가 어떤 답을 했는지는 알려 드리지 않아요%'", [`pclosed:${pb.id}:%`]), 2)
+  await as(KB1)
+  const closedB = await mine()
+  ok("B 여정: 거절로 끝난 교류는 글·상대 이름을 다시 보여 주지 않는다", closedB.status === "closed" && closedB.entries.length === 0 && !("partnerName" in closedB))
+  eq("B 여정: 거절로 끝난 교류는 지난 교류 목록에도 없다", (await one("select public.my_readable_programs() v")).v, [])
+  await fails("B 여정: 마무리된 교류에서는 첫 장면을 고를 수 없다", "select public.choose_first_scene($1, $2)", [pb.id, JSON.stringify(pickB)], /지금은/)
+  await clock(null)
+
+  // ── 첫날 답이 함께 열리지 않았을 때 둘째 날: 내가 첫날 고른 곳을 기준으로 고른다(첫날 답을 보내지 않았다면 일곱 곳 중에서)
+  await as("postgres")
+  const Y1 = await signup("y1@example.test"), Y2 = await signup("y2@example.test")
+  const soloIntro = (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at, mutual_at) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'mutual', now() - interval '1 day', now() + interval '1 hour', 'infinity', $3, $3, now() - interval '1 day', now()) returning id", [Y1, Y2, snap])).id
+  const startY = await plus((await one("select public.kst_today()::text d")).d, -1)
+  const solo = (await one("insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at) values ($1, $2, $3, 'started', 'B', 'B', $4::date, now(), now()) returning id", [soloIntro, Y1, Y2, startY])).id
+  await q("insert into public.program_entries (program_id, day, kind, author, payload) values ($1, 1, 'scene', $2, '{\"activity\":\"bookstore\",\"about\":\"주말엔 서점에 가요.\"}')", [solo, Y1])
+  await at(await plus(startY, 1), "10:00")
+  await as(Y1)
+  await fails("첫날이 열리지 않았으면 내가 고른 곳이 아닌 곳으로는 고를 수 없다", "select public.submit_program_entry($1, 2, 'scene', null, $2)", [solo, JSON.stringify({ place: "park", flow: "돗자리 펴고 오래 머물기", rest: "물가 벤치", about: "걸으면 편해져요." })], /첫날 고른 곳/)
+  eq("첫날이 열리지 않았으면 내가 고른 곳의 목록에서 고르고, 한마디는 없어도 된다", (await one("select public.submit_program_entry($1, 2, 'scene', null, $2) v", [solo, JSON.stringify({ place: "bookstore", flow: "각자 한 권씩 골라 보기", rest: "서점 안 카페", about: "걸으면 편해져요." })])).v.entries.find((e) => e.day === 2).own.payload.place, "bookstore")
+  await as(Y2)
+  eq("첫날 답을 보내지 않았으면 일곱 곳 중 한 곳을 기준으로 고를 수 있다", (await one("select public.submit_program_entry($1, 2, 'scene', null, $2) v", [solo, JSON.stringify({ place: "market", flow: "조금씩 맛보며 걷기", rest: "시장 안 분식집", about: "처음엔 듣는 편이에요." })])).v.entries.find((e) => e.day === 2).own.payload.place, "market")
+  // 둘째 날도 함께 열리지 않은 경우를 보려고 Y2의 둘째 날 답은 지운다.
+  await as("postgres")
+  await q("delete from public.program_entries where program_id = $1 and day = 2 and author = $2", [solo, Y2])
+  await at(await plus(startY, 2), "10:00")
+  for (const [who, topic] of [[Y1, "요즘 읽는 책 이야기"], [Y2, "최근에 다녀온 곳"]]) { await as(who); await q("select public.submit_program_entry($1, 3, 'scene', null, $2)", [solo, JSON.stringify({ topic, about: "느긋한 편이에요." })]) }
+  await as(Y1)
+  await fails("둘째 날이 열리지 않았으면 맞추려는 장소에 맞지 않는 머무는 방식은 고를 수 없다", "select public.choose_first_scene($1, $2)", [solo, JSON.stringify({ activity: "walk", flow: "조금씩 맛보며 걷기", rest: "강가 벤치", topic: "최근에 다녀온 곳" })], /하나씩/)
+  ok("첫날·둘째 날이 열리지 않았으면 일곱 곳 중 한 곳과 그곳에 맞는 목록에서 맞춘다", (await one("select public.choose_first_scene($1, $2) v", [solo, JSON.stringify({ activity: "walk", flow: "천천히 오래 걷기", rest: "강가 벤치", topic: "최근에 다녀온 곳" })])).v.notice.includes("상대도 고르면"))
+  await as("postgres")
+  await clock(null)
+}
+
+// ── 점검 고치기 2(3400): 신청서 다시 열기 · 탈퇴 요청 취소 · 처음 제출만 설정 반영 · 메일 실패 횟수·확인한 계정만 · 신청서 고치기 안내 · 다시 받기 문구 · 보여 준 알림만 읽음
+{
+  await as("postgres")
+  await clock(null)
+  const R1 = await signup("r1@example.test"), R2 = await signup("r2@example.test"), R3 = await signup("r3@example.test"), R4 = await signup("r4@example.test")
+  const notesOf = async (member, kind) => (await one("select count(*)::int n from public.notifications where member_id = $1 and kind = $2", [member, kind])).n
+  const appStatus = async (member) => (await one("select status from public.applications where member_id = $1", [member])).status
+
+  // 4. 알림·광고 수신 설정은 처음 제출할 때만 신청서 값으로 정한다
+  const r1Draft = draft("라온", "여성", "남성", "1996-04-01")
+  r1Draft.values["consent.marketing"] = true
+  await as(R1)
+  await q("select public.save_application_draft($1)", [r1Draft])
+  await photos(R1, 7001)
+  await q("select public.submit_application()")
+  eq("처음 제출하면 신청서의 광고 수신 동의가 내 정보에 반영된다", (await one("select marketing_opt_in from public.profiles where id = $1", [R1])).marketing_opt_in, true)
+  await q("update public.profiles set marketing_opt_in = false, notice_daily_waiting = false where id = $1", [R1])
+  await as("postgres")
+  await q("update public.applications set status = 'needs_changes' where member_id = $1", [R1])
+  await as(R1)
+  await q("select public.save_application_draft($1)", [r1Draft])
+  await q("select public.submit_application()")
+  eq("다시 제출해도 내 정보에서 끈 광고 수신·정오 알림이 다시 켜지지 않는다", { ...(await one("select marketing_opt_in m, notice_daily_waiting n from public.profiles where id = $1", [R1])) }, { m: false, n: false })
+
+  // 8. 신청서 고치기: 회원이 모르는 정오 예약은 알리지 않고 취소, 진행 중인 소개는 예약을 드러내지 않는 말로 막는다
+  await as("postgres")
+  // 기수 시작 전에는 예약할 수 없으므로, 시험에서는 기수를 비워 둔다.
+  await q("update public.applications set status = 'approved', cohort_number = null where member_id = $1", [R1])
+  const reserved = (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'reserved', now() + interval '2 hours', now() + interval '1 day', now() + interval '1 day', '{}', '{}') returning id", [R1, R2])).id
+  await as(R1)
+  eq("정오 예약만 있으면 신청서를 고칠 수 있다(다시 확인 상태로)", (await one("select public.save_application_draft($1) r", [r1Draft])).r.status, "submitted")
+  await as("postgres")
+  eq("고치면 회원이 모르는 정오 예약은 공개 직전 취소와 같이 끝난다", { ...(await one("select status, end_reason, count_a, count_b from public.introductions where id = $1", [reserved])) }, { status: "cancelled", end_reason: "precheck", count_a: false, count_b: false })
+  eq("취소된 예약은 상대에게 알리지 않는다", (await one("select count(*)::int n from public.notifications where member_id = $1 and created_at > now() - interval '1 minute' and kind like 'intro%'", [R2])).n, 0)
+  await q("update public.applications set status = 'approved', cohort_number = null where member_id = $1", [R1])
+  await q("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'published', now() - interval '1 hour', now() + interval '1 day', now() + interval '1 day', '{}', '{}', now() - interval '1 hour')", [R1, R3])
+  await as(R1)
+  let editError = ""
+  try { await q("select public.save_application_draft($1)", [r1Draft]) } catch (error) { editError = error.message }
+  ok("진행 중인 소개가 있으면 고친 내용을 보낼 수 없고, 안내에 ‘예정’ 소개를 드러내지 않는다", /진행 중인 소개나 교류/.test(editError) && !editError.includes("예정"))
+  eq("막혔을 때 신청서 상태는 그대로다", await appStatus(R1), "approved")
+
+  // 1. 철회한 신청서 다시 열기
+  await as(R2)
+  await q("select public.save_application_draft($1)", [draft("다온", "남성", "여성", "1994-02-01")])
+  await q("select public.withdraw_application()")
+  await fails("회원은 신청서를 다시 열 수 없다", "select public.admin_reopen_application($1, '문의로 요청')", [R2], /운영 권한/)
+  await as(O, "aal2")
+  await fails("다시 열 때는 이유를 적어야 한다", "select public.admin_reopen_application($1, ' ')", [R2], /이유/)
+  await q("select public.admin_reopen_application($1, '문의로 다시 신청하고 싶다고 했어요')", [R2])
+  await as("postgres")
+  eq("철회한 신청서를 다시 열면 작성 중이 된다", await appStatus(R2), "draft")
+  eq("다시 열면 회원에게 알린다", await notesOf(R2, "application-reopened"), 1)
+  eq("다시 연 기록이 감사 기록에 남는다", (await one("select count(*)::int n from public.audit_log where action = '신청서 다시 열기' and target = $1", [R2])).n, 1)
+  await as(O, "aal2")
+  await fails("철회하지 않은 신청서는 다시 열 수 없다", "select public.admin_reopen_application($1, '다시')", [R2], /철회한 신청서만/)
+
+  // 2. 탈퇴 요청 취소(삭제 예정 시각 전에만)
+  await as(R3)
+  await q("select public.request_withdrawal()")
+  await as(R3)
+  await fails("회원은 탈퇴 취소를 직접 할 수 없다", "select public.admin_cancel_withdrawal($1, '취소')", [R3], /운영 권한/)
+  await as(O, "aal2")
+  const listed = (await one("select public.admin_list_members('r3@') v")).v.find((row) => row.id === R3)
+  ok("회원 목록에 삭제 예정 시각이 보인다", listed && listed.status === "withdrawal_requested" && !!listed.deletionDueAt && !!listed.withdrawalRequestedAt)
+  await q("select public.admin_cancel_withdrawal($1, '문의로 탈퇴를 취소하고 싶다고 했어요')", [R3])
+  await as("postgres")
+  eq("탈퇴 요청을 취소하면 이용 중으로 돌아가고 삭제 예약이 지워진다", { ...(await one("select status, deletion_due_at, withdrawal_requested_at from public.profiles where id = $1", [R3])) }, { status: "active", deletion_due_at: null, withdrawal_requested_at: null })
+  eq("탈퇴 요청 기록은 처리 완료가 된다", (await one("select status from public.member_requests where member_id = $1 and kind = 'withdrawal'", [R3])).status, "decided")
+  eq("탈퇴 취소를 회원에게 알린다(요청 처리 알림과 겹치지 않게 한 번)", [await notesOf(R3, "withdrawal-cancelled"), await notesOf(R3, "request-decided")], [1, 0])
+  await as(O, "aal2")
+  await fails("탈퇴를 요청하지 않은 회원은 취소할 수 없다", "select public.admin_cancel_withdrawal($1, '다시')", [R3], /탈퇴를 요청한 회원이 아니에요/)
+  await as(R4)
+  await q("select public.request_withdrawal()")
+  await as("postgres")
+  await q("update public.profiles set deletion_due_at = now() - interval '1 minute' where id = $1", [R4])
+  await as(O, "aal2")
+  await fails("삭제 예정 시각이 지나면 탈퇴를 취소할 수 없다", "select public.admin_cancel_withdrawal($1, '늦은 요청')", [R4], /삭제 예정 시각/)
+
+  // 9. 운영진이 쉬기를 풀면 ‘내 정보에서 다시 쉴 수 있다’고 알린다
+  await q("select public.admin_set_member_state($1, 'pause', '확인할 일')", [R3])
+  await q("select public.admin_set_member_state($1, 'resume')", [R3])
+  await as("postgres")
+  ok("다시 받기 알림은 쉬기가 있는 내 정보를 가리킨다", (await one("select body from public.notifications where member_id = $1 and kind = 'operator-resumed'", [R3])).body.includes("내 정보에서"))
+
+  // 5·6. 메일: 가입 확인을 마친 계정만, 3번 실패하면 멈추고, 처음 보내는 것이 먼저
+  await as("postgres")
+  await clock((await one("select public.kst_at(public.kst_today(), '13:00')::text t")).t)
+  const pendingIds = async () => (await q("select id from public.pending_email_notifications(5000)")).map((row) => row.id)
+  const reopenNote = (await one("select id from public.notifications where member_id = $1 and kind = 'application-reopened'", [R2])).id
+  ok("가입 확인을 마친 회원의 알림은 메일로 보낼 차례에 든다", (await pendingIds()).includes(reopenNote))
+  await q("update auth.users set email_confirmed_at = null where id = $1", [R2])
+  ok("가입 확인을 마치지 않은 계정에는 메일을 보내지 않는다", !(await pendingIds()).includes(reopenNote))
+  await as(O, "aal2")
+  await q("select public.admin_broadcast('베타 운영 안내예요', '가입 확인을 마친 회원에게만 가는 공지예요.')")
+  await as("postgres")
+  eq("전체 공지는 가입 확인을 마치지 않은 계정에는 가지 않는다", await notesOf(R2, "announcement"), 0)
+  ok("전체 공지는 가입 확인을 마친 회원에게 간다", (await notesOf(R3, "announcement")) >= 1)
+  await q("update auth.users set email_confirmed_at = now() where id = $1", [R2])
+  const older = (await one("select id from public.notifications where member_id = $1 and kind = 'withdrawal-cancelled'", [R3])).id
+  const newer = (await one("select id from public.notifications where member_id = $1 and kind = 'operator-resumed'", [R3])).id
+  await q("update public.notifications set created_at = now() - interval '1 hour' where id = $1", [older])
+  eq("실패한 메일은 실패 횟수를 돌려준다", (await one("select public.record_email_failure('notification', $1, 'smtp 550') n", [older])).n, 1)
+  const order = await pendingIds()
+  ok("한 번 실패한 메일보다 처음 보내는 메일이 먼저 나간다", order.includes(older) && order.indexOf(newer) < order.indexOf(older))
+  await q("select public.record_email_failure('notification', $1, 'smtp 550')", [older])
+  await q("select public.record_email_failure('notification', $1, 'smtp 550')", [older])
+  ok("3번 실패한 메일은 더 보내지 않는다", !(await pendingIds()).includes(older))
+  await as(R3)
+  await fails("회원은 메일 실패 기록 함수를 부를 수 없다", "select public.record_email_failure('notification', $1, 'x')", [older])
+  await as("postgres")
+  await clock(null)
+
+  // 10. 오늘 화면에 보여 준 알림만 읽음으로
+  await as(R3)
+  const unread = (await q("select id from public.notifications where member_id = $1 and read_at is null order by created_at desc", [R3])).map((row) => row.id)
+  ok("읽지 않은 알림이 둘 이상 있다", unread.length >= 2)
+  eq("보여 준 알림만 읽음으로 바뀐다", (await one("select public.mark_shown_notifications_read($1::uuid[]) n", [[unread[0]]])).n, 1)
+  eq("보여 주지 않은 알림은 읽지 않음으로 남는다", (await one("select count(*)::int n from public.notifications where member_id = $1 and read_at is null", [R3])).n, unread.length - 1)
+  eq("남의 알림은 읽음으로 바꿀 수 없다", (await one("select public.mark_shown_notifications_read($1::uuid[]) n", [[reopenNote]])).n, 0)
+  await as("postgres")
 }
 
 console.log(`서버 데이터베이스 점검 통과: ${passed}개`)

@@ -42,6 +42,9 @@ export type Program = {
 }
 
 export const loadMyProgram = () => rpc<Program | null>("my_program")
+// 마무리 뒤 다시 읽을 수 있는 지난 교류(넷째 날 두 분 모두 만나고 싶다고 했고, 마무리 후 30일 안·차단 없음). 새 교류가 시작돼도 남는다.
+export type ReadableProgram = { id: string; introductionId: string; status: "closed"; endReason: string | null; closedAt: string; partnerName: string | null; ownPlan: "A" | "B" | null; partnerPlan: "A" | "B" | null; startOn: string | null; meetingOn: string | null; today: string; readableUntil: string; entries: ProgramEntry[] }
+export const loadReadablePrograms = () => rpc<ReadableProgram[]>("my_readable_programs")
 export const choosePlan = (id: string, plan: "A" | "B") => rpc<Program>("choose_program_plan", { p_program: id, p_plan: plan })
 export const proposeStart = (id: string, date: string) => rpc<Program>("propose_program_start", { p_program: id, p_date: date })
 export const confirmProgram = (id: string) => rpc<Program>("confirm_program", { p_program: id })
@@ -57,32 +60,44 @@ export type ScenePick = { activity: string; flow: string; rest: string; topic: s
 export const chooseFirstScene = (id: string, pick: ScenePick) => rpc<Program>("choose_first_scene", { p_program: id, p_pick: pick })
 
 export const PLAN_COPY = {
-  A: { name: "A. 편지 나누기", description: "각자 하루 한 통씩, 3일 동안 나누는 이야기. 두 분이 모두 보내면 함께 열리고, 열린 편지에는 다음 날 09:00까지 답장을 한 번 보낼 수 있어요.", days: ["내 하루 한 장면 들려주기", "받은 편지에 답하고 하나 묻기", "만나면 이어 갈 이야기 꺼내기"], example: "예: “요즘 퇴근하고 한강을 걷는 게 제일 좋은 시간이에요.”", fit: "글로 천천히 마음을 전하고 싶은 분께" },
-  B: { name: "B. 첫 장면 만들기", description: "하루에 하나씩 장소·머무는 방식·나눌 이야기를 고르고, 짧은 질문에 답하며 서로를 알아가요. 셋째 날 답이 열리면 두 분이 고른 것 중에서 첫 장면을 함께 맞춰요.", days: ["끌리는 장소 고르기", "머무는 방식 정하기", "함께 나눌 이야기 정하기"], example: "예: 서점 · 천천히 머물기 · “요즘 읽는 책 이야기”", fit: "가볍게 고르며 취향을 맞춰 보고 싶은 분께" },
+  A: { name: "A. 편지 나누기", description: "각자 하루 한 통씩, 3일 동안 나누는 이야기. 두 분이 모두 보내면 함께 열리고, 열린 편지에는 다음 날 09:00까지 답장을 한 번 보낼 수 있어요.", days: ["쉬는 날의 나 들려주기", "요즘 마음을 쓰는 것 나누기", "만나면 함께 보낼 시간 그려 보기"], example: "예: “쉬는 날엔 동네 도서관 창가 자리에서 해 질 때까지 책을 읽어요.”", fit: "글로 천천히 마음을 전하고 싶은 분께" },
+  B: { name: "B. 첫 장면 만들기", description: "하루에 하나씩 장소·머무는 방식·나눌 이야기를 고르고, 짧은 질문에 답하며 서로를 알아가요. 셋째 날 답이 열리면 두 분이 고른 것 중에서 첫 장면을 함께 맞춰요.", days: ["끌리는 장소 고르기", "그곳에서 머무는 방식 정하기", "함께 나눌 이야기 정하기"], example: "예: 서점 · 각자 한 권씩 골라 보기 · “요즘 읽는 책 이야기”", fit: "가볍게 고르며 취향을 맞춰 보고 싶은 분께" },
 } as const
-// 편지 쓰기 첫 문장 도움말(눌러서 이어 쓰기)
+// 편지 질문: 상대가 ‘이 사람은 어떤 사람인지’ 알아볼 수 있게 묻는다. 예시는 읽기만 하는 참고(눌러도 편지에 들어가지 않는다).
 export const LETTER_PROMPTS = [
-  { title: "내 하루 한 장면", question: "최근의 나를 가장 잘 보여 주는 하루는 어떤 하루였나요?", hints: ["요즘 제 하루는 보통 이렇게 흘러가요. ", "최근에 혼자 웃었던 순간이 있었는데요, ", "주말에 자주 가는 곳이 하나 있어요. "] },
-  { title: "당신의 말이 궁금해졌어요", question: "어제 받은 편지에서 기억에 남은 말 하나에 답하고, 궁금한 것을 물어보세요.", hints: ["어제 편지에서 이 말이 오래 남았어요. ", "읽다가 저도 비슷한 기억이 떠올랐어요. ", "하나 더 궁금해진 게 있어요. "] },
-  { title: "만나면 이어가고 싶은 이야기", question: "직접 만나게 된다면 어떤 시간을 보내고 싶나요?", hints: ["만나게 된다면 이런 곳을 함께 걸어 보고 싶어요. ", "3일 동안 편지를 주고받으며 느낀 건요, ", "직접 얼굴을 보고 꼭 듣고 싶은 이야기가 있어요. "] },
+  { title: "나의 쉬는 날", question: "쉬는 날, 보통 어떤 시간을 보내나요?", examples: ["쉬는 날엔 늦잠을 자고, 오후에 동네 도서관에 가요. 창가 자리에서 책을 읽다 보면 해가 져 있어요.", "토요일 아침마다 친구들과 배드민턴을 쳐요. 끝나고 다 같이 먹는 국밥이 사실 더 기다려져요.", "집에서 요리를 자주 해요. 지난 주말엔 처음으로 된장찌개를 끓였는데 생각보다 맛있었어요."] },
+  { title: "요즘 마음을 쓰는 것", question: "요즘 가장 마음을 쓰고 있는 건 무엇인가요? 왜 소중한지도 들려주세요.", examples: ["요즘은 가족과 저녁을 함께 먹는 시간을 아껴요. 바빠도 일주일에 한 번은 꼭 지키려고 해요.", "일을 잘하는 것보다 오래 즐겁게 하는 게 더 중요해졌어요. 그래서 퇴근 뒤 시간을 지키려고 해요.", "작은 약속이라도 지키는 사람이고 싶어요. 친구와 정한 산책 약속도 미루지 않으려고 해요."] },
+  { title: "함께 보내고 싶은 시간", question: "만나게 된다면, 함께 어떤 시간을 보내고 싶나요?", examples: ["조용한 전시를 천천히 보고, 근처 카페에서 본 것 이야기를 나누고 싶어요.", "날이 좋으면 강가를 같이 걷고 싶어요. 걸으면서 이야기하면 저는 금방 편해지거든요.", "맛있는 밥 한 끼를 천천히 먹으면서, 편지로 다 못 한 이야기를 듣고 싶어요."] },
 ] as const
-// 전날 편지가 함께 열리지 않았을 때의 질문·도움말(받은 편지가 있다고 가정하지 않는다)
+// 전날 편지가 함께 열리지 않았을 때의 질문(상대가 전날 이야기를 아직 모르니 함께 담아 달라고 한다)
 const LETTER_PROMPTS_UNOPENED = [
   null,
-  { title: "내 이야기 하나, 궁금한 것 하나", question: "어제는 편지가 함께 열리지 않았어요. 오늘은 내 이야기 하나와 상대에게 궁금한 것 하나를 담아 보세요.", hints: ["어제 못 전한 이야기부터 할게요. ", "요즘 제가 자주 하는 생각이 있어요. ", "하나 궁금한 게 있어요. "] },
-  { title: "만나면 이어가고 싶은 이야기", question: "직접 만나게 된다면 어떤 시간을 보내고 싶나요?", hints: ["만나게 된다면 이런 곳을 함께 걸어 보고 싶어요. ", "편지로 다 못 한 이야기가 있어요. ", "직접 얼굴을 보고 꼭 듣고 싶은 이야기가 있어요. "] },
+  { title: "쉬는 날의 나, 요즘의 나", question: "어제는 편지가 함께 열리지 않았어요. 오늘은 쉬는 날을 어떻게 보내는지와, 요즘 마음을 쓰고 있는 것을 함께 들려주세요.", examples: ["쉬는 날엔 동네를 오래 걸어요. 요즘은 그 시간에 한 주를 정리하는 게 저한테 가장 소중해요.", "주말엔 집에서 영화를 보며 쉬어요. 요즘은 건강을 챙기려고 아침마다 스트레칭을 하고 있어요."] },
+  { title: "함께 보내고 싶은 시간", question: "어제는 편지가 함께 열리지 않았어요. 요즘 마음을 쓰는 것 하나와, 만나면 함께 보내고 싶은 시간을 들려주세요.", examples: ["요즘은 몸을 챙기는 데 마음을 써요. 만나면 가볍게 걷고 따뜻한 차 한잔하고 싶어요.", "요즘 일에 마음을 많이 쓰고 있어요. 만나면 조용한 곳에서 편하게 이야기 나누고 싶어요."] },
 ] as const
 export const letterPrompt = (day: number, previousOpened: boolean) => (!previousOpened && LETTER_PROMPTS_UNOPENED[day - 1]) || LETTER_PROMPTS[day - 1]
-// B 첫 장면: 날마다 구체적인 할 일 하나 + 나를 소개하는 짧은 질문 하나. 둘째·셋째 날에는 전날 함께 열린 상대의 선택에 한마디를 남긴다.
+// B 첫 장면: 날마다 구체적인 할 일 하나 + 나를 소개하는 짧은 질문 하나(꼭 답해요). 둘째·셋째 날에는 전날 함께 열린 상대의 선택에 한마디를 남긴다.
+// 첫째·둘째 날 고른 이유는 한 줄(60자 안)로, 적지 않아도 된다.
 export const SCENE_PROMPTS = [
-  { title: "끌리는 장소 고르기", question: "처음 만나는 장면으로 끌리는 곳을 하나 고르고, 이유를 한 줄로 적어 주세요.", about: "요즘 주말을 가장 나답게 보내는 방법은 뭐예요?", aboutHint: "예: 동네 빵집에서 아침 먹고 오래 걷기", reaction: "", reactionAlt: "", sees: "상대에게는 고른 곳 · 이유 · 내 답이 보여요. 두 분 모두 보내야 함께 열려요." },
-  { title: "머무는 방식 정하기", question: "만나면 얼마나 머물지, 중간에 어디서 쉬어 갈지 골라 주세요.", about: "처음 만난 자리에서 내가 편해지는 방법이 있나요?", aboutHint: "예: 걸으면서 이야기하면 금방 편해져요", reaction: "어제 상대가 고른 곳과 이유에 한마디 남겨 주세요.", reactionAlt: "어제는 함께 열리지 않았어요. 상대가 어떤 곳을 좋아할 것 같은지 짐작해 한마디 남겨 보세요(선택).", sees: "상대에게는 머무는 방식 · 쉬어 갈 곳 · 한마디 · 내 답이 보여요." },
-  { title: "함께 나눌 이야기 정하기", question: "만나서 꼭 나누고 싶은 이야기 하나를 적어 주세요.", about: "나를 잘 아는 친구가 나를 한 줄로 소개한다면?", aboutHint: "예: 느긋한데 좋아하는 건 끝까지 파는 사람", reaction: "어제 상대가 고른 머무는 방식에 한마디 남겨 주세요.", reactionAlt: "어제는 함께 열리지 않았어요. 상대에게 건네고 싶은 말을 한마디 남겨 보세요(선택).", sees: "상대에게는 나누고 싶은 이야기 · 한마디 · 내 답이 보여요. 함께 열리면 둘이 고른 것으로 첫 장면을 맞춰요." },
+  { title: "끌리는 장소 고르기", question: "처음 만나는 장면으로 끌리는 곳을 하나 골라 주세요. 고른 이유는 한 줄로 적어도 좋아요.", about: "요즘 주말을 가장 나답게 보내는 방법은 뭐예요?", aboutHint: "예: 동네 빵집에서 아침 먹고 오래 걷기", reasonHint: "예: 책 고르는 걸 옆에서 구경하는 게 좋아서요", reaction: "", reactionAlt: "", sees: "상대에게는 고른 곳 · 내 답(이유를 적었다면 이유도)이 보여요. 두 분 모두 보내야 함께 열려요." },
+  { title: "그곳에서 머무는 방식 정하기", question: "어제 고른 곳에서 어떻게 머물지, 중간에 어디서 쉬어 갈지 골라 주세요.", about: "처음 만난 자리에서 내가 편해지는 방법이 있나요?", aboutHint: "예: 걸으면서 이야기하면 금방 편해져요", reasonHint: "예: 처음엔 오래 앉아 있는 것보다 걷는 게 편해서요", reaction: "어제 상대가 고른 곳과 이유에 한마디 남겨 주세요.", reactionAlt: "어제는 함께 열리지 않았어요. 상대가 어떤 곳을 좋아할 것 같은지 짐작해 한마디 남겨 보세요(선택).", sees: "상대에게는 머무는 방식 · 쉬어 갈 곳 · 한마디 · 내 답(이유를 적었다면 이유도)이 보여요." },
+  { title: "함께 나눌 이야기 정하기", question: "만나서 꼭 나누고 싶은 이야기 하나를 적어 주세요.", about: "나를 잘 아는 친구가 나를 한 줄로 소개한다면?", aboutHint: "예: 느긋한데 좋아하는 건 끝까지 파는 사람", reasonHint: "", reaction: "어제 상대가 고른 머무는 방식에 한마디 남겨 주세요.", reactionAlt: "어제는 함께 열리지 않았어요. 상대에게 건네고 싶은 말을 한마디 남겨 보세요(선택).", sees: "상대에게는 나누고 싶은 이야기 · 한마디 · 내 답이 보여요. 함께 열리면 둘이 고른 것으로 첫 장면을 맞춰요." },
 ] as const
+export const SCENE_REASON_MAX = 60
 export const SCENE_TOPIC_EXAMPLES = ["요즘 읽는 책 이야기", "최근에 다녀온 곳", "어릴 때 좋아하던 것"] as const
 export const SCENE_ACTIVITY_LABEL: Record<string, string> = { exhibition: "전시", walk: "산책", bookstore: "서점", cafe: "카페", park: "공원·피크닉", market: "시장 골목", performance: "작은 공연" }
-export const SCENE_FLOWS = ["짧게 둘러보기", "천천히 머물기", "발길 닿는 대로"] as const
-export const SCENE_RESTS = ["조용한 카페", "공공 야외 공간", "디저트·빵집", "강가·벤치"] as const
+// 장소 일곱 곳은 늘 두 줄로: 전시 산책 서점 카페 / 공원·피크닉 시장 골목 작은 공연
+export const SCENE_ACTIVITY_ROWS: readonly (readonly string[])[] = [["exhibition", "walk", "bookstore", "cafe"], ["park", "market", "performance"]]
+// 둘째 날: 첫날 고른 곳에 맞는 머무는 방식 3가지 · 쉬어 갈 곳 3~4가지(서버 scene_stay_options와 같은 목록)
+export const SCENE_STAY: Record<string, { flows: readonly string[]; rests: readonly string[] }> = {
+  exhibition: { flows: ["한 전시만 천천히 보기", "마음에 든 작품 앞에서 오래 머물기", "가볍게 보고 나와 걷기"], rests: ["미술관 안 카페", "근처 조용한 카페", "전시장 앞 벤치", "디저트 가게"] },
+  walk: { flows: ["가볍게 한 바퀴 걷기", "천천히 오래 걷기", "걷다가 끌리는 곳에 들르기"], rests: ["강가 벤치", "공원 쉼터", "길가 작은 카페", "동네 빵집"] },
+  bookstore: { flows: ["각자 한 권씩 골라 보기", "좋아하는 책 서로 소개하기", "짧게 둘러보고 나오기"], rests: ["서점 안 카페", "근처 조용한 카페", "책 읽기 좋은 벤치", "디저트·빵집"] },
+  cafe: { flows: ["한 곳에서 오래 이야기하기", "두 곳을 옮겨 가며 머물기", "커피 들고 근처 걷기"], rests: ["근처 공원 벤치", "디저트 가게", "조용한 산책길"] },
+  park: { flows: ["돗자리 펴고 오래 머물기", "가볍게 걷다가 쉬기", "간단히 먹고 산책하기"], rests: ["나무 그늘 아래", "물가 벤치", "공원 앞 카페", "잔디밭 한쪽"] },
+  market: { flows: ["조금씩 맛보며 걷기", "구경하며 천천히 돌기", "한 곳에 앉아 먹으며 이야기하기"], rests: ["골목 작은 카페", "시장 안 분식집", "근처 공원 벤치", "디저트·빵집"] },
+  performance: { flows: ["공연 보고 짧게 이야기하기", "공연 전에 가볍게 먹기", "공연 뒤 천천히 걷기"], rests: ["공연장 근처 카페", "조용한 식당", "근처 공원 벤치"] },
+}
 // 첫 장면의 분위기 → 약속 제안의 활동(약속을 제안할 때 미리 골라 둔다)
 export const SCENE_TO_APPOINTMENT: Record<string, string> = { exhibition: "전시·미술관", walk: "산책·공원", bookstore: "서점·책방", cafe: "카페·디저트", park: "산책·공원", market: "식사·맛집", performance: "공연·문화" }
 // 첫 장면 → 약속 제안 한마디(흐름·쉬어 갈 곳·이야기를 미리 적어 둔다)

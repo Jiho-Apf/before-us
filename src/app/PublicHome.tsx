@@ -1,13 +1,13 @@
 import { usePageWidth, useScrollReveal } from "./scroll-reveal";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
-import { ArrowRight, ArrowUpRight, Check, Clock, Lock, LockOpen, Plus, RotateCcw } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, ChevronDown, Clock, Lock, LockOpen, Plus, RotateCcw } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./components/ui/accordion";
 import { BEFORE_US } from "./config";
 import { LIVE, rpc } from "./backend/client";
-import { LETTER_PROMPTS, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_FLOWS, SCENE_RESTS, SCENE_TOPIC_EXAMPLES } from "./backend/program";
+import { LETTER_PROMPTS, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_ACTIVITY_ROWS, SCENE_STAY, SCENE_TOPIC_EXAMPLES } from "./backend/program";
 import { cohortCode, cohortName, useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
@@ -133,7 +133,7 @@ function withUnderlines(text: string, phrases: readonly string[]) {
 }
 
 // 첫 화면 세 가지 표시와 마감 배지(2026-10-27). 서비스의 핵심을 한눈에, 지금 신청할 이유는 버튼 바로 위에.
-const HERO_POINTS = ["운영진이 고른 한 사람", "정오 12시 도착", "만나기 전 3일 편지"];
+const HERO_POINTS = ["운영진이 고른 한 사람", "정오 12시 도착", "만나기 전 3일 교류"];
 function HeroPoints() {
   return <ul className="mt-6 flex flex-wrap gap-2" aria-label="비포어스의 소개 방식">{HERO_POINTS.map(point => <li key={point} className="flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/25 backdrop-blur-sm"><Check size={12} aria-hidden="true" />{point}</li>)}</ul>;
 }
@@ -245,15 +245,16 @@ function InitialOperation({ detailsTo = "#faq-cohort" }: { detailsTo?: string })
   );
 }
 
-// A 체험: 실제 교류의 사흘 질문과 첫 문장 도움말 그대로(쓴 글은 저장하지 않는다)
+// A 체험: 실제 교류의 사흘 질문 그대로. 예시는 읽기만 하는 참고(편지에 넣지 않는다). 쓴 글은 저장하지 않는다.
 function LetterTrial() {
   const [day, setDay] = useState(0);
   const prompt = LETTER_PROMPTS[day];
   const [text, setText] = useState("");
   const [sent, setSent] = useState(false);
+  const [examples, setExamples] = useState(false);
   return (
     <div className="mt-8 border border-border bg-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs font-medium text-accent"><span>실제 교류의 질문 · {prompt.title}</span><span className="flex gap-1">{LETTER_PROMPTS.map((item, index) => <button key={item.title} type="button" aria-pressed={day === index} onClick={() => { setDay(index); setSent(false); setText(""); }} className={`rounded-full border px-2.5 py-1 text-[11px] ${interaction} ${day === index ? "border-accent bg-accent text-white" : "border-border text-muted-foreground hover:border-accent/50"}`}>DAY 0{index + 1}</button>)}</span></div>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs font-medium text-accent"><span>실제 교류의 질문 · {prompt.title}</span><span className="flex gap-1">{LETTER_PROMPTS.map((item, index) => <button key={item.title} type="button" aria-pressed={day === index} onClick={() => { setDay(index); setSent(false); setText(""); setExamples(false); }} className={`rounded-full border px-2.5 py-1 text-[11px] ${interaction} ${day === index ? "border-accent bg-accent text-white" : "border-border text-muted-foreground hover:border-accent/50"}`}>DAY 0{index + 1}</button>)}</span></div>
       <p className="mt-4 text-[15px] font-semibold leading-7" aria-live="polite">{prompt.question}</p>
       {sent ? (
         <div className="mt-4 space-y-3" aria-live="polite">
@@ -263,39 +264,52 @@ function LetterTrial() {
         </div>
       ) : (
         <div className="mt-4 space-y-3">
-          {!text && <div className="flex flex-wrap gap-1.5" aria-label="첫 문장 도움말">{prompt.hints.map(hint => <button key={hint} type="button" onClick={() => setText(hint)} className={`rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground/80 hover:border-accent/50 ${interaction}`}>{hint.trim()}…</button>)}</div>}
-          <Textarea aria-label="편지 쓰기 체험 · 저장되지 않음" maxLength={200} value={text} onChange={event => setText(event.target.value)} placeholder="첫 문장 도움말을 눌러 시작해 보세요." className="min-h-24 bg-background leading-7" />
+          <div>
+            <button type="button" aria-expanded={examples} onClick={() => setExamples(value => !value)} className={`inline-flex items-center gap-1 rounded-full text-xs text-muted-foreground hover:text-foreground ${interaction}`}>{examples ? "예시 닫기" : "예시 보기"}<ChevronDown size={13} className={`transition-transform duration-200 motion-reduce:transition-none ${examples ? "rotate-180" : ""}`} /></button>
+            {examples && <ul aria-label="이 질문의 예시 답" className="mt-2 space-y-1.5 rounded-xl bg-accent/5 px-4 py-3 text-xs leading-6 text-foreground/75">{prompt.examples.map(example => <li key={example}>“{example}”</li>)}</ul>}
+          </div>
+          <Textarea aria-label="편지 쓰기 체험 · 저장되지 않음" maxLength={200} value={text} onChange={event => setText(event.target.value)} placeholder="질문에 답하듯 편하게 써 보세요." className="min-h-24 bg-background leading-7" />
           <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-muted-foreground">{text.length}/200 · 실제 편지는 300~600자를 권해요</span><Button size="sm" disabled={!text.trim()} onClick={() => setSent(true)}>한 통 보내 보기</Button></div>
         </div>
       )}
     </div>
   );
 }
-// B 체험: 실제 교류와 같은 고를 거리·순서(장소 → 머무는 방식·쉬어 갈 곳 → 나눌 이야기). 고른 것은 저장하지 않는다.
+// B 체험: 실제 교류와 같은 고를 거리·순서(장소 → 그곳에 맞는 머무는 방식·쉬어 갈 곳 → 나눌 이야기). 고른 것은 저장하지 않는다.
 function SceneTrial() {
   const [picks, setPicks] = useState<Record<string, string>>({});
+  const stay = picks.activity ? SCENE_STAY[picks.activity] : undefined;
+  const place = picks.activity ? SCENE_ACTIVITY_LABEL[picks.activity] : "";
+  const pairs = (items: readonly string[] = []) => items.map(item => [item, item] as const);
+  const shown = (key: string) => key === "activity" ? place : picks[key];
   const steps = [
-    { day: "DAY 01", title: PLAN_COPY.B.days[0], groups: [{ key: "activity", label: "", options: Object.values(SCENE_ACTIVITY_LABEL) }] },
-    { day: "DAY 02", title: PLAN_COPY.B.days[1], groups: [{ key: "flow", label: "머무는 방식", options: [...SCENE_FLOWS] }, { key: "rest", label: "쉬어 갈 곳", options: [...SCENE_RESTS] }] },
-    { day: "DAY 03", title: PLAN_COPY.B.days[2], groups: [{ key: "topic", label: "예시 · 실제로는 직접 적어요", options: [...SCENE_TOPIC_EXAMPLES] }] },
+    { day: "DAY 01", title: PLAN_COPY.B.days[0], groups: [{ key: "activity", label: "", options: Object.entries(SCENE_ACTIVITY_LABEL) as (readonly [string, string])[] }] },
+    { day: "DAY 02", title: PLAN_COPY.B.days[1], groups: [{ key: "flow", label: `머무는 방식 · ${place}`, options: pairs(stay?.flows) }, { key: "rest", label: "쉬어 갈 곳", options: pairs(stay?.rests) }] },
+    { day: "DAY 03", title: PLAN_COPY.B.days[2], groups: [{ key: "topic", label: "예시 · 실제로는 직접 적어요", options: pairs(SCENE_TOPIC_EXAMPLES) }] },
   ];
   const step = steps.findIndex(item => item.groups.some(group => !picks[group.key]));
   const current = steps[step];
+  const chip = (key: string, [value, text]: readonly [string, string]) => (
+    <button key={value} type="button" aria-pressed={picks[key] === value} onClick={() => setPicks(prev => ({ ...prev, [key]: value }))} className={`rounded-full border px-3.5 py-2 text-sm ${interaction} ${picks[key] === value ? "border-accent bg-accent/5 text-accent" : "border-border bg-card hover:border-accent/60"}`}>{text}</button>
+  );
   return (
     <div className="mt-8 space-y-3">
       {current ? <>
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs font-medium text-accent"><span>{current.day} · {current.title}</span><span className="text-muted-foreground">{step + 1} / 3</span></div>
-        {current.groups.map(group => <div key={group.key} className="space-y-2">{group.label && <p className="text-[11px] text-muted-foreground">{group.label}</p>}<div className="flex flex-wrap gap-2">{group.options.map(option => (
-          <button key={option} type="button" aria-pressed={picks[group.key] === option} onClick={() => setPicks(prev => ({ ...prev, [group.key]: option }))} className={`rounded-full border px-3.5 py-2 text-sm ${interaction} ${picks[group.key] === option ? "border-accent bg-accent/5 text-accent" : "border-border bg-card hover:border-accent/60"}`}>{option}</button>
-        ))}</div></div>)}
+        {current.groups.map(group => <div key={group.key} className="space-y-2">{group.label && <p className="text-[11px] text-muted-foreground">{group.label}</p>}
+          {group.key === "activity"
+            // 장소 일곱 곳은 늘 두 줄로: 전시 산책 서점 카페 / 공원·피크닉 시장 골목 작은 공연
+            ? <div className="space-y-2">{SCENE_ACTIVITY_ROWS.map(row => <div key={row[0]} className="flex flex-wrap gap-2">{row.map(key => chip("activity", [key, SCENE_ACTIVITY_LABEL[key]]))}</div>)}</div>
+            : <div className="flex flex-wrap gap-2">{group.options.map(option => chip(group.key, option))}</div>}
+        </div>)}
         {step > 0 && <div className="grid grid-cols-2 gap-3 pt-1" aria-live="polite">
-          <div className="rounded-xl border border-accent bg-accent/5 p-3 text-xs leading-5"><span className="block text-xs text-accent">어제 나의 선택</span>{steps[step - 1].groups.map(group => picks[group.key]).join(" · ")}</div>
+          <div className="rounded-xl border border-accent bg-accent/5 p-3 text-xs leading-5"><span className="block text-xs text-accent">어제 나의 선택</span>{steps[step - 1].groups.map(group => shown(group.key)).join(" · ")}</div>
           <div className="flex items-center gap-2 rounded-xl border border-dashed border-border p-3 text-xs leading-5 text-muted-foreground"><Lock size={14} className="shrink-0" />상대도 고르면 함께 열려요</div>
         </div>}
-        <p className="text-[11px] leading-5 text-muted-foreground">실제로는 날마다 나를 소개하는 짧은 질문에도 답하고, 전날 함께 열린 상대의 선택에 한마디를 남겨요.</p>
+        <p className="text-[11px] leading-5 text-muted-foreground">실제로는 둘째 날, 두 분이 첫날 고른 곳에 맞는 것 중에서 골라요. 날마다 나를 소개하는 짧은 질문에도 답하고, 고른 이유는 한 줄로 적어도 좋아요.</p>
       </> : (
         <div className="space-y-3" aria-live="polite">
-          <div className="rounded-xl border border-accent bg-accent/5 p-4 text-sm leading-6"><span className="block text-xs text-accent">내가 고른 첫 장면</span>{picks.activity} · {picks.flow} · {picks.rest}<span className="mt-1 block">“{picks.topic}”</span></div>
+          <div className="rounded-xl border border-accent bg-accent/5 p-4 text-sm leading-6"><span className="block text-xs text-accent">내가 고른 첫 장면</span>{place} · {picks.flow} · {picks.rest}<span className="mt-1 block">“{picks.topic}”</span></div>
           <p className="text-xs leading-6 text-muted-foreground">실제 교류에서는 셋째 날 두 분의 답이 함께 열리면, 두 분이 고른 것 중에서 하나씩 골라 첫 장면을 맞춰요. 고른 것은 어디에도 저장되지 않았어요.</p>
           <Button variant="ghost" size="sm" onClick={() => setPicks({})}><RotateCcw size={14} />다시 골라 보기</Button>
         </div>
@@ -407,7 +421,7 @@ function ExchangeExamples() {
   return (
     <>
         <div className="mt-20 grid items-center gap-14 border-t border-border pt-16 lg:grid-cols-[6fr_5fr] lg:gap-16"><div><p className="text-[11px] font-semibold tracking-[0.24em] text-accent">OPENED TOGETHER</p><h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">두 분 모두 보내야,<br /><span className="text-primary">같은 순간에 열려요.</span></h3><p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground">먼저 쓴 사람도, 늦게 쓴 사람도 서두를 필요 없어요. 그날 23:59까지 두 분이 모두 보내면, 편지는 같은 순간에 함께 열려요.</p><ul className="mt-6 space-y-2.5 text-sm">{["하루 한 통 · 09:00~23:59", "열린 편지에는 답장 한 번", "연락처·링크는 자동으로 막혀요"].map(item => <li key={item} className="flex items-center gap-2.5"><span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul></div><LetterMoment /></div>
-      <div className="mt-20 grid items-center gap-14 border-t border-border pt-16 lg:grid-cols-[5fr_6fr] lg:gap-16"><SceneMoment className="order-2 lg:order-1" /><div className="order-1 lg:order-2"><p className="text-[11px] font-semibold tracking-[0.24em] text-accent">CHOSEN TOGETHER</p><h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">하루에 하나씩 고르면,<br /><span className="text-accent">첫 만남이 그려져요.</span></h3><p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground">어디서 만날지, 얼마나 머물지, 무슨 이야기를 나눌지. 사흘 동안 하루에 하나씩 함께 골라요. 두 분이 모두 고르면 함께 열리고, 셋째 날에는 고른 것들이 ‘두 사람의 첫 장면’으로 정리돼요.</p><ul className="mt-6 space-y-2.5 text-sm">{["DAY 01 · 만나고 싶은 곳과 그 이유", "DAY 02 · 머무는 시간과 쉬어 갈 곳", "DAY 03 · 나누고 싶은 이야기 하나"].map(item => <li key={item} className="flex items-center gap-2.5"><span className="flex size-5 items-center justify-center rounded-full bg-accent text-white"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul></div></div>
+      <div className="mt-20 grid items-center gap-14 border-t border-border pt-16 lg:grid-cols-[5fr_6fr] lg:gap-16"><SceneMoment className="order-2 lg:order-1" /><div className="order-1 lg:order-2"><p className="text-[11px] font-semibold tracking-[0.24em] text-accent">CHOSEN TOGETHER</p><h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">하루에 하나씩 고르면,<br /><span className="text-accent">첫 만남이 그려져요.</span></h3><p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground">어디서 만날지, 얼마나 머물지, 무슨 이야기를 나눌지. 사흘 동안 하루에 하나씩 함께 골라요. 두 분이 모두 고르면 함께 열리고, 셋째 날에는 고른 것들이 ‘두 사람의 첫 장면’으로 정리돼요.</p><ul className="mt-6 space-y-2.5 text-sm">{["DAY 01 · 만나고 싶은 곳과 그 이유", "DAY 02 · 그곳에서 머무는 방식과 쉬어 갈 곳", "DAY 03 · 나누고 싶은 이야기 하나"].map(item => <li key={item} className="flex items-center gap-2.5"><span className="flex size-5 items-center justify-center rounded-full bg-accent text-white"><Check size={11} strokeWidth={3} /></span>{item}</li>)}</ul></div></div>
     </>
   );
 }
@@ -456,13 +470,13 @@ const FAQ_BASE = [
   { id: "cohort", title: "기수제는 어떻게 운영되나요?", text: "처음에는 한 달 단위 기수제로 운영해요. 기수마다 신청을 받아, 시작하는 날 정오에 함께 첫 소개를 받아요. 1기는 2026년 12월 31일 정오에 시작하고 신청은 12월 27일까지 받아요. 이후 기수는 매달 마지막 날 시작하고, 신청은 시작 4일 전까지예요. 마감 뒤에 신청하면 다음 기수로 이어지고, 내 기수와 첫 소개 날짜는 오늘 화면에서 볼 수 있어요. 기수가 끝나도 남은 소개는 다음 기수 기간에 이어서 받아요. 회원이 많이 모이면 상시 운영으로 바꿀 수 있어요." },
   { id: "bonus", title: "‘한 번 더, 5번’은 무엇인가요?", text: `${PLAN_NOTICE.bonus} 기본 5번 동안 서로 선택이 없었거나, 서로 선택했지만 교류가 시작되지 않은 경우가 해당돼요. 한 번이라도 교류를 시작했다면 해당하지 않아요. 하루 최대 한 명이며, 매일 소개를 보장하지는 않아요.` },
   { id: "waiting", title: "후보를 기다리는 동안은 어떻게 되나요?", text: `신청·검토와 기수 시작 전 대기는 무료예요. 정식 운영에서는 신청이 승인된 뒤 소개비를 내요. 내 기수 첫날부터 소개받으려면 기수 시작 전날 18:00까지 내 주세요. 첫 상대 프로필을 열기 전에는 언제든 전액 환불해요. 준비된 날 정오에 하루 최대 한 명을 소개하며, 매일 새 소개를 보장하지 않아요. 활성 소개는 회원당 한 건이고, 서로 선택한 뒤에는 새 소개를 멈춰요.${BETA ? " 지금은 베타라 결제가 없어요." : ""}` },
-  { id: "three-days", title: "3일 동안 꼭 무언가를 해야 하나요?", text: "3일은 상호 선택·양쪽 결제·같은 방식과 시작일 합의 뒤 교류를 시작한 기간이며, 소개 대기 기간은 별도예요. 그 안에 친밀함·연애를 완성하거나 만남을 강제하지 않아요. 4일째에 두 분이 각자 만남 의사를 선택하고, 양쪽 모두 희망할 때만 시간과 장소를 조율해요." },
-  { id: "not-started", title: "상호 선택 후 교류가 시작되지 못하면요?", text: "상호 선택 후 기본 결제 기한은 24시간이에요. 한쪽만 결제하고 상대가 결제하지 않으면, 낸 사람의 교류비는 전액 환불되고 소개 권리도 돌아와요. 양쪽 결제 뒤 A/B·시작일 합의는 기본 48시간, 양쪽 동의 시 24시간 한 번 연장할 수 있어요. 끝내 교류가 시작되지 않으면 교류비는 전액 환불되고 소개 권리는 그대로 남아요." },
+  { id: "three-days", title: "3일 동안 꼭 무언가를 해야 하나요?", text: `3일은 서로 선택${BETA ? "" : "·양쪽 결제"}·같은 방식과 시작일 합의 뒤 교류를 시작한 기간이며, 소개 대기 기간은 별도예요. 그 안에 친밀함·연애를 완성하거나 만남을 강제하지 않아요. 4일째에 두 분이 각자 만남 의사를 선택하고, 양쪽 모두 희망할 때만 시간과 장소를 조율해요.` },
+  { id: "not-started", title: "상호 선택 후 교류가 시작되지 못하면요?", text: BETA ? "서로 선택한 뒤 48시간 안에 두 분이 같은 방식(A·B)과 시작일을 정해야 교류가 열려요. 방식이 엇갈리면 화면의 ‘상대 방식으로 맞추기’로 바로 맞출 수 있고, 하루가 지나도 엇갈려 있으면 한 번 더 알려 드려요. 끝내 정하지 못하면 교류는 열리지 않고 이번 소개는 조용히 마무리돼요." : "상호 선택 후 기본 결제 기한은 24시간이에요. 한쪽만 결제하고 상대가 결제하지 않으면, 낸 사람의 교류비는 전액 환불되고 소개 권리도 돌아와요. 양쪽 결제 뒤 A/B·시작일 합의는 48시간이에요. 끝내 교류가 시작되지 않으면 교류비는 전액 환불되고 소개 권리는 그대로 남아요." },
   { id: "cancellation", title: "신청이나 교류를 취소할 수 있나요?", text: `정식 운영 기준으로, 첫 상대 프로필을 열기 전에는 소개비 전액을 돌려드려요. 프로필을 연 뒤에는 아직 받지 않은 소개 횟수만큼(1번에 2,000원) 돌려드려요. 교류비는 두 분이 모두 ‘알아가고 싶어요’를 고른 뒤 24시간 안에 각자 내고, 한 분만 내면 낸 교류비는 전액 돌려드리며 이 소개는 횟수에서 빼요. 교류가 시작된 뒤에는 아직 열리지 않은 날만큼 돌려드려요. 환불은 요청을 확인한 뒤 3영업일 안에 해요.${BETA ? " 지금은 베타라 결제가 없어요." : ""}` },
   { id: "no-answer", title: "상대가 답하지 않으면 어떻게 되나요?", text: `상대는 다음 날 오전 11시까지 답할 수 있어요. 그때까지 답이 없으면 소개는 자동으로 마무리되고, 먼저 답한 분에게는 ‘상대가 기한 안에 답하지 않았어요’라고 알림과 메일로 알려 드려요. 거절과 무응답을 구분해서 알려 드려요.${BETA ? "" : " 상대가 답하지 않은 소개는 5번에 넣지 않아요."} 두 번 이어서 답하지 않은 분은 새 소개를 잠시 쉬게 되고, 내 정보에서 다시 받을 수 있어요.` },
   { id: "refund", title: "환불과 보유기간, 재이용 기준은 무엇인가요?", text: `소개비는 첫 상대 프로필을 열기 전에 취소하면 10,000원 전액, 연 뒤에는 남은 소개 1번에 2,000원씩 돌려드려요. 교류비는 아직 열리지 않은 날만큼 환불하고, 날짜별 금액은 결제 전에 안내해요. 법정 청약철회 권리와 약관에 따른 더 유리한 권리를 제한하지 않아요. 정상 교류를 마친 뒤 새 소개를 원하면 새 회차 소개비 10,000원부터 다시 시작해요. 교류 중단·약속 취소·노쇼 기준과 자료 보유·삭제 기간은 내 정보에서 확인할 수 있어요.` },
-  { id: "visibility", title: "어떤 정보가 상대에게 공개되나요?", text: "신청서 마지막 단계에서 상대에게 보일 항목을 직접 고르고, 특정 상대에게 제공하기 전에 한 번 더 동의를 받아요. 상대 프로필은 소개된 날 정오부터 다음 날 11:00 응답 마감까지 볼 수 있고, 서로 알아가기로 하면 교류와 약속이 끝날 때까지 이어져요. 끝난 소개를 다시 보는 보관함은 없어요." },
-  { id: "contact", title: "문의는 어디에서 할 수 있나요?", text: "페이지 맨 아래의 ‘문의하기’에서 남길 수 있어요. 회원이라면 내 정보의 ‘문의·신고’에서 진행 중인 소개와 연결해 남기면 더 빨리 확인할 수 있어요." },
+  { id: "visibility", title: "어떤 정보가 상대에게 공개되나요?", text: "신청서 마지막 단계에서 상대에게 보일 항목을 직접 고르고, 고른 항목만 소개된 상대에게 보여요. 소개할 때마다 다시 묻지는 않으니, 보일 항목은 내 정보의 ‘보일 항목 고치기’에서 언제든 바꿔 주세요. 상대 프로필은 소개된 날 정오부터 다음 날 11:00 응답 마감까지 볼 수 있고, 서로 알아가기로 하면 교류와 약속이 끝날 때까지 이어져요. 끝난 소개의 프로필을 다시 보는 보관함은 없어요. 넷째 날 두 분 모두 만나고 싶다고 한 교류만, 마무리 뒤 30일 동안 주고받은 글을 다시 읽을 수 있어요." },
+  { id: "contact", title: "문의는 어디에서 할 수 있나요?", text: "페이지 맨 아래의 ‘문의하기’에서 남길 수 있어요. 회원이라면 회원 화면 맨 아래의 ‘문의·요청’에서 정정·삭제 같은 요청을, 상대와 관련된 일은 두 사람 화면의 ‘신고’로 남기면 더 빨리 확인할 수 있어요." },
 ];
 
 // 처음 보는 분들이 가장 많이 헷갈린 것(베타 피드백): 사진은 언제 · 동시에 여러 명? · 비용 · 다른 서비스와의 차이

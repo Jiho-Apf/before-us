@@ -148,6 +148,41 @@ export function fitScore(a: ReadyMember, b: ReadyMember): Fit {
   return { ...fit, score: fit.violations.length ? Math.min(score, 25) : score };
 }
 
+// 궁합 분석(외부로 보내지 않고 이 화면에서 바로): 규칙 점수에 생활 습관·시간·소개 글의 결을 더해 한 줄 요약, 이유, 주의할 점, 소개 이유 초안을 만든다.
+// 운영진 참고용 — 전문 분석이 아니라 두 소개서를 나란히 읽은 메모에 가깝다.
+export type Insight = { score: number; summary: string; reasons: string[]; cautions: string[]; note: string };
+// 받침에 맞는 조사(이/가, 과/와, 을/를)
+const josa = (word: string, withFinal: string, without: string) => { const code = word.charCodeAt(word.length - 1) - 0xac00; return word + (code >= 0 && code <= 11171 && code % 28 ? withFinal : without); };
+export function localInsight(a: ReadyMember, b: ReadyMember, fit: Fit): Insight {
+  const va = a.profile?.values ?? {}, vb = b.profile?.values ?? {};
+  const reasons: string[] = [], cautions: string[] = [];
+  let score = fit.score;
+  const same = (key: string, label: string, weight: number) => {
+    const x = text(va[key]), y = text(vb[key]);
+    if (!x || !y || x === "답하지 않음" || y === "답하지 않음") return;
+    if (x === y) { reasons.push(`${josa(label, "이", "가")} 같아요(${x}).`); score += weight; } else { cautions.push(`${josa(label, "이", "가")} 달라요(${x} · ${y}).`); score -= Math.ceil(weight / 2); }
+  };
+  same("self.smoking", "흡연 습관", 4);
+  same("self.drinking", "음주 습관", 3);
+  same("self.schedule", "생활 시간대", 3);
+  const interests = list(va["self.interests"]).filter(item => list(vb["self.interests"]).includes(item));
+  if (interests.length) reasons.push(`함께 이야기할 거리가 있어요(${interests.join("·")}).`);
+  else if (list(va["self.interests"]).length && list(vb["self.interests"]).length) cautions.push("겹치는 관심사가 없어요. 소개 글에서 이야깃거리를 찾아 주세요.");
+  // 소개 글의 결: 길이가 비슷하면 편지 교류의 속도도 비슷할 가능성이 높다
+  const bioA = text(va["self.bio"]).trim(), bioB = text(vb["self.bio"]).trim();
+  if (bioA && bioB) {
+    const ratio = Math.min(bioA.length, bioB.length) / Math.max(bioA.length, bioB.length);
+    if (ratio >= 0.5) { reasons.push("소개 글의 길이와 결이 비슷해요. 편지 교류의 속도도 맞을 가능성이 높아요."); score += 2; }
+    else cautions.push("한 분은 소개 글이 길고 한 분은 짧아요. 편지 길이 차이가 클 수 있어요.");
+  }
+  if (a.purpose && b.purpose && a.purpose !== b.purpose) cautions.push(`관계 목적이 조금 달라요(${a.purpose} · ${b.purpose}).`);
+  score = fit.violations.length ? Math.min(score, 25) : Math.max(0, Math.min(100, score));
+  const band = fit.violations.length ? "꼭 지킬 조건이 맞지 않아 소개를 권하지 않아요." : score >= 75 ? "생활과 관심사가 잘 맞는 편이라, 편하게 이야기를 시작할 수 있을 것 같아요." : score >= 60 ? "무난하게 잘 맞는 편이에요. 다른 부분은 교류에서 알아가면 돼요." : score >= 45 ? "맞는 점과 다른 점이 섞여 있어요. 주의할 점을 먼저 살펴 주세요." : "다른 점이 많아요. 다른 후보와도 견줘 보세요.";
+  const together = interests.length ? `두 분 모두 ${interests.length > 1 ? `${josa(interests[0], "과", "와")} ${josa(interests[1], "을", "를")}` : josa(interests[0], "을", "를")} 좋아하셔서` : a.purpose && a.purpose === b.purpose ? `두 분 모두 ${josa(a.purpose, "을", "를")} 바라셔서` : "두 분의 이야기에서 닮은 결이 보여서";
+  const time = text(va["self.available"]) && text(va["self.available"]) === text(vb["self.available"]) ? ` ${text(va["self.available"])}에 편하게 만날 수 있는 두 분이에요.` : "";
+  return { score, summary: band, reasons: [...new Set([...fit.reasons.slice(0, 2), ...reasons])].slice(0, 4), cautions: [...new Set([...fit.violations, ...cautions, ...fit.cautions])].slice(0, 4), note: `${together} 소개해요.${time}` };
+}
+
 // 두 사람 사이의 예약 경고. blocking이 하나라도 있으면 예약 버튼을 막는다(서버도 같은 것을 막는다).
 export type Warning = { text: string; blocking: boolean };
 export function pairWarnings(a: ReadyMember, b: ReadyMember, date: string, fit?: Fit): Warning[] {

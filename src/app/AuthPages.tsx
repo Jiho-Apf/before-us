@@ -7,7 +7,7 @@ import { Label } from "./components/ui/label"
 import { Checkbox } from "./components/ui/checkbox"
 import { BEFORE_US } from "./config"
 import { kstDay } from "./dates"
-import { PASSWORD_RULE, confirmEmailLink, requestPasswordReset, resetPassword, signIn, signOut, signUp, suggestEmail, useAuth, withdraw, resendConfirmation } from "./auth-service"
+import { EXISTING_EMAIL_NOTE, PASSWORD_RULE, confirmEmailLink, requestPasswordReset, resetPassword, signIn, signOut, signUp, suggestEmail, useAuth, withdraw, resendConfirmation } from "./auth-service"
 
 // 누르는 동안 돌아가는 표시(두 번 누르지 않게)
 const Busy = ({ text }: { text: string }) => <><LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />{text}</>
@@ -114,7 +114,7 @@ export function SignupPage() {
           <div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => void resend()} className="h-9 rounded-lg border-border text-xs">확인 메일 다시 받기</Button><Button type="button" variant="ghost" onClick={() => { setSent(false); setResent(""); setTypoChecked("") }} className="h-9 rounded-lg text-xs">다른 주소로 다시 가입</Button></div>
           {resent && <p role="status" className="mt-2 text-primary">{resent}</p>}
         </div>
-        <p className="text-xs text-muted-foreground">이미 가입한 이메일이라면 로그인하거나 비밀번호를 다시 설정해 주세요.</p>
+        <p className="text-xs leading-6 text-muted-foreground">{EXISTING_EMAIL_NOTE.replace(/문의하기로 남겨 주세요\.$/, "")}<Link to="/contact?type=개인정보·탈퇴" className="underline underline-offset-4 hover:text-primary">문의하기</Link>로 남겨 주세요.</p>
       </div>
     </Frame>
   )
@@ -169,11 +169,14 @@ export function ResetPasswordPage() {
   const [error, setError] = useState("")
   const [sent, setSent] = useState<{ devLink: string | null } | null>(null)
   const [done, setDone] = useState(false)
+  const [busy, setBusy] = useState(false)
   if (token) {
     const submit = async (event: FormEvent) => {
       event.preventDefault()
+      if (busy) return
       if (password !== again) return setError("비밀번호가 서로 달라요.")
-      const result = await resetPassword(token, password)
+      setBusy(true)
+      const result = await resetPassword(token, password).finally(() => setBusy(false))
       if (result.error) return setError(result.error)
       setDone(true)
     }
@@ -186,7 +189,7 @@ export function ResetPasswordPage() {
             <Field id="reset-password" label="새 비밀번호" type="password" autoComplete="new-password" value={password} onChange={(value) => { setPassword(value); setError("") }} hint={PASSWORD_RULE} />
             <Field id="reset-again" label="새 비밀번호 확인" type="password" autoComplete="new-password" value={again} onChange={(value) => { setAgain(value); setError("") }} />
             <ErrorText text={error} />
-            <Button type="submit" className={`h-12 w-full rounded-xl ${motion}`}>비밀번호 바꾸기</Button>
+            <Button type="submit" disabled={busy} aria-busy={busy} className={`h-12 w-full rounded-xl ${motion}`}>{busy ? <Busy text="바꾸는 중이에요…" /> : "비밀번호 바꾸기"}</Button>
           </form>
         )}
       </Frame>
@@ -194,7 +197,9 @@ export function ResetPasswordPage() {
   }
   const request = async (event: FormEvent) => {
     event.preventDefault()
-    const result = await requestPasswordReset(email)
+    if (busy) return
+    setBusy(true)
+    const result = await requestPasswordReset(email).finally(() => setBusy(false))
     if (result.error) return setError(result.error)
     setSent({ devLink: result.devLink })
   }
@@ -209,7 +214,7 @@ export function ResetPasswordPage() {
         <form className="space-y-5" onSubmit={request} noValidate>
           <Field id="reset-email" label="이메일" type="email" autoComplete="email" value={email} onChange={(value) => { setEmail(value); setError("") }} />
           <ErrorText text={error} />
-          <Button type="submit" className={`h-12 w-full rounded-xl ${motion}`}>재설정 링크 받기</Button>
+          <Button type="submit" disabled={busy} aria-busy={busy} className={`h-12 w-full rounded-xl ${motion}`}>{busy ? <Busy text="보내는 중이에요…" /> : "재설정 링크 받기"}</Button>
         </form>
       )}
     </Frame>
@@ -226,7 +231,7 @@ export function AccountPanel() {
   const [error, setError] = useState("")
   const [result, setResult] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
-  if (result) return <section className="border-t border-border pt-6 text-sm leading-7" aria-label="계정"><p className="font-semibold">탈퇴 요청을 받았어요.</p><p className="mt-1 text-muted-foreground">상대 노출과 알림은 바로 멈췄고, 일반 자료는 {result}까지 지워요. 그동안 고마웠어요.</p><Button className="mt-4 h-11 rounded-full px-6" onClick={() => { signOut(); navigate("/") }}>확인했어요 · 로그아웃</Button></section>
+  if (result) return <section className="border-t border-border pt-6 text-sm leading-7" aria-label="계정"><p className="font-semibold">탈퇴 요청을 받았어요.</p><p className="mt-1 text-muted-foreground">상대 노출과 알림은 바로 멈췄고, 일반 자료는 {result}까지 지워요. 그 전에 마음이 바뀌면 문의하기로 남겨 주세요. 그동안 고마웠어요.</p><Button className="mt-4 h-11 rounded-full px-6" onClick={() => { signOut(); navigate("/") }}>확인했어요 · 로그아웃</Button></section>
   if (!user) return (
     <section className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6 text-sm" aria-label="계정">
       <p className="text-muted-foreground">로그인하지 않고 둘러보는 중이에요.</p>

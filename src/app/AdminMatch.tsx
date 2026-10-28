@@ -12,7 +12,7 @@ import { APPEARANCE_PREFIX, PREFERENCE_FIELDS, hasSpecificPreference, preference
 import { BEFORE_US } from "./config";
 import { cohortName } from "./cohort";
 import { kstDateTime, kstDay } from "./dates";
-import { box, call, candidatesFor, fitScore, pairWarnings, revealOnNarrow, useBusy, useLoad, waitedDays, type Fit, type Preferences, type ReadyMember } from "./admin-match";
+import { box, call, candidatesFor, fitScore, localInsight, pairWarnings, revealOnNarrow, useBusy, useLoad, waitedDays, type Fit, type Insight, type Preferences, type ReadyMember } from "./admin-match";
 
 // 운영진 화면이 같이 쓰는 작은 조각(알림 줄·사진·기다린 날·확인 창)과 매칭 화면.
 
@@ -128,24 +128,10 @@ function Side({ member, side, date, onClear }: { member: ReadyMember; side: "왼
   </section>;
 }
 
-type Insight = { score: number; summary: string; reasons: string[]; cautions: string[]; note?: string };
-// AI 궁합(참고용): match-insight 함수. 연결 전이면 { error: "not-configured" }.
-async function askInsight(a: string, b: string): Promise<{ data?: Insight; error?: string }> {
-  try {
-    const db = await supabase();
-    const { data, error } = await db.functions.invoke<Insight | { error: string }>("match-insight", { body: { a, b } });
-    if (error) {
-      const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
-      return { error: (body as { error?: string } | null)?.error ?? "AI 분석을 받지 못했어요. 잠시 뒤 다시 눌러 주세요." };
-    }
-    if (!data || "error" in data) return { error: (data as { error?: string } | null)?.error ?? "AI 분석을 받지 못했어요." };
-    return { data };
-  } catch { return { error: "AI 분석을 받지 못했어요. 인터넷 연결을 확인해 주세요." }; }
-}
-
+// 궁합 분석(참고용): 외부로 아무것도 보내지 않고, 이 화면에서 두 소개서를 나란히 읽어 정리한다(localInsight).
 function Compat({ left, right, fit, onUseNote }: { left: ReadyMember; right: ReadyMember; fit: Fit; onUseNote: (note: string) => void }) {
   const [ai, setAi] = useState<{ loading: boolean; data?: Insight; error?: string }>({ loading: false });
-  const load = async () => { setAi({ loading: true }); setAi({ loading: false, ...(await askInsight(left.member_id, right.member_id)) }); };
+  const load = () => setAi({ loading: false, data: localInsight(left, right, fit) });
   const List = ({ items, tone }: { items: string[]; tone: "ok" | "warn" | "danger" }) => items.length ? <ul className="space-y-1 text-xs leading-5">{items.map(item => <li key={item} className="flex gap-2"><span aria-hidden="true" className={tone === "ok" ? "text-primary" : tone === "warn" ? "text-accent" : "text-destructive"}>{tone === "ok" ? "✓" : tone === "warn" ? "!" : "✕"}</span><span>{item}</span></li>)}</ul> : null;
   return <section className={`${box} grid gap-5 p-5 md:grid-cols-2`} aria-label="궁합">
     <div className="space-y-3">
@@ -156,16 +142,15 @@ function Compat({ left, right, fit, onUseNote }: { left: ReadyMember; right: Rea
       {!fit.reasons.length && !fit.cautions.length && !fit.violations.length && <p className="text-xs text-muted-foreground">견줄 답이 많지 않아요. 소개서를 직접 읽어 주세요.</p>}
     </div>
     <div className="space-y-3 border-t border-border pt-4 md:border-l md:border-t-0 md:pl-5 md:pt-0">
-      <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="flex items-center gap-1.5 text-sm font-semibold"><Sparkles size={14} className="text-accent" />AI 궁합 <span className="text-[11px] font-normal text-muted-foreground">참고용 · 운영진만 봐요</span></h3><Button size="sm" variant="outline" disabled={ai.loading} onClick={() => void load()}>{ai.loading ? "분석하고 있어요" : ai.data ? "다시 받기" : "AI 분석 받기"}</Button></div>
-      {ai.error === "not-configured" ? <p className="text-xs text-muted-foreground">AI 분석은 아직 연결 전이에요. 왼쪽 규칙 점수를 참고해 주세요.</p> : ai.error ? <p role="alert" className="text-xs text-destructive">{ai.error}</p> : null}
+      <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="flex items-center gap-1.5 text-sm font-semibold"><Sparkles size={14} className="text-accent" />궁합 분석 <span className="text-[11px] font-normal text-muted-foreground">참고용 · 운영진만 봐요</span></h3><Button size="sm" variant="outline" disabled={ai.loading} onClick={load}>{ai.loading ? "분석하고 있어요" : ai.data ? "다시 분석" : "궁합 분석 받기"}</Button></div>
       {ai.data && <div className="space-y-3">
         <div className="flex items-baseline gap-3"><span className={`text-3xl font-light tabular-nums ${scoreTone(ai.data.score)}`}>{Math.round(ai.data.score)}</span><p className="text-xs leading-6">{ai.data.summary}</p></div>
         <List items={ai.data.reasons ?? []} tone="ok" />
         <List items={ai.data.cautions ?? []} tone="warn" />
         {ai.data.note && <div className="rounded-md bg-muted p-3 text-xs leading-6"><p className="text-muted-foreground">소개 이유 초안</p><p className="mt-1">{ai.data.note}</p><Button size="sm" variant="outline" className="mt-2 h-7 text-[11px]" onClick={() => onUseNote(ai.data!.note!)}>소개 이유 초안으로 쓰기</Button></div>}
-        <p className="text-[11px] leading-5 text-muted-foreground">AI 결과는 판단을 돕는 참고 자료예요. 회원에게 그대로 보내지 말고, 소개 이유는 직접 다듬어 주세요.</p>
+        <p className="text-[11px] leading-5 text-muted-foreground">분석은 판단을 돕는 참고 자료예요. 회원에게 그대로 보내지 말고, 소개 이유는 직접 다듬어 주세요.</p>
       </div>}
-      {!ai.data && !ai.error && !ai.loading && <p className="text-xs text-muted-foreground">두 소개서를 AI가 읽고 점수·이유·주의할 점을 정리해요. 누를 때만 분석해요.</p>}
+      {!ai.data && !ai.error && !ai.loading && <p className="text-xs text-muted-foreground">두 소개서를 나란히 읽고 점수·이유·주의할 점·소개 이유 초안을 정리해요. 누를 때만 분석해요.</p>}
     </div>
   </section>;
 }

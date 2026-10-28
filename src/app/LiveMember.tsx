@@ -8,7 +8,7 @@ import { Eyebrow, Moment, PageHeader, QuietNote, Sheet, TwoDots } from "./editor
 import { NoonClock } from "./PublicHome";
 import { END_REASON } from "./backend/program";
 import { AccountPanel } from "./AuthPages";
-import { useAuth, useAuthReady } from "./auth-service";
+import { clearWithdrawnNotice, useAuth, useAuthReady, useWithdrawnNotice } from "./auth-service";
 import { kstDateTime, kstDay } from "./dates";
 import { APPLICATION_FIELDS } from "./application-model";
 import { cohortCountdown, cohortName } from "./cohort";
@@ -19,7 +19,7 @@ import { REQUEST_LABELS } from "./member-operations-model";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
 import { PHOTO_ORDER, loadMyApplication, partnerPhotoUrl, photoUrl, type PhotoRow } from "./backend/applications";
 import { publicApplicationProfile } from "./application-review";
-import { addAvoidContacts, deleteAvoidContact, loadAvoidContacts, type AvoidContact, blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
+import { addAvoidContacts, deleteAvoidContact, loadAvoidContacts, type AvoidContact, blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, NOTIFICATION_FIRST, editBlockReason, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
 
 // 실제 서버 모드의 회원 화면(오늘 · 두 사람 · 내 정보 · 문의·요청). 데모 화면과 같은 편집 톤을 쓴다.
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -33,9 +33,20 @@ export function Waiting({ label = "불러오고 있어요." }: { label?: string 
 export function Member({ children }: { children: ReactNode }) {
   const user = useAuth();
   const ready = useAuthReady();
+  const withdrawn = useWithdrawnNotice();
   if (!ready) return <Waiting />;
+  if (!user && withdrawn) return <WithdrawnNoticeView deletionDueAt={withdrawn.deletionDueAt} />;
   if (!user) return <section><PageHeader mark="회원" label="로그인이 필요해요" en="MEMBERS ONLY" title="로그인한 뒤에 볼 수 있어요." lead="소개와 교류는 본인만 볼 수 있어요. 로그인하거나 새로 가입해 주세요." /><div className="mt-8 flex flex-wrap gap-2"><Button asChild className={`h-12 rounded-xl px-6 ${interaction}`}><Link to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`}>로그인 <ArrowRight size={16} /></Link></Button><Button asChild variant="outline" className={`h-12 rounded-xl ${interaction}`}><Link to="/signup">회원가입</Link></Button></div></section>;
   return <>{children}</>;
+}
+
+// 탈퇴를 요청한 계정은 로그인 상태로 두지 않는다(auth-service가 로그아웃한다). 대신 무엇이 멈췄고 언제 지워지는지, 취소하는 길을 알린다.
+function WithdrawnNoticeView({ deletionDueAt }: { deletionDueAt: string | null }) {
+  const due = deletionDueAt ? `${kstDay(deletionDueAt)}에` : `탈퇴 요청 뒤 ${BEFORE_US.privacy.activeDeleteDays}일 안에`;
+  return <section><PageHeader mark="회원" label="탈퇴 요청 접수" en="SEE YOU AGAIN" title="탈퇴 요청을 받았어요." lead={`상대 노출과 알림은 바로 멈췄고, 진행 중이던 소개와 교류는 마무리됐어요. 계정과 신청서·사진 같은 자료는 ${due} 지워요. 그래서 이 계정은 로그아웃해 두었어요.`} aside={<TwoDots apart faded />} />
+    <Sheet tone="soft" className="mt-8 max-w-xl p-6"><p className="text-xs font-semibold text-accent">마음이 바뀌었다면</p><p className="mt-3 text-sm leading-7 text-muted-foreground">삭제 예정일 전이라면 탈퇴 요청을 취소할 수 있어요. 문의하기에 가입한 이메일을 적어 남겨 주시면, 운영진이 확인한 뒤 취소하고 알려 드려요. 이미 끝난 소개와 교류는 다시 열리지 않아요.</p></Sheet>
+    <div className="mt-8 flex flex-wrap gap-2"><Button asChild className={`h-12 rounded-xl px-6 ${interaction}`}><Link to="/contact?type=개인정보·탈퇴">문의하기 <ArrowRight size={16} /></Link></Button><Button asChild variant="outline" className={`h-12 rounded-xl ${interaction}`}><Link to="/" onClick={() => clearWithdrawnNotice()}>처음 화면으로</Link></Button></div>
+  </section>;
 }
 
 // 소개·교류가 끝난 까닭을 회원에게 보여 줄 말로. 상대의 선택(거절)은 드러내지 않되, 무응답·운영 사정은 사실대로 알린다.
@@ -69,6 +80,7 @@ const noonOf = (date: string) => kstDay(`${date}T12:00:00+09:00`);
 type TodayState = { label: string; title: string; action: string; to: string | null; body: string; clock?: { at: string; label: string; note: string }; extra?: { label: string; to: string } };
 function todayState(data: MemberSnapshot): TodayState {
   const application = data.application, intro = data.introduction, cohort = data.cohort;
+  if (data.notices?.status === "withdrawal_requested") return { label: "탈퇴 요청", title: "탈퇴 요청을 받았어요.", action: "문의하기", to: "/contact?type=개인정보·탈퇴", body: "상대 노출과 알림은 멈췄고, 계정과 자료는 삭제 예정일에 지워요. 그 전에 다시 이용하려면 문의하기로 남겨 주세요." };
   if (data.notices?.status === "suspended") return { label: "이용 정지", title: "지금은 소개를 받을 수 없어요.", action: "문의·요청 남기기", to: "/support", body: `운영진 안내 · ${(data.notices.suspended_reason || "운영 정책에 따라 이용이 잠시 멈췄어요").replace(/[.。\s]+$/, "")}. 다르게 생각되면 문의·요청에서 ‘결정 재검토 요청’을 남겨 주세요.` };
   const waitingForStart = !!cohort && kstToday() < cohort.startsOn && intro.status === "waiting";
   const program = data.program;
@@ -100,14 +112,14 @@ function todayState(data: MemberSnapshot): TodayState {
     ? { label: "잠시 멈춤", title: "운영진이 새 소개를 잠시 멈췄어요.", action: "문의하기", to: "/contact", body: "확인할 일이 있어 새 소개 준비를 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." }
     : { label: "잠시 쉬는 중", title: "새 소개를 잠시 쉬고 있어요.", action: "내 정보에서 다시 받기", to: "/profile", body: data.notices.paused_by === "auto" ? "답하지 않은 소개가 이어졌거나 교류를 마쳐서 새 소개를 쉬고 있어요. 다시 받기를 누르면 다음 정오부터 다시 준비해요." : "쉬는 동안에는 새 소개를 준비하지 않아요. 다시 받기를 누르면 다음 정오부터 다시 준비해요." };
   if (application.status === "approved" && waitingForStart && cohort) return kstToday() === dayBefore(cohort.startsOn)
-    ? { label: `${cohortName(cohort.number)} · 내일 시작`, title: "내일 정오에 첫 소개가 도착해요.", action: "내 정보 확인하기", to: "/profile", body: "잘 맞는 분을 준비해 두었어요. 내일 정오에 이 화면과 두 사람 화면에서 확인해 주세요." }
-    : { label: `${cohortName(cohort.number)} · 시작 전`, title: `${cohortName(cohort.number)} 첫 소개는 ${noonOf(cohort.startsOn)} 정오에 도착해요.`, action: "내 정보 확인하기", to: "/profile", body: `같은 기수의 분들과 함께 첫 소개를 받아요. 시작 전날 한 번 더 알려 드릴게요.${BEFORE_US.beta.active ? "" : " 시작 전에는 소개비를 언제든 전액 환불받을 수 있어요."}` };
+    ? { label: `${cohortName(cohort.number)} · 내일 시작`, title: "내일 정오부터 첫 소개가 시작돼요.", action: "내 정보 확인하기", to: "/profile", body: "잘 맞는 분이 준비되면 내일 정오에 이 화면과 두 사람 화면에서 알려 드릴게요. 준비가 더 걸리면 그것도 알려 드릴게요." }
+    : { label: `${cohortName(cohort.number)} · 시작 전`, title: `${cohortName(cohort.number)} 첫 소개는 ${noonOf(cohort.startsOn)} 정오부터예요.`, action: "내 정보 확인하기", to: "/profile", body: `같은 기수의 분들과 함께 첫 소개를 받아요. 시작 전날 한 번 더 알려 드릴게요.${BEFORE_US.beta.active ? "" : " 시작 전에는 소개비를 언제든 전액 환불받을 수 있어요."}` };
   if (application.status === "approved") return waitedDays(data) >= BEFORE_US.noonGuidance.waitingNoteAfterDays
     ? { label: "소개 준비", title: "잘 맞는 분을 찾는 데 시간이 걸리고 있어요.", action: "다음 소개 기다리기", to: null, body: "서두르기보다 잘 맞는 분을 고르고 있어요. 준비되면 그날 정오에 이 화면과 메일로 알려 드릴게요. 기다림이 길게 느껴지면 편하게 말씀해 주세요.", extra: { label: "문의하기", to: "/contact?type=소개·교류" } }
     : { label: "소개 준비", title: "잘 맞는 분을 찾고 있어요.", action: "다음 소개 기다리기", to: null, body: "준비된 날 정오에 한 분을 소개해요. 매일 오지는 않아요. 도착하면 이 화면과 메일로 알려 드릴게요." };
   if (application.status === "held") return { label: "확인 보류", title: "신청서 확인이 조금 늦어지고 있어요.", action: "문의하기", to: "/contact", body: application.decisionNote ? `운영진 안내 · ${application.decisionNote}` : "운영진이 확인할 일이 있어 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." };
   if (application.status === "rejected") return { label: "소개 어려움", title: "이번에는 소개를 이어 가기 어려워요.", action: "문의하기", to: "/contact", body: application.decisionNote ? `운영진 안내 · ${application.decisionNote}` : "자세한 사유가 궁금하면 문의하기로 남겨 주세요. 다르게 생각되면 문의·요청에서 재검토를 요청할 수 있어요." };
-  if (application.status === "withdrawn") return { label: "신청 철회", title: "신청을 철회했어요.", action: "문의하기", to: "/contact", body: "다시 신청하고 싶다면 문의하기로 알려 주세요. 확인한 뒤 다시 열어 드릴게요." };
+  if (application.status === "withdrawn") return { label: "신청 철회", title: "신청을 철회했어요.", action: "문의하기", to: "/contact?type=신청·검토", body: "다시 신청하고 싶다면 문의하기로 알려 주세요. 운영진이 확인한 뒤 신청서를 다시 열어 드리고, 열리면 알림으로 알려 드려요." };
   return { label: "신청 상태", title: "신청 상태를 확인해 주세요.", action: "신청서 보기", to: "/apply", body: application.decisionNote || "궁금한 점은 문의하기로 남겨 주세요." };
 }
 
@@ -116,8 +128,11 @@ export function LiveToday() {
 }
 function LiveTodayView() {
   const { data, error, loading, reload } = useMemberSnapshot();
+  const [allNotes, setAllNotes] = useState(false);
   const unread = data?.notifications.filter(item => !item.read_at).length ?? 0;
-  useEffect(() => { if (unread) { const timer = window.setTimeout(() => void markNotificationsRead(), 3000); return () => window.clearTimeout(timer); } }, [unread]);
+  // 화면에 보여 준 알림만 3초 뒤 읽음으로 바꾼다(펼치지 않은 지난 알림은 그대로 둔다).
+  const shownUnread = (data?.notifications ?? []).slice(0, allNotes ? undefined : NOTIFICATION_FIRST).filter(item => !item.read_at).map(item => item.id);
+  useEffect(() => { if (shownUnread.length) { const timer = window.setTimeout(() => void markNotificationsRead(shownUnread), 3000); return () => window.clearTimeout(timer); } }, [shownUnread.join(",")]);
   if (loading) return <Waiting />;
   if (error || !data) return <section><p role="alert" className="text-sm text-destructive">{error || "불러오지 못했어요."}</p><Button variant="outline" className="mt-5 rounded-xl" onClick={() => void reload()}>다시 불러오기</Button></section>;
   const state = todayState(data);
@@ -141,13 +156,13 @@ function LiveTodayView() {
         </Sheet>
         <aside aria-labelledby="notice-title" className="border-t border-border pt-6 lg:border-t-0 lg:pt-0">
           <h2 id="notice-title" className="flex items-center gap-2 text-sm font-semibold"><Bell size={15} className="text-accent" />알림{unread ? <span className="text-xs font-normal text-accent">새 알림 {unread}</span> : null}</h2>
-          {data.notifications.length ? <ul className="mt-4 divide-y divide-border border-y border-border">{data.notifications.map(item => <li key={item.id} className="py-4"><p className={`text-sm ${item.read_at ? "" : "font-semibold"}`}>{item.link ? <Link to={item.link} className="hover:text-primary">{item.title}</Link> : item.title}</p>{item.body && <p className="mt-1 text-xs leading-6 text-muted-foreground">{item.body}</p>}<p className="mt-1 text-[11px] text-muted-foreground">{kstDateTime(item.created_at)}</p></li>)}</ul> : <p className="mt-4 border-y border-border py-6 text-xs leading-6 text-muted-foreground">아직 알림이 없어요. 소개가 준비되면 정오에 여기와 오늘 화면에서 알려 드려요.</p>}
+          {data.notifications.length ? <><ul className="mt-4 divide-y divide-border border-y border-border">{data.notifications.slice(0, allNotes ? undefined : NOTIFICATION_FIRST).map(item => <li key={item.id} className="py-4"><p className={`text-sm ${item.read_at ? "" : "font-semibold"}`}>{item.link ? <Link to={item.link} className="hover:text-primary">{item.title}</Link> : item.title}</p>{item.body && <p className="mt-1 text-xs leading-6 text-muted-foreground">{item.body}</p>}<p className="mt-1 text-[11px] text-muted-foreground">{kstDateTime(item.created_at)}</p></li>)}</ul>{data.notifications.length > NOTIFICATION_FIRST && <Button variant="ghost" onClick={() => setAllNotes(value => !value)} aria-expanded={allNotes} className={`mt-2 h-9 rounded-full px-4 text-xs text-muted-foreground ${interaction}`}>{allNotes ? "접기" : `지난 알림 ${data.notifications.length - NOTIFICATION_FIRST}개 더 보기`}</Button>}</> : <p className="mt-4 border-y border-border py-6 text-xs leading-6 text-muted-foreground">아직 알림이 없어요. 소개가 준비되면 정오에 여기와 오늘 화면에서 알려 드려요.</p>}
         </aside>
       </div>
       {data.application && data.application.status !== "draft" && data.introduction.status === "waiting" && <div className="mt-10"><FirstWordCard /></div>}
       <section className="mt-14 border-t border-border pt-8" aria-labelledby="status-title">
         <h2 id="status-title" className="mb-5 text-sm font-semibold">지금 알아두면 좋은 것</h2>
-        <dl className="grid gap-5 text-xs sm:grid-cols-3"><div><dt className="mb-2 text-muted-foreground">신청 접수</dt><dd>{data.application?.submittedAt ? kstDay(data.application.submittedAt) : "아직 접수 전"}</dd></div><div><dt className="mb-2 text-muted-foreground">최근 소개</dt><dd>{data.introduction.status !== "waiting" && data.introduction.publishedAt ? kstDay(data.introduction.publishedAt) : "아직 없어요"}</dd></div><div><dt className="mb-2 text-muted-foreground">{data.cohort ? "내 기수" : "소개 방식"}</dt><dd>{data.cohort ? `${cohortName(data.cohort.number)} · ${noonOf(data.cohort.startsOn)} 정오 시작` : "준비된 날 정오 · 하루 최대 한 명"}</dd></div></dl>
+        <dl className="grid gap-5 text-xs sm:grid-cols-3"><div><dt className="mb-2 text-muted-foreground">신청 접수</dt><dd>{data.application?.submittedAt && data.application.status !== "draft" ? kstDay(data.application.submittedAt) : "아직 접수 전"}</dd></div><div><dt className="mb-2 text-muted-foreground">최근 소개</dt><dd>{data.introduction.status !== "waiting" && data.introduction.publishedAt ? kstDay(data.introduction.publishedAt) : "아직 없어요"}</dd></div><div><dt className="mb-2 text-muted-foreground">{data.cohort ? "내 기수" : "소개 방식"}</dt><dd>{data.cohort ? `${cohortName(data.cohort.number)} · ${noonOf(data.cohort.startsOn)} 정오 시작` : "준비된 날 정오 · 하루 최대 한 명"}</dd></div></dl>
         <div className="mt-6 flex flex-wrap gap-2"><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/profile">알림 설정·내 정보</Link></Button><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/support">정정·삭제 요청</Link></Button><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/contact">문의하기</Link></Button></div>
       </section>
     </section>
@@ -363,7 +378,7 @@ function LiveIntroductionView() {
           {intro.profile.greeting && <figure className="border-l-2 border-primary pl-5"><blockquote className="text-lg font-semibold leading-[1.6]">“{intro.profile.greeting}”</blockquote><figcaption className="mt-2 text-xs text-muted-foreground">{name ? `${valueOf(name.value)} 님의 첫 마디` : "첫 마디"}</figcaption></figure>}
           {intro.note && <Sheet tone="soft" className="p-6"><p className="text-xs font-semibold text-accent">운영진이 두 분을 소개한 이유</p><p className="mt-3 text-sm leading-7">{intro.note}</p></Sheet>}
           <dl className="divide-y divide-border border-y border-border">{intro.profile.items.filter(item => item.id !== "self.name").map(item => <div key={item.id} className="grid gap-1 py-4 sm:grid-cols-[140px_1fr]"><dt className="text-xs text-muted-foreground">{labelOf(item.id)}</dt><dd className="whitespace-pre-wrap break-words text-sm leading-7">{valueOf(item.value)}</dd></div>)}</dl>
-          <p className="text-xs leading-6 text-muted-foreground">프로필과 사진은 응답 기한까지만 볼 수 있어요. 캡처하거나 다른 곳에 옮기지 말아 주세요.</p>
+          <p className="text-xs leading-6 text-muted-foreground">{intro.status === "mutual" ? "서로 선택했으니 프로필과 사진은 교류와 약속이 끝날 때까지 볼 수 있어요." : "프로필과 사진은 응답 기한까지만 볼 수 있어요."} 캡처하거나 다른 곳에 옮기지 말아 주세요.</p>
         </div>
         <div className="space-y-6">
           <Sheet className="p-6 sm:p-8">
@@ -427,6 +442,8 @@ function LiveProfileView() {
   const channelText = [channels.kakao && "카카오톡", channels.sms && "문자", channels.email && "메일"].filter(Boolean).join(" · ");
   const setChannel = async (key: keyof typeof channels, value: boolean) => { const next = { ...channels, [key]: value }; const result = await setNotifyChannels(next.kakao, next.sms, next.email); setMessage(result.error || "알림 받을 방법을 바꿨어요."); await reload(); };
   const paused = !!notices?.paused_at;
+  // 검토 중·승인·보류 상태에서 고치면 다시 확인을 받는데, 진행 중인 소개·교류가 있으면 끝난 뒤에만 보낼 수 있다. 들어가기 전에 먼저 알린다.
+  const editBlocked = data.application && ["reviewing", "approved", "held"].includes(data.application.status) ? editBlockReason(data.introduction, data.program) : null;
   const togglePause = async () => { setPausing(true); const result = await setPaused(!paused); setPausing(false); setPauseMessage(result.error || (paused ? "다시 받기로 바꿨어요. 다음 정오부터 소개를 준비해요." : "새 소개를 잠시 쉬어요. 진행 중인 소개는 그대로 이어져요.")); await reload(); };
   return (
     <section className="space-y-10">
@@ -436,7 +453,7 @@ function LiveProfileView() {
         <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklch,var(--primary)_18%,transparent),transparent)]" />
         <div className="relative grid gap-2 sm:grid-cols-3 sm:gap-3">
           {[
-            { label: "신청 상태", value: data?.application ? ({ draft: "작성 중", submitted: "접수 완료", reviewing: "검토 중", needs_changes: "보완 요청", approved: "소개 준비", held: "보류", withdrawn: "철회", rejected: "소개 어려움" } as Record<string, string>)[data.application.status] : "신청 전", sub: data?.application?.submittedAt ? `${kstDay(data.application.submittedAt)} 접수` : "신청은 무료예요" },
+            { label: "신청 상태", value: data?.application ? ({ draft: "작성 중", submitted: "접수 완료", reviewing: "검토 중", needs_changes: "보완 요청", approved: "소개 준비", held: "보류", withdrawn: "철회", rejected: "소개 어려움" } as Record<string, string>)[data.application.status] : "신청 전", sub: data?.application?.submittedAt && data.application.status !== "draft" ? `${kstDay(data.application.submittedAt)} 접수` : "신청은 무료예요" },
             { label: "내 기수", value: data?.cohort ? `${cohortName(data.cohort.number)} · ${cohortCountdown(data.cohort.startsOn)}` : "신청 뒤 정해져요", sub: data?.cohort ? cohortCountdown(data.cohort.startsOn) === "진행 중" ? nextIntroText(data) ?? `${noonOf(data.cohort.startsOn)} 정오 시작` : `${noonOf(data.cohort.startsOn)} 정오 첫 소개` : BEFORE_US.beta.active ? "베타 기수 · 날짜는 신청 뒤 알려 드려요" : "매달 마지막 날 정오 시작" },
             { label: "알림", value: paused ? "새 소개 쉬는 중" : notices?.notice_daily_waiting ? "소개 없는 날도 알림" : "새 소개만 알림", sub: BEFORE_US.beta.active ? "사이트 · 메일(베타 동안)" : channelText ? `사이트 · ${channelText}` : "사이트 안 알림" },
           ].map(item => <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl bg-card/90 px-4 py-3.5 shadow-[0_18px_36px_-30px_color-mix(in_oklch,var(--primary)_60%,transparent)] sm:block sm:p-5"><div className="min-w-0"><p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{item.label}</p><p className="mt-1 truncate text-xs text-muted-foreground sm:hidden">{item.sub}</p></div><p className="shrink-0 text-right text-base font-semibold text-ink sm:mt-2 sm:text-left sm:text-lg">{item.value}</p><p className="mt-1 hidden text-xs text-muted-foreground sm:block">{item.sub}</p></div>)}
@@ -444,7 +461,7 @@ function LiveProfileView() {
       </div>
       <MyPublicProfileCard />
       <div className="grid gap-6 lg:grid-cols-2">
-        <Sheet className="p-6"><p className="text-xs font-semibold text-accent">소개 신청서 고치기</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{!data?.application || data.application.status === "draft" ? "쓰던 곳부터 이어서 쓸 수 있어요." : data.application.status === "submitted" ? "검토 전이라 바로 고칠 수 있어요." : ["rejected", "withdrawn"].includes(data.application.status) ? "" : "고친 내용을 ‘수정 내용 제출’로 보내면 운영진이 다시 확인해요. 그동안 새 소개 준비는 잠시 멈춰요."}</p>{data?.application && ["rejected", "withdrawn"].includes(data.application.status) ? <p className="mt-4 text-xs leading-6 text-muted-foreground">지금 상태에서는 신청서를 고칠 수 없어요. 문의하기로 남겨 주시면 확인해 드릴게요.</p> : <div className="mt-4 grid grid-cols-2 gap-2">{[["나에 대해", 0], ["사진", 1], ["원하는 만남", 2], ["공개·동의", 3]].map(([label, step]) => <Button key={label} asChild variant="outline" className={`h-auto justify-between rounded-xl border-border px-4 py-3 text-xs ${interaction}`}><Link to={`/apply?edit=1&step=${step}`}>{label} <ArrowUpRight size={13} /></Link></Button>)}</div>}</Sheet>
+        <Sheet className="p-6"><p className="text-xs font-semibold text-accent">소개 신청서 고치기</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{!data?.application || data.application.status === "draft" ? "쓰던 곳부터 이어서 쓸 수 있어요." : data.application.status === "submitted" ? "검토 전이라 바로 고칠 수 있어요." : ["rejected", "withdrawn"].includes(data.application.status) || editBlocked ? "" : "고친 내용을 ‘수정 내용 제출’로 보내면 운영진이 다시 확인해요. 그동안 새 소개 준비는 잠시 멈춰요."}</p>{data?.application && ["rejected", "withdrawn"].includes(data.application.status) ? <p className="mt-4 text-xs leading-6 text-muted-foreground">지금 상태에서는 신청서를 고칠 수 없어요. 문의하기로 남겨 주시면 확인해 드릴게요.</p> : editBlocked ? <p role="status" className="mt-4 rounded-xl bg-mist p-4 text-xs leading-6">{editBlocked}</p> : <div className="mt-4 grid grid-cols-2 gap-2">{[["나에 대해", 0], ["사진", 1], ["원하는 만남", 2], ["공개·동의", 3]].map(([label, step]) => <Button key={label} asChild variant="outline" className={`h-auto justify-between rounded-xl border-border px-4 py-3 text-xs ${interaction}`}><Link to={`/apply?edit=1&step=${step}`}>{label} <ArrowUpRight size={13} /></Link></Button>)}</div>}</Sheet>
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">알림 설정</p><div className="mt-4 space-y-3 text-sm"><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.notice_daily_waiting} onCheckedChange={value => void toggle("notice_daily_waiting", value === true)} />소개가 없는 날에도 정오에 사이트에서 알려 주세요. <span className="text-muted-foreground">(선택)</span></label><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.marketing_opt_in} onCheckedChange={value => void toggle("marketing_opt_in", value === true)} />새 소식과 혜택 안내를 받을게요. <span className="text-muted-foreground">(선택 · 광고성 정보)</span></label></div><fieldset className="mt-5 border-t border-border pt-4"><legend className="sr-only">알림 받을 방법</legend><p className="text-xs font-semibold">알림 받을 방법{!BETA_ACTIVE && <span className="font-normal text-muted-foreground"> · 카카오톡·문자 중 1개 이상</span>}</p>{BETA_ACTIVE && <p className="mt-1.5 text-xs leading-6">지금은 메일과 사이트로 알려 드려요.</p>}<div className="mt-3 flex flex-wrap gap-2">{([["kakao", "카카오톡"], ["sms", "문자"], ["email", "메일"]] as const).filter(([key]) => !(BETA_ACTIVE && key === "email")).map(([key, label]) => <button key={key} type="button" aria-pressed={channels[key]} onClick={() => void setChannel(key, !channels[key])} className={`rounded-full border px-4 py-2 text-xs ${interaction} ${channels[key] ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"}`}>{label}{BETA_ACTIVE && <span className="ml-1.5 text-[10px] opacity-75">정식 운영부터</span>}</button>)}</div>{BETA_ACTIVE && <p className="mt-2 text-[11px] leading-5 text-muted-foreground">정식 운영부터 받을 방법이에요. 하나 이상 골라 두세요.</p>}</fieldset><fieldset className="mt-5 border-t border-border pt-4"><legend className="sr-only">메일로 받을 알림</legend><p className="text-xs font-semibold">메일로 받을 알림</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{([[false, "중요한 것만", "소개 도착·마감·약속처럼 할 일이 있을 때만"], [true, "모두 받기", "상대가 편지를 보냈을 때 같은 소식까지"]] as const).map(([all, label, sub]) => <button key={label} type="button" aria-pressed={!!notices?.email_all === all} onClick={() => void saveNoticeSettings({ email_all: all }).then(result => { setMessage(result.error || "메일 받을 범위를 바꿨어요."); return reload(); })} className={`rounded-xl border p-3 text-left ${interaction} ${!!notices?.email_all === all ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"}`}><span className="block text-xs font-semibold">{label}{!all && " (기본)"}</span><span className="mt-1 block text-[11px] leading-5 text-muted-foreground">{sub}</span></button>)}</div></fieldset><p className="mt-4 text-[11px] leading-5 text-muted-foreground">모든 알림은 사이트에서 늘 보여 드려요. 메일은 가입한 주소로 보내고, 밤 10시~아침 8시에는 보내지 않고 아침에 보내요.</p>{message && <p role="status" className="mt-3 text-xs text-primary">{message}</p>}</Sheet>
       </div>
       {data?.application?.status === "approved" && notices?.status === "active" && <Sheet className="flex flex-wrap items-center justify-between gap-5 p-6"><div className="min-w-0 max-w-xl"><p className="text-xs font-semibold text-accent">새 소개 {paused ? "다시 받기" : "잠시 쉬기"}</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{paused ? notices.paused_by === "operator" ? "운영진이 확인할 일이 있어 새 소개를 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." : `${kstDay(notices.paused_at!)}부터 쉬고 있어요. 다시 받기를 누르면 다음 정오부터 소개를 준비해요.` : "여행·바쁜 시기처럼 잠시 쉬고 싶을 때 눌러 주세요. 진행 중인 소개는 그대로 이어지고, 새 소개만 멈춰요."}</p>{pauseMessage && <p role="status" className="mt-2 text-xs text-primary">{pauseMessage}</p>}</div><Button variant={paused ? "default" : "outline"} disabled={pausing || notices.paused_by === "operator"} onClick={() => void togglePause()} className="h-11 shrink-0 rounded-xl border-border px-5">{paused ? "다시 받기" : "잠시 쉬기"}</Button></Sheet>}
