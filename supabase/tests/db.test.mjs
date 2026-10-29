@@ -1271,4 +1271,489 @@ await db.exec("reset role")
   await as("postgres")
 }
 
+// ── 매칭 2차(3700): 다시 소개하지 않는 두 사람(서로 선택·넘김·열어 본 분의 무응답·신고·차단) · 예외는 다시 소개 · 두 사람 소개 기록 · 회원에게 보일 궁합
+{
+  await as("postgres")
+  await clock(null)
+  const reason = "두 분 모두 쉬는 날 천천히 걷는 걸 좋아하셨어요."
+  const member = async (email, name, gender, desired, base, phone) => {
+    await as("postgres")
+    const id = await signup(email)
+    await as(id)
+    const d = draft(name, gender, desired, "1994-04-04")
+    await q("select public.save_application_draft($1)", [{ ...d, values: { ...d.values, "self.phone": phone } }])
+    await photos(id, base)
+    await q("select public.submit_application()")
+    await as(O, "aal2")
+    for (const slot of ["photo.face", "photo.upper", "photo.style"]) await q("select public.admin_review_photo($1, $2, '기준 확인')", [id, slot])
+    await q("select public.admin_decide_application($1, 'approved')", [id])
+    await q("select public.admin_move_member_cohort($1, 1)", [id])
+    return id
+  }
+  const W = await member("mw1@example.test", "소윤", "여성", "남성", 37010, "010-3701-0001")
+  const W2 = await member("mw2@example.test", "예린", "여성", "남성", 37020, "010-3701-0002")
+  const W3 = await member("mw3@example.test", "다인", "여성", "남성", 37030, "010-3701-0003")
+  const men = []
+  for (let i = 1; i <= 11; i++) men.push(await member(`mm${i}@example.test`, `남${i}`, "남성", "여성", 37100 + i * 10, `010-3702-${String(i).padStart(4, "0")}`))
+  const [M1, M2, M3, M4, M5, M6, M7, M8, M9, M10, M11] = men
+  // 지난 소개를 직접 만든다(오늘 정오 공개 → 어제 마감으로 끝난 것처럼). fields: 상태·끝난 까닭·서로 선택·응답·열람
+  await as("postgres")
+  const history = async (a, b, f) => {
+    const id = (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at) values ($1, $2, $3, 'published', now() - interval '1 minute', now() + interval '1 hour', now() + interval '1 hour', $4, $4, now() - interval '1 minute') returning id", [a, b, reason, snap])).id
+    await q(`update public.introductions set status = $2, end_reason = $3, closed_at = now(), view_until = now(), mutual_at = case when $4 then now() end,
+               response_a = $5, response_b = $6, opened_a_at = case when $7 then now() end, opened_b_at = case when $8 then now() end where id = $1`,
+      [id, f.status ?? "closed", f.end, !!f.mutual, f.ra ?? null, f.rb ?? null, !!f.oa, !!f.ob])
+    return id
+  }
+  await history(W, M1, { end: "program-completed", mutual: true, ra: "positive", rb: "positive", oa: true, ob: true })
+  await history(W, M2, { end: "admin-cancel", mutual: true, ra: "positive", rb: "positive", oa: true, ob: true })
+  await history(W, M3, { end: "nonresponse", ra: "negative", oa: true })
+  await history(W, M4, { end: "nonresponse", ob: true })
+  await history(W, M5, { end: "admin-cancel", oa: true, ob: true })
+  await history(W, M6, { end: "nonresponse", ra: "positive", oa: true })
+  await history(W, M7, { status: "cancelled", end: "precheck" })
+  const reported = await history(W, M8, { end: "admin-cancel", oa: true, ob: true })
+  await q("insert into public.reports (source, reporter_id, target_id, introduction_id, type, description) values ('member', $1, $2, $3, '회원 신고', '불편한 말을 들었어요.')", [M8, W, reported])
+  await history(W, M9, { end: "blocked", oa: true, ob: true })
+  await q("insert into public.blocks (member_id, blocked_id) values ($1, $2)", [M9, W])
+
+  // 두 사람 소개 기록: 운영(대표·운영)만
+  await as(W)
+  await fails("회원은 두 사람 소개 기록을 볼 수 없다", "select public.admin_pair_history($1)", [W], /운영 권한/)
+  await as(C, "aal2")
+  await fails("상담 역할은 두 사람 소개 기록을 볼 수 없다", "select public.admin_pair_history($1)", [W], /운영 권한/)
+  await as("anon")
+  await fails("비회원은 두 사람 소개 기록을 부를 수 없다", "select public.admin_pair_history($1)", [W])
+  await as(O, "aal2")
+  const pairs = new Map((await one("select public.admin_pair_history($1) h", [W])).h.map((row) => [row.other, row]))
+  eq("소개 기록 · 서로 선택 후 교류 마무리는 다시 소개하지 않는다", [pairs.get(M1).reason, pairs.get(M1).mutual], ["mutual", true])
+  eq("소개 기록 · 서로 선택 뒤 운영 취소여도 다시 소개하지 않는다", pairs.get(M2).reason, "mutual")
+  eq("소개 기록 · 한 분이 넘긴 소개(상대 무응답)는 넘김으로", [pairs.get(M3).reason, pairs.get(M3).declined], ["declined", true])
+  eq("소개 기록 · 열어 본 분이 답하지 않은 무응답은 다시 소개하지 않는다", pairs.get(M4).reason, "nonresponse")
+  eq("소개 기록 · 운영 취소는 다시 소개할 수 있는 예외", [pairs.get(M5).reason, pairs.get(M5).exception], [null, "admin-cancel"])
+  eq("소개 기록 · 답하지 않은 분이 열어 보지도 않은 무응답은 예외", [pairs.get(M6).reason, pairs.get(M6).exception], [null, "unopened"])
+  eq("소개 기록 · 공개 직전 확인으로 취소된 소개는 예외", [pairs.get(M7).reason, pairs.get(M7).exception], [null, "precheck"])
+  eq("소개 기록 · 신고 기록이 있으면 운영 취소여도 다시 소개하지 않는다", [pairs.get(M8).reason, pairs.get(M8).reported], ["reported", true])
+  eq("소개 기록 · 차단 관계", [pairs.get(M9).reason, pairs.get(M9).blockedRelation], ["blocked", true])
+  ok("소개 기록에 공개 날짜·상태·이름이 온다", pairs.get(M1).revealAt && pairs.get(M1).status === "closed" && pairs.get(M1).name === "남1" && pairs.get(M1).count === 1)
+  ok("후보 목록의 이전 소개(previous)에 서로 선택 뒤 운영 취소된 분이 들어간다", (await q("select previous from public.admin_ready_members() where member_id = $1", [W]))[0].previous.includes(M2))
+
+  // 서버가 다시 소개를 막는다(까닭과 함께)
+  const reserve = (a, b, days, match = null) => one("select public.admin_reserve_introduction($1, $2, (public.kst_today() + $3::int), $4, $5::jsonb) id", [a, b, days, reason, match === null ? null : JSON.stringify(match)])
+  const tries = "select public.admin_reserve_introduction($1, $2, (public.kst_today() + 3), '두 분 모두 쉬는 날 천천히 걷는 걸 좋아하셨어요.')"
+  await fails("서로 선택하고 교류까지 마친 두 사람은 다시 소개하지 않는다", tries, [W, M1], /이미 소개.*서로 선택/)
+  await fails("서로 선택 뒤 운영 취소된 두 사람도 다시 소개하지 않는다", tries, [M2, W], /서로 선택/)
+  await fails("한 분이 넘긴 두 사람은 다시 소개하지 않는다", tries, [W, M3], /넘긴/)
+  await fails("열어 본 분이 답하지 않은 두 사람은 다시 소개하지 않는다", tries, [W, M4], /답하지 않은/)
+  await fails("신고 기록이 있는 두 사람은 다시 소개하지 않는다", tries, [W, M8], /신고 기록/)
+  await fails("차단 관계는 여전히 막는다", tries, [W, M9], /차단 관계/)
+  // 예외는 다시 소개할 수 있다(확인 뒤 예약을 취소해 다음 확인을 이어 간다)
+  const again = async (label, man, days) => {
+    const id = (await reserve(W, man, days)).id
+    ok(label, !!id)
+    await q("select public.admin_cancel_introduction($1, '시험 예약 정리')", [id])
+  }
+  await again("운영 취소로 끝난 두 사람은 다시 소개할 수 있다", M5, 3)
+  await again("답하지 않은 분이 열어 보지도 않은 무응답은 다시 소개할 수 있다", M6, 4)
+  await again("공개 직전 확인으로 취소된 두 사람은 다시 소개할 수 있다", M7, 5)
+
+  // 회원에게 보일 궁합: 모양·길이 확인
+  const good = { score: 86, headline: "  관계를 바라보는 속도가   닮은 두 분이에요. ", why: ["두 분 모두 천천히 알아가는 연애를 바라요.", "‘산책’과 ‘카페’를 두 분 모두 좋아해요."], together: ["함께 걷다 보면 대화가 자연스럽게 길어질 거예요."] }
+  const bad = async (label, match, pattern) => fails(label, "select public.admin_reserve_introduction($1, $2, (public.kst_today() + 3), '두 분 모두 쉬는 날 천천히 걷는 걸 좋아하셨어요.', $3::jsonb)", [W2, M10, JSON.stringify(match)], pattern)
+  await bad("궁합에 모르는 항목이 있으면 막는다", { ...good, partnerSecret: "x" }, /알 수 없는 항목/)
+  await bad("궁합 점수는 0~100 정수만", { ...good, score: 150 }, /0~100/)
+  await bad("궁합 점수는 숫자만", { ...good, score: "86" }, /숫자/)
+  await bad("궁합 한 줄 요약은 80자까지", { ...good, headline: "가".repeat(81) }, /4~80자/)
+  await bad("궁합 이유가 비면 막는다", { ...good, why: [] }, /1~3개/)
+  await bad("궁합 이유는 글만", { ...good, together: [3] }, /글로/)
+  await bad("궁합 이유는 하나에 140자까지", { ...good, why: ["나".repeat(141)] }, /4~140자/)
+  await bad("궁합에 링크·연락처는 넣을 수 없다", { ...good, together: ["인스타 아이디는 beforeus_test 예요"] }, /연락처·링크/)
+  await bad("궁합이 객체가 아니면 막는다", ["x"], /형식/)
+  const withMatch = (await reserve(W2, M10, 3, good)).id
+  await as("postgres")
+  eq("궁합은 다듬어 저장한다(앞뒤·겹친 공백 정리, 형식 번호)", (await one("select match m from public.introductions where id = $1", [withMatch])).m, { version: 1, score: 86, headline: "관계를 바라보는 속도가 닮은 두 분이에요.", why: good.why, together: good.together })
+  ok("궁합을 함께 보냈다고 감사 기록에 남긴다", (await one("select reason from public.audit_log where target = $1 order by id desc limit 1", [withMatch])).reason === "궁합 함께 보냄 · 86")
+  await as(O, "aal2")
+  eq("소개 기록에 저장된 궁합이 함께 온다", (await q("select match from public.admin_list_introductions() where id = $1", [withMatch]))[0].match.score, 86)
+  // 공개 전에는 회원이 볼 수 없다
+  for (const m of [W2, M10]) {
+    await as(m)
+    eq("정오 공개 전에는 소개도 궁합도 오지 않는다", (await one("select public.my_introduction() v")).v, { status: "waiting" })
+    eq("회원은 소개 표에서 궁합을 직접 읽을 수 없다", (await q("select match from public.introductions")).length, 0)
+  }
+  // 정오 공개 뒤에는 두 분에게만
+  await as("postgres")
+  await q("update public.introductions set reveal_at = now() - interval '1 minute', respond_by = now() + interval '23 hours', view_until = now() + interval '23 hours' where id = $1", [withMatch])
+  await one("select public.run_noon()")
+  for (const m of [W2, M10]) {
+    await as(m)
+    const v = (await one("select public.my_introduction() v")).v
+    eq("정오 공개 뒤 두 분 모두에게 궁합이 온다(65 이상은 점수도)", [v.id, v.match], [withMatch, { score: 86, headline: "관계를 바라보는 속도가 닮은 두 분이에요.", why: good.why, together: good.together }])
+  }
+  await as(W)
+  const other = (await one("select public.my_introduction() v")).v
+  ok("다른 회원의 소개 궁합은 오지 않는다", other.id !== withMatch && (other.match ?? null) === null)
+  // 65 아래 점수는 숫자 없이(운영진은 그대로 본다)
+  await as(O, "aal2")
+  const low = (await reserve(W3, M11, 3, { ...good, score: 60 })).id
+  await as("postgres")
+  await q("update public.introductions set reveal_at = now() - interval '1 minute', respond_by = now() + interval '23 hours', view_until = now() + interval '23 hours' where id = $1", [low])
+  await one("select public.run_noon()")
+  await as(W3)
+  const lowView = (await one("select public.my_introduction() v")).v.match
+  eq("65 아래 점수는 회원에게 숫자 없이 이유만 보낸다", [lowView.score, lowView.why.length, lowView.together.length], [null, 2, 1])
+  await as(O, "aal2")
+  eq("운영진 소개 기록에는 65 아래 점수도 남는다", (await q("select match from public.admin_list_introductions() where id = $1", [low]))[0].match.score, 60)
+  // 서로 선택한 뒤에도 보이고, 소개가 끝나면 더는 오지 않는다
+  for (const m of [W2, M10]) { await as(m); await q("select public.record_introduction_view($1)", [withMatch]); await q("select public.respond_introduction($1, 'positive')", [withMatch]) }
+  await as(M10)
+  const mutualView = (await one("select public.my_introduction() v")).v
+  eq("서로 선택한 뒤에도 궁합이 보인다", [mutualView.status, mutualView.match?.score], ["mutual", 86])
+  await as(O, "aal2")
+  await q("select public.admin_cancel_introduction($1, '시험 정리')", [withMatch])
+  await as(M10)
+  eq("끝난 소개에는 궁합이 오지 않는다", (await one("select public.my_introduction() v")).v.match, null)
+  await as(O, "aal2")
+  await fails("서로 선택했던 두 사람은 운영 취소 뒤에도 다시 소개하지 않는다", tries, [W2, M10], /서로 선택/)
+  // 궁합 없이도 예약할 수 있다(예전 방식 그대로) · 이 점검에서 연 소개는 모두 정리한다
+  await q("select public.admin_cancel_introduction($1, '시험 정리')", [low])
+  const plain = (await one("select public.admin_reserve_introduction($1, $2, (public.kst_today() + 6), '두 분 모두 쉬는 날 천천히 걷는 걸 좋아하셨어요.') id", [W, M5])).id
+  await as("postgres")
+  eq("궁합 없이 예약하면 궁합 칸은 비어 있다", (await one("select match m from public.introductions where id = $1", [plain])).m, null)
+  await as(O, "aal2")
+  await q("select public.admin_cancel_introduction($1, '시험 예약 정리')", [plain])
+  await as("postgres")
+}
+
+// ── 결제(3800): 테스트 모드 · 금액은 서버가 정함(config.ts와 같음) · 자격 · 중복 · 회원끼리 못 봄 · 결과 기록은 service_role만 · 운영진 목록·취소 권한
+{
+  await as("postgres")
+  await clock(null)
+  const configText = readFileSync(join(here, "..", "..", "src", "app", "config.ts"), "utf8")
+  const priceOf = (name) => Number(configText.match(new RegExp(`pricing: \\{[^}]*\\b${name}: (\\d+)`))[1])
+  const cfg = (await one("select public.payment_config() c")).c
+  eq("결제: 서버 금액이 화면 설정(config.ts)과 같다", [cfg.introduction, cfg.exchange], [priceOf("introduction"), priceOf("exchangePerPerson")])
+  eq("결제: 서버 결제 모드가 화면 설정과 같다(지금은 테스트)", [cfg.mode, cfg.provider], [configText.match(/payments: \{[^}]*mode: "(test|live)"/)[1], "toss"])
+  const asService = async () => { await db.exec("reset role"); await db.query("select set_config('request.jwt.claims', '', false)"); await db.exec("set role service_role") }
+  const payFresh = async (email, name, gender, desired, base, phone, approve = true) => {
+    await as("postgres")
+    const id = await signup(email)
+    await as(id)
+    const d = draft(name, gender, desired, "1995-06-06")
+    await q("select public.save_application_draft($1)", [{ ...d, values: { ...d.values, "self.phone": phone } }])
+    await photos(id, base)
+    await q("select public.submit_application()")
+    if (approve) {
+      await as(O, "aal2")
+      for (const slot of ["photo.face", "photo.upper", "photo.style"]) await q("select public.admin_review_photo($1, $2, '기준 확인')", [id, slot])
+      await q("select public.admin_decide_application($1, 'approved')", [id])
+      await q("select public.admin_move_member_cohort($1, 1)", [id])
+    }
+    return id
+  }
+  const PA = await payFresh("pay-a@example.test", "서하", "여성", "남성", 3801, "010-3801-0001")
+  const PB = await payFresh("pay-b@example.test", "이안", "남성", "여성", 3811, "010-3801-0002")
+  const PC = await payFresh("pay-c@example.test", "로운", "남성", "여성", 3821, "010-3801-0003", false)
+
+  // 주문 만들기: 금액은 서버가 · 자격 확인
+  await as("anon")
+  await fails("결제: 비회원은 주문을 만들 수 없다", "select public.create_payment_order('introduction')")
+  await as(PC)
+  await fails("결제: 신청서 승인 전에는 소개비 주문을 만들 수 없다", "select public.create_payment_order('introduction')", [], /승인된 뒤/)
+  await as(PA)
+  await fails("결제: 모르는 결제 종류는 막힌다", "select public.create_payment_order('gift')", [], /결제 종류/)
+  await fails("결제: 소개비에는 교류를 붙일 수 없다", "select public.create_payment_order('introduction', gen_random_uuid())", [], /교류를 고르지/)
+  await fails("결제: 교류 없이 교류비 주문은 만들 수 없다", "select public.create_payment_order('exchange')", [], /교류를 찾을 수 없어요/)
+  const o1 = (await one("select public.create_payment_order('introduction') o")).o
+  eq("결제: 소개비 금액은 서버가 정한다", o1.amount, priceOf("introduction"))
+  ok("결제: 테스트 주문은 이름에 [테스트]가 붙고 모드가 test", o1.orderName.startsWith("[테스트]") && o1.mode === "test" && o1.provider === "toss" && o1.kind === "introduction")
+  ok("결제: 주문 번호·구매자 키가 토스 규칙에 맞다", /^[A-Za-z0-9_=-]{6,64}$/.test(o1.orderId) && /^[A-Za-z0-9_=.@-]{10,50}$/.test(o1.customerKey) && /[-_=.@]/.test(o1.customerKey))
+  const o1b = (await one("select public.create_payment_order('introduction') o")).o
+  ok("결제: 주문마다 번호는 새로, 구매자 키는 회원마다 같다", o1b.orderId !== o1.orderId && o1b.customerKey === o1.customerKey)
+  eq("결제: 회원은 자기 주문을 본다(결제 전)", (await q("select status, amount from public.payments where order_id = $1", [o1.orderId])).map((r) => [r.status, r.amount]), [["ready", priceOf("introduction")]])
+  await fails("결제: 회원은 결제 표를 직접 고칠 수 없다", "update public.payments set status = 'paid' where order_id = $1", [o1.orderId])
+  await fails("결제: 회원은 결제 기록을 직접 넣을 수 없다", "insert into public.payments (member_id, kind, order_id, amount, order_name, provider, mode, status) values ($1, 'introduction', 'BUI-fake-0001', 10, 'x', 'toss', 'test', 'paid')", [PA])
+  await fails("결제: 회원은 구매자 키 표를 볼 수 없다", "select * from public.payment_customers")
+  await fails("결제: 회원은 결과 기록 함수를 부를 수 없다", "select public.record_payment_result($1, 'paid', 'tpk_x')", [o1.orderId])
+  await as("anon")
+  await fails("결제: 비회원도 결과 기록 함수를 부를 수 없다", "select public.record_payment_result($1, 'paid', 'tpk_x')", [o1.orderId])
+
+  // 회원끼리는 서로의 결제를 보거나 바꿀 수 없다
+  await as(PB)
+  eq("결제: 다른 회원의 결제는 보이지 않는다", (await q("select id from public.payments where order_id = $1", [o1.orderId])).length, 0)
+  await fails("결제: 다른 회원의 주문은 승인 확인 함수로도 볼 수 없다", "select public.my_payment_order($1)", [o1.orderId], /주문을 찾을 수 없어요/)
+  await q("select public.mark_payment_failed($1, 'X', 'y')", [o1.orderId])
+  await as("postgres")
+  eq("결제: 남의 주문은 실패로 바꿀 수 없다", (await one("select status from public.payments where order_id = $1", [o1.orderId])).status, "ready")
+
+  // 승인(edge function 흐름): 회원 토큰으로 확인 → service_role 로 기록 · 다시 보내도 한 번만
+  await as(PA)
+  const check1 = (await one("select public.my_payment_order($1) v", [o1.orderId])).v
+  eq("결제: 승인 전 확인은 서버 금액·자격·중복을 알려 준다", [check1.amount, check1.eligible, check1.duplicate, check1.status], [priceOf("introduction"), true, false, "ready"])
+  await asService()
+  const paid1 = (await one("select public.record_payment_result($1, 'paid', 'tpk_test_0001', '카드', now(), null, null, $2) v", [o1.orderId, { confirm: { status: "DONE", card: { cardType: "신용" } } }])).v
+  eq("결제: service_role 은 승인 결과를 남긴다", [paid1.status, paid1.method, !!paid1.approvedAt], ["paid", "카드", true])
+  eq("결제: 같은 승인 결과를 다시 보내도 그대로다", (await one("select public.record_payment_result($1, 'paid', 'tpk_test_0001') v", [o1.orderId])).v.status, "paid")
+  await fails("결제: 다른 결제 키로 같은 주문을 다시 완료할 수 없다", "select public.record_payment_result($1, 'paid', 'tpk_other')", [o1.orderId], /이미 다른 결제/)
+  eq("결제: 완료된 결제는 실패로 되돌리지 않는다", (await one("select public.record_payment_result($1, 'failed', null, null, null, 'X', 'y') v", [o1.orderId])).v.status, "paid")
+  await as(PA)
+  await fails("결제: 이미 낸 소개비는 다시 주문할 수 없다", "select public.create_payment_order('introduction')", [], /이미 결제했어요/)
+  eq("결제: 다른 주문으로 같은 항목을 승인하려 하면 중복으로 알린다", (await one("select public.my_payment_order($1) v", [o1b.orderId])).v.duplicate, true)
+  await asService()
+  await fails("결제: 같은 항목의 두 번째 결제 완료는 서버가 막는다", "select public.record_payment_result($1, 'paid', 'tpk_test_0002')", [o1b.orderId], /중복 결제/)
+  const auto = (await one("select public.record_payment_result($1, 'cancelled', 'tpk_test_0002', null, null, null, '중복 결제 자동 취소') v", [o1b.orderId])).v
+  eq("결제: 중복으로 바로 취소한 결제는 취소로 남는다", [auto.status, auto.cancelReason], ["cancelled", "중복 결제 자동 취소"])
+
+  // 교류비: 서로 선택한 뒤 시작 전 교류의 두 사람만 · 각자 한 번
+  await as(O, "aal2")
+  const payIntro = (await one("select public.admin_reserve_introduction($1, $2, (public.kst_today() + 3), '두 분 모두 산책을 좋아하셨어요.') id", [PA, PB])).id
+  await as("postgres")
+  await q("update public.introductions set reveal_at = now() - interval '1 minute', respond_by = now() + interval '23 hours', view_until = now() + interval '23 hours' where id = $1", [payIntro])
+  await one("select public.run_noon() r")
+  for (const m of [PA, PB]) { await as(m); await q("select public.record_introduction_view($1)", [payIntro]); await q("select public.respond_introduction($1, 'positive')", [payIntro]) }
+  await as(PA)
+  const prog = (await one("select public.my_program() v")).v
+  eq("결제: 서로 선택하면 시작 전 교류가 생긴다", prog.status, "choosing")
+  const oe = (await one("select public.create_payment_order('exchange', $1) o", [prog.id])).o
+  eq("결제: 교류비 금액은 서버가 정한다(한 분당)", [oe.amount, oe.programId, oe.kind], [priceOf("exchangePerPerson"), prog.id, "exchange"])
+  await as(PC)
+  await fails("결제: 남의 교류에는 교류비 주문을 만들 수 없다", "select public.create_payment_order('exchange', $1)", [prog.id], /교류를 찾을 수 없어요/)
+  await as(PA)
+  await q("select public.mark_payment_failed($1, 'PAY_PROCESS_ABORTED', '결제가 진행되지 않았어요')", [oe.orderId])
+  eq("결제: 결제창 실패는 결제 전 주문을 ‘결제 안 됨’으로 남긴다", { ...(await one("select status, failure_code from public.payments where order_id = $1", [oe.orderId])) }, { status: "failed", failure_code: "PAY_PROCESS_ABORTED" })
+  const oe2 = (await one("select public.create_payment_order('exchange', $1) o", [prog.id])).o
+  await as(PB)
+  const ob = (await one("select public.create_payment_order('exchange', $1) o", [prog.id])).o
+  await asService()
+  await q("select public.record_payment_result($1, 'paid', 'tpk_test_0003', '간편결제')", [oe2.orderId])
+  await as(PA)
+  await fails("결제: 이 교류의 교류비를 이미 냈으면 다시 주문할 수 없다", "select public.create_payment_order('exchange', $1)", [prog.id], /이미 결제했어요/)
+  eq("결제: 결제해도 교류 상태는 그대로다(베타 흐름과 무관)", (await one("select public.my_program() v")).v.status, "choosing")
+  await as(PB)
+  eq("결제: 상대가 냈어도 내 교류비는 따로다", (await one("select public.my_payment_order($1) v", [ob.orderId])).v.duplicate, false)
+
+  // 운영진: 목록(대표·운영·정산 + 2단계 인증) · 테스트 결제 취소(대표·운영)
+  await as(PA)
+  await fails("결제: 회원은 결제 목록을 볼 수 없다", "select public.admin_list_payments()", [], /대표·운영·정산/)
+  await fails("결제: 회원은 결제를 취소할 수 없다", "select public.admin_begin_payment_cancel($1, '점검')", [paid1.id], /운영 권한/)
+  await as(O)
+  await fails("결제: 2단계 인증 전에는 대표도 결제 목록을 볼 수 없다", "select public.admin_list_payments()", [], /대표·운영·정산/)
+  await as(O, "aal2")
+  const listed = (await one("select public.admin_list_payments() v")).v
+  ok("결제: 운영진 목록에 회원 이메일·이름·모드가 보이고 결제 전 주문은 빠진다", listed.some((r) => r.orderId === o1.orderId && r.email === "pay-a@example.test" && r.name === "서하" && r.mode === "test" && r.status === "paid") && !listed.some((r) => r.status === "ready"))
+  ok("결제: 상태로 거를 수 있다(결제 전만)", (await one("select public.admin_list_payments('ready') v")).v.every((r) => r.status === "ready"))
+  await as("postgres")
+  const F = await signup("finance@example.test")
+  await q("insert into public.admin_roles (user_id, role) values ($1, 'finance')", [F])
+  await as(F, "aal2")
+  ok("결제: 정산 역할은 결제 목록을 볼 수 있다", (await one("select public.admin_list_payments() v")).v.length > 0)
+  await fails("결제: 정산 역할은 테스트 결제를 취소할 수 없다", "select public.admin_begin_payment_cancel($1, '점검')", [paid1.id], /운영 권한/)
+  await as(O, "aal2")
+  await fails("결제: 취소 이유가 없으면 막힌다", "select public.admin_begin_payment_cancel($1, ' ')", [paid1.id], /이유/)
+  const failedRow = (await one("select public.admin_list_payments('failed') v")).v.find((r) => r.orderId === oe.orderId)
+  await fails("결제: 결제 완료가 아닌 것은 취소할 수 없다", "select public.admin_begin_payment_cancel($1, '점검')", [failedRow.id], /결제 완료된 것만/)
+  const begin = (await one("select public.admin_begin_payment_cancel($1, '결제 흐름 점검') v", [paid1.id])).v
+  eq("결제: 취소 시작은 PG 취소에 필요한 값을 돌려준다", [begin.orderId, begin.paymentKey, begin.mode, begin.reason], [o1.orderId, "tpk_test_0001", "test", "결제 흐름 점검"])
+  await as("postgres")
+  eq("결제: 취소 요청은 감사 기록에 남는다(한 운영진)", (await one("select count(*)::int n from public.audit_log where action = '테스트 결제 취소 요청' and target = $1 and actor_id = $2", [o1.orderId, O])).n, 1)
+  await asService()
+  const cancelled = (await one("select public.record_payment_result($1, 'cancelled', null, null, now(), null, '결제 흐름 점검') v", [o1.orderId])).v
+  eq("결제: 취소 결과가 남는다", [cancelled.status, cancelled.cancelReason, !!cancelled.cancelledAt], ["cancelled", "결제 흐름 점검", true])
+  await fails("결제: 취소된 주문은 다시 완료로 바꿀 수 없다", "select public.record_payment_result($1, 'paid', 'tpk_test_0001')", [o1.orderId], /취소된 주문/)
+  await as(PA)
+  ok("결제: 테스트 결제를 취소하면 소개비를 다시 시험할 수 있다", !!(await one("select public.create_payment_order('introduction') o")).o.orderId)
+  await as("postgres")
+  const liveId = (await one("insert into public.payments (member_id, kind, order_id, amount, order_name, provider, mode, status, payment_key) values ($1, 'introduction', 'BUI-live-check-0001', 10000, '비포어스 소개비', 'toss', 'live', 'paid', 'tpk_live_0001') returning id", [PC])).id
+  await as(O, "aal2")
+  await fails("결제: 실결제는 여기서 취소하지 않는다(환불 기준으로 따로)", "select public.admin_begin_payment_cancel($1, '점검')", [liveId], /테스트 결제만/)
+  eq("결제: 모드로 거를 수 있다(실결제만)", (await one("select public.admin_list_payments(null, 'live') v")).v.map((r) => r.orderId), ["BUI-live-check-0001"])
+
+  // 교류가 시작 전이 아니면 교류비는 승인 대상이 아니다(운영진이 교류를 닫은 경우)
+  await q("select public.admin_close_program($1, '결제 점검 정리')", [prog.id])
+  await as(PB)
+  eq("결제: 교류가 끝나면 남은 교류비 주문은 승인하지 않는다", (await one("select public.my_payment_order($1) v", [ob.orderId])).v.eligible, false)
+  await fails("결제: 시작 전이 아닌 교류에는 교류비 주문을 만들 수 없다", "select public.create_payment_order('exchange', $1)", [prog.id], /시작하기 전에만/)
+  await as("postgres")
+}
+
+// ── 3일 교류 다듬기 4(3600): A 편지 사진 한 장 · B 직접 작성 · 한마디 · 내가 고른 첫 장면에 대해 · 편지 사진 정리
+{
+  await as("postgres")
+  await clock(null)
+  const at = async (date, time) => clock((await one("select public.kst_at($1::date, $2::time)::text t", [date, time])).t)
+  const plus = async (date, days) => (await one("select ($1::date + $2::int)::text d", [date, days])).d
+  const today = (await one("select public.kst_today()::text d")).d
+  const pairUp = async (a, b, sql, extra = []) => {
+    const intro = (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at, mutual_at) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'mutual', now() - interval '1 day', now() + interval '1 hour', 'infinity', $3, $3, now() - interval '1 day', now()) returning id", [a, b, snap])).id
+    return { intro, id: (await one(sql, [intro, a, b, ...extra])).id }
+  }
+  const notes = async (key) => { await as("postgres"); return (await one("select count(*)::int n from public.notifications where dedupe_key like $1", [key])).n }
+  const seen = async (who, name) => { await as(who); return (await q("select name from storage.objects where bucket_id = 'letter-photos' and name = $1", [name])).length }
+  const upload = async (who, name) => { await as(who); await q("insert into storage.objects (bucket_id, name) values ('letter-photos', $1)", [name]) }
+  const uploadFails = (label, who, name) => as(who).then(() => fails(label, "insert into storage.objects (bucket_id, name) values ('letter-photos', $1)", [name]))
+  const find = (v, day, kind) => v.entries.find((e) => e.day === day && e.kind === kind)
+  const startedSql = (plan) => `insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at) values ($1, $2, $3, 'started', '${plan}', '${plan}', $4::date, now(), now()) returning id`
+
+  // A: 편지 사진 한 장 — 올리기·보내기·보기(함께 열린 뒤에만)·지우기·하루 12장
+  const L1 = await signup("l1-3600@example.test"), L2 = await signup("l2-3600@example.test"), L3 = await signup("l3-3600@example.test")
+  await as("postgres")
+  const startL = await plus(today, -1)
+  const { id: letters } = await pairUp(L1, L2, startedSql("A"), [startL])
+  await at(startL, "10:00")
+  const photo1 = `${letters}/${L1}/day1-a1b2c3d4.jpg`
+  await upload(L1, photo1)
+  eq("편지 사진: 진행 중인 A 교류의 내 폴더에 올릴 수 있다", await seen(L1, photo1), 1)
+  await uploadFails("편지 사진: 상대 폴더에는 올릴 수 없다", L1, `${letters}/${L2}/day1-a1b2c3d4.jpg`)
+  await uploadFails("편지 사진: JPG 이름 규칙이 아니면 올릴 수 없다", L1, `${letters}/${L1}/day1-a1b2c3d4.png`)
+  await uploadFails("편지 사진: 내 교류가 아니면 올릴 수 없다", L3, `${letters}/${L3}/day1-a1b2c3d4.jpg`)
+  const letterBody = "쉬는 날엔 동네 도서관 창가 자리에서 책을 읽어요. 해가 지면 집에 와요."
+  const letterFails = (label, payload, pattern) => as(L1).then(() => fails(label, "select public.submit_program_entry($1, 1, 'letter', $2, $3)", [letters, letterBody, JSON.stringify(payload)], pattern))
+  await letterFails("편지 사진: 상대 폴더의 사진 경로로는 보낼 수 없다", { photo: `${letters}/${L2}/day1-zzzz9999.jpg` }, /사진을 다시/)
+  await letterFails("편지 사진: 다른 날 칸의 사진으로는 보낼 수 없다", { photo: `${letters}/${L1}/day2-a1b2c3d4.jpg` }, /사진을 다시/)
+  await letterFails("편지 사진: 올리지 않은 사진은 보낼 수 없다", { photo: `${letters}/${L1}/day1-nothere1.jpg` }, /올라가지 않았어요/)
+  await as(L1)
+  const sentL = (await one("select public.submit_program_entry($1, 1, 'letter', $2, $3) v", [letters, letterBody, JSON.stringify({ photo: photo1, hint: "예시 문장" })])).v
+  eq("편지 사진: 편지에는 본문과 사진 경로만 저장된다", find(sentL, 1, "letter").own.payload, { photo: photo1 })
+  eq("편지 사진: 함께 열리기 전에는 상대가 볼 수 없다", await seen(L2, photo1), 0)
+  eq("편지 사진: 다른 회원은 볼 수 없다", await seen(L3, photo1), 0)
+  await as(L1)
+  await q("delete from storage.objects where bucket_id = 'letter-photos' and name = $1", [photo1])
+  eq("편지 사진: 보낸 편지의 사진은 지울 수 없다(편지처럼 고칠 수 없다)", await seen(L1, photo1), 1)
+  await as(L2)
+  const openedL = (await one("select public.submit_program_entry($1, 1, 'letter', '토요일 아침마다 친구들과 배드민턴을 치고 국밥을 먹어요.') v", [letters])).v
+  eq("편지 사진: 함께 열리면 상대에게 사진 경로가 보인다", find(openedL, 1, "letter").partner.payload, { photo: photo1 })
+  eq("편지 사진: 사진 없이 보낸 편지는 본문만", find(openedL, 1, "letter").own.payload, null)
+  eq("편지 사진: 함께 열린 뒤에는 상대가 볼 수 있다", await seen(L2, photo1), 1)
+  eq("편지 사진: 다른 회원은 여전히 볼 수 없다", await seen(L3, photo1), 0)
+  await at(await plus(startL, 1), "08:30")
+  await as(L1)
+  eq("편지 사진: 답장에는 사진을 붙이지 않는다", find((await one("select public.submit_program_entry($1, 1, 'reply', '배드민턴 끝나고 먹는 국밥, 상상만 해도 좋아요.', $2) v", [letters, JSON.stringify({ photo: photo1 })])).v, 1, "reply").own.payload, null)
+  await at(await plus(startL, 1), "10:00")
+  const draftPhoto = `${letters}/${L1}/day2-e5f6a7b8.jpg`
+  await upload(L1, draftPhoto)
+  await as(L1)
+  await q("delete from storage.objects where bucket_id = 'letter-photos' and name = $1", [draftPhoto])
+  eq("편지 사진: 보내기 전 사진은 뺄 수 있다(바로 지워진다)", await seen(L1, draftPhoto), 0)
+  await as("postgres")
+  const have = (await one("select count(*)::int n from storage.objects where bucket_id = 'letter-photos' and split_part(name, '/', 2) = $1", [L1])).n
+  for (let i = have; i < 12; i++) await upload(L1, `${letters}/${L1}/day2-quota${String(i).padStart(3, "0")}.jpg`)
+  await uploadFails("편지 사진: 하루 12장까지 올릴 수 있다", L1, `${letters}/${L1}/day2-quota999.jpg`)
+  // 마무리 뒤 다시 읽기 기간 · 차단
+  await as("postgres")
+  await q("update public.programs set status = 'closed', closed_at = now(), end_reason = 'completed', meeting_a = 'positive', meeting_b = 'positive' where id = $1", [letters])
+  eq("편지 사진: 다시 읽을 수 있는 마무리 교류에서는 상대가 계속 볼 수 있다", await seen(L2, photo1), 1)
+  await uploadFails("편지 사진: 마무리된 교류에는 올릴 수 없다", L2, `${letters}/${L2}/day3-late0001.jpg`)
+  await as(L2); await q("select public.block_member($1)", [L1])
+  eq("편지 사진: 차단 관계가 생기면 상대는 더 볼 수 없다", await seen(L2, photo1), 0)
+  eq("편지 사진: 쓴 사람은 차단 뒤에도 내 사진을 볼 수 있다", await seen(L1, photo1), 1)
+  // 신고로 남겨 둔 교류의 사진은 글과 함께 남는다
+  await as("postgres")
+  const M1 = await signup("m1-3600@example.test"), M2 = await signup("m2-3600@example.test")
+  const held = await pairUp(M1, M2, "insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at, closed_at, end_reason) values ($1, $2, $3, 'closed', 'A', 'A', $4::date, now(), now(), now() - interval '31 days', 'blocked') returning id", [startL])
+  const heldPhoto = `${held.id}/${M1}/day1-held0001.jpg`
+  await q("insert into storage.objects (bucket_id, name, created_at) values ('letter-photos', $1, now() - interval '40 days')", [heldPhoto])
+  await q("insert into public.program_entries (program_id, day, kind, author, body, payload) values ($1, 1, 'letter', $2, '신고된 교류에 남은 편지예요. 사진이 함께 있어요.', $3)", [held.id, M1, JSON.stringify({ photo: heldPhoto })])
+  await q("insert into public.reports (source, reporter_id, target_id, introduction_id, type, description) values ('member', $1, $2, $3, '불편한 사진', '편지에 불편한 사진이 있었어요.')", [M2, M1, held.intro])
+  // 보존 기간(마무리 후 30일)이 지나면 글과 함께 사진도 정리 대기열로
+  await q("update public.programs set closed_at = now() - interval '31 days' where id = $1", [letters])
+  await q("update storage.objects set created_at = now() - interval '3 days' where bucket_id = 'letter-photos' and name like $1", [`${letters}/%`])
+  const swept = (await one("select public.run_program_retention() r")).r
+  eq("편지 사진: 보존 기간이 지나면 교류 글이 지워진다", (await one("select count(*)::int n from public.program_entries where program_id = $1", [letters])).n, 0)
+  eq("편지 사진: 보낸 사진·보내지 않은 사진 모두 정리 대기열로 간다", (await one("select count(*)::int n from public.storage_cleanup where bucket = 'letter-photos' and path like $1", [`${letters}/%`])).n, 12)
+  ok("편지 사진: 정리 결과에 편지 사진 수가 남는다", swept.letterPhotos >= 12)
+  eq("편지 사진: 신고로 남겨 둔 교류의 사진은 정리하지 않는다", (await one("select count(*)::int n from public.storage_cleanup where path = $1", [heldPhoto])).n, 0)
+  await as(M2)
+  eq("편지 사진: 신고로 남겨 둔 마무리 교류라도 상대에게는 보이지 않는다", (await q("select name from storage.objects where bucket_id = 'letter-photos' and name = $1", [heldPhoto])).length, 0)
+
+  // B: 직접 작성 · 한마디(바로 보임) · 내가 고른 첫 장면에 대해(함께 열림)
+  await as("postgres")
+  await clock(null)
+  const S1 = await signup("s1-3600@example.test"), S2 = await signup("s2-3600@example.test")
+  const startS = today
+  const { id: scenes } = await pairUp(S1, S2, startedSql("B"), [startS])
+  const scene = async (who, day, payload, body = null) => { await as(who); return (await one("select public.submit_program_entry($1, $2, 'scene', $3, $4) v", [scenes, day, body, JSON.stringify(payload)])).v }
+  const sceneFails = (label, who, day, payload, pattern) => as(who).then(() => fails(label, "select public.submit_program_entry($1, $2, 'scene', null, $3)", [scenes, day, JSON.stringify(payload)], pattern))
+  const comment = async (who, on, day, body) => { await as(who); return (await one("select public.leave_scene_comment($1, $2, $3, $4) v", [scenes, on, day, body])).v }
+  const commentFails = (label, who, on, day, body, pattern) => as(who).then(() => fails(label, "select public.leave_scene_comment($1, $2, $3, $4)", [scenes, on, day, body], pattern))
+  await at(startS, "10:00")
+  await sceneFails("B 직접 작성: 20자를 넘는 장소는 받지 않는다", S1, 1, { activity: "custom:" + "가".repeat(21), about: "주말엔 오래 걸어요." }, /20자/)
+  await sceneFails("B 직접 작성: 비어 있는 직접 작성은 받지 않는다", S1, 1, { activity: "custom:", about: "주말엔 오래 걸어요." }, /분위기/)
+  await sceneFails("B 직접 작성: 직접 쓴 말에도 연락처·SNS 아이디는 넣을 수 없다", S1, 1, { activity: "custom:@sky.walk 팔로우", about: "주말엔 오래 걸어요." }, /연락처/)
+  await sceneFails("B 직접 작성: 표시 없는 목록 밖 장소는 여전히 받지 않는다", S1, 1, { activity: "보드게임 카페", about: "주말엔 오래 걸어요." }, /분위기/)
+  const s1d1 = await scene(S1, 1, { activity: "custom:보드게임 카페", about: "주말엔 보드게임을 자주 해요." }, "같이 웃을 일이 많을 것 같아서요.")
+  eq("B 직접 작성: 직접 쓴 장소가 그대로 저장된다", find(s1d1, 1, "scene").own.payload.activity, "custom:보드게임 카페")
+  await commentFails("B 한마디: 그날 답이 함께 열리기 전에는 남길 수 없다", S1, "scene", 1, "좋아요", /열린 뒤/)
+  await scene(S2, 1, { activity: "park", about: "주말엔 한강에서 자전거를 타요." })
+  ok("B 한마디: 남기면 바로 보인다고 알려 준다", (await comment(S1, "scene", 1, "공원 피크닉이라니, 날 좋은 날이 기다려져요.")).notice.includes("바로"))
+  await as(S2)
+  const s2view = await mine()
+  eq("B 한마디: 상대의 한마디는 내가 남기기 전에도 바로 보인다", [find(s2view, 1, "comment").partner.body, find(s2view, 1, "comment").own], ["공원 피크닉이라니, 날 좋은 날이 기다려져요.", null])
+  await as("postgres")
+  eq("B 한마디: 상대에게 사이트 알림이 간다(메일 아님)", (await one("select count(*)::int n from public.notifications where dedupe_key = $1 and member_id = $2 and public.email_class(kind) = 'site'", [`comment:${scenes}:comment:1:${S1}`, S2])).n, 1)
+  await commentFails("B 한마디: 한 번만 남길 수 있다", S1, "scene", 1, "한 번 더 남겨요", /한 번만/)
+  await commentFails("B 한마디: 100자 안으로", S2, "scene", 1, "가".repeat(101), /100자/)
+  await commentFails("B 한마디: 연락처는 남길 수 없다", S2, "scene", 1, "카톡 아이디 sky_walk 로 연락 주세요", /연락처/)
+  await commentFails("B 한마디: 아직 열리지 않은 날에는 남길 수 없다", S2, "scene", 2, "좋아요", /열린 뒤/)
+  await as(L3)
+  await fails("B 한마디: 교류 당사자가 아니면 남길 수 없다", "select public.leave_scene_comment($1, 'scene', 1, '안녕하세요')", [scenes], /찾을 수 없어요/)
+  await at(await plus(startS, 1), "09:00")
+  await commentFails("B 한마디: 그날 답에는 다음 날 09:00까지", S2, "scene", 1, "좋아요", /09:00/)
+  // 둘째 날: 한마디를 남긴 S1은 reaction 없이, 남기지 않은 S2는 reaction이 필요하다. 직접 쓴 곳은 공통 목록·직접 작성에서 고른다.
+  await at(await plus(startS, 1), "10:00")
+  await sceneFails("B 직접 작성: 첫날 고른 곳이 있으면 다른 곳을 직접 쓸 수 없다", S1, 2, { place: "custom:다른 곳", flow: "천천히 머물기", rest: "조용한 카페", about: "처음엔 같이 뭔가 하면 편해져요." }, /첫날 고른 곳/)
+  await sceneFails("B 직접 작성: 머무는 방식도 20자 안으로", S1, 2, { place: "custom:보드게임 카페", flow: "custom:" + "가".repeat(21), rest: "조용한 카페", about: "처음엔 같이 뭔가 하면 편해져요." }, /20자/)
+  const s1d2 = await scene(S1, 2, { place: "custom:보드게임 카페", flow: "custom:보드게임 하나 같이 하기", rest: "조용한 카페", about: "처음엔 같이 뭔가 하면 편해져요." })
+  eq("B 한마디: 전날 한마디를 남겼다면 다음 날 답에서 한마디를 다시 묻지 않는다", "reaction" in find(s1d2, 2, "scene").own.payload, false)
+  await sceneFails("B 한마디: 한마디를 남기지 않았다면 전날 선택에 한마디가 여전히 필요하다", S2, 2, { place: "custom:보드게임 카페", flow: "천천히 머물기", rest: "custom:창가 자리", about: "처음엔 조용한 편이에요." }, /한마디/)
+  const s2d2 = find(await scene(S2, 2, { place: "custom:보드게임 카페", flow: "천천히 머물기", rest: "custom:창가 자리", reaction: "보드게임 카페 좋아요.", about: "처음엔 조용한 편이에요." }), 2, "scene")
+  eq("B 직접 작성: 상대가 직접 쓴 곳을 기준으로 공통 목록·직접 작성에서 고를 수 있다", [s2d2.own.payload.place, s2d2.own.payload.rest, s2d2.partner.payload.flow], ["custom:보드게임 카페", "custom:창가 자리", "custom:보드게임 하나 같이 하기"])
+  await at(await plus(startS, 2), "10:00")
+  await scene(S1, 3, { topic: "요즘 빠진 보드게임 이야기", reaction: "창가 자리 좋아요.", about: "느긋한 편이에요." })
+  await scene(S2, 3, { topic: "최근에 다녀온 곳", reaction: "보드게임 하나 같이 해요.", about: "궁금한 건 바로 물어봐요." })
+  // 첫 장면: 직접 쓴 것도 고를 수 있다(두 분이 쓴 것 중에서만)
+  const pickS = { activity: "custom:보드게임 카페", flow: "custom:보드게임 하나 같이 하기", rest: "custom:창가 자리", topic: "최근에 다녀온 곳" }
+  await as(S1)
+  await fails("B 첫 장면: 두 분이 쓰지 않은 직접 작성은 고를 수 없다", "select public.choose_first_scene($1, $2)", [scenes, JSON.stringify({ ...pickS, rest: "custom:없는 곳" })], /하나씩/)
+  await fails("B 첫 장면 이야기: 첫 장면을 고르기 전에는 쓸 수 없다", "select public.write_scene_piece($1, $2)", [scenes, "창가 자리에서 보드게임 하나를 천천히 해 보고 싶어요."], /먼저 골라/)
+  ok("B 첫 장면: 직접 쓴 것으로 첫 장면을 고를 수 있다", (await one("select public.choose_first_scene($1, $2) v", [scenes, JSON.stringify(pickS)])).v.notice.includes("상대도 고르면"))
+  await fails("B 첫 장면 이야기: 10자보다 짧으면 받지 않는다", "select public.write_scene_piece($1, '좋아요')", [scenes], /10~300자/)
+  await fails("B 첫 장면 이야기: 연락처는 넣을 수 없다", "select public.write_scene_piece($1, '만나기 전에 010-1234-5678 로 문자 주세요. 기다릴게요.')", [scenes], /연락처/)
+  const piece1 = (await one("select public.write_scene_piece($1, $2) v", [scenes, "창가 자리에서 보드게임 하나를 천천히 해 보고 싶어요."])).v
+  ok("B 첫 장면 이야기: 먼저 쓰면 상대를 기다린다", piece1.notice.includes("상대도 쓰면") && find(piece1, 3, "piece").partner === null)
+  eq("B 첫 장면 이야기: 쓸 때 고른 장면이 함께 남는다", find(piece1, 3, "piece").own.payload, pickS)
+  eq("B 첫 장면 이야기: 상대에게 썼다고 알린다", await notes(`piece-sent:${scenes}:${S1}`), 1)
+  await as(S1)
+  await fails("B 첫 장면 이야기: 한 번만 쓸 수 있다", "select public.write_scene_piece($1, $2)", [scenes, "다시 쓰고 싶은 이야기가 생겼어요. 한 번 더요."], /다시 보낼 수 없어요/)
+  await as(S2)
+  const waitingPiece = find(await mine(), 3, "piece")
+  ok("B 첫 장면 이야기: 상대가 쓴 것은 알 수 있지만 내가 쓰기 전에는 보이지 않는다", waitingPiece.partnerSent && waitingPiece.partner === null && waitingPiece.own === null)
+  await commentFails("B 한마디: 첫 장면 이야기가 함께 열리기 전에는 남길 수 없다", S2, "piece", null, "좋아요", /함께 열린 뒤/)
+  await as(S2)
+  await q("select public.choose_first_scene($1, $2)", [scenes, JSON.stringify(pickS)])
+  const piece2 = (await one("select public.write_scene_piece($1, $2) v", [scenes, "창가 자리에서 다녀온 곳 이야기를 들려주고 싶어요."])).v
+  eq("B 첫 장면 이야기: 두 분 모두 쓰면 함께 열린다", find(piece2, 3, "piece").partner.body, "창가 자리에서 보드게임 하나를 천천히 해 보고 싶어요.")
+  eq("B 첫 장면 이야기: 함께 열렸다고 두 분에게 알린다", await notes(`piece-open:${scenes}:%`), 2)
+  await comment(S2, "piece", null, "창가 자리 저도 좋아요.")
+  await as(S1)
+  eq("B 한마디: 첫 장면 이야기에 남긴 한마디도 바로 보인다", find(await mine(), 3, "piece-comment").partner.body, "창가 자리 저도 좋아요.")
+  // 마감: 만남 선택 마감(다섯째 날 09:00)
+  await at(await plus(startS, 4), "09:00")
+  await commentFails("B 한마디: 첫 장면 이야기에는 만남 선택 마감까지", S1, "piece", null, "좋아요", /마감/)
+  await as(S1)
+  await fails("B 첫 장면 이야기: 만남 선택 마감이 지나면 쓸 수 없다", "select public.write_scene_piece($1, $2)", [scenes, "마감이 지난 뒤에 쓰는 첫 장면 이야기예요."], /다섯째 날 09:00/)
+  // 다른 방식·비회원
+  await as(L1)
+  await fails("B 한마디: A 교류에서는 남길 수 없다", "select public.leave_scene_comment($1, 'scene', 1, '좋아요')", [letters], /B 방식/)
+  await as("anon")
+  await fails("비회원은 첫 장면 이야기를 쓸 수 없다", "select public.write_scene_piece($1, '비회원이 쓰는 이야기예요. 열 자 넘게.')", [scenes])
+  // 다시 읽기: 마무리된 교류에서도 한마디·첫 장면 이야기가 함께 온다
+  await as("postgres")
+  await q("update public.programs set status = 'closed', closed_at = now(), end_reason = 'completed', meeting_a = 'positive', meeting_b = 'positive' where id = $1", [scenes])
+  await as(S2)
+  const reread = (await one("select public.my_readable_programs() v")).v.find((p) => p.id === scenes)
+  ok("B 다시 읽기: 한마디·첫 장면 이야기도 함께 다시 읽을 수 있다", !!find(reread, 1, "comment")?.partner && !!find(reread, 3, "piece")?.partner && !!find(reread, 3, "piece-comment")?.own)
+  await as("postgres")
+  await clock(null)
+}
+
 console.log(`서버 데이터베이스 점검 통과: ${passed}개`)

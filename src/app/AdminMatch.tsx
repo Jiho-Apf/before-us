@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { Sparkles, X } from "lucide-react";
+import { ChevronDown, Sparkles, X } from "lucide-react";
 import { Button } from "./components/ui/button";
+import { Checkbox } from "./components/ui/checkbox";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
 import { rpc, supabase } from "./backend/client";
@@ -12,7 +13,7 @@ import { APPEARANCE_PREFIX, PREFERENCE_FIELDS, hasSpecificPreference, preference
 import { BEFORE_US } from "./config";
 import { cohortName } from "./cohort";
 import { kstDateTime, kstDay } from "./dates";
-import { box, call, candidatesFor, fitScore, localInsight, pairWarnings, revealOnNarrow, useBusy, useLoad, waitedDays, type Fit, type Insight, type Preferences, type ReadyMember } from "./admin-match";
+import { MATCH_SCORE_SHOWN, box, call, candidatesFor, draftNote, fitScore, localInsight, memberMatch, pairWarnings, revealOnNarrow, useBusy, useLoad, waitedDays, type Filtered, type Fit, type Insight, type MemberMatch, type PairHistory, type Preferences, type ReadyMember } from "./admin-match";
 
 // 운영진 화면이 같이 쓰는 작은 조각(알림 줄·사진·기다린 날·확인 창)과 매칭 화면.
 
@@ -117,19 +118,21 @@ function MemberFlags({ member, date }: { member: ReadyMember; date: string }) {
 const memberLine = (member: ReadyMember) => `${member.gender ?? "?"} → ${member.desired ?? "?"} · ${member.age ?? "?"}세 · ${member.province ?? ""} ${member.area ?? ""}`;
 const scoreTone = (score: number) => score >= 70 ? "text-primary" : score >= 45 ? "text-foreground" : "text-destructive";
 
-function Side({ member, side, date, onClear }: { member: ReadyMember; side: "왼쪽" | "오른쪽"; date: string; onClear: () => void }) {
-  const detail = useLoad(() => call<ApplicationDetail>("admin_get_application", { p_member: member.member_id }), [member.member_id]);
+// 소개서는 MatchBoard가 불러와 넘긴다(회원에게 보일 궁합도 같은 소개서의 공개 항목으로 만든다).
+type DetailState = { data: ApplicationDetail | null; error: string | null };
+function Side({ member, side, date, detail, onClear }: { member: ReadyMember; side: "왼쪽" | "오른쪽"; date: string; detail: DetailState; onClear: () => void }) {
   return <section className={`${box} space-y-4 p-5`} aria-label={`${side} 소개서`}>
     <div className="flex flex-wrap items-start justify-between gap-2">
       <div className="min-w-0"><p className="text-[11px] text-muted-foreground">{side} · {member.cohort != null ? `${cohortName(member.cohort)} · ` : ""}소개 {member.introductions}번{member.last_published_at ? ` · 최근 ${kstDay(member.last_published_at)}` : " · 첫 소개 전"}</p><h3 className="mt-1 text-lg font-semibold">{member.name ?? "이름 없음"}<MemberFlags member={member} date={date} /></h3><p className="text-xs text-muted-foreground">{memberLine(member)}</p></div>
       <div className="flex gap-1"><Link to={`/admin/applicants?member=${member.member_id}`} className="rounded-full border border-border px-3 py-1 text-[11px] hover:bg-secondary">신청서</Link><Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]" onClick={onClear}><X size={13} />바꾸기</Button></div>
     </div>
-    {detail.error ? <Notice text={detail.error} /> : detail.data ? <ProfileSheet detail={detail.data} member={member} /> : <p className="text-xs text-muted-foreground">소개서를 불러오고 있어요.</p>}
+    {detail.error ? <Notice text={detail.error} /> : detail.data?.memberId === member.member_id ? <ProfileSheet detail={detail.data} member={member} /> : <p className="text-xs text-muted-foreground">소개서를 불러오고 있어요.</p>}
   </section>;
 }
 
 // 궁합 분석(참고용): 외부로 아무것도 보내지 않고, 이 화면에서 두 소개서를 나란히 읽어 정리한다(localInsight).
-function Compat({ left, right, fit, onUseNote }: { left: ReadyMember; right: ReadyMember; fit: Fit; onUseNote: (note: string) => void }) {
+// 소개 이유 초안(note)은 두 분 모두 공개한 항목으로만 만든다(두 분에게 함께 보이는 글이라 비공개 답이 새지 않게).
+function Compat({ left, right, fit, note, onUseNote }: { left: ReadyMember; right: ReadyMember; fit: Fit; note: string | null; onUseNote: (note: string) => void }) {
   const [ai, setAi] = useState<{ loading: boolean; data?: Insight; error?: string }>({ loading: false });
   const load = () => setAi({ loading: false, data: localInsight(left, right, fit) });
   const List = ({ items, tone }: { items: string[]; tone: "ok" | "warn" | "danger" }) => items.length ? <ul className="space-y-1 text-xs leading-5">{items.map(item => <li key={item} className="flex gap-2"><span aria-hidden="true" className={tone === "ok" ? "text-primary" : tone === "warn" ? "text-accent" : "text-destructive"}>{tone === "ok" ? "✓" : tone === "warn" ? "!" : "✕"}</span><span>{item}</span></li>)}</ul> : null;
@@ -147,12 +150,41 @@ function Compat({ left, right, fit, onUseNote }: { left: ReadyMember; right: Rea
         <div className="flex items-baseline gap-3"><span className={`text-3xl font-light tabular-nums ${scoreTone(ai.data.score)}`}>{Math.round(ai.data.score)}</span><p className="text-xs leading-6">{ai.data.summary}</p></div>
         <List items={ai.data.reasons ?? []} tone="ok" />
         <List items={ai.data.cautions ?? []} tone="warn" />
-        {ai.data.note && <div className="rounded-md bg-muted p-3 text-xs leading-6"><p className="text-muted-foreground">소개 이유 초안</p><p className="mt-1">{ai.data.note}</p><Button size="sm" variant="outline" className="mt-2 h-7 text-[11px]" onClick={() => onUseNote(ai.data!.note!)}>소개 이유 초안으로 쓰기</Button></div>}
+        <div className="rounded-md bg-muted p-3 text-xs leading-6"><p className="text-muted-foreground">소개 이유 초안 · 두 분 모두 공개한 항목으로</p>{note ? <><p className="mt-1">{note}</p><Button size="sm" variant="outline" className="mt-2 h-7 text-[11px]" onClick={() => onUseNote(note)}>소개 이유 초안으로 쓰기</Button></> : <p className="mt-1 text-muted-foreground">두 소개서를 불러오면 초안을 만들어요.</p>}</div>
         <p className="text-[11px] leading-5 text-muted-foreground">분석은 판단을 돕는 참고 자료예요. 회원에게 그대로 보내지 말고, 소개 이유는 직접 다듬어 주세요.</p>
       </div>}
       {!ai.data && !ai.error && !ai.loading && <p className="text-xs text-muted-foreground">두 소개서를 나란히 읽고 점수·이유·주의할 점·소개 이유 초안을 정리해요. 누를 때만 분석해요.</p>}
     </div>
   </section>;
+}
+
+// 자동 필터: 다시 소개하지 않는 분·조건이 맞지 않는 분을 까닭과 기록으로 접어 둔다(기본은 접힘). 서버도 같은 기준으로 예약을 막는다.
+function AutoFilter({ filtered, otherGender }: { filtered: Filtered[]; otherGender: number }) {
+  const total = filtered.length + otherGender;
+  if (!total) return null;
+  return <details className="group border-b border-border px-4 py-3 text-xs">
+    <summary className="flex cursor-pointer list-none items-center gap-1.5 font-semibold [&::-webkit-details-marker]:hidden"><Sparkles size={13} className="text-accent" />자동 필터 · 자동으로 거른 분 {total}명<ChevronDown size={13} className="ml-auto text-muted-foreground transition-transform group-open:rotate-180" /></summary>
+    <p className="mt-2 text-[11px] leading-5 text-muted-foreground">소개 기록·차단·신고·아는 사람 피하기·성별·필수 조건을 보고 걸렀어요. 예약할 때 서버도 같은 기준으로 한 번 더 막아요.</p>
+    <ul className="mt-1 divide-y divide-border">
+      {filtered.map(({ member, reason }) => <li key={member.member_id} className="py-2"><p><span className="font-semibold">{member.name ?? "이름 없음"}</span><span className="ml-2 text-[11px] text-muted-foreground">{member.age ?? "?"}세 · {member.province ?? "-"}</span></p><p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">{reason}</p></li>)}
+      {otherGender > 0 && <li className="py-2 text-[11px] text-muted-foreground">찾는 성별이 아닌 분 {otherGender}명</li>}
+    </ul>
+  </details>;
+}
+
+// 회원에게 보일 궁합 미리 보기: 두 분 모두 공개한 항목으로만 만들고, 예약과 함께 보낸다(정오 공개부터 두 분의 ‘두 사람’ 화면에).
+function MemberMatchPreview({ match, waiting, error, send, onSend }: { match: MemberMatch | null; waiting: boolean; error: string | null; send: boolean; onSend: (value: boolean) => void }) {
+  return <div className="space-y-3 rounded-lg border border-lilac bg-mist p-4" aria-label="회원에게 보일 궁합">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <h3 className="flex items-center gap-1.5 text-xs font-semibold"><Sparkles size={13} className="text-accent" />회원에게 보일 궁합<span className="font-normal text-muted-foreground">· 정오 공개부터 두 분에게</span></h3>
+      {match && <label className="flex cursor-pointer items-center gap-2 text-[11px]"><Checkbox checked={send} onCheckedChange={value => onSend(value === true)} />예약과 함께 보내기</label>}
+    </div>
+    {match ? <div className={`space-y-3 ${send ? "" : "opacity-50"}`}>
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">{match.score >= MATCH_SCORE_SHOWN ? <span className="text-2xl font-light tabular-nums text-primary">{match.score}</span> : <Pill tone="warn">숫자 없이 이유만 · {match.score}점</Pill>}<p className="text-xs font-semibold leading-6">{match.headline}</p></div>
+      <div className="grid gap-3 sm:grid-cols-2">{([["왜 어울리는지", match.why], ["함께일 때 빛나는 점", match.together]] as const).map(([title, items]) => <div key={title}><p className="text-[11px] font-semibold text-accent">{title}</p><ul className="mt-1 space-y-1 text-xs leading-5">{items.map(item => <li key={item} className="flex gap-2"><span aria-hidden="true" className="mt-2 size-1 shrink-0 rounded-full bg-primary" /><span>{item}</span></li>)}</ul></div>)}</div>
+    </div> : <p className="text-xs text-muted-foreground">{error ? "소개서를 불러오지 못해 궁합을 만들 수 없어요. 이대로 예약하면 궁합 없이 소개돼요." : waiting ? "두 소개서를 읽고 있어요." : "두 분을 고르면 만들어요."}</p>}
+    <p className="text-[11px] leading-5 text-muted-foreground">두 분 모두 ‘상대 공개’로 둔 항목만 써요(비공개 답·바라는 상대·필수 조건·키·MBTI는 쓰지 않아요). 점수가 {MATCH_SCORE_SHOWN}점 아래면 회원에게는 숫자 없이 이유만 보여요.</p>
+  </div>;
 }
 
 export function MatchBoard({ focus, onReserved }: { focus: string | null; onReserved: () => Promise<void> }) {
@@ -164,22 +196,36 @@ export function MatchBoard({ focus, onReserved }: { focus: string | null; onRese
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [gender, setGender] = useState<"" | "여성" | "남성">("");
+  const [sendCompat, setSendCompat] = useState(true);
   const { busy, run } = useBusy();
   const members = ready.data ?? [];
   const left = members.find(member => member.member_id === leftId) ?? null;
   const right = members.find(member => member.member_id === rightId) ?? null;
   useEffect(() => { setLeftId(focus); setRightId(null); }, [focus]);
-  const pool = useMemo(() => left ? candidatesFor(left, members, date) : null, [left, members, date]);
+  // 두 소개서(운영진 열람 기록은 서버가 하루 한 번 남긴다)와 왼쪽 회원의 두 사람 소개 기록(자동 필터의 근거)
+  const leftDetail = useLoad(() => leftId ? call<ApplicationDetail>("admin_get_application", { p_member: leftId }) : Promise.resolve(null), [leftId]);
+  const rightDetail = useLoad(() => rightId ? call<ApplicationDetail>("admin_get_application", { p_member: rightId }) : Promise.resolve(null), [rightId]);
+  const history = useLoad(async () => ({ member: leftId, rows: leftId ? await call<PairHistory[]>("admin_pair_history", { p_member: leftId }) : [] }), [leftId]);
+  const historyReady = history.data?.member === leftId || (!!history.error && !history.loading);
+  const pastMap = useMemo(() => new Map((history.data?.member === leftId ? history.data.rows : []).map(item => [item.other, item] as const)), [history.data, leftId]);
+  // 이 회원의 소개 기록을 받기 전에는 후보를 보여 주지 않는다(거를 분이 잠깐 섞여 보이지 않게). 못 받으면 이전 소개·차단 목록으로만 거른다.
+  const pool = useMemo(() => left && historyReady ? candidatesFor(left, members, date, pastMap) : null, [left, members, date, pastMap, historyReady]);
   const fit = useMemo(() => left && right ? fitScore(left, right) : null, [left, right]);
-  const warnings = left && right && fit ? pairWarnings(left, right, date, fit) : [];
+  const past = right ? pastMap.get(right.member_id) ?? null : null;
+  const warnings = left && right && fit ? pairWarnings(left, right, date, fit, past) : [];
   const blocking = warnings.some(item => item.blocking);
+  const leftDraft = leftDetail.data?.memberId === leftId ? leftDetail.data?.draft : undefined;
+  const rightDraft = rightDetail.data?.memberId === rightId ? rightDetail.data?.draft : undefined;
+  const compat = useMemo(() => leftDraft && rightDraft ? memberMatch(leftDraft, rightDraft) : null, [leftDraft, rightDraft]);
+  const sharedNote = useMemo(() => leftDraft && rightDraft ? draftNote(leftDraft, rightDraft) : null, [leftDraft, rightDraft]);
   const pickLeft = (id: string) => { setLeftId(id); setRightId(null); setMessage(""); revealOnNarrow("match-right"); };
-  const pickRight = (id: string) => { setRightId(id); setMessage(""); revealOnNarrow("match-right"); };
+  const pickRight = (id: string) => { setRightId(id); setSendCompat(true); setMessage(""); revealOnNarrow("match-right"); };
   const swap = () => { setLeftId(rightId); setRightId(leftId); };
   const reserve = () => run("reserve", async () => {
-    const { error } = await rpc("admin_reserve_introduction", { p_a: leftId, p_b: rightId, p_date: date, p_note: note });
-    setMessage(error || `${left?.name} · ${right?.name} · ${kstDay(`${date}T12:00:00+09:00`)} 정오 공개로 예약했어요.`);
-    if (!error) { setLeftId(null); setRightId(null); setNote(""); await ready.reload(); await onReserved(); }
+    const match = sendCompat && compat ? compat : null;
+    const { error } = await rpc("admin_reserve_introduction", { p_a: leftId, p_b: rightId, p_date: date, p_note: note, p_match: match });
+    setMessage(error || `${left?.name} · ${right?.name} · ${kstDay(`${date}T12:00:00+09:00`)} 정오 공개로 예약했어요. ${match ? `회원에게 보일 궁합도 함께 보냈어요(${match.score >= MATCH_SCORE_SHOWN ? `${match.score}점` : "숫자 없이 이유만"} · ${match.headline})` : "궁합은 보내지 않았어요."}`);
+    if (!error) { setLeftId(null); setRightId(null); setNote(""); setSendCompat(true); await ready.reload(); await onReserved(); }
   });
   const filtered = members.filter(member => (!gender || member.gender === gender) && (!search.trim() || (member.name ?? "").includes(search.trim())));
   const focusMissing = focus && ready.data && !members.some(member => member.member_id === focus);
@@ -187,25 +233,27 @@ export function MatchBoard({ focus, onReserved }: { focus: string | null; onRese
     {focusMissing && <Notice text="찾는 회원은 지금 소개 가능 목록에 없어요(쉬는 중이거나 소개·교류 중, 또는 승인 전)." />}
     {ready.error && <Notice text={ready.error} />}
     <div className="grid gap-5 lg:grid-cols-2">
-      {left ? <Side member={left} side="왼쪽" date={date} onClear={() => { setLeftId(null); setRightId(null); }} /> : <section className={`${box} overflow-hidden`} aria-label="소개할 회원 고르기">
+      {left ? <Side member={left} side="왼쪽" date={date} detail={leftDetail} onClear={() => { setLeftId(null); setRightId(null); }} /> : <section className={`${box} overflow-hidden`} aria-label="소개할 회원 고르기">
         <div className="space-y-2 border-b border-border p-4"><h2 className="text-sm font-semibold">먼저 한 분을 골라 주세요</h2><div className="flex flex-wrap gap-2"><Input aria-label="이름으로 찾기" value={search} onChange={event => setSearch(event.target.value)} placeholder="이름" className="h-8 max-w-40 text-xs" />{(["", "여성", "남성"] as const).map(value => <Button key={value || "all"} size="sm" variant={gender === value ? "default" : "outline"} className="h-8 text-xs" onClick={() => setGender(value)}>{value || "모두"}</Button>)}</div><p className="text-[11px] text-muted-foreground">승인된 회원 중 진행 중인 소개가 없는 분이에요. 방금 마무리한 분, 오래 기다린 분이 위에 있어요.</p></div>
         <div className="max-h-[640px] divide-y divide-border overflow-y-auto">{filtered.length ? filtered.map(member => <button key={member.member_id} type="button" onClick={() => pickLeft(member.member_id)} className="block w-full px-4 py-3 text-left text-sm hover:bg-secondary"><span className="font-semibold">{member.name ?? "이름 없음"}</span><MemberFlags member={member} date={date} /><span className="mt-1 block text-xs text-muted-foreground">{memberLine(member)} · {member.purpose ?? "-"} · 소개 {member.introductions}번</span></button>) : <p className="p-5 text-sm text-muted-foreground">{ready.loading ? "불러오고 있어요." : "지금 소개할 수 있는 회원이 없어요."}</p>}</div>
       </section>}
       <div id="match-right" className="scroll-mt-24">
-        {!left ? <p className={`${box} p-5 text-sm text-muted-foreground`}>왼쪽에서 한 분을 고르면, 서로 원하는 성별이고 차단·이전 소개·아는 사람 피하기가 아닌 분을 잘 맞는 순서로 보여 드려요.</p>
-          : right ? <Side member={right} side="오른쪽" date={date} onClear={() => setRightId(null)} />
+        {!left ? <p className={`${box} p-5 text-sm text-muted-foreground`}>왼쪽에서 한 분을 고르면, 자동 필터가 다시 소개하지 않는 분(서로 선택·넘김·답 없음·차단·신고)과 아는 사람 피하기·성별·필수 조건이 맞지 않는 분을 까닭과 함께 거르고, 나머지를 잘 맞는 순서로 보여 드려요.</p>
+          : right ? <Side member={right} side="오른쪽" date={date} detail={rightDetail} onClear={() => setRightId(null)} />
           : <section className={`${box} overflow-hidden`} aria-label={`${left.name}님과 맞는 분`}>
-            <div className="border-b border-border p-4"><h2 className="text-sm font-semibold">{left.name}님과 잘 맞는 분 · {pool?.candidates.length ?? 0}명</h2><p className="mt-1 text-[11px] leading-5 text-muted-foreground">규칙 점수 순이에요(예약할 수 없는 분은 아래로).{pool && Object.values(pool.excluded).some(Boolean) ? ` 제외 · ${[["gender", "성별 안 맞음"], ["blocked", "차단"], ["previous", "이전 소개"], ["avoided", "아는 사람 피하기"], ["held", "예전 차단"]].filter(([key]) => pool.excluded[key as keyof typeof pool.excluded]).map(([key, label]) => `${label} ${pool.excluded[key as keyof typeof pool.excluded]}`).join(" · ")}` : ""}</p></div>
-            <div className="max-h-[640px] divide-y divide-border overflow-y-auto">{pool?.candidates.length ? pool.candidates.map(({ member, fit: score, reservable }) => <button key={member.member_id} type="button" onClick={() => pickRight(member.member_id)} className={`flex w-full items-start gap-3 px-4 py-3 text-left text-sm hover:bg-secondary ${reservable ? "" : "opacity-70"}`}>
+            <div className="border-b border-border p-4"><h2 className="text-sm font-semibold">{left.name}님과 잘 맞는 분 · {pool?.candidates.length ?? 0}명</h2><p className="mt-1 text-[11px] leading-5 text-muted-foreground">규칙 점수 순이에요(예약할 수 없는 분은 아래로). 노랑 안내가 있는 분은 예전 소개가 있지만 다시 소개할 수 있는 분이에요.</p></div>
+            {history.error && <p role="status" className="border-b border-border bg-[#F8E5A6]/40 px-4 py-2 text-[11px] leading-5">소개 기록을 불러오지 못했어요({history.error}). 이전 소개·차단 목록으로만 걸렀고, 예약할 때 서버가 한 번 더 확인해요.</p>}
+            {pool && <AutoFilter filtered={pool.filtered} otherGender={pool.otherGender} />}
+            <div className="max-h-[640px] divide-y divide-border overflow-y-auto">{pool?.candidates.length ? pool.candidates.map(({ member, fit: score, reservable, note: again }) => <button key={member.member_id} type="button" onClick={() => pickRight(member.member_id)} className={`flex w-full items-start gap-3 px-4 py-3 text-left text-sm hover:bg-secondary ${reservable ? "" : "opacity-70"}`}>
               <span className={`w-10 shrink-0 text-right text-xl font-light tabular-nums ${scoreTone(score.score)}`}>{score.score}</span>
-              <span className="min-w-0"><span className="font-semibold">{member.name ?? "이름 없음"}</span><MemberFlags member={member} date={date} />{!reservable && <span className="ml-2"><Pill tone="danger">지금 예약 불가</Pill></span>}<span className="mt-1 block text-xs text-muted-foreground">{memberLine(member)} · {member.purpose ?? "-"}</span><span className="mt-0.5 block text-[11px] leading-5 text-muted-foreground">{score.violations[0] ?? score.reasons[0] ?? ""}{score.cautions[0] ? ` · 주의: ${score.cautions[0]}` : ""}</span></span>
-            </button>) : <p className="p-5 text-sm text-muted-foreground">조건에 맞는 분이 지금은 없어요.</p>}</div>
+              <span className="min-w-0"><span className="font-semibold">{member.name ?? "이름 없음"}</span><MemberFlags member={member} date={date} />{!reservable && <span className="ml-2"><Pill tone="danger">지금 예약 불가</Pill></span>}<span className="mt-1 block text-xs text-muted-foreground">{memberLine(member)} · {member.purpose ?? "-"}</span><span className="mt-0.5 block text-[11px] leading-5 text-muted-foreground">{score.violations[0] ?? score.reasons[0] ?? ""}{score.cautions[0] ? ` · 주의: ${score.cautions[0]}` : ""}</span>{again && <span className="mt-1 block w-fit rounded-md bg-[#F8E5A6]/70 px-2 py-0.5 text-[11px] leading-5 text-[#5A4310]">{again}</span>}</span>
+            </button>) : <p className="p-5 text-sm text-muted-foreground">{pool ? "조건에 맞는 분이 지금은 없어요." : "소개 기록을 확인하고 있어요."}</p>}</div>
           </section>}
       </div>
     </div>
     {left && right && fit && <>
       <div className="flex justify-center"><Button size="sm" variant="ghost" onClick={swap}>좌우 바꾸기(오른쪽 분 기준으로 후보 보기)</Button></div>
-      <Compat key={`${left.member_id}-${right.member_id}`} left={left} right={right} fit={fit} onUseNote={value => setNote(value.slice(0, 300))} />
+      <Compat key={`${left.member_id}-${right.member_id}`} left={left} right={right} fit={fit} note={sharedNote} onUseNote={value => setNote(value.slice(0, 300))} />
       <section className={`${box} space-y-4 p-5`} aria-label="정오 소개 예약">
         <h2 className="text-sm font-semibold">정오 소개 예약 · {left.name} · {right.name}</h2>
         {warnings.map(item => <p key={item.text} role={item.blocking ? "alert" : undefined} className={`text-xs leading-5 ${item.blocking ? "text-destructive" : "text-accent"}`}>{item.blocking ? "예약 불가 · " : "확인 · "}{item.text}</p>)}
@@ -214,6 +262,7 @@ export function MatchBoard({ focus, onReserved }: { focus: string | null; onRese
           <label className="block text-xs">두 분에게 함께 보일 소개 이유<Textarea value={note} maxLength={300} onChange={event => setNote(event.target.value)} placeholder="예: 두 분 모두 천천히 알아가는 연애를 원하셨고, 주말 산책을 좋아하셨어요." className="mt-1 min-h-24" /></label>
         </div>
         <p className="text-[11px] leading-5 text-muted-foreground">공개 동의한 항목만 상대에게 보여요. 외모 평가나 점수, 비공개 항목은 소개 이유에 쓰지 않아요. {note.trim().length}/300자 · 10자 이상</p>
+        <MemberMatchPreview match={compat} waiting={leftDetail.loading || rightDetail.loading} error={leftDetail.error || rightDetail.error} send={sendCompat} onSend={setSendCompat} />
         <Button disabled={blocking || note.trim().length < 10 || busy === "reserve"} onClick={() => void reserve()}>{busy === "reserve" ? "예약하고 있어요" : "예약하기"}</Button>
       </section>
     </>}

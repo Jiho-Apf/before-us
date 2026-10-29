@@ -6,6 +6,9 @@ import type { Program } from "./program"
 
 // 실제 서버의 회원 화면 자료: 신청 상태 · 지금의 소개 · 알림 · 회원 요청.
 export type LiveProfile = { version: number; items: { id: string; value: string | string[] }[]; photos: { slot: string; path: string }[]; greeting?: string | null }
+// 두 분의 궁합: 예약 때 운영진 화면이 두 분 모두 공개한 항목으로 만든 글. 정오 공개부터 열람 기간에만 오고,
+// 점수는 65 이상일 때만 숫자로 온다(그 아래는 null · 이유만). 예전 소개에는 없다(null).
+export type IntroMatch = { score: number | null; headline: string; why: string[]; together: string[] }
 export type LiveIntroduction =
   | { status: "waiting" }
   | {
@@ -15,6 +18,7 @@ export type LiveIntroduction =
       dueAt: string
       viewUntil: string
       note: string | null
+      match?: IntroMatch | null
       profile: LiveProfile | null
       ownResponse: "positive" | "negative" | null
       ownResponseAt: string | null

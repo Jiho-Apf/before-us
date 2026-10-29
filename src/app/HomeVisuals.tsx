@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { ArrowUpRight, BadgeAlert, CalendarX2, Check, Link2Off, LockOpen, ShieldCheck, Siren, Smartphone, UserCheck } from "lucide-react";
+import { ArrowUpRight, BadgeAlert, CalendarX2, Check, Link2Off, LockOpen, PenLine, ShieldCheck, Siren, Smartphone, UserCheck } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { BEFORE_US } from "./config";
 import { LIVE } from "./backend/client";
@@ -95,12 +95,13 @@ export function LetterMoment({ className = "" }: { className?: string }) {
 }
 
 // ③ 두 가지 시작 B: 첫날 두 사람이 각자 고른 곳과 이유가 함께 열리고, 셋째 날 둘이 고른 것 중에서 하나씩 골라 ‘첫 장면’을 맞춘다
+// 목록에 없는 것은 ‘직접 작성’으로 쓸 수 있다(쉬어 갈 곳의 작은 연필 표시)
 export function SceneMoment({ className = "" }: { className?: string }) {
   const picks = [
     { who: "나", time: "20:31 고름", place: "서점", why: "책 고르는 걸 옆에서 구경하는 게 좋아서요.", tilt: "-rotate-2" },
     { who: "상대", time: "22:05 고름", place: "서점", why: "조용히 같이 걸을 수 있을 것 같아서요.", tilt: "ml-auto -mt-2 rotate-2" },
   ];
-  const scene = [["장소", "서점"], ["머무는 방식", "각자 한 권씩 골라 보기"], ["쉬어 갈 곳", "서점 안 카페"]];
+  const scene = [["장소", "서점", false], ["머무는 방식", "각자 한 권씩 골라 보기", false], ["쉬어 갈 곳", "골목 끝 작은 빵집", true]] as const;
   return (
     <figure className={`relative mx-auto w-full max-w-[440px] rounded-[2rem] bg-[linear-gradient(160deg,color-mix(in_oklch,var(--accent)_12%,var(--card)),color-mix(in_oklch,var(--primary)_7%,var(--card)))] p-5 shadow-[0_40px_80px_-50px_color-mix(in_oklch,var(--accent)_70%,transparent)] sm:p-7 ${className}`} aria-label="화면 예시: 두 사람이 고른 장면이 함께 열리고, 셋째 날 둘이 고른 것으로 첫 장면을 맞춰요">
       {picks.map(pick => (
@@ -114,7 +115,7 @@ export function SceneMoment({ className = "" }: { className?: string }) {
       </p>
       <div className="mt-5 rounded-2xl bg-card/90 px-5 py-4 shadow-[0_18px_40px_-30px_rgba(30,20,80,0.5)]">
         <p className="text-[10px] font-semibold tracking-[0.14em] text-accent">DAY 03 · 함께 맞춘 첫 장면</p>
-        <dl className="mt-3 grid grid-cols-3 gap-2 text-[11px]">{scene.map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="mt-0.5 font-semibold text-foreground">{value}</dd></div>)}</dl>
+        <dl className="mt-3 grid grid-cols-3 gap-2 text-[11px]">{scene.map(([label, value, own]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="mt-0.5 font-semibold text-foreground">{own && <><PenLine size={10} aria-hidden="true" className="mr-1 inline-block align-[-1px] text-accent" /><span className="sr-only">직접 쓴 </span></>}{value}</dd></div>)}</dl>
         <p className="mt-3 border-t border-border pt-3 text-[12px] leading-5 text-foreground">“요즘 읽고 있는 책 이야기”</p>
       </div>
     </figure>

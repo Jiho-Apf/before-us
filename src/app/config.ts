@@ -26,6 +26,11 @@ export const BEFORE_US = {
   // 베타 나이 범위(출생 연도 · 한국 나이 20~35세). 서버의 birth_year_range() 와 같이 바꾼다.
   ageBand: { minBirthYear: 1992, maxBirthYear: 2007, label: "1992~2007년생", korean: "한국 나이 20~35세", maxAge: 35 },
   beta: { active: true, startsOn: "2026-10-20", legalUpdatedOn: "2026-10-28", legalVersion: "beta-2026-10-28" },
+  // 결제(PG): 토스페이먼츠 결제위젯(주문서형). 사업자등록 전이라 테스트 모드만 쓴다(승인돼도 실제로 돈이 나가지 않는다).
+  // 클라이언트 키는 원래 브라우저에 들어가는 공개 값이다. 기본값은 토스가 문서·공식 예제에 공개한 결제위젯 문서 테스트 키이고,
+  // 빌드할 때 VITE_TOSS_CLIENT_KEY 로 바꿀 수 있다. 시크릿 키는 절대 여기 두지 않는다(Supabase 비밀 값 TOSS_SECRET_KEY).
+  // mode 와 금액(pricing.introduction · pricing.exchangePerPerson)은 서버의 public.payment_config() 와 같이 바꾼다(마이그레이션 3800).
+  payments: { provider: "toss", mode: "test" as "test" | "live", clientKey: (import.meta.env.VITE_TOSS_CLIENT_KEY as string | undefined) || "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm" },
   // 운영자(개인정보 보호책임자) 정보와 공식 SNS. 비어 있으면 화면에 ‘문의하기’로 대신 안내한다.
   operator: { name: "정지호", email: "beforeus.official.kr@gmail.com" },
   social: { instagram: "beforeus.official.kr", threads: "beforeus.official.kr" },

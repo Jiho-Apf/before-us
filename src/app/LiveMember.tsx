@@ -19,7 +19,7 @@ import { REQUEST_LABELS } from "./member-operations-model";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
 import { PHOTO_ORDER, loadMyApplication, partnerPhotoUrl, photoUrl, type PhotoRow } from "./backend/applications";
 import { publicApplicationProfile } from "./application-review";
-import { addAvoidContacts, deleteAvoidContact, loadAvoidContacts, type AvoidContact, blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, NOTIFICATION_FIRST, editBlockReason, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
+import { addAvoidContacts, deleteAvoidContact, loadAvoidContacts, type AvoidContact, blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, NOTIFICATION_FIRST, editBlockReason, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type IntroMatch, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
 
 // 실제 서버 모드의 회원 화면(오늘 · 두 사람 · 내 정보 · 문의·요청). 데모 화면과 같은 편집 톤을 쓴다.
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -136,6 +136,9 @@ function LiveTodayView() {
   if (loading) return <Waiting />;
   if (error || !data) return <section><p role="alert" className="text-sm text-destructive">{error || "불러오지 못했어요."}</p><Button variant="outline" className="mt-5 rounded-xl" onClick={() => void reload()}>다시 불러오기</Button></section>;
   const state = todayState(data);
+  // 지금 열려 있는 소개의 궁합(넘기겠다고 답한 뒤에는 보여 주지 않는다)
+  const intro = data.introduction;
+  const todayMatch = (intro.status === "published" || intro.status === "mutual") && intro.ownResponse !== "negative" ? intro.match ?? null : null;
   return (
     <section aria-labelledby="today-title">
       <header className="flex flex-wrap items-end justify-between gap-8 border-b border-border pb-8">
@@ -152,6 +155,7 @@ function LiveTodayView() {
           <h2 className="mt-4 text-2xl font-semibold leading-[1.45] sm:text-[28px]">{state.action}</h2>
           <p className="mt-6 max-w-xl text-sm leading-7 text-muted-foreground">{state.body}</p>
           {(state.to || state.extra) && <div className="mt-7 flex flex-wrap items-center gap-3">{state.to && <Button asChild className={`h-12 rounded-xl px-6 ${interaction}`}><Link to={state.to}>{state.action} <ArrowUpRight size={17} /></Link></Button>}{state.extra && <Button asChild variant="outline" className={`h-12 rounded-xl border-border px-6 ${interaction}`}><Link to={state.extra.to}>{state.extra.label} <ArrowUpRight size={17} /></Link></Button>}</div>}
+          {todayMatch && <MatchLink match={todayMatch} />}
           <div className="mt-auto pt-10"><QuietNote>한 번에 한 사람, 서두르지 않는 시작.</QuietNote></div>
         </Sheet>
         <aside aria-labelledby="notice-title" className="border-t border-border pt-6 lg:border-t-0 lg:pt-0">
@@ -289,6 +293,36 @@ function MyPublicProfileCard() {
   );
 }
 
+// 두 분의 궁합: 정오 공개부터 두 사람 화면에. 두 분이 상대에게 공개한 소개 내용만으로 정리한 글이에요.
+// 점수는 서버가 65 이상일 때만 숫자로 보내고, 그 아래는 이유만 보여 준다. 예전 소개(궁합 없음)에는 이 칸이 없다.
+const MATCH_CHIP = "rounded-full bg-[#F8E5A6] px-3 py-1 text-xs font-semibold text-[#5A4310] dark:bg-[#3B3424] dark:text-[#F3D98A]";
+function MatchSheet({ match }: { match: IntroMatch }) {
+  const groups = ([["왜 어울리는지", match.why], ["함께일 때 빛나는 점", match.together]] as const).filter(([, items]) => items.length);
+  return (
+    <section aria-labelledby="match-title" className="overflow-hidden rounded-3xl border border-lilac bg-card shadow-[0_24px_48px_-36px_color-mix(in_oklch,var(--primary)_40%,transparent)]">
+      <div className="border-b border-lilac bg-mist px-6 py-6 sm:px-8">
+        <p className={`inline-flex w-fit items-center gap-1.5 ${MATCH_CHIP}`}><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />두 분의 궁합</p>
+        <div className="mt-4 flex items-end gap-4">
+          {match.score != null && <p className="shrink-0 text-5xl font-light leading-none tabular-nums text-primary"><span className="sr-only">궁합 </span>{match.score}</p>}
+          <h2 id="match-title" className="min-w-0 text-lg font-semibold leading-[1.55] text-ink">{match.headline}</h2>
+        </div>
+      </div>
+      <div className={`grid gap-7 p-6 sm:p-8 ${groups.length > 1 ? "sm:grid-cols-2" : ""}`}>
+        {groups.map(([title, items]) => <div key={title}><h3 className="text-xs font-semibold text-accent">{title}</h3><ul className="mt-3 space-y-3">{items.map(item => <li key={item} className="flex gap-3 text-sm leading-7"><span aria-hidden="true" className="mt-[11px] size-1.5 shrink-0 rounded-full bg-primary/60" /><span className="min-w-0 break-keep">{item}</span></li>)}</ul></div>)}
+      </div>
+      <p className="border-t border-border px-6 py-4 text-[11px] leading-5 text-muted-foreground sm:px-8">두 분이 상대에게 공개한 소개 내용만으로 정리했어요. 서로를 알아가는 데 작은 참고로 봐 주세요.</p>
+    </section>
+  );
+}
+// 오늘 화면의 작은 궁합 줄(두 사람 화면으로)
+function MatchLink({ match }: { match: IntroMatch }) {
+  return <Link to="/us" className={`mt-7 flex items-center gap-3 rounded-2xl border border-lilac bg-mist px-4 py-3 hover:border-primary/40 ${interaction}`}>
+    <span className={`shrink-0 tabular-nums ${MATCH_CHIP}`}>두 분의 궁합{match.score != null ? ` ${match.score}` : ""}</span>
+    <span className="line-clamp-2 min-w-0 flex-1 text-xs leading-6 text-ink">{match.headline}</span>
+    <ArrowUpRight size={15} aria-hidden="true" className="shrink-0 text-muted-foreground" />
+  </Link>;
+}
+
 function PartnerPhoto({ path, label }: { path: string; label: string }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -377,6 +411,7 @@ function LiveIntroductionView() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{intro.profile.photos.map(photo => <PartnerPhoto key={photo.path} path={photo.path} label={PHOTO_SLOTS.find(slot => slot.id === photo.slot)?.label ?? "사진"} />)}</div>
           {intro.profile.greeting && <figure className="border-l-2 border-primary pl-5"><blockquote className="text-lg font-semibold leading-[1.6]">“{intro.profile.greeting}”</blockquote><figcaption className="mt-2 text-xs text-muted-foreground">{name ? `${valueOf(name.value)} 님의 첫 마디` : "첫 마디"}</figcaption></figure>}
           {intro.note && <Sheet tone="soft" className="p-6"><p className="text-xs font-semibold text-accent">운영진이 두 분을 소개한 이유</p><p className="mt-3 text-sm leading-7">{intro.note}</p></Sheet>}
+          {intro.match && <MatchSheet match={intro.match} />}
           <dl className="divide-y divide-border border-y border-border">{intro.profile.items.filter(item => item.id !== "self.name").map(item => <div key={item.id} className="grid gap-1 py-4 sm:grid-cols-[140px_1fr]"><dt className="text-xs text-muted-foreground">{labelOf(item.id)}</dt><dd className="whitespace-pre-wrap break-words text-sm leading-7">{valueOf(item.value)}</dd></div>)}</dl>
           <p className="text-xs leading-6 text-muted-foreground">{intro.status === "mutual" ? "서로 선택했으니 프로필과 사진은 교류와 약속이 끝날 때까지 볼 수 있어요." : "프로필과 사진은 응답 기한까지만 볼 수 있어요."} 캡처하거나 다른 곳에 옮기지 말아 주세요.</p>
         </div>

@@ -1,13 +1,13 @@
 import { usePageWidth, useScrollReveal } from "./scroll-reveal";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
-import { ArrowRight, ArrowUpRight, Check, ChevronDown, Clock, Lock, LockOpen, Plus, RotateCcw } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, ChevronDown, Clock, Lock, LockOpen, PenLine, Plus, RotateCcw } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./components/ui/accordion";
 import { BEFORE_US } from "./config";
 import { LIVE, rpc } from "./backend/client";
-import { LETTER_PROMPTS, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_ACTIVITY_ROWS, SCENE_STAY, SCENE_TOPIC_EXAMPLES } from "./backend/program";
+import { CUSTOM, LETTER_PROMPTS, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_ACTIVITY_ROWS, SCENE_CUSTOM_MAX, SCENE_TOPIC_EXAMPLES, SCENE_TOPIC_MAX, isCustom, sceneLabel, stayFor } from "./backend/program";
 import { cohortCode, cohortName, useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
@@ -259,7 +259,7 @@ function LetterTrial() {
       {sent ? (
         <div className="mt-4 space-y-3" aria-live="polite">
           <div className="flex items-center gap-3 rounded-xl bg-accent/5 p-4 text-sm"><Lock size={16} className="shrink-0 text-accent" />한 통을 봉투에 넣었어요.</div>
-          <p className="text-xs leading-6 text-muted-foreground">실제 교류에서는 두 분 모두 보낸 뒤 함께 열리고, 열린 편지에는 다음 날 09:00까지 답장을 한 번 보낼 수 있어요. 방금 쓴 글은 어디에도 저장되지 않았어요.</p>
+          <p className="text-xs leading-6 text-muted-foreground">실제 교류에서는 두 분 모두 보낸 뒤 함께 열리고, 열린 편지에는 다음 날 09:00까지 답장을 한 번 보낼 수 있어요. 편지에는 사진 한 장을 함께 넣을 수도 있어요(함께 열린 뒤에만 보여요). 방금 쓴 글은 어디에도 저장되지 않았어요.</p>
           <Button variant="ghost" size="sm" onClick={() => { setSent(false); setText(""); }}><RotateCcw size={14} />다시 써 보기</Button>
         </div>
       ) : (
@@ -269,49 +269,60 @@ function LetterTrial() {
             {examples && <ul aria-label="이 질문의 예시 답" className="mt-2 space-y-1.5 rounded-xl bg-accent/5 px-4 py-3 text-xs leading-6 text-foreground/75">{prompt.examples.map(example => <li key={example}>“{example}”</li>)}</ul>}
           </div>
           <Textarea aria-label="편지 쓰기 체험 · 저장되지 않음" maxLength={200} value={text} onChange={event => setText(event.target.value)} placeholder="질문에 답하듯 편하게 써 보세요." className="min-h-24 bg-background leading-7" />
-          <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-muted-foreground">{text.length}/200 · 실제 편지는 300~600자를 권해요</span><Button size="sm" disabled={!text.trim()} onClick={() => setSent(true)}>한 통 보내 보기</Button></div>
+          <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-muted-foreground">{text.length}/200 · 실제 편지는 300~600자를 권해요 · 사진 한 장도 넣을 수 있어요(선택)</span><Button size="sm" disabled={!text.trim()} onClick={() => setSent(true)}>한 통 보내 보기</Button></div>
         </div>
       )}
     </div>
   );
 }
-// B 체험: 실제 교류와 같은 고를 거리·순서(장소 → 그곳에 맞는 머무는 방식·쉬어 갈 곳 → 나눌 이야기). 고른 것은 저장하지 않는다.
+// B 체험: 실제 교류와 같은 고를 거리·순서(장소 → 그곳에 맞는 머무는 방식·쉬어 갈 곳 → 나눌 이야기). 목록에 없으면 ‘직접 작성’으로 짧게 써도 된다. 고른 것은 저장하지 않는다.
 function SceneTrial() {
   const [picks, setPicks] = useState<Record<string, string>>({});
-  const stay = picks.activity ? SCENE_STAY[picks.activity] : undefined;
-  const place = picks.activity ? SCENE_ACTIVITY_LABEL[picks.activity] : "";
+  const [writing, setWriting] = useState<{ key: string; text: string } | null>(null);
+  const stay = stayFor(picks.activity);
+  const place = sceneLabel(picks.activity);
   const pairs = (items: readonly string[] = []) => items.map(item => [item, item] as const);
-  const shown = (key: string) => key === "activity" ? place : picks[key];
+  const shown = (key: string) => key === "topic" ? `“${picks[key]}”` : sceneLabel(picks[key]);
   const steps = [
-    { day: "DAY 01", title: PLAN_COPY.B.days[0], groups: [{ key: "activity", label: "", options: Object.entries(SCENE_ACTIVITY_LABEL) as (readonly [string, string])[] }] },
-    { day: "DAY 02", title: PLAN_COPY.B.days[1], groups: [{ key: "flow", label: `머무는 방식 · ${place}`, options: pairs(stay?.flows) }, { key: "rest", label: "쉬어 갈 곳", options: pairs(stay?.rests) }] },
-    { day: "DAY 03", title: PLAN_COPY.B.days[2], groups: [{ key: "topic", label: "예시 · 실제로는 직접 적어요", options: pairs(SCENE_TOPIC_EXAMPLES) }] },
+    { day: "DAY 01", title: PLAN_COPY.B.days[0], groups: [{ key: "activity", label: "", options: Object.entries(SCENE_ACTIVITY_LABEL) as (readonly [string, string])[], hint: "예: 보드게임 카페" }] },
+    { day: "DAY 02", title: PLAN_COPY.B.days[1], groups: [{ key: "flow", label: `머무는 방식 · ${place}`, options: pairs(stay?.flows), hint: "예: 보드게임 하나 같이 하기" }, { key: "rest", label: "쉬어 갈 곳", options: pairs(stay?.rests), hint: "예: 창가 자리" }] },
+    { day: "DAY 03", title: PLAN_COPY.B.days[2], groups: [{ key: "topic", label: "예시에서 고르거나 직접 적어요", options: pairs(SCENE_TOPIC_EXAMPLES), hint: "예: 요즘 가장 오래 머문 장소 이야기" }] },
   ];
   const step = steps.findIndex(item => item.groups.some(group => !picks[group.key]));
   const current = steps[step];
+  const choose = (key: string, value: string) => { setWriting(null); setPicks(prev => ({ ...prev, [key]: value })); };
   const chip = (key: string, [value, text]: readonly [string, string]) => (
-    <button key={value} type="button" aria-pressed={picks[key] === value} onClick={() => setPicks(prev => ({ ...prev, [key]: value }))} className={`rounded-full border px-3.5 py-2 text-sm ${interaction} ${picks[key] === value ? "border-accent bg-accent/5 text-accent" : "border-border bg-card hover:border-accent/60"}`}>{text}</button>
+    <button key={value} type="button" aria-pressed={picks[key] === value} onClick={() => choose(key, value)} className={`rounded-full border px-3.5 py-2 text-sm ${interaction} ${picks[key] === value ? "border-accent bg-accent/5 text-accent" : "border-border bg-card hover:border-accent/60"}`}>{text}</button>
   );
+  // 직접 작성: 칩을 누르면 짧은 칸이 열리고, ‘고르기’를 눌러야 다음으로 넘어간다(장소·머무는 방식·쉬어 갈 곳은 20자, 이야기는 40자 안).
+  const own = (key: string) => <button key={`${key}-own`} type="button" aria-pressed={writing?.key === key} onClick={() => setWriting(value => value?.key === key ? value : { key, text: "" })} className={`inline-flex items-center gap-1.5 rounded-full border border-dashed px-3.5 py-2 text-sm ${interaction} ${writing?.key === key ? "border-accent bg-accent/5 text-accent" : "border-accent/40 bg-card text-foreground/80 hover:border-accent/60"}`}><PenLine size={13} aria-hidden="true" />직접 작성</button>;
+  const ownField = (key: string, hint: string) => {
+    if (writing?.key !== key) return null;
+    const max = key === "topic" ? SCENE_TOPIC_MAX : SCENE_CUSTOM_MAX;
+    const text = writing.text.trim();
+    return <div className="flex flex-wrap items-center gap-2"><input autoFocus value={writing.text} maxLength={max} onChange={event => setWriting({ key, text: event.target.value })} onKeyDown={event => { if (event.key === "Enter" && text) choose(key, key === "topic" ? text : CUSTOM + text); }} placeholder={hint} aria-label="직접 작성 · 저장되지 않음" className="h-10 min-w-0 flex-1 rounded-full border border-accent/40 bg-background px-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-accent/40 sm:max-w-xs md:text-sm" /><Button size="sm" variant="outline" disabled={!text} onClick={() => choose(key, key === "topic" ? text : CUSTOM + text)} className="h-10 rounded-full border-accent/40 px-4 text-xs">고르기</Button></div>;
+  };
   return (
     <div className="mt-8 space-y-3">
       {current ? <>
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs font-medium text-accent"><span>{current.day} · {current.title}</span><span className="text-muted-foreground">{step + 1} / 3</span></div>
         {current.groups.map(group => <div key={group.key} className="space-y-2">{group.label && <p className="text-[11px] text-muted-foreground">{group.label}</p>}
           {group.key === "activity"
-            // 장소 일곱 곳은 늘 두 줄로: 전시 산책 서점 카페 / 공원·피크닉 시장 골목 작은 공연
-            ? <div className="space-y-2">{SCENE_ACTIVITY_ROWS.map(row => <div key={row[0]} className="flex flex-wrap gap-2">{row.map(key => chip("activity", [key, SCENE_ACTIVITY_LABEL[key]]))}</div>)}</div>
-            : <div className="flex flex-wrap gap-2">{group.options.map(option => chip(group.key, option))}</div>}
+            // 장소 일곱 곳은 늘 두 줄로: 전시 산책 서점 카페 / 공원·피크닉 시장 골목 작은 공연 · 직접 작성
+            ? <div className="space-y-2">{SCENE_ACTIVITY_ROWS.map((row, index) => <div key={row[0]} className="flex flex-wrap gap-2">{row.map(key => chip("activity", [key, SCENE_ACTIVITY_LABEL[key]]))}{index === SCENE_ACTIVITY_ROWS.length - 1 && own("activity")}</div>)}</div>
+            : <div className="flex flex-wrap gap-2">{group.options.map(option => chip(group.key, option))}{picks[group.key] && isCustom(picks[group.key]) && chip(group.key, [picks[group.key], sceneLabel(picks[group.key])])}{own(group.key)}</div>}
+          {ownField(group.key, group.hint)}
         </div>)}
         {step > 0 && <div className="grid grid-cols-2 gap-3 pt-1" aria-live="polite">
           <div className="rounded-xl border border-accent bg-accent/5 p-3 text-xs leading-5"><span className="block text-xs text-accent">어제 나의 선택</span>{steps[step - 1].groups.map(group => shown(group.key)).join(" · ")}</div>
           <div className="flex items-center gap-2 rounded-xl border border-dashed border-border p-3 text-xs leading-5 text-muted-foreground"><Lock size={14} className="shrink-0" />상대도 고르면 함께 열려요</div>
         </div>}
-        <p className="text-[11px] leading-5 text-muted-foreground">실제로는 둘째 날, 두 분이 첫날 고른 곳에 맞는 것 중에서 골라요. 날마다 나를 소개하는 짧은 질문에도 답하고, 고른 이유는 한 줄로 적어도 좋아요.</p>
+        <p className="text-[11px] leading-5 text-muted-foreground">목록에 없으면 ‘직접 작성’으로 짧게 써도 돼요. 실제로는 둘째 날, 두 분이 첫날 고른 곳에 맞는 것 중에서 골라요. 날마다 나를 소개하는 짧은 질문에도 답하고, 함께 열린 상대의 선택에는 한마디를 남길 수 있어요.</p>
       </> : (
         <div className="space-y-3" aria-live="polite">
-          <div className="rounded-xl border border-accent bg-accent/5 p-4 text-sm leading-6"><span className="block text-xs text-accent">내가 고른 첫 장면</span>{place} · {picks.flow} · {picks.rest}<span className="mt-1 block">“{picks.topic}”</span></div>
-          <p className="text-xs leading-6 text-muted-foreground">실제 교류에서는 셋째 날 두 분의 답이 함께 열리면, 두 분이 고른 것 중에서 하나씩 골라 첫 장면을 맞춰요. 고른 것은 어디에도 저장되지 않았어요.</p>
-          <Button variant="ghost" size="sm" onClick={() => setPicks({})}><RotateCcw size={14} />다시 골라 보기</Button>
+          <div className="rounded-xl border border-accent bg-accent/5 p-4 text-sm leading-6"><span className="block text-xs text-accent">내가 고른 첫 장면</span>{place} · {sceneLabel(picks.flow)} · {sceneLabel(picks.rest)}<span className="mt-1 block">“{picks.topic}”</span></div>
+          <p className="text-xs leading-6 text-muted-foreground">실제 교류에서는 셋째 날 두 분의 답이 함께 열리면, 두 분이 고른 것 중에서 하나씩 골라 첫 장면을 맞추고, 그 장면에 대해 짧게 써서 함께 열어 봐요. 고른 것은 어디에도 저장되지 않았어요.</p>
+          <Button variant="ghost" size="sm" onClick={() => { setPicks({}); setWriting(null); }}><RotateCcw size={14} />다시 골라 보기</Button>
         </div>
       )}
     </div>

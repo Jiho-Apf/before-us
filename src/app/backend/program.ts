@@ -2,7 +2,8 @@ import { rpc } from "./client"
 
 // 실제 서버의 교류(서로 선택한 뒤): 합의 → 3일 교류 → 만남 선택 → 약속 → 연락처.
 export type ProgramStatus = "choosing" | "scheduled" | "started" | "deciding" | "arranging" | "closed"
-export type EntryKind = "letter" | "reply" | "scene" | "final"
+// piece: B 내가 고른 첫 장면에 대해(두 분 모두 쓰면 함께 열림) · comment / piece-comment: B 한마디(쓰는 즉시 상대에게 보임)
+export type EntryKind = "letter" | "reply" | "scene" | "final" | "piece" | "comment" | "piece-comment"
 export type EntryContent = { body: string | null; payload: Record<string, string> | null; at: string }
 export type ProgramEntry = { day: number; kind: EntryKind; own: EntryContent | null; partner: EntryContent | null; partnerSent: boolean }
 export type Slot = { date: string; start: string; end: string }
@@ -50,6 +51,10 @@ export const proposeStart = (id: string, date: string) => rpc<Program>("propose_
 export const confirmProgram = (id: string) => rpc<Program>("confirm_program", { p_program: id })
 export const submitEntry = (id: string, day: number, kind: EntryKind, body: string | null, payload?: Record<string, string>) =>
   rpc<Program>("submit_program_entry", { p_program: id, p_day: day, p_kind: kind, p_body: body, p_payload: payload ?? null })
+// B 내가 고른 첫 장면에 대해(10~300자, 만남 선택 마감까지) · 한마디(100자 안, 그날 답은 다음 날 09:00까지 · 첫 장면 이야기는 만남 선택 마감까지)
+export const writeScenePiece = (id: string, body: string) => rpc<Program>("write_scene_piece", { p_program: id, p_body: body })
+export const leaveComment = (id: string, on: "scene" | "piece", day: number | null, body: string) => rpc<Program>("leave_scene_comment", { p_program: id, p_on: on, p_day: day, p_body: body })
+export const PIECE_MIN = 10, PIECE_MAX = 300, COMMENT_MAX = 100
 export const chooseMeeting = (id: string, choice: "positive" | "negative") => rpc<Program>("choose_meeting", { p_program: id, p_choice: choice })
 export const proposeAppointment = (id: string, slots: Slot[], activity: string, region: string, place: string, note: string) =>
   rpc<Program>("propose_appointment", { p_program: id, p_slots: slots, p_activity: activity, p_region: region, p_place: place || null, p_note: note || null })
@@ -60,8 +65,8 @@ export type ScenePick = { activity: string; flow: string; rest: string; topic: s
 export const chooseFirstScene = (id: string, pick: ScenePick) => rpc<Program>("choose_first_scene", { p_program: id, p_pick: pick })
 
 export const PLAN_COPY = {
-  A: { name: "A. 편지 나누기", description: "각자 하루 한 통씩, 3일 동안 나누는 이야기. 두 분이 모두 보내면 함께 열리고, 열린 편지에는 다음 날 09:00까지 답장을 한 번 보낼 수 있어요.", days: ["쉬는 날의 나 들려주기", "요즘 마음을 쓰는 것 나누기", "만나면 함께 보낼 시간 그려 보기"], example: "예: “쉬는 날엔 동네 도서관 창가 자리에서 해 질 때까지 책을 읽어요.”", fit: "글로 천천히 마음을 전하고 싶은 분께" },
-  B: { name: "B. 첫 장면 만들기", description: "하루에 하나씩 장소·머무는 방식·나눌 이야기를 고르고, 짧은 질문에 답하며 서로를 알아가요. 셋째 날 답이 열리면 두 분이 고른 것 중에서 첫 장면을 함께 맞춰요.", days: ["끌리는 장소 고르기", "그곳에서 머무는 방식 정하기", "함께 나눌 이야기 정하기"], example: "예: 서점 · 각자 한 권씩 골라 보기 · “요즘 읽는 책 이야기”", fit: "가볍게 고르며 취향을 맞춰 보고 싶은 분께" },
+  A: { name: "A. 편지 나누기", description: "각자 하루 한 통씩, 3일 동안 나누는 이야기. 사진 한 장을 함께 넣을 수도 있어요. 두 분이 모두 보내면 함께 열리고, 열린 편지에는 다음 날 09:00까지 답장을 한 번 보낼 수 있어요.", days: ["쉬는 날의 나 들려주기", "요즘 마음을 쓰는 것 나누기", "만나면 함께 보낼 시간 그려 보기"], example: "예: “쉬는 날엔 동네 도서관 창가 자리에서 해 질 때까지 책을 읽어요.”", fit: "글로 천천히 마음을 전하고 싶은 분께" },
+  B: { name: "B. 첫 장면 만들기", description: "하루에 하나씩 장소·머무는 방식·나눌 이야기를 고르고(목록에 없으면 직접 써도 돼요), 짧은 질문에 답하며 서로를 알아가요. 열린 답에는 한마디를 남기고, 셋째 날 답이 열리면 첫 장면을 함께 맞춘 뒤 그 장면에 대해 짧게 나눠요.", days: ["끌리는 장소 고르기", "그곳에서 머무는 방식 정하기", "함께 나눌 이야기 정하기"], example: "예: 서점 · 각자 한 권씩 골라 보기 · “요즘 읽는 책 이야기”", fit: "가볍게 고르며 취향을 맞춰 보고 싶은 분께" },
 } as const
 // 편지 질문: 상대가 ‘이 사람은 어떤 사람인지’ 알아볼 수 있게 묻는다. 예시는 읽기만 하는 참고(눌러도 편지에 들어가지 않는다).
 export const LETTER_PROMPTS = [
@@ -85,6 +90,7 @@ export const SCENE_PROMPTS = [
 ] as const
 export const SCENE_REASON_MAX = 60
 export const SCENE_TOPIC_EXAMPLES = ["요즘 읽는 책 이야기", "최근에 다녀온 곳", "어릴 때 좋아하던 것"] as const
+export const SCENE_TOPIC_MAX = 40
 export const SCENE_ACTIVITY_LABEL: Record<string, string> = { exhibition: "전시", walk: "산책", bookstore: "서점", cafe: "카페", park: "공원·피크닉", market: "시장 골목", performance: "작은 공연" }
 // 장소 일곱 곳은 늘 두 줄로: 전시 산책 서점 카페 / 공원·피크닉 시장 골목 작은 공연
 export const SCENE_ACTIVITY_ROWS: readonly (readonly string[])[] = [["exhibition", "walk", "bookstore", "cafe"], ["park", "market", "performance"]]
@@ -98,10 +104,24 @@ export const SCENE_STAY: Record<string, { flows: readonly string[]; rests: reado
   market: { flows: ["조금씩 맛보며 걷기", "구경하며 천천히 돌기", "한 곳에 앉아 먹으며 이야기하기"], rests: ["골목 작은 카페", "시장 안 분식집", "근처 공원 벤치", "디저트·빵집"] },
   performance: { flows: ["공연 보고 짧게 이야기하기", "공연 전에 가볍게 먹기", "공연 뒤 천천히 걷기"], rests: ["공연장 근처 카페", "조용한 식당", "근처 공원 벤치"] },
 }
-// 첫 장면의 분위기 → 약속 제안의 활동(약속을 제안할 때 미리 골라 둔다)
+// 직접 작성: 목록 말고 직접 쓴 짧은 말(20자 안). 서버에는 'custom:' + 글로 저장한다(서버 scene_custom_ok와 같은 기준).
+export const CUSTOM = "custom:"
+export const SCENE_CUSTOM_MAX = 20
+export const isCustom = (value?: string | null): boolean => !!value && value.startsWith(CUSTOM)
+export const customText = (value: string) => value.slice(CUSTOM.length).trim()
+export const customOk = (value?: string | null) => !!value && isCustom(value) && !!customText(value) && Array.from(customText(value)).length <= SCENE_CUSTOM_MAX
+// 보낼 때: 직접 쓴 말은 앞뒤 빈칸을 정리하고, 비어 있으면 뺀다.
+export const tidyChoice = (value?: string | null) => !value ? "" : isCustom(value) ? (customText(value) ? CUSTOM + customText(value) : "") : value.trim()
+// 화면에 보이는 이름(장소 키 → 이름, 직접 쓴 말 → 그 글)
+export const sceneLabel = (value?: string | null) => !value ? "" : isCustom(value) ? customText(value) : SCENE_ACTIVITY_LABEL[value] ?? value
+// 직접 쓴 장소의 둘째 날 공통 목록(서버 scene_stay_options의 공통 목록과 같다)
+export const SCENE_STAY_GENERIC = { flows: ["짧게 둘러보기", "천천히 머물기", "발길 닿는 대로"], rests: ["조용한 카페", "공공 야외 공간", "디저트·빵집", "강가·벤치"] } as const
+export const stayFor = (place?: string | null): { flows: readonly string[]; rests: readonly string[] } | undefined => !place ? undefined : SCENE_STAY[place] ?? (customOk(place) ? SCENE_STAY_GENERIC : undefined)
+// 첫 장면의 분위기 → 약속 제안의 활동(약속을 제안할 때 미리 골라 둔다). 직접 쓴 장소는 ‘직접 정할게요’로 두고 한마디에 장소를 적는다.
 export const SCENE_TO_APPOINTMENT: Record<string, string> = { exhibition: "전시·미술관", walk: "산책·공원", bookstore: "서점·책방", cafe: "카페·디저트", park: "산책·공원", market: "식사·맛집", performance: "공연·문화" }
-// 첫 장면 → 약속 제안 한마디(흐름·쉬어 갈 곳·이야기를 미리 적어 둔다)
-export const sceneNote = (pick: Partial<ScenePick> | null | undefined) => pick ? [pick.flow, pick.rest && `쉬어 갈 곳 ${pick.rest}`, pick.topic && `“${pick.topic}” 이야기`].filter(Boolean).join(" · ").slice(0, 300) : ""
+export const sceneAppointment = (activity?: string | null) => !activity ? "" : isCustom(activity) ? "직접 정할게요" : SCENE_TO_APPOINTMENT[activity] ?? ""
+// 첫 장면 → 약속 제안 한마디(직접 쓴 장소·흐름·쉬어 갈 곳·이야기를 미리 적어 둔다)
+export const sceneNote = (pick: Partial<ScenePick> | null | undefined) => pick ? [pick.activity && isCustom(pick.activity) && `장소 ${customText(pick.activity)}`, pick.flow && sceneLabel(pick.flow), pick.rest && `쉬어 갈 곳 ${sceneLabel(pick.rest)}`, pick.topic && `“${pick.topic}” 이야기`].filter(Boolean).join(" · ").slice(0, 300) : ""
 
 // 보내기 전 연락처 검사(서버 has_contact와 같은 기준). 날짜·시각·가격은 막지 않는다.
 // 오래된 iOS Safari도 읽을 수 있게 앞을 되돌아보는 정규식 문법은 쓰지 않고, 앞 글자는 함수로 확인한다.
@@ -119,7 +139,8 @@ const CONTACT = [
   /[0-9]{2,6}-[0-9]{2,6}-[0-9]{2,7}/,
 ]
 export function contactProblem(...texts: (string | null | undefined)[]) {
-  const text = stripDates(texts.filter(Boolean).join(" ").normalize("NFKC"))
+  // 직접 쓴 말의 표시('custom:')는 빼고 살핀다(서버와 같은 기준).
+  const text = stripDates(texts.filter(Boolean).join(" ").split(CUSTOM).join(" ").normalize("NFKC"))
   return CONTACT.some(pattern => pattern.test(text)) ? "연락처·SNS 아이디·링크·계좌번호가 들어 있는 것 같아요. 그 부분을 빼고 보내 주세요. 연락처는 두 분이 동의하면 만나는 날 비포어스에서 열려요." : null
 }
 

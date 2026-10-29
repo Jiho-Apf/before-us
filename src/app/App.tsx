@@ -52,7 +52,10 @@ const LiveSupportPage = later(() => import("./LiveMember"), "LiveSupportPage");
 const LiveExchangePage = later(() => import("./LiveProgram"), "LiveExchangePage");
 const LiveMeetingPage = later(() => import("./LiveProgram"), "LiveMeetingPage");
 const LivePrograms = later(() => import("./LiveAdmin"), "LivePrograms");
-const LiveLaterPage = later(() => import("./LiveMember"), "LiveLaterPage");
+const LivePaymentsPage = later(() => import("./LivePayments"), "LivePaymentsPage");
+const LivePaymentSuccessPage = later(() => import("./LivePayments"), "LivePaymentSuccessPage");
+const LivePaymentFailPage = later(() => import("./LivePayments"), "LivePaymentFailPage");
+const AdminPayments = later(() => import("./AdminPayments"), "AdminPayments");
 const LiveAdminLayout = later(() => import("./LiveAdmin"), "LiveAdminLayout");
 const LiveAdminHome = later(() => import("./LiveAdmin"), "LiveAdminHome");
 const LiveApplicants = later(() => import("./LiveAdmin"), "LiveApplicants");
@@ -208,7 +211,7 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
 }
 
 // 회원 메뉴에는 없지만 회원 틀 안에서 여는 화면의 이름(머리 위치 표시·문서 제목에 쓴다)
-const MEMBER_EXTRA = [{ to: "/support", label: "문의·요청" }, { to: "/payments", label: "결제" }, { to: "/apply", label: "신청서" }, { to: "/contact", label: "문의하기" }];
+const MEMBER_EXTRA = [{ to: "/support", label: "문의·요청" }, { to: "/payments", label: "결제" }, { to: "/payments/success", label: "결제 확인" }, { to: "/payments/fail", label: "결제 안 됨" }, { to: "/apply", label: "신청서" }, { to: "/contact", label: "문의하기" }];
 
 function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }) {
   const location = useLocation();
@@ -246,6 +249,7 @@ function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
             <Link to="/privacy" className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">개인정보처리방침</Link>
             <Link to="/faq" className="underline-offset-4 hover:text-primary hover:underline">자주 묻는 질문</Link>
             <Link to="/support" className="underline-offset-4 hover:text-primary hover:underline">문의·요청</Link>
+            <Link to="/payments" className="underline-offset-4 hover:text-primary hover:underline">결제</Link>
             <Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
           </nav>
         </footer>
@@ -287,7 +291,7 @@ function BeforeUsRoot() {
   const location = useLocation();
   // 로그인한 회원이 신청서·문의하기를 열면 회원 틀(휴대폰 아래 메뉴 포함) 안에서 보여 준다.
   const signedIn = useSignedIn();
-  const isMember = ["/payments","/support","/meeting/contact"].includes(location.pathname) || MEMBER_NAV.some(item => item.to === location.pathname) || (LIVE && signedIn && ["/apply", "/contact"].includes(location.pathname));
+  const isMember = ["/payments","/payments/success","/payments/fail","/support","/meeting/contact"].includes(location.pathname) || MEMBER_NAV.some(item => item.to === location.pathname) || (LIVE && signedIn && ["/apply", "/contact"].includes(location.pathname));
   useEffect(() => {
     const label = [...PUBLIC_NAV, ...MEMBER_NAV, ...MEMBER_EXTRA, { to: "/contact", label: "문의하기" }, { to: "/login", label: "로그인" }, { to: "/apply", label: "소개 신청하기" }, { to: "/terms", label: "이용약관" }, { to: "/privacy", label: "개인정보처리방침" }, { to: "/how-it-works", label: "진행 방식" }, { to: "/signup", label: "회원가입" }, { to: "/reset-password", label: "비밀번호 다시 설정" }].find(item => item.to === location.pathname)?.label;
     document.title = label ? `${label} · ${BEFORE_US.brand.name}` : `${BEFORE_US.brand.name} · 편지로 시작하는 1:1 소개팅`;
@@ -312,6 +316,7 @@ const liveAdmin = { path: "/admin", errorElement: <RouteError />, element: page(
   { path: "safety", element: page(<LiveSafety />) },
   { path: "audit", element: page(<LiveAudit />) },
   { path: "settings", element: page(<LiveSettings />) },
+  { path: "payments", element: page(<AdminPayments />) },
   { path: "*", element: page(<LiveAdminHome />) },
 ] };
 const beforeUsRouter = createBrowserRouter([
@@ -334,7 +339,10 @@ const beforeUsRouter = createBrowserRouter([
     { path: "/privacy", element: <PrivacyPage /> },
     { path: "/contact", element: <InquiryPage /> },
     { path: "/today", element: LIVE ? <LiveToday /> : <MemberToday /> },
-    { path: "/payments", element: LIVE ? <LiveLaterPage title="결제" /> : <MemberPayments /> },
+    { path: "/payments", element: LIVE ? <LivePaymentsPage /> : <MemberPayments /> },
+    // 결제창(토스페이먼츠)에서 돌아오는 주소. 데모에는 결제가 없어 결제 화면으로 보낸다.
+    { path: "/payments/success", element: LIVE ? <LivePaymentSuccessPage /> : <Navigate to="/payments" replace /> },
+    { path: "/payments/fail", element: LIVE ? <LivePaymentFailPage /> : <Navigate to="/payments" replace /> },
     { path: "/us", element: LIVE ? <LiveIntroductionPage /> : <MemberIntroduction /> },
     { path: "/demo/introduction", element: LIVE ? <Navigate to="/" replace /> : <IntroductionDemo /> },
     { path: "/demo/noon", element: LIVE ? <Navigate to="/" replace /> : <NoonDemo /> },

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation, useOutletContext } from "react-router";
-import { Bell, Bug, CalendarRange, HeartHandshake, ClipboardList, FileClock, LayoutDashboard, ListChecks, LogOut, Settings2, ShieldAlert, ShieldCheck, Users } from "lucide-react";
+import { Bell, Bug, CalendarRange, CreditCard, HeartHandshake, ClipboardList, FileClock, LayoutDashboard, ListChecks, LogOut, Settings2, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
@@ -12,7 +12,7 @@ import { REQUEST_LABELS } from "./member-operations-model";
 import { kstDateTime, kstDay } from "./dates";
 import { cohortName } from "./cohort";
 import { BEFORE_US } from "./config";
-import { box, call, revealOnNarrow, useBusy, useLoad, waitedDays, type ReadyMember } from "./admin-match";
+import { MATCH_SCORE_SHOWN, box, call, revealOnNarrow, useBusy, useLoad, waitedDays, type ReadyMember } from "./admin-match";
 import { AdminPhoto, MatchBoard, Notice, Pill, ProfileSheet, WaitBadge, show, useConfirm, type ApplicationDetail } from "./AdminMatch";
 
 // 실제 서버 모드의 운영진 화면. 데모 운영 콘솔과 같은 틀을 쓰고, 모든 자료는 서버 권한(RLS·역할·2단계 인증)을 거쳐 온다.
@@ -28,6 +28,7 @@ const NAV: { path: string; label: string; icon: typeof LayoutDashboard; roles: R
   { path: "/admin/introductions", label: "소개·매칭", icon: ListChecks, roles: STAFF },
   { path: "/admin/programs", label: "교류·약속", icon: HeartHandshake, roles: STAFF },
   { path: "/admin/safety", label: "신고·문의", icon: ShieldAlert, roles: ["owner", "operator", "counselor", "finance"] },
+  { path: "/admin/payments", label: "결제", icon: CreditCard, roles: ["owner", "operator", "finance"] },
   { path: "/admin/audit", label: "감사로그", icon: FileClock, roles: ["owner"] },
   { path: "/admin/settings", label: "운영진", icon: Settings2, roles: ["owner"] },
 ];
@@ -379,7 +380,18 @@ function ApplicantDetail({ memberId, row, cohorts, canDecide, onChanged }: { mem
 
 // ─────────────────────────────────────────────
 // 소개·매칭: 왼쪽 회원 → 오른쪽 후보(점수 순) → 두 소개서 · 궁합 · 정오 예약. 아래는 소개 기록.
-type IntroRow = { id: string; status: string; reveal_at: string; respond_by: string; member_a: string | null; member_b: string | null; name_a: string | null; name_b: string | null; response_a: string | null; response_b: string | null; opened_a: boolean; opened_b: boolean; end_reason: string | null; note: string };
+// match: 예약 때 함께 보낸 ‘회원에게 보일 궁합’(운영진은 65점 아래 점수도 본다 · 회원에게는 숫자 없이)
+type StoredMatch = { score: number | null; headline: string; why: string[]; together: string[] };
+type IntroRow = { id: string; status: string; reveal_at: string; respond_by: string; member_a: string | null; member_b: string | null; name_a: string | null; name_b: string | null; response_a: string | null; response_b: string | null; opened_a: boolean; opened_b: boolean; end_reason: string | null; note: string; mutual?: boolean; match?: StoredMatch | null };
+// 소개 기록의 ‘회원에게 보인 궁합’: 접어 두고 펼치면 이유까지
+function StoredMatchNote({ match }: { match: StoredMatch }) {
+  const shown = match.score != null && match.score >= MATCH_SCORE_SHOWN;
+  return <details className="mt-1.5 text-[11px] leading-5">
+    <summary className="cursor-pointer text-primary">궁합 {match.score ?? "-"}{shown ? "" : " · 회원에게는 숫자 없이"}</summary>
+    <p className="mt-1 font-semibold">{match.headline}</p>
+    <ul className="mt-1 space-y-0.5 text-muted-foreground">{[...match.why, ...match.together].map(item => <li key={item}>· {item}</li>)}</ul>
+  </details>;
+}
 const ANSWER: Record<string, string> = { positive: "알아가고 싶어요", negative: "넘길게요" };
 type IntroTab = "all" | "reserved" | "published" | "mutual" | "closed" | "cancelled";
 
@@ -398,7 +410,7 @@ export function LiveIntroductions() {
   const cancel = (item: IntroRow) => run(`cancel-${item.id}`, async () => {
     const shown = item.status !== "reserved";
     const reason = await ask({ title: `${item.name_a ?? "회원"} · ${item.name_b ?? "회원"} 소개를 취소할까요?`, danger: true, confirm: "소개 취소",
-      body: <>{shown ? <p className="font-semibold text-destructive">이미 두 분에게 공개된 소개예요{item.status === "mutual" ? "(서로 선택 · 교류 준비 중)" : ""}. 취소하면 두 분 모두에게 마무리 알림이 가요.</p> : <p>아직 공개 전({kstDateTime(item.reveal_at)})이라 두 분에게는 보이지 않아요.</p>}<p>운영 취소는 같은 두 분을 다시 소개하는 것을 막지 않아요.</p></>,
+      body: <>{shown ? <p className="font-semibold text-destructive">이미 두 분에게 공개된 소개예요{item.status === "mutual" ? "(서로 선택 · 교류 준비 중)" : ""}. 취소하면 두 분 모두에게 마무리 알림이 가요.</p> : <p>아직 공개 전({kstDateTime(item.reveal_at)})이라 두 분에게는 보이지 않아요.</p>}<p>{item.status === "mutual" || item.mutual ? "서로 선택한 두 분이라, 취소해도 다시 소개하지 않아요." : item.response_a === "negative" || item.response_b === "negative" ? "한 분이 이미 넘겼으니, 취소해도 다시 소개하지 않아요." : "운영 취소는 같은 두 분을 다시 소개하는 것을 막지 않아요(매칭 화면에 노랑 안내로 표시돼요)."}</p></>,
       reason: { label: "취소 사유(감사 기록에 남아요)", required: true } });
     if (reason === null) return;
     const { error } = await rpc("admin_cancel_introduction", { p_id: item.id, p_reason: reason });
@@ -410,7 +422,7 @@ export function LiveIntroductions() {
     <h2 className="mb-3 mt-8 text-sm font-semibold">소개 기록</h2>
     <Tabs value={tab} onChange={setTab} options={([["all", "전체"], ["reserved", "정오 예약"], ["published", "공개"], ["mutual", "서로 선택"], ["closed", "종료"], ["cancelled", "취소"]] as [IntroTab, string][]).map(([key, label]) => [key, label, key === "all" ? intros.data?.length ?? 0 : (intros.data ?? []).filter(item => item.status === key).length])} />
     <Notice text={message || intros.error || ""} />
-    <section className={`${box} mt-3 overflow-x-auto`} aria-label="소개 기록"><table className="w-full min-w-[880px] text-left text-xs"><thead className="border-b border-border text-muted-foreground"><tr><th className="p-3">공개</th><th className="p-3">두 사람</th><th className="p-3">상태</th><th className="p-3">응답 · 마감</th><th className="p-3">소개 이유</th><th className="p-3" /></tr></thead><tbody className="divide-y divide-border">{rows.map(item => <tr key={item.id} id={`intro-${item.id}`} className={focusIntro === item.id ? "bg-primary/5" : ""}><td className="whitespace-nowrap p-3">{kstDateTime(item.reveal_at)}</td><td className="p-3">{[item.name_a, item.name_b].map((name, index) => <Link key={index} to={`/admin/members?q=${encodeURIComponent(name ?? "")}`} className="mr-1 hover:underline">{name ?? "탈퇴 회원"}{index === 0 ? " ·" : ""}</Link>)}</td><td className="p-3">{INTRO_LABEL[item.status]}{item.end_reason ? ` · ${endLabel(item.end_reason)}` : ""}</td><td className="p-3 leading-5">{[[item.name_a, item.opened_a, item.response_a], [item.name_b, item.opened_b, item.response_b]].map(([name, opened, answer]) => `${name ?? "회원"}: ${answer ? ANSWER[answer as string] : opened ? "열람" : "미열람"}`).join(" / ")}{item.status === "published" && <span className={`block ${Date.parse(item.respond_by) < Date.now() ? "text-destructive" : "text-muted-foreground"}`}>마감 {kstDateTime(item.respond_by)}</span>}</td><td className="max-w-[240px] p-3"><p className="line-clamp-2 leading-5 text-muted-foreground" title={item.note}>{item.note}</p></td><td className="p-3 text-right">{canOperate(role) && ["reserved", "published", "mutual"].includes(item.status) && <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => void cancel(item)}>취소</Button>}</td></tr>)}</tbody></table>{!rows.length && <p className="p-5 text-sm text-muted-foreground">{intros.loading ? "불러오고 있어요." : "해당하는 소개 기록이 없어요."}</p>}</section>
+    <section className={`${box} mt-3 overflow-x-auto`} aria-label="소개 기록"><table className="w-full min-w-[880px] text-left text-xs"><thead className="border-b border-border text-muted-foreground"><tr><th className="p-3">공개</th><th className="p-3">두 사람</th><th className="p-3">상태</th><th className="p-3">응답 · 마감</th><th className="p-3">소개 이유 · 궁합</th><th className="p-3" /></tr></thead><tbody className="divide-y divide-border">{rows.map(item => <tr key={item.id} id={`intro-${item.id}`} className={focusIntro === item.id ? "bg-primary/5" : ""}><td className="whitespace-nowrap p-3">{kstDateTime(item.reveal_at)}</td><td className="p-3">{[item.name_a, item.name_b].map((name, index) => <Link key={index} to={`/admin/members?q=${encodeURIComponent(name ?? "")}`} className="mr-1 hover:underline">{name ?? "탈퇴 회원"}{index === 0 ? " ·" : ""}</Link>)}</td><td className="p-3">{INTRO_LABEL[item.status]}{item.end_reason ? ` · ${endLabel(item.end_reason)}` : ""}</td><td className="p-3 leading-5">{[[item.name_a, item.opened_a, item.response_a], [item.name_b, item.opened_b, item.response_b]].map(([name, opened, answer]) => `${name ?? "회원"}: ${answer ? ANSWER[answer as string] : opened ? "열람" : "미열람"}`).join(" / ")}{item.status === "published" && <span className={`block ${Date.parse(item.respond_by) < Date.now() ? "text-destructive" : "text-muted-foreground"}`}>마감 {kstDateTime(item.respond_by)}</span>}</td><td className="max-w-[260px] p-3"><p className="line-clamp-2 leading-5 text-muted-foreground" title={item.note}>{item.note}</p>{item.match && <StoredMatchNote match={item.match} />}</td><td className="p-3 text-right">{canOperate(role) && ["reserved", "published", "mutual"].includes(item.status) && <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => void cancel(item)}>취소</Button>}</td></tr>)}</tbody></table>{!rows.length && <p className="p-5 text-sm text-muted-foreground">{intros.loading ? "불러오고 있어요." : "해당하는 소개 기록이 없어요."}</p>}</section>
     {dialog}
   </>;
 }

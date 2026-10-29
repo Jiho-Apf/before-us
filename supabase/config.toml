@@ -41,3 +41,10 @@ verify_jwt = false
 [functions.partner-photo]
 verify_jwt = false
 
+# 결제 승인·테스트 결제 취소: 함수 안에서 회원·운영진 로그인 토큰으로 서버 함수를 불러 확인한다.
+[functions.payments-confirm]
+verify_jwt = false
+
+[functions.payments-cancel]
+verify_jwt = false
+
