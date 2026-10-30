@@ -133,9 +133,10 @@ function withUnderlines(text: string, phrases: readonly string[]) {
 }
 
 // 첫 화면 세 가지 표시와 마감 배지(2026-10-27). 서비스의 핵심을 한눈에, 지금 신청할 이유는 버튼 바로 위에.
-const HERO_POINTS = ["운영진이 고른 한 사람", "정오 12시 도착", "만나기 전 3일 교류"];
+// 핵심인 ‘3일 교류’ 칩만 버터 노랑으로 짚는다(위의 한 줄, 두 가지 시작의 3일 교류 칸과 같은 색).
+const HERO_POINTS = [{ text: "운영진이 고른 한 사람" }, { text: "정오 12시 도착" }, { text: "만나기 전 3일 교류", core: true }];
 function HeroPoints() {
-  return <ul className="mt-6 flex flex-wrap gap-2" aria-label="플라비의 소개 방식">{HERO_POINTS.map(point => <li key={point} className="flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/25 backdrop-blur-sm"><Check size={12} aria-hidden="true" />{point}</li>)}</ul>;
+  return <ul className="mt-6 flex flex-wrap gap-2" aria-label="플라비의 소개 방식">{HERO_POINTS.map(point => <li key={point.text} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ring-1 backdrop-blur-sm ${point.core ? "bg-[#F8E5A6]/25 text-[#F8E5A6] ring-[#F8E5A6]/70" : "bg-white/12 text-white ring-white/25"}`}><Check size={12} aria-hidden="true" />{point.text}</li>)}</ul>;
 }
 function HeroDeadline() {
   const cohort = useRecruitingCohort();
@@ -245,11 +246,10 @@ function InitialOperation({ detailsTo = "#faq-cohort" }: { detailsTo?: string })
   );
 }
 
-// A 체험: 실제 교류의 질문 묶음 하나(질문은 교류마다 달라서 ‘다른 질문 보기’로 다른 묶음도 볼 수 있다). 예시는 읽기만 하는 참고(편지에 넣지 않는다). 쓴 글은 저장하지 않는다.
+// A 체험: 실제 교류의 질문 묶음 하나. 예시는 읽기만 하는 참고(편지에 넣지 않는다). 쓴 글은 저장하지 않는다.
 function LetterTrial() {
   const [day, setDay] = useState(0);
-  const [set, setSet] = useState(0);
-  const days = LETTER_SETS[set].days;
+  const days = LETTER_SETS[0].days;
   const prompt = days[day];
   const [text, setText] = useState("");
   const [sent, setSent] = useState(false);
@@ -258,7 +258,6 @@ function LetterTrial() {
     <div className="mt-8 border border-border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs font-medium text-accent"><span>실제 교류의 질문 · {prompt.title}</span><span className="flex gap-1">{days.map((item, index) => <button key={index} type="button" aria-pressed={day === index} onClick={() => { setDay(index); setSent(false); setText(""); setExamples(false); }} className={`rounded-full border px-2.5 py-1 text-[11px] ${interaction} ${day === index ? "border-accent bg-accent text-white" : "border-border text-muted-foreground hover:border-accent/50"}`}>DAY 0{index + 1}</button>)}</span></div>
       <p className="mt-4 text-[15px] font-semibold leading-7" aria-live="polite">{prompt.question}</p>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">질문은 교류마다 달라져요. 지난 교류에서 받은 질문은 되도록 다시 나오지 않아요. <button type="button" onClick={() => { setSet(value => (value + 1) % LETTER_SETS.length); setSent(false); setText(""); setExamples(false); }} className={`rounded-full font-medium text-accent underline-offset-4 hover:underline ${interaction}`}>다른 질문 보기</button></p>
       {sent ? (
         <div className="mt-4 space-y-3" aria-live="polite">
           <div className="flex items-center gap-3 rounded-xl bg-accent/5 p-4 text-sm"><Lock size={16} className="shrink-0 text-accent" />한 통을 봉투에 넣었어요.</div>
@@ -492,7 +491,8 @@ const FAQ_BASE = [
   { id: "visibility", title: "어떤 정보가 상대에게 공개되나요?", text: "신청서 마지막 단계에서 상대에게 보일 항목을 직접 고르고, 고른 항목만 소개된 상대에게 보여요. 소개할 때마다 다시 묻지는 않으니, 보일 항목은 내 정보의 ‘보일 항목 고치기’에서 언제든 바꿔 주세요. 상대 프로필은 소개된 날 정오부터 다음 날 11:00 응답 마감까지 볼 수 있고, 서로 알아가기로 하면 교류와 약속이 끝날 때까지 이어져요. 끝난 소개의 프로필을 다시 보는 보관함은 없어요. 넷째 날 두 분 모두 만나고 싶다고 한 교류만, 마무리 뒤 30일 동안 주고받은 글을 다시 읽을 수 있어요." },
   { id: "name", title: "‘플라비’는 무슨 뜻인가요?", text: "플라비(Flavie)는 ‘금빛’을 뜻하는 라틴어 flavus에서 온 이름이에요. 소개가 도착하는 정오의 햇살처럼, 한 사람을 밝은 빛 아래에서 천천히 알아가자는 마음을 담았어요. 2026년 10월 30일에 ‘비포어스’에서 지금 이름으로 바꿨고, 서비스와 회원 정보는 그대로예요." },
   { id: "blind", title: "상대가 나를 골랐는지 미리 알 수 있나요?", text: "아니요. 내가 답하기 전에도, 답한 뒤에도 상대가 이미 답했는지는 서로 알 수 없어요. 두 분 모두 ‘알아가고 싶어요’를 고른 순간에만 교류가 열리고, 그렇지 않으면 다음 날 오전 11시 응답 마감에 두 분께 같은 마무리 소식을 보내요. 누가 넘겼는지도 알리지 않아요. 넷째 날 만남 선택도 같은 방식이에요." },
-  { id: "photo-change", title: "사진을 바꿔 달라는 요청을 받을 수도 있나요?", text: "대표 사진에 얼굴이 잘 보이지 않는 등 기준에 맞지 않으면 운영진이 그 사진만 다시 요청해요. 승인 전이라면 새 사진을 확인한 뒤에 소개를 준비해요. 이미 소개를 받고 있다면 신청은 그대로 두고, 새 사진을 확인할 때까지 지금 사진이 그대로 보여요. 요청은 사이트 알림과 메일로 알려 드려요. 사진은 내 정보의 ‘내 사진’에서 언제든 바꿀 수 있어요." },
+  { id: "photo-change", title: "사진을 바꿔 달라는 요청을 받을 수도 있나요?", text: "대표 사진에 얼굴이 잘 보이지 않는 등 기준에 맞지 않으면 운영진이 그 사진만 다시 요청해요. 승인 전이라면 새 사진을 확인한 뒤에 소개를 준비해요. 이미 소개를 받고 있다면 신청은 그대로 두고, 새 사진을 확인할 때까지 지금 사진이 그대로 보여요. 요청을 받고 7일 안에 새 사진을 올리지 않으면 새 소개만 잠시 멈추고, 올리면 바로 다시 준비해요. 요청은 사이트 알림과 메일로 알려 드려요. 사진은 내 정보의 ‘내 사진’에서 언제든 바꿀 수 있어요." },
+  { id: "after", title: "교류가 끝나면 다음 소개는 어떻게 골라요?", text: "교류를 마치면 오늘 화면에서 ‘다음 소개를 위한 한 줄’을 남길 수 있어요. 어떤 점이 편했는지, 다음엔 어떤 분이면 좋을지 적어 주시면 운영진이 다음 분을 고를 때 반영하고, 그 한 줄을 참고해 고른 소개에는 ‘남겨 주신 한 줄을 참고해 골랐어요’라고 함께 알려 드려요. 한 줄은 운영진에게만 보이고 상대에게는 보이지 않으며, 1년이 지나면 지워요." },
   { id: "safety", title: "불편한 일이 생기면 어떻게 하나요?", text: "두 사람 화면에서 신고하거나 차단할 수 있어요. 차단하면 진행 중인 소개와 교류가 바로 끝나고, 다시는 서로 소개되지 않아요. 신고는 운영진이 가장 먼저 확인하고, 급한 일이면 ‘급한 일이에요’를 골라 주세요. 상대에게는 신고·차단 사실을 알리지 않아요. 위급하면 112에 먼저 연락해 주세요." },
   { id: "avoid", title: "아는 사람과 소개되지 않게 할 수 있나요?", text: "내 정보의 ‘아는 사람 피하기’에 휴대폰 번호를 적어 두면, 그 번호로 신청한 분과는 서로 소개하지 않아요. 번호는 원래 값 그대로 두지 않고 암호값으로 바꿔 두며, 번호 주인에게는 알리지 않아요." },
   { id: "contact", title: "문의는 어디에서 할 수 있나요?", text: "페이지 맨 아래의 ‘문의하기’에서 남길 수 있어요. 회원이라면 회원 화면 맨 아래의 ‘문의·요청’에서 정정·삭제 같은 요청을, 상대와 관련된 일은 두 사람 화면의 ‘신고’로 남기면 더 빨리 확인할 수 있어요." },
@@ -506,12 +506,12 @@ const FIRST_FAQ = [
   { id: "difference", title: "다른 소개 서비스와 무엇이 다른가요?", text: "넘기며 고르지 않아요. 운영진이 신청서를 직접 읽고 한 분을 골라 정오에 소개해요. 서로 선택해도 바로 연락처를 주고받지 않고, 3일 동안 편지나 ‘첫 장면’으로 먼저 알아가요. 만날지는 넷째 날 각자 정하고, 번호는 만나는 날에만 서로 보여요." },
 ];
 const FAQ = BETA ? [BETA_FAQ, ...FIRST_FAQ, BETA_COHORT_FAQ, ...FAQ_BASE.filter(item => item.id !== "cohort" && item.id !== "bonus")] : [...FIRST_FAQ, ...FAQ_BASE];
-// 07 자주 묻는 질문은 주제별로 묶어 원하는 것만 골라 볼 수 있게 한다(‘전체’는 주제 이름 아래 모두).
+// 07 자주 묻는 질문은 주제 이름 아래 묶어 보여 준다.
 const FAQ_GROUPS = [
   { id: "start", label: "처음이라면", ids: ["beta", "difference", "one-at-a-time", "name"] },
   { id: "apply", label: "신청·사진", ids: ["cohort", "photo-change", "visibility", "waiting"] },
   { id: "intro", label: "소개·답하기", ids: ["photos", "blind", "no-answer"] },
-  { id: "exchange", label: "교류·만남", ids: ["three-days", "not-started"] },
+  { id: "exchange", label: "교류·만남", ids: ["three-days", "not-started", "after"] },
   { id: "money", label: "비용·환불", ids: ["cost", "cancellation", "refund", "bonus"] },
   { id: "safety", label: "안전·문의", ids: ["safety", "avoid", "contact"] },
 ].map(group => ({ ...group, items: group.ids.map(id => FAQ.find(item => item.id === id)).filter((item): item is (typeof FAQ)[number] => !!item) })).filter(group => group.items.length > 0);
@@ -540,11 +540,9 @@ function Pricing() {
 function Faq() {
   const location = useLocation();
   const [open, setOpen] = useState("");
-  const [topic, setTopic] = useState("all");
   useEffect(() => {
     const id = location.hash.startsWith("#faq-") ? location.hash.slice(5) : "";
     if (!id || !FAQ.some(item => item.id === id)) return;
-    setTopic(current => current === "all" || FAQ_GROUPS.find(group => group.id === current)?.ids.includes(id) ? current : "all");
     setOpen(id);
     const frame = requestAnimationFrame(() => document.getElementById(`faq-${id}`)?.scrollIntoView({ block: "center" }));
     return () => cancelAnimationFrame(frame);
@@ -552,15 +550,12 @@ function Faq() {
   return (
     <section id="faq" className="grid gap-8 pt-20 pb-14 sm:pt-24 sm:pb-18 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="faq-title">
       <div><SectionLabel number="07" ko="자주 묻는 질문">BEFORE YOU BEGIN</SectionLabel><h2 id="faq-title" className="text-ink text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청하기 전에 많이 묻는 것들을 모았어요.<br />더 궁금한 건 <Link to="/contact" className="font-semibold text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary">문의하기</Link>로 남겨 주세요.</p></div>
-      <div>
-        <div role="group" aria-label="질문 주제" className="flex flex-wrap gap-2">{[{ id: "all", label: "전체", count: FAQ.length }, ...FAQ_GROUPS.map(group => ({ id: group.id, label: group.label, count: group.items.length }))].map(chip => <button key={chip.id} type="button" aria-pressed={topic === chip.id} onClick={() => { setTopic(chip.id); setOpen(""); }} className={`rounded-full border px-3.5 py-1.5 text-xs ${interaction} ${topic === chip.id ? "border-primary bg-primary/5 font-semibold text-primary" : "border-border bg-card text-foreground/80 hover:border-primary/40 hover:text-primary"}`}>{chip.label}<span className="ml-1 tabular-nums text-muted-foreground">{chip.count}</span></button>)}</div>
-        <Accordion type="single" collapsible value={open} onValueChange={setOpen} className="mt-6 border-t border-border [&_[data-slot=accordion-content]]:motion-reduce:animate-none [&_svg]:motion-reduce:transition-none">
-          {FAQ_GROUPS.filter(group => topic === "all" || group.id === topic).map(group => <Fragment key={group.id}>
-            {topic === "all" && <p className="pt-7 pb-1 text-xs font-semibold tracking-[0.08em] text-accent">{group.label}</p>}
-            {group.items.map(item => <AccordionItem key={item.id} value={item.id} id={`faq-${item.id}`}><AccordionTrigger className={`py-6 text-[15px] hover:no-underline hover:text-primary ${interaction}`}>{item.title}</AccordionTrigger><AccordionContent className="pb-6 text-sm leading-7 text-muted-foreground">{item.text}</AccordionContent></AccordionItem>)}
-          </Fragment>)}
-        </Accordion>
-      </div>
+      <Accordion type="single" collapsible value={open} onValueChange={setOpen} className="border-t border-border [&_[data-slot=accordion-content]]:motion-reduce:animate-none [&_svg]:motion-reduce:transition-none">
+        {FAQ_GROUPS.map(group => <Fragment key={group.id}>
+          <p className="pt-7 pb-1 text-xs font-semibold tracking-[0.08em] text-accent">{group.label}</p>
+          {group.items.map(item => <AccordionItem key={item.id} value={item.id} id={`faq-${item.id}`}><AccordionTrigger className={`py-6 text-[15px] hover:no-underline hover:text-primary ${interaction}`}>{item.title}</AccordionTrigger><AccordionContent className="pb-6 text-sm leading-7 text-muted-foreground">{item.text}</AccordionContent></AccordionItem>)}
+        </Fragment>)}
+      </Accordion>
     </section>
   );
 }

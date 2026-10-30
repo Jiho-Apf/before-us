@@ -2134,4 +2134,89 @@ await db.exec("reset role")
   eq("사진 교체: 접수만 된 신청서도 다시 올려 달라는 알림을 받는다", (await one("select link from public.notifications where member_id = $1 and kind = 'photo-reupload'", [P2])).link, "/apply?edit=1&step=1")
 }
 
+// ── 사진 교체 7일 기한 · 교류 뒤 한 줄 회고(4500)
+{
+  await as("postgres")
+  await clock(null)
+  const reason = "두 분 모두 쉬는 날 천천히 걷는 걸 좋아하셨어요."
+  const member = async (email, name, gender, desired, base, phone) => {
+    await as("postgres")
+    const id = await signup(email)
+    await as(id)
+    const d = draft(name, gender, desired, "1994-04-04")
+    await q("select public.save_application_draft($1)", [{ ...d, values: { ...d.values, "self.phone": phone } }])
+    await photos(id, base)
+    await q("select public.submit_application()")
+    await as(O, "aal2")
+    for (const slot of ["photo.face", "photo.upper", "photo.style"]) await q("select public.admin_review_photo($1, $2, '기준 확인')", [id, slot])
+    await q("select public.admin_decide_application($1, 'approved')", [id])
+    await q("select public.admin_move_member_cohort($1, 1)", [id])
+    return id
+  }
+  const H1 = await member("h1-4500@example.test", "가온", "여성", "남성", 45010, "010-4500-0001")
+  const H2 = await member("h2-4500@example.test", "도하", "남성", "여성", 45020, "010-4500-0002")
+  const H3 = await member("h3-4500@example.test", "라온", "남성", "여성", 45030, "010-4500-0003")
+  const readyIds = async () => (await q("select member_id from public.admin_ready_members()")).map((row) => row.member_id)
+
+  // 사진 교체 7일 기한
+  await as(O, "aal2")
+  await q("select public.admin_request_photo_change($1, 'photo.face', '얼굴 확인 어려움')", [H1])
+  ok("사진 기한: 요청 직후에는 소개 후보에 그대로 있다", (await readyIds()).includes(H1))
+  await as("postgres")
+  ok("사진 기한: 요청 알림에 새 소개를 멈추는 날짜를 함께 알린다", (await one("select body from public.notifications where member_id = $1 and kind = 'photo-change' order by created_at desc limit 1", [H1])).body.includes("새 소개를 잠시 멈춰요"))
+  await q("update public.application_photos set change_requested_at = now() - interval '8 days' where member_id = $1 and slot = 'photo.face'", [H1])
+  await as(O, "aal2")
+  ok("사진 기한: 7일이 지나면 소개 후보에서 빠진다", !(await readyIds()).includes(H1))
+  await fails("사진 기한: 7일이 지난 회원은 예약할 수 없다", "select public.admin_reserve_introduction($1, $2, (public.kst_today() + 3), $3)", [H1, H2, reason], /사진 교체/)
+  ok("사진 기한: 운영진 신청서 화면에 멈춘 때가 보인다", !!(await one("select public.admin_get_application($1) d", [H1])).d.photoHoldAt)
+  await as(H1)
+  await q("select public.register_photo('photo.face', $1, 'image/jpeg', 1000, 800, 1000, $2, true, true)", [`${H1}/photo.face-new.jpg`, hex(45099)])
+  await as(O, "aal2")
+  ok("사진 기한: 새 사진을 올리면(확인 대기) 바로 다시 후보가 된다", (await readyIds()).includes(H1))
+  await as("postgres")
+  await q("delete from public.photo_replacements where member_id = $1", [H1])
+  await q("update public.application_photos set change_requested_at = now() - interval '6 days' where member_id = $1 and slot = 'photo.face'", [H1])
+  await as(O, "aal2")
+  await fails("사진 기한: 공개 전에 기한이 지나는 날로는 예약할 수 없다", "select public.admin_reserve_introduction($1, $2, (public.kst_today() + 3), $3)", [H1, H2, reason], /사진 교체/)
+  await q("select public.admin_request_photo_change($1, 'photo.face', null)", [H1])
+  ok("사진 기한: 요청을 거두면 기한도 없어진다", (await one("select public.admin_get_application($1) d", [H1])).d.photoHoldAt === null)
+
+  // 교류 뒤 한 줄 회고: 지난 교류(H1 · H2)를 만들어 둔다
+  await as("postgres")
+  const pastIntro = (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at, closed_at, end_reason) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'closed', now() - interval '1 minute', now() + interval '1 hour', now(), $3, $3, now() - interval '1 minute', now(), 'program-completed') returning id", [H1, H2, snap])).id
+  const pastProgram = (await one("insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at, closed_at, end_reason) values ($1, $2, $3, 'closed', 'A', 'A', public.kst_today() - 7, now() - interval '8 days', now() - interval '7 days', now() - interval '2 days', 'completed') returning id", [pastIntro, H1, H2])).id
+  const otherIntro = (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at, closed_at, end_reason) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'closed', now() - interval '1 minute', now() + interval '1 hour', now(), $3, $3, now() - interval '1 minute', now(), 'program-agreement-expired') returning id", [H1, H3, snap])).id
+  const unstarted = (await one("insert into public.programs (introduction_id, member_a, member_b, status, agree_by, closed_at, end_reason) values ($1, $2, $3, 'closed', now() - interval '3 days', now() - interval '3 days', 'agreement-expired') returning id", [otherIntro, H1, H3])).id
+  await as(H1)
+  await fails("한 줄: 시작하지 못한 교류에는 남길 수 없다", "select public.save_reflection($1, '대화가 편안했어요.')", [unstarted], /마친 뒤/)
+  await fails("한 줄: 너무 짧으면 안 된다", "select public.save_reflection($1, '좋음')", [pastProgram], /5~200자/)
+  await fails("한 줄: 연락처는 적을 수 없다", "select public.save_reflection($1, '카톡 아이디 gaon123 으로 연락 주세요')", [pastProgram], /연락처/)
+  await q("select public.save_reflection($1, '대화가 편안했어요. 다음엔 가까이 사는 분이면 좋겠어요.')", [pastProgram])
+  eq("한 줄: 다시 쓰면 고쳐진다(한 교류에 하나)", (await one("select public.save_reflection($1, '대화가 편안했어요. 다음엔 조금 더 가까이 사는 분이면 좋겠어요.') r", [pastProgram])).r.body, "대화가 편안했어요. 다음엔 조금 더 가까이 사는 분이면 좋겠어요.")
+  eq("한 줄: 회원은 자기 한 줄만 본다", (await q("select body from public.reflections")).length, 1)
+  await as(H2)
+  eq("한 줄: 상대는 내 한 줄을 볼 수 없다", (await q("select body from public.reflections")).length, 0)
+  await fails("한 줄: 남의 교류에는 남길 수 없다", "select public.save_reflection($1, '대화가 편안했어요.')", [unstarted], /찾을 수 없/)
+  await as("postgres")
+  const H4 = await member("h4-4500@example.test", "마루", "남성", "여성", 45040, "010-4500-0004")
+  await as(O, "aal2")
+  const seen = (await one("select public.admin_get_application($1) d", [H1])).d.reflections
+  eq("한 줄: 운영진 신청서 화면에 최근 한 줄이 보인다(만남까지 이어졌는지 함께)", [seen[0].body, seen[0].met, seen[0].usedAt], ["대화가 편안했어요. 다음엔 조금 더 가까이 사는 분이면 좋겠어요.", true, null])
+  const nextIntro = (await one("select public.admin_reserve_introduction($1, $2, (public.kst_today() + 4), $3, null, $4::uuid[]) id", [H1, H4, reason, [H1, H4]])).id
+  await as("postgres")
+  eq("한 줄: 반영해 예약하면 그 소개에 표시한다(한 줄이 없는 분은 표시하지 않음)", { ...(await one("select reflected_a a, reflected_b b from public.introductions where id = $1", [nextIntro])) }, { a: true, b: false })
+  ok("한 줄: 반영한 한 줄은 반영됨으로 남는다", !!(await one("select used_at from public.reflections where member_id = $1", [H1])).used_at)
+  await q("update public.introductions set reveal_at = now() - interval '1 minute', respond_by = now() + interval '20 hours', view_until = now() + interval '20 hours' where id = $1", [nextIntro])
+  await one("select public.run_noon()")
+  await as(H1)
+  eq("한 줄: 소개를 받으면 ‘한 줄을 참고해 골랐어요’ 표시가 온다", (await one("select public.my_introduction() v")).v.reflected, true)
+  await fails("한 줄: 반영한 뒤에는 고칠 수 없다", "select public.save_reflection($1, '다른 내용으로 고쳐 볼게요.')", [pastProgram], /반영한/)
+  await as(H4)
+  eq("한 줄: 반영하지 않은 쪽은 표시가 없다", (await one("select public.my_introduction() v")).v.reflected, false)
+  await as("postgres")
+  await q("update public.reflections set created_at = now() - interval '13 months' where member_id = $1", [H1])
+  await one("select public.run_retention()")
+  eq("한 줄: 1년이 지나면 보존 정리에서 지운다", (await one("select count(*)::int n from public.reflections where member_id = $1", [H1])).n, 0)
+}
+
 console.log(`서버 데이터베이스 점검 통과: ${passed}개`)

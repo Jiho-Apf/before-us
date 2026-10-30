@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router";
 import { ArrowUpRight, BadgeAlert, CalendarX2, Check, Link2Off, LockOpen, PenLine, ShieldCheck, Siren, Smartphone, UserCheck } from "lucide-react";
 import { Button } from "./components/ui/button";
@@ -198,6 +198,7 @@ const COMPARE = [
   { row: "동시에 몇 명과", app: "여러 명과 동시에", agency: "일정에 따라 여러 번", us: "한 번에 한 분" },
   { row: "첫 대화", app: "바로 채팅", agency: "바로 만남 약속", us: "3일 동안 편지·첫 장면" },
   { row: "연락처는 언제", app: "대화하며 직접 교환", agency: "매니저가 전달", us: "둘 다 원하면 만나는 날에만" },
+  { row: "다음 소개는", app: "알고리즘이 다시 추천", agency: "조건을 다시 맞춰", us: "교류 뒤 남긴 한 줄을 반영해" },
   { row: "비용", app: "월 구독·유료 아이템", agency: "가입비 수십만~수백만 원", us: BETA ? "지금은 베타라 무료" : "소개 1만 원 · 교류 2.9만 원" },
 ];
 export function CompareTable() {
@@ -350,7 +351,7 @@ export function PaymentSteps() {
       <ol className="mt-5 divide-y divide-border">
         {PAY_STEPS.map((item, index) => (
           <li key={item.step} className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 py-4 first:pt-1 last:pb-0 sm:grid-cols-[1.75rem_minmax(0,1fr)_auto] sm:items-center sm:gap-x-4">
-            <span aria-hidden="true" className="flex size-7 items-center justify-center rounded-full bg-primary/8 text-[11px] font-semibold text-primary tabular-nums">{index + 1}</span>
+            <span aria-hidden="true" style={{ "--orb-i": index } as CSSProperties} className="pay-orb flex size-7 items-center justify-center rounded-full bg-primary/8 text-[11px] font-semibold text-primary tabular-nums">{index + 1}</span>
             <div><p className="text-ink text-[15px] font-semibold">{item.step}</p><p className="mt-1 text-[13px] leading-6 text-foreground/70">{item.note}</p></div>
             <div className="col-start-2 mt-2.5 sm:col-start-3 sm:mt-0 sm:text-right">
               {item.price === 0 ? <span className="inline-flex rounded-full bg-muted px-3 py-1 text-xs font-semibold text-foreground/70">무료</span>

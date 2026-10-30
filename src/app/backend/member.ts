@@ -28,6 +28,8 @@ export type LiveIntroduction =
       endedByMe?: boolean
       counted?: boolean | null
       closedAt: string | null
+      // 교류 뒤 내가 남긴 한 줄을 운영진이 반영해 고른 소개인지
+      reflected?: boolean
     }
 export type LiveNotification = { id: string; kind: string; title: string; body: string | null; link: string | null; created_at: string; read_at: string | null }
 export type MemberSnapshot = {
@@ -44,7 +46,7 @@ export type MemberSnapshot = {
 }
 export type MemberPhotoState = {
   requests: { slot: string; reason: string | null }[]
-  changes: { slot: string; reason: string }[]
+  changes: { slot: string; reason: string; requestedAt: string | null }[]
   replacements: { slot: string; review: "대기" | "재등록 요청"; reason: string | null }[]
 }
 
@@ -97,7 +99,7 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
       // 혜택 칸은 따로 읽는다(못 읽어도 화면은 그대로 · 보통 회원으로 본다).
       db.from("profiles").select("perk").eq("id", auth.user.id).maybeSingle(),
       // 사진 안내도 못 읽으면 빼고 보여 준다.
-      db.from("application_photos").select("slot, review, reason, change_reason").eq("member_id", auth.user.id),
+      db.from("application_photos").select("slot, review, reason, change_reason, change_requested_at").eq("member_id", auth.user.id),
       db.from("photo_replacements").select("slot, review, reason").eq("member_id", auth.user.id),
     ])
     const failed = application.error || introduction.error || notifications.error || profile.error
@@ -111,7 +113,7 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
         cohort: (cohort.data as MemberSnapshot["cohort"]) ?? null,
         program: program.error ? null : ((program.data as Program | null) ?? null),
         perk: !perk.error && (perk.data as { perk?: string | null } | null)?.perk === "unlimited" ? "unlimited" : null,
-        photos: photoRows.error || swaps.error ? null : photoState((photoRows.data ?? []) as { slot: string; review: string; reason: string | null; change_reason: string | null }[], (swaps.data ?? []) as MemberPhotoState["replacements"]),
+        photos: photoRows.error || swaps.error ? null : photoState((photoRows.data ?? []) as PhotoStateRow[], (swaps.data ?? []) as MemberPhotoState["replacements"]),
       },
       error: null,
     }
@@ -122,13 +124,40 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
 
 const SLOT_ORDER = ["photo.face", "photo.upper", "photo.style", "photo.daily"]
 const bySlot = <T extends { slot: string }>(list: T[]) => [...list].sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
-function photoState(rows: { slot: string; review: string; reason: string | null; change_reason: string | null }[], replacements: MemberPhotoState["replacements"]): MemberPhotoState {
+type PhotoStateRow = { slot: string; review: string; reason: string | null; change_reason: string | null; change_requested_at: string | null }
+function photoState(rows: PhotoStateRow[], replacements: MemberPhotoState["replacements"]): MemberPhotoState {
   return {
     requests: bySlot(rows.filter(row => row.review === "재등록 요청").map(row => ({ slot: row.slot, reason: row.reason }))),
-    changes: bySlot(rows.filter(row => row.change_reason).map(row => ({ slot: row.slot, reason: row.change_reason! }))),
+    changes: bySlot(rows.filter(row => row.change_reason).map(row => ({ slot: row.slot, reason: row.change_reason!, requestedAt: row.change_requested_at }))),
     replacements: bySlot(replacements),
   }
 }
+
+// 사진 교체 기한: 운영진이 교체를 요청하고 7일 안에 새 사진을 올리지 않으면 새 소개를 잠시 멈춘다(서버 photo_hold_at과 같은 기준).
+// 확인을 기다리는 새 사진이 있는 칸은 세지 않는다. 남은 요청이 없으면 null.
+export const PHOTO_HOLD_DAYS = 7
+export function photoHoldAt(photos: MemberPhotoState | null | undefined): string | null {
+  if (!photos) return null
+  const times = photos.changes
+    .filter(change => change.requestedAt && !photos.replacements.some(swap => swap.slot === change.slot && swap.review === "대기"))
+    .map(change => Date.parse(change.requestedAt!) + PHOTO_HOLD_DAYS * 86400000)
+  return times.length ? new Date(Math.min(...times)).toISOString() : null
+}
+
+// 교류 뒤 한 줄: 운영진에게만 보이고, 다음 소개를 고를 때 참고한다. 반영한 뒤에는 고칠 수 없다.
+export type Reflection = { programId: string; body: string; usedAt: string | null }
+export async function loadReflection(programId: string): Promise<Reflection | null | undefined> {
+  try {
+    const db = await supabase()
+    const { data, error } = await db.from("reflections").select("program_id, body, used_at").eq("program_id", programId).maybeSingle()
+    if (error) return undefined
+    return data ? { programId: data.program_id, body: data.body, usedAt: data.used_at } : null
+  } catch {
+    return undefined // 불러오지 못함
+  }
+}
+export const saveReflection = (programId: string, body: string) => rpc<{ programId: string; body: string; usedAt: string | null }>("save_reflection", { p_program: programId, p_body: body })
+export const deleteReflection = (programId: string) => rpc<null>("delete_reflection", { p_program: programId })
 
 // 로그인한 회원의 화면 자료를 불러오고, 다시 불러오는 함수를 함께 준다.
 // 다음 상태 변경 시각까지 남은 시간(서버 작업이 10분 주기라 1분 여유를 둔다)

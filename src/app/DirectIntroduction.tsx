@@ -18,7 +18,7 @@ export default function DirectIntroduction() {
         </div>
         <div>
           <p className="text-sm leading-7 text-[#2B2540]/85 dark:text-white/85">
-            <Underline>운영진이 신청서와 사진, 외적인 취향, 관계 기준, 생활·대화 성향</Underline>을 직접 살펴 최종 한 사람을 제안해요.
+            <Underline>운영진이 신청서와 사진, 외적인 취향, 관계 기준, 생활·대화 성향</Underline>을 직접 살펴 최종 한 사람을 제안해요. 교류를 마친 뒤 남겨 주신 한 줄은 다음 분을 고를 때 반영해요.
           </p>
           <p className="mt-3 border-t border-[#2B2540]/10 pt-3 text-xs leading-6 text-[#2B2540]/65 dark:border-white/15 dark:text-white/65">
             누구를 소개할지는 운영진이 두 분의 신청서를 직접 읽고 정해요.<br className="hidden lg:block" />{" "}

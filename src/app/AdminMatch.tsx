@@ -62,7 +62,7 @@ function ConfirmDialog({ title, body, confirm, danger, reason, onClose }: Ask & 
 
 // ─────────────────────────────────────────────
 // 소개서(신청서) 보기: 운영진 열람은 admin_get_application이 하루 한 번 감사 기록을 남긴다.
-export type ApplicationDetail = { memberId: string; status: string; profileVersion: number; submittedAt: string | null; decisionNote: string | null; draft: { values: Record<string, unknown>; sharing: Record<string, boolean>; preferences?: Preferences }; photos: { slot: string; path: string; review: string; reason: string | null; width: number; height: number; changeReason?: string | null }[]; replacements?: { slot: string; path: string; review: string; reason: string | null; width: number; height: number }[] };
+export type ApplicationDetail = { memberId: string; status: string; profileVersion: number; submittedAt: string | null; decisionNote: string | null; draft: { values: Record<string, unknown>; sharing: Record<string, boolean>; preferences?: Preferences }; photos: { slot: string; path: string; review: string; reason: string | null; width: number; height: number; changeReason?: string | null; changeRequestedAt?: string | null }[]; replacements?: { slot: string; path: string; review: string; reason: string | null; width: number; height: number }[]; reflections?: { body: string; createdAt: string; usedAt: string | null; met: boolean | null }[]; photoHoldAt?: string | null };
 export const show = (value: unknown) => Array.isArray(value) ? value.join(" · ") : typeof value === "boolean" ? value ? "예" : "아니요" : String(value ?? "");
 const filled = (value: unknown) => value !== undefined && value !== null && value !== "" && !(Array.isArray(value) && value.length === 0);
 const KEY_ITEMS: [string, string][] = [["self.purpose", "관계 목적"], ["self.height", "키"], ["self.body", "체형"], ["self.style", "스타일"], ["self.smoking", "흡연"], ["self.drinking", "음주"], ["self.schedule", "생활"], ["self.available", "편한 시간"], ["self.interests", "관심사"], ["self.work", "직업·분야"], ["self.mbti", "MBTI"]];
@@ -127,8 +127,18 @@ function Side({ member, side, date, detail, onClear }: { member: ReadyMember; si
       <div className="min-w-0"><p className="text-[11px] text-muted-foreground">{side} · {member.cohort != null ? `${cohortName(member.cohort)} · ` : ""}소개 {member.introductions}번{member.last_published_at ? ` · 최근 ${kstDay(member.last_published_at)}` : " · 첫 소개 전"}</p><h3 className="mt-1 text-lg font-semibold">{member.name ?? "이름 없음"}<MemberFlags member={member} date={date} /></h3><p className="text-xs text-muted-foreground">{memberLine(member)}</p></div>
       <div className="flex gap-1"><Link to={`/admin/applicants?member=${member.member_id}`} className="rounded-full border border-border px-3 py-1 text-[11px] hover:bg-secondary">신청서</Link><Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]" onClick={onClear}><X size={13} />바꾸기</Button></div>
     </div>
+    {detail.data?.memberId === member.member_id && <Reflections items={detail.data.reflections ?? []} />}
     {detail.error ? <Notice text={detail.error} /> : detail.data?.memberId === member.member_id ? <ProfileSheet detail={detail.data} member={member} /> : <p className="text-xs text-muted-foreground">소개서를 불러오고 있어요.</p>}
   </section>;
+}
+
+// 지난 교류 뒤 회원이 남긴 한 줄(운영진만 봄). 아직 반영하지 않은 한 줄을 먼저 읽고 다음 소개에 반영한다.
+export function Reflections({ items }: { items: NonNullable<ApplicationDetail["reflections"]> }) {
+  if (!items.length) return null;
+  return <div className="rounded-xl bg-[#F8E5A6]/45 p-3 text-xs leading-6 text-[#2B2540] dark:bg-[#3B3424] dark:text-white">
+    <p className="font-semibold">지난 교류 뒤 남긴 한 줄</p>
+    <ul className="mt-1.5 space-y-1.5">{items.map(item => <li key={item.createdAt}><span className="text-[#2B2540]/60 dark:text-white/60">{kstDay(item.createdAt)}{item.met ? " · 만남까지" : ""}{item.usedAt ? " · 반영함" : " · 아직 반영 전"}</span><br />“{item.body}”</li>)}</ul>
+  </div>;
 }
 
 // 궁합 분석(참고용): 외부로 아무것도 보내지 않고, 이 화면에서 두 소개서를 나란히 읽어 정리한다(localInsight).
@@ -198,6 +208,8 @@ export function MatchBoard({ focus, onReserved }: { focus: string | null; onRese
   const [search, setSearch] = useState("");
   const [gender, setGender] = useState<"" | "여성" | "남성">("");
   const [sendCompat, setSendCompat] = useState(true);
+  // 한 줄을 반영해 골랐다고 표시하지 않을 회원(기본은 반영함 · 반영 전 한 줄이 있는 분만 해당)
+  const [skipReflect, setSkipReflect] = useState<string[]>([]);
   const { busy, run } = useBusy();
   const members = ready.data ?? [];
   const left = members.find(member => member.member_id === leftId) ?? null;
@@ -220,13 +232,16 @@ export function MatchBoard({ focus, onReserved }: { focus: string | null; onRese
   const compat = useMemo(() => leftDraft && rightDraft ? memberMatch(leftDraft, rightDraft) : null, [leftDraft, rightDraft]);
   const sharedNote = useMemo(() => leftDraft && rightDraft ? draftNote(leftDraft, rightDraft) : null, [leftDraft, rightDraft]);
   const pickLeft = (id: string) => { setLeftId(id); setRightId(null); setMessage(""); revealOnNarrow("match-right"); };
-  const pickRight = (id: string) => { setRightId(id); setSendCompat(true); setMessage(""); revealOnNarrow("match-right"); };
+  const pickRight = (id: string) => { setRightId(id); setSendCompat(true); setSkipReflect([]); setMessage(""); revealOnNarrow("match-right"); };
+  const unusedOf = (detail: { data: ApplicationDetail | null }, id: string | null) => detail.data?.memberId === id ? (detail.data?.reflections ?? []).filter(item => !item.usedAt) : [];
+  const reflectRows = [{ id: leftId, name: left?.name, items: unusedOf(leftDetail, leftId) }, { id: rightId, name: right?.name, items: unusedOf(rightDetail, rightId) }].filter(row => row.id && row.items.length) as { id: string; name: string | null | undefined; items: NonNullable<ApplicationDetail["reflections"]> }[];
+  const reflected = reflectRows.filter(row => !skipReflect.includes(row.id)).map(row => row.id);
   const swap = () => { setLeftId(rightId); setRightId(leftId); };
   const reserve = () => run("reserve", async () => {
     const match = sendCompat && compat ? compat : null;
-    const { error } = await rpc("admin_reserve_introduction", { p_a: leftId, p_b: rightId, p_date: date, p_note: note, p_match: match });
+    const { error } = await rpc("admin_reserve_introduction", { p_a: leftId, p_b: rightId, p_date: date, p_note: note, p_match: match, p_reflected: reflected });
     setMessage(error || `${left?.name} · ${right?.name} · ${kstDay(`${date}T12:00:00+09:00`)} 정오 공개로 예약했어요. ${match ? `회원에게 보일 궁합도 함께 보냈어요(${match.score >= MATCH_SCORE_SHOWN ? `${match.score}점` : "숫자 없이 이유만"} · ${match.headline})` : "궁합은 보내지 않았어요."}`);
-    if (!error) { setLeftId(null); setRightId(null); setNote(""); setSendCompat(true); await ready.reload(); await onReserved(); }
+    if (!error) { setLeftId(null); setRightId(null); setNote(""); setSendCompat(true); setSkipReflect([]); await ready.reload(); await onReserved(); }
   });
   const filtered = members.filter(member => (!gender || member.gender === gender) && (!search.trim() || (member.name ?? "").includes(search.trim())));
   const focusMissing = focus && ready.data && !members.some(member => member.member_id === focus);
@@ -264,6 +279,7 @@ export function MatchBoard({ focus, onReserved }: { focus: string | null; onRese
         </div>
         <p className="text-[11px] leading-5 text-muted-foreground">공개 동의한 항목만 상대에게 보여요. 외모 평가나 점수, 비공개 항목은 소개 이유에 쓰지 않아요. {note.trim().length}/300자 · 10자 이상</p>
         <MemberMatchPreview match={compat} waiting={leftDetail.loading || rightDetail.loading} error={leftDetail.error || rightDetail.error} send={sendCompat} onSend={setSendCompat} />
+        {reflectRows.length > 0 && <div className="space-y-2 rounded-xl border border-border p-3 text-xs"><p className="font-semibold">지난 교류 뒤 남긴 한 줄</p>{reflectRows.map(row => <label key={row.id} className="flex cursor-pointer items-start gap-2 leading-6"><input type="checkbox" className="mt-1.5" checked={!skipReflect.includes(row.id)} onChange={event => setSkipReflect(current => event.target.checked ? current.filter(id => id !== row.id) : [...current, row.id])} /><span><span className="font-semibold">{row.name}님의 한 줄을 반영해 골랐어요</span><span className="block text-muted-foreground">“{row.items[0].body}”</span><span className="block text-[11px] text-muted-foreground">켜 두면 {row.name}님 소개 화면에 ‘남겨 주신 한 줄을 참고해 골랐어요’가 보여요. 실제로 반영했을 때만 켜 주세요.</span></span></label>)}</div>}
         <Button disabled={blocking || note.trim().length < 10 || busy === "reserve"} onClick={() => void reserve()}>{busy === "reserve" ? "예약하고 있어요" : "예약하기"}</Button>
       </section>
     </>}

@@ -20,7 +20,7 @@ import { SAFETY_COMPOSE_NOTE } from "./message-safety";
 import { PHOTO_ORDER, loadMyApplication, partnerPhotoUrl, photoUrl, type PhotoRow, type ReplacementRow } from "./backend/applications";
 import LivePhotoStep from "./LivePhotoStep";
 import { publicApplicationProfile } from "./application-review";
-import { addAvoidContacts, deleteAvoidContact, loadAvoidContacts, type AvoidContact, blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, NOTIFICATION_FIRST, editBlockReason, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type IntroMatch, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
+import { addAvoidContacts, deleteAvoidContact, loadAvoidContacts, type AvoidContact, blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, NOTIFICATION_FIRST, editBlockReason, loadReflection, photoHoldAt, recordIntroductionView, saveReflection, deleteReflection, type Reflection, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type IntroMatch, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
 
 // 실제 서버 모드의 회원 화면(오늘 · 두 사람 · 내 정보 · 문의·요청). 데모 화면과 같은 편집 톤을 쓴다.
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -113,6 +113,8 @@ function todayState(data: MemberSnapshot): TodayState {
   const photoRequest = data.photos?.requests[0];
   if (photoRequest && (application.status === "submitted" || application.status === "reviewing")) return { label: "사진 보완", title: "사진 한 장을 다시 올려 주세요.", action: "사진 다시 올리기", to: "/apply?edit=1&step=1", body: `${slotLabel(photoRequest.slot)} 사진 · ${photoRequest.reason || "운영진 안내를 확인해 주세요"}. 이 칸의 사진만 다시 올리면 돼요. 새 사진을 확인하기 전까지는 소개를 준비하지 않아요.` };
   if (application.status === "submitted" || application.status === "reviewing") return { label: "검토 중", title: "신청서를 확인하고 있어요.", action: "신청서 보기", to: "/apply", body: `운영진이 사진과 내용을 확인하고 있어요. 검토가 끝나면 이 화면에서 알려 드릴게요.${cohort && kstToday() < cohort.startsOn ? ` ${cohortName(cohort.number)} 첫 소개는 ${noonOf(cohort.startsOn)} 정오예요.` : ""}` };
+  const holdAt = application.status === "approved" ? photoHoldAt(data.photos) : null;
+  if (holdAt && Date.parse(holdAt) <= Date.now()) return { label: "잠시 멈춤", title: "사진을 바꾸면 새 소개를 다시 준비해요.", action: "사진 바꾸기", to: "/profile#photos", body: "운영진이 요청한 사진 교체가 7일 동안 이뤄지지 않아 새 소개를 잠시 멈췄어요. 새 사진을 올리면 바로 다시 준비해요. 신청과 지금 사진은 그대로예요." };
   if (application.status === "approved" && data.notices?.paused_at) return data.notices.paused_by === "operator"
     ? { label: "잠시 멈춤", title: "운영진이 새 소개를 잠시 멈췄어요.", action: "문의하기", to: "/contact", body: "확인할 일이 있어 새 소개 준비를 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." }
     : { label: "잠시 쉬는 중", title: "새 소개를 잠시 쉬고 있어요.", action: "내 정보에서 다시 받기", to: "/profile", body: data.notices.paused_by === "auto" ? "답하지 않은 소개가 이어졌거나 교류를 마쳐서 새 소개를 쉬고 있어요. 다시 받기를 누르면 다음 정오부터 다시 준비해요." : "쉬는 동안에는 새 소개를 준비하지 않아요. 다시 받기를 누르면 다음 정오부터 다시 준비해요." };
@@ -169,6 +171,7 @@ function LiveTodayView() {
         </aside>
       </div>
       {data.application?.status === "approved" && data.photos && <PhotoChangeNotice photos={data.photos} />}
+      {reflectable(data) && <ReflectionCard key={data.program!.id} programId={data.program!.id} met={data.program!.endReason === "completed"} />}
       {data.application && data.application.status !== "draft" && data.introduction.status === "waiting" && <div className="mt-10"><FirstWordCard /></div>}
       <section className="mt-14 border-t border-border pt-8" aria-labelledby="status-title">
         <h2 id="status-title" className="mb-5 text-sm font-semibold">지금 알아두면 좋은 것</h2>
@@ -186,8 +189,10 @@ function PhotoChangeNotice({ photos }: { photos: NonNullable<MemberSnapshot["pho
   const waiting = photos.replacements.filter(item => item.review === "대기");
   const change = photos.changes.find(item => !photos.replacements.some(swap => swap.slot === item.slot));
   const request = photos.requests[0];
+  const holdAt = photoHoldAt(photos);
+  if (holdAt && Date.parse(holdAt) <= Date.now() && !waiting.length) return null;
   const notice = retry ? { title: "바꿀 사진을 한 번 더 골라 주세요.", body: `${slotLabel(retry.slot)} 사진 · ${retry.reason || "운영진 안내를 확인해 주세요"}. 지금 사진은 그대로 보여요.`, action: true }
-    : change ? { title: "사진 한 장을 바꿔 주세요.", body: `${slotLabel(change.slot)} 사진 · ${change.reason}. 새 사진을 올려 주시면 확인한 뒤 바꿔 드려요. 그동안 소개는 그대로 이어지고, 지금 사진도 그대로 보여요.`, action: true }
+    : change ? { title: "사진 한 장을 바꿔 주세요.", body: `${slotLabel(change.slot)} 사진 · ${change.reason}. 새 사진을 올려 주시면 확인한 뒤 바꿔 드려요. 그동안 지금 사진이 그대로 보여요.${holdAt ? ` ${kstDateTime(holdAt)}까지 올리지 않으면 새 소개를 잠시 멈춰요(진행 중인 소개는 그대로예요).` : ""}`, action: true }
     : request ? { title: "사진 한 장을 다시 올려 주세요.", body: `${slotLabel(request.slot)} 사진 · ${request.reason || "운영진 안내를 확인해 주세요"}. 확인한 뒤 상대에게 보여요.`, action: true }
     : waiting.length ? { title: "새 사진을 확인하고 있어요.", body: "확인되면 지금 사진과 자연스럽게 바뀌어요. 그동안은 지금 사진이 그대로 보여요.", action: false }
     : null;
@@ -195,6 +200,39 @@ function PhotoChangeNotice({ photos }: { photos: NonNullable<MemberSnapshot["pho
   return <Sheet tone="soft" className="mt-10 flex flex-wrap items-center justify-between gap-5 p-6 sm:p-8">
     <div className="min-w-0 max-w-xl"><p className="text-xs font-semibold text-accent">사진 안내</p><h2 className="mt-3 text-lg font-semibold leading-[1.5]">{notice.title}</h2><p className="mt-2 text-sm leading-7 text-muted-foreground">{notice.body}</p></div>
     {notice.action && <Button asChild className={`h-11 shrink-0 rounded-xl px-5 ${interaction}`}><Link to="/profile#photos">사진 바꾸기 <ArrowUpRight size={15} /></Link></Button>}
+  </Sheet>;
+}
+
+// 교류 뒤 한 줄: 교류를 시작해 마친 뒤 30일 동안, 새 소개가 열려 있지 않을 때 오늘 화면에 보여 준다.
+const REFLECTION_DAYS = 30;
+const reflectable = (data: MemberSnapshot) => !!data.program && data.program.status === "closed" && !!data.program.startedAt && !!data.program.closedAt
+  && Date.now() - Date.parse(data.program.closedAt) < REFLECTION_DAYS * 86400000 && data.introduction.status !== "published" && data.introduction.status !== "mutual";
+const REFLECTION_IDEAS = ["대화가 편안했어요.", "생활 리듬이 비슷한 분이면 좋겠어요.", "조금 더 가까이 사는 분이면 좋겠어요.", "답장 속도가 비슷한 분이 편할 것 같아요."];
+function ReflectionCard({ programId, met }: { programId: string; met: boolean }) {
+  const [saved, setSaved] = useState<Reflection | null | undefined>(undefined);
+  const [body, setBody] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  useEffect(() => { void loadReflection(programId).then(item => { setSaved(item === undefined ? null : item); setBody(item?.body ?? ""); }); }, [programId]);
+  if (saved === undefined) return null;
+  const length = Array.from(body.trim()).length;
+  const save = async () => { setSending(true); const { data, error } = await saveReflection(programId, body); setSending(false); if (error || !data) { setMessage(error || "저장하지 못했어요."); return; } setSaved({ programId, body: data.body, usedAt: data.usedAt }); setBody(data.body); setEditing(false); setMessage("남겨 주셨어요. 다음 분을 고를 때 참고할게요."); };
+  const remove = async () => { const { error } = await deleteReflection(programId); if (error) { setMessage(error); return; } setSaved(null); setBody(""); setEditing(false); setMessage("한 줄을 지웠어요."); };
+  const form = !saved || editing;
+  return <Sheet className="mt-10 p-6 sm:p-8">
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold text-accent">다음 소개를 위한 한 줄</p><h2 className="mt-3 text-xl font-semibold leading-[1.5]">{met ? "만나 보니 어땠나요?" : "이번 교류는 어땠나요?"}</h2></div>{saved && <span className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${saved.usedAt ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{saved.usedAt ? "다음 소개에 반영했어요" : "운영진만 봐요"}</span>}</div>
+    <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">운영진에게만 보이고, 상대에게는 보이지 않아요. 어떤 점이 편했는지, 다음엔 어떤 분이면 좋을지 남겨 주시면 다음 분을 고를 때 반영하고, 소개할 때 함께 알려 드려요.</p>
+    {form ? <>
+      <Textarea aria-label="다음 소개를 위한 한 줄" value={body} maxLength={200} onChange={event => { setBody(event.target.value); setMessage(""); }} placeholder="예: 대화가 편안했어요. 다음엔 조금 더 가까이 사는 분이면 좋겠어요." className="mt-5 min-h-20 rounded-xl bg-card text-[15px] leading-7" />
+      <div className="mt-2 flex items-start justify-between gap-3 text-[11px] leading-5 text-muted-foreground"><p>5~200자 · 연락처·SNS 아이디·링크는 적을 수 없어요</p><span className="shrink-0 tabular-nums">{length} / 200</span></div>
+      {!body.trim() && <div className="mt-3 flex flex-wrap gap-2">{REFLECTION_IDEAS.map(idea => <button key={idea} type="button" onClick={() => setBody(idea)} className={`rounded-full border border-border px-3 py-1.5 text-xs hover:border-primary/50 hover:text-primary ${interaction}`}>{idea}</button>)}</div>}
+      <div className="mt-5 flex flex-wrap items-center gap-2"><Button disabled={length < 5 || sending || body.trim() === (saved?.body ?? "")} onClick={() => void save()} className={`h-11 rounded-xl px-5 ${interaction}`}>{sending ? "남기는 중…" : "한 줄 남기기"}</Button>{editing && <Button variant="ghost" onClick={() => { setEditing(false); setBody(saved?.body ?? ""); }} className={`h-11 rounded-xl text-xs text-muted-foreground ${interaction}`}>그만 고치기</Button>}</div>
+    </> : <>
+      <blockquote className="mt-5 border-l-2 border-primary pl-4 text-[15px] leading-7">{saved!.body}</blockquote>
+      {!saved!.usedAt && <div className="mt-4 flex flex-wrap gap-2"><Button variant="outline" onClick={() => { setEditing(true); setMessage(""); }} className={`h-10 rounded-xl border-border text-xs ${interaction}`}>고치기</Button><Button variant="ghost" onClick={() => void remove()} className={`h-10 rounded-xl text-xs text-muted-foreground ${interaction}`}>지우기</Button></div>}
+    </>}
+    {message && <p role="status" className="mt-3 text-xs text-primary">{message}</p>}
   </Sheet>;
 }
 
@@ -468,7 +506,7 @@ function LiveIntroductionView() {
         <div className="space-y-8">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{intro.profile.photos.map(photo => <PartnerPhoto key={photo.path} path={photo.path} label={PHOTO_SLOTS.find(slot => slot.id === photo.slot)?.label ?? "사진"} />)}</div>
           {intro.profile.greeting && <figure className="border-l-2 border-primary pl-5"><blockquote className="text-lg font-semibold leading-[1.6]">“{intro.profile.greeting}”</blockquote><figcaption className="mt-2 text-xs text-muted-foreground">{name ? `${valueOf(name.value)} 님의 첫 마디` : "첫 마디"}</figcaption></figure>}
-          {intro.note && <Sheet tone="soft" className="p-6"><p className="text-xs font-semibold text-accent">운영진이 두 분을 소개한 이유</p><p className="mt-3 text-sm leading-7">{intro.note}</p></Sheet>}
+          {intro.note && <Sheet tone="soft" className="p-6"><p className="text-xs font-semibold text-accent">운영진이 두 분을 소개한 이유</p><p className="mt-3 text-sm leading-7">{intro.note}</p>{intro.reflected && <p className="mt-3 border-t border-border/70 pt-3 text-xs leading-6 text-muted-foreground">지난 교류 뒤 남겨 주신 한 줄을 참고해 골랐어요.</p>}</Sheet>}
           {intro.match && <MatchSheet match={intro.match} />}
           <dl className="divide-y divide-border border-y border-border">{intro.profile.items.filter(item => item.id !== "self.name").map(item => <div key={item.id} className="grid gap-1 py-4 sm:grid-cols-[140px_1fr]"><dt className="text-xs text-muted-foreground">{labelOf(item.id)}</dt><dd className="whitespace-pre-wrap break-words text-sm leading-7">{valueOf(item.value)}</dd></div>)}</dl>
           <p className="text-xs leading-6 text-muted-foreground">{intro.status === "mutual" ? "서로 선택했으니 프로필과 사진은 교류와 약속이 끝날 때까지 볼 수 있어요." : "프로필과 사진은 응답 기한까지만 볼 수 있어요."} 캡처하거나 다른 곳에 옮기지 말아 주세요.</p>

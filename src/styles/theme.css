@@ -268,6 +268,24 @@
   .journey-glow { animation: none; box-shadow: 0 22px 44px -34px var(--glow-on); }
 }
 
+/* 06 이용 요금: 1~4번 구에 보라가 차례로 천천히 차올랐다가 사라진다(한 구 1.8초 · 네 구 한 바퀴 7.2초).
+   색은 밖에서 변수로 정하고 @keyframes 안에서는 변수만 쓴다(배포용 압축 문제, 위 여정 참고). */
+.pay-orb {
+  --orb-off: color-mix(in oklch, var(--primary) 8%, transparent);
+  --orb-on: var(--primary);
+  --orb-ring-off: 0 0 0 0 transparent;
+  --orb-ring-on: 0 0 0 5px color-mix(in oklch, var(--primary) 14%, transparent);
+  animation: pay-orb 7.2s ease-in-out infinite;
+  animation-delay: calc(var(--orb-i, 0) * 1.8s);
+}
+@keyframes pay-orb {
+  0%, 26%, 100% { background-color: var(--orb-off); color: var(--primary); box-shadow: var(--orb-ring-off); }
+  11% { background-color: var(--orb-on); color: var(--primary-foreground); box-shadow: var(--orb-ring-on); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pay-orb { animation: none; }
+}
+
 /* 첫 화면: 정오 알림 카드가 아주 천천히 떠 있다 */
 @keyframes hero-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 .hero-float { animation: hero-float 6s ease-in-out infinite; }
