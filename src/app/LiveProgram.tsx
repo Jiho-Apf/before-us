@@ -25,10 +25,28 @@ const planName = (plan: "A" | "B") => PLAN_COPY[plan].name.replace(". ", " ");
 const kstHour = () => new Date(Date.now() + 9 * 3600000).getUTCHours();
 const untilMidnight = () => { const kst = new Date(Date.now() + 9 * 3600000); const left = 86400000 - ((kst.getUTCHours() * 60 + kst.getUTCMinutes()) * 60000); return `${Math.floor(left / 3600000)}시간 ${Math.floor((left % 3600000) / 60000)}분`; };
 
+// 다음 00:00:30 또는 09:00:30(한국 시간)까지 남은 시간
+function untilProgramBoundary(now = Date.now()) {
+  const kst = new Date(now + 9 * 3600000);
+  const base = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()) - 9 * 3600000;
+  const marks = [30, 9 * 3600 + 30].map(seconds => base + seconds * 1000);
+  const next = marks.find(at => at > now + 1000) ?? marks[0] + 86400000;
+  return next - now;
+}
 function useProgram() {
   const [state, setState] = useState<{ data: Program | null; error: string | null; loading: boolean }>({ data: null, error: null, loading: true });
   const reload = async () => { const result = await loadMyProgram(); setState({ data: result.data, error: result.error, loading: false }); };
   useEffect(() => { void reload(); }, []);
+  // 시각이 바뀌는 때(00:00 그날 글 마감 · 09:00 새 날·만남 선택 열림)와, 1분 넘게 다른 창에 있다가 돌아왔을 때 다시 불러온다.
+  // 쓰던 글은 입력 칸과 임시 저장에 그대로 남는다.
+  useEffect(() => {
+    let hiddenAt = 0, timer = 0;
+    const onVisible = () => { if (document.visibilityState === "hidden") hiddenAt = Date.now(); else if (hiddenAt && Date.now() - hiddenAt > 60000) { hiddenAt = 0; void reload(); } };
+    document.addEventListener("visibilitychange", onVisible);
+    const schedule = () => { timer = window.setTimeout(() => { void reload(); schedule(); }, untilProgramBoundary()); };
+    schedule();
+    return () => { document.removeEventListener("visibilitychange", onVisible); window.clearTimeout(timer); };
+  }, []);
   // 서버 함수는 고친 뒤의 교류를 그대로 돌려준다. 실패하면 안내만 바꾼다.
   // 보내는 중에 다시 누르면 무시한다(두 번 눌러도 한 번만 보내지게). 성공 여부도 함께 돌려준다.
   const sending = useRef(false);
@@ -55,9 +73,11 @@ function NotYet({ title }: { title: string }) {
   return <section className="space-y-8"><PageHeader mark={title} label="서로 선택한 뒤에 열려요" en="FLAVIE" title={`${title} 화면은 두 분이 서로 선택한 뒤에 열려요.`} lead="소개를 받고 두 분 모두 알아가고 싶다고 답하면, 이곳에서 함께 시작하는 방법을 정해요." /><Button asChild variant="outline" className="h-11 rounded-xl border-border"><Link to="/today">오늘 화면으로 <ArrowRight size={14} /></Link></Button></section>;
 }
 
+// 차단·탈퇴·이용 정지로 끝난 교류: 이 화면은 누가 끝냈는지 모르므로(차단한 본인도 볼 수 있다) 어느 쪽에도 맞는 말로 안내한다.
+const PARTY_ENDED = ["blocked", "withdrawn", "suspended"];
 function Closed({ program, reread = false }: { program: Program; reread?: boolean }) {
   const done = program.endReason === "completed";
-  return <Moment eyebrow={done ? "THANK YOU" : "SEE YOU AGAIN"} title={done ? "만남까지 마친 교류예요." : "이번 교류는 여기서 마무리됐어요."} action={<div className="flex flex-wrap gap-2"><Button asChild className="h-11 rounded-full px-6"><Link to="/today">오늘 화면으로</Link></Button>{reread && program.entries.length > 0 && <Button asChild variant="outline" className="h-11 rounded-full border-border px-5 hover:bg-muted hover:text-foreground"><Link to="/exchange">주고받은 글 다시 읽기</Link></Button>}<Button asChild variant="outline" className="h-11 rounded-full border-border px-5 hover:bg-muted hover:text-foreground"><Link to="/us">불편한 일 신고하기</Link></Button></div>}>{END_REASON[program.endReason ?? ""] ?? "다음 소개가 준비되면 정오에 알려 드릴게요."}</Moment>;
+  return <Moment eyebrow={done ? "THANK YOU" : "SEE YOU AGAIN"} title={done ? "만남까지 마친 교류예요." : "이번 교류는 여기서 마무리됐어요."} action={<div className="flex flex-wrap gap-2"><Button asChild className="h-11 rounded-full px-6"><Link to="/today">오늘 화면으로</Link></Button>{reread && program.entries.length > 0 && <Button asChild variant="outline" className="h-11 rounded-full border-border px-5 hover:bg-muted hover:text-foreground"><Link to="/exchange">주고받은 글 다시 읽기</Link></Button>}<Button asChild variant="outline" className="h-11 rounded-full border-border px-5 hover:bg-muted hover:text-foreground"><Link to="/us">불편한 일 신고하기</Link></Button></div>}>{PARTY_ENDED.includes(program.endReason ?? "") ? "더 이어 가기 어려운 사정이 생겨 교류를 마무리했어요. 다음 소개가 준비되면 정오에 알려 드릴게요." : END_REASON[program.endReason ?? ""] ?? "다음 소개가 준비되면 정오에 알려 드릴게요."}</Moment>;
 }
 
 // ─────────────────────────────────────────────

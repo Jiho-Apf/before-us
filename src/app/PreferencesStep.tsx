@@ -553,8 +553,9 @@ export default function PreferencesStep({
                 ))}
               </div>
               <p className="mt-4 text-xs leading-7">
-                상호 선택과 양쪽 결제 뒤, 두 사람이 같은 방식과 시작일을
-                결정해요. 지금 선택하거나 확정하지 않아요.
+                {LIVE && BEFORE_US.beta.active
+                  ? "서로 선택한 뒤 두 사람이 같은 방식과 시작일을 정해요(베타 기간에는 결제 없이). 지금 선택하거나 확정하지 않아요."
+                  : "상호 선택과 양쪽 결제 뒤, 두 사람이 같은 방식과 시작일을 결정해요. 지금 선택하거나 확정하지 않아요."}
               </p>
               <p className="mt-2 text-[11px] text-muted-foreground">
                 대화 느낌·주관적인 인상은 자동 탈락 조건이 아니에요.

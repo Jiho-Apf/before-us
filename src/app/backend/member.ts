@@ -200,15 +200,17 @@ export async function loadMyRequests() {
 
 // 첫 마디: 소개된 상대가 가장 먼저 보는 한마디. 홈 공개는 본인이 켜고 운영진이 확인한 뒤에만.
 export type Greeting = { body: string; showOnHome: boolean; homeStatus: "none" | "pending" | "approved" | "rejected"; homeReason: string | null }
-export async function loadGreeting(): Promise<Greeting | null> {
+// null = 아직 쓴 첫 마디가 없음, undefined = 불러오지 못함
+export async function loadGreeting(): Promise<Greeting | null | undefined> {
   try {
     const db = await supabase()
     const { data: auth } = await db.auth.getUser()
     if (!auth.user) return null
-    const { data } = await db.from("greetings").select("body, show_on_home, home_status, home_reason").eq("member_id", auth.user.id).maybeSingle()
+    const { data, error } = await db.from("greetings").select("body, show_on_home, home_status, home_reason").eq("member_id", auth.user.id).maybeSingle()
+    if (error) return undefined
     return data ? { body: data.body, showOnHome: data.show_on_home, homeStatus: data.home_status, homeReason: data.home_reason } : null
   } catch {
-    return null
+    return undefined
   }
 }
 export const saveGreeting = (body: string, showOnHome: boolean) => rpc<{ body: string; showOnHome: boolean; homeStatus: Greeting["homeStatus"] }>("save_greeting", { p_body: body, p_show_on_home: showOnHome })

@@ -237,7 +237,7 @@ const STANDARDS = [
   { n: "01", icon: UserCheck, title: "운영진이 직접 확인", body: "사진과 신청서를 사람이 읽고 승인해요" },
   { n: "02", icon: ShieldCheck, title: "연락처·링크 자동 차단", body: "편지와 약속에서 번호·SNS·계좌는 막혀요" },
   { n: "03", icon: Smartphone, title: "번호는 만나는 날만", body: "두 분이 동의할 때, 그날과 다음 날만" },
-  { n: "04", icon: Siren, title: "신고·차단 즉시", body: "누르는 순간 교류가 멈추고 운영진이 확인해요" },
+  { n: "04", icon: Siren, title: "신고·차단 즉시", body: "차단은 즉시 끝나고, 신고는 먼저 확인해요" },
 ];
 // 곡선(viewBox 1000×120): M0 110 Q500 -30 1000 110 → x=12.5%에서 y≈79, x=37.5%에서 y≈44. 아이콘(48px) 중심을 그 높이에 맞춘다.
 export function Standards() {
