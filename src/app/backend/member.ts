@@ -39,6 +39,13 @@ export type MemberSnapshot = {
   program: Program | null
   // 회원 혜택(대표가 정함). 'unlimited' = 결제 없이 이용하는 계정. 본인 내 정보에만 조용히 보여 주고, 상대에게는 보이지 않는다.
   perk?: "unlimited" | null
+  // 사진 안내: 다시 올려 달라고 한 사진(승인 전) · 운영진의 교체 요청(승인 뒤) · 확인을 기다리는 교체 사진. 못 읽으면 null.
+  photos?: MemberPhotoState | null
+}
+export type MemberPhotoState = {
+  requests: { slot: string; reason: string | null }[]
+  changes: { slot: string; reason: string }[]
+  replacements: { slot: string; review: "대기" | "재등록 요청"; reason: string | null }[]
 }
 
 // 오늘 화면은 처음에 10개를 보여 주고 ‘지난 알림 더 보기’로 30개까지 펼친다. 읽음은 화면에 보여 준 것만 바꾼다.
@@ -80,7 +87,7 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
     const db = await supabase()
     const { data: auth } = await db.auth.getUser()
     if (!auth.user) return { data: null, error: "로그인이 필요해요." }
-    const [application, introduction, notifications, profile, cohort, program, perk] = await Promise.all([
+    const [application, introduction, notifications, profile, cohort, program, perk, photoRows, swaps] = await Promise.all([
       db.from("applications").select("status, decision_note, submitted_at").eq("member_id", auth.user.id).maybeSingle(),
       db.rpc("my_introduction"),
       db.from("notifications").select("id, kind, title, body, link, created_at, read_at").order("created_at", { ascending: false }).limit(NOTIFICATION_LOAD),
@@ -89,6 +96,9 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
       db.rpc("my_program"),
       // 혜택 칸은 따로 읽는다(못 읽어도 화면은 그대로 · 보통 회원으로 본다).
       db.from("profiles").select("perk").eq("id", auth.user.id).maybeSingle(),
+      // 사진 안내도 못 읽으면 빼고 보여 준다.
+      db.from("application_photos").select("slot, review, reason, change_reason").eq("member_id", auth.user.id),
+      db.from("photo_replacements").select("slot, review, reason").eq("member_id", auth.user.id),
     ])
     const failed = application.error || introduction.error || notifications.error || profile.error
     if (failed) return { data: null, error: friendlyError(failed) }
@@ -101,11 +111,22 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
         cohort: (cohort.data as MemberSnapshot["cohort"]) ?? null,
         program: program.error ? null : ((program.data as Program | null) ?? null),
         perk: !perk.error && (perk.data as { perk?: string | null } | null)?.perk === "unlimited" ? "unlimited" : null,
+        photos: photoRows.error || swaps.error ? null : photoState((photoRows.data ?? []) as { slot: string; review: string; reason: string | null; change_reason: string | null }[], (swaps.data ?? []) as MemberPhotoState["replacements"]),
       },
       error: null,
     }
   } catch (error) {
     return { data: null, error: friendlyError(error as Error) }
+  }
+}
+
+const SLOT_ORDER = ["photo.face", "photo.upper", "photo.style", "photo.daily"]
+const bySlot = <T extends { slot: string }>(list: T[]) => [...list].sort((a, b) => SLOT_ORDER.indexOf(a.slot) - SLOT_ORDER.indexOf(b.slot))
+function photoState(rows: { slot: string; review: string; reason: string | null; change_reason: string | null }[], replacements: MemberPhotoState["replacements"]): MemberPhotoState {
+  return {
+    requests: bySlot(rows.filter(row => row.review === "재등록 요청").map(row => ({ slot: row.slot, reason: row.reason }))),
+    changes: bySlot(rows.filter(row => row.change_reason).map(row => ({ slot: row.slot, reason: row.change_reason! }))),
+    replacements: bySlot(replacements),
   }
 }
 

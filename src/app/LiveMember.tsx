@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { ArrowRight, ArrowUpRight, Bell, Contact, Flag, ShieldOff, UserX, X } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Bell, Contact, Flag, LockKeyhole, ShieldOff, UserX, X } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Checkbox } from "./components/ui/checkbox";
 import { Textarea } from "./components/ui/textarea";
@@ -17,7 +17,8 @@ import { PHOTO_SLOTS } from "./photo-model";
 import { DECLINE_REASONS } from "./introduction-model";
 import { REQUEST_LABELS } from "./member-operations-model";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
-import { PHOTO_ORDER, loadMyApplication, partnerPhotoUrl, photoUrl, type PhotoRow } from "./backend/applications";
+import { PHOTO_ORDER, loadMyApplication, partnerPhotoUrl, photoUrl, type PhotoRow, type ReplacementRow } from "./backend/applications";
+import LivePhotoStep from "./LivePhotoStep";
 import { publicApplicationProfile } from "./application-review";
 import { addAvoidContacts, deleteAvoidContact, loadAvoidContacts, type AvoidContact, blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, NOTIFICATION_FIRST, editBlockReason, recordIntroductionView, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type IntroMatch, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
 
@@ -73,6 +74,8 @@ const AFTER_YES = BETA_ACTIVE
   ? "두 분 모두 ‘알아가고 싶어요’를 고르면, 3일 교류 방식(A 편지·B 첫 장면)과 시작일을 48시간 안에 함께 정해요. 베타 기간에는 교류도 무료예요."
   : `두 분 모두 ‘알아가고 싶어요’를 고르면, 각자 교류비 ${BEFORE_US.pricing.exchangePerPerson.toLocaleString("ko-KR")}원을 24시간 안에 내고 3일 교류 방식과 시작일을 함께 정해요. 한 분만 내면 낸 금액은 모두 돌려드려요.`;
 
+const slotLabel = (slot: string) => PHOTO_SLOTS.find(item => item.id === slot)?.label ?? "사진";
+
 // 오늘 할 일을 한 문장으로 정한다.
 const kstToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 const dayBefore = (date: string) => new Date(Date.parse(`${date}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
@@ -88,7 +91,7 @@ function todayState(data: MemberSnapshot): TodayState {
     if (program.status === "choosing") return { label: "함께 정하기", title: "어떻게 시작할지 함께 정해요.", action: "교류 방식 정하기", to: "/exchange", body: `A 편지·B 첫 장면 중 하나와 시작일을 ${kstDateTime(program.agreeBy)}까지 함께 정해 주세요.`, clock: { at: program.agreeBy, label: "교류 방식 마감까지", note: "두 분이 같은 방식과 시작일을 확인하면 시작돼요." } };
     if (program.status === "scheduled") return { label: "교류 시작 전", title: `${program.startOn ? kstDay(`${program.startOn}T09:00:00+09:00`) : ""} 09:00에 첫날이 열려요.`, action: "교류 화면 보기", to: "/exchange", body: "시작하면 알림으로 알려 드릴게요." };
     if (program.status === "started") { const sent = !!program.day && program.entries.some(entry => entry.day === program.day && entry.kind !== "reply" && !!entry.own); const beforeNine = new Date(Date.now() + 9 * 3600000).getUTCHours() < 9; if (!program.day) return { label: "넷째 날", title: "오늘 오전 9시에 만남 선택이 열려요.", action: "교류 화면으로", to: "/exchange", body: "셋째 날 받은 글에 남길 답은 오전 9시 전까지 쓸 수 있어요. 9시가 되면 만나고 싶은지 각자 골라요." }; return { label: program.day ? `교류 ${["첫", "둘", "셋"][program.day - 1] ?? ""}째 날` : "교류 중", title: beforeNine ? "오늘의 글은 오전 9시에 열려요." : sent ? "오늘의 글을 보냈어요." : program.ownPlan === "B" ? "오늘의 첫 장면 질문이 열렸어요." : "오늘의 편지를 쓸 시간이에요.", action: "교류 화면으로", to: "/exchange", body: sent ? "상대도 보내면 두 분의 글이 함께 열려요. 상대가 23:59까지 보내지 않으면 다음 날 함께 열리지 않아요." : "그날 글은 09:00~23:59에 쓰고, 두 분 모두 보내면 함께 열려요." }; }
-    if (program.status === "deciding") return { label: "넷째 날", title: program.ownMeeting ? "상대의 답을 기다리고 있어요." : "만나고 싶은지 골라 주세요.", action: "만남 선택하기", to: "/exchange", body: `${kstDateTime(program.meetingBy)}까지예요. 상대의 답은 알려 드리지 않아요.`, clock: program.meetingBy ? { at: program.meetingBy, label: "만남 선택 마감까지", note: "두 분 모두 만나고 싶다고 하면 약속을 정해요." } : undefined };
+    if (program.status === "deciding") return { label: "넷째 날", title: program.ownMeeting ? program.ownMeeting === "positive" ? "만나고 싶다고 답했어요." : "이번에는 여기까지라고 답했어요." : "만나고 싶은지 골라 주세요.", action: program.ownMeeting ? "교류 화면 보기" : "만남 선택하기", to: "/exchange", body: program.ownMeeting ? `${program.ownMeeting === "positive" ? `두 분 모두 만나고 싶으면 그 순간 약속 정하기가 열리고, 아니면 ${kstDateTime(program.meetingBy)}에 마무리 소식을 알려 드려요.` : `이번 교류는 ${kstDateTime(program.meetingBy)}에 마무리돼요.`} 상대가 이미 골랐는지는 알려 드리지 않아요.` : `${kstDateTime(program.meetingBy)}까지예요. 상대가 먼저 골랐는지는 서로 알 수 없어요.`, clock: program.meetingBy ? { at: program.meetingBy, label: "만남 선택 마감까지", note: "두 분 모두 만나고 싶다고 하면 약속을 정해요." } : undefined };
     return { label: "약속", title: program.meetingOn ? `${kstDay(`${program.meetingOn}T12:00:00+09:00`)}에 만나기로 했어요.` : "만날 약속을 함께 정해요.", action: "약속 화면으로", to: "/meeting", body: program.meetingOn ? "연락처는 두 분이 동의하면 만나는 날 00:00부터 열려요." : `${kstDateTime(program.arrangeBy)}까지 정해 주세요.` };
   }
   if (program && program.status === "closed" && program.closedAt && Date.now() - Date.parse(program.closedAt) < 86400000 && intro.status !== "waiting" && intro.id === program.introductionId) {
@@ -98,15 +101,17 @@ function todayState(data: MemberSnapshot): TodayState {
   if (intro.status !== "waiting" && (intro.status === "published" || intro.status === "mutual" || intro.status === "expired" || intro.closedAt && Date.now() - Date.parse(intro.closedAt) < 86400000)) {
     if (intro.status === "mutual") return { label: "서로 선택", title: "두 분 모두 알아가고 싶다고 답했어요.", action: "교류 방식 정하기", to: "/exchange", body: "A 편지·B 첫 장면 중 하나와 시작일을 함께 정해요. 상대 프로필은 두 사람 화면에서 다시 볼 수 있어요." };
     const clock = { at: intro.dueAt, label: "응답 마감까지", note: "다음 날 오전 11시에 답이 마감돼요." };
-    if (intro.status === "published" && !intro.ownResponse) return { label: "오늘의 인연", title: "오늘의 인연이 도착했어요.", action: "소개 확인하기", to: "/us", body: `${kstDateTime(intro.dueAt)}까지 답해 주세요. 상대에게는 내 답이 바로 전해지지 않고, 두 분 모두 답한 뒤에 결과만 알려 드려요.`, clock };
-    if (intro.status === "published" && intro.ownResponse === "negative") return { label: "소개 마무리 예정", title: "이번에는 넘기겠다고 답했어요.", action: "두 사람 화면 보기", to: "/us", body: `이번 소개는 ${kstDateTime(intro.dueAt)}까지 마무리돼요. 상대에게는 누가 어떤 답을 했는지 알리지 않아요.`, clock };
-    if (intro.status === "published") return { label: "답을 기다리는 중", title: "상대의 답을 기다리고 있어요.", action: "두 사람 화면 보기", to: "/us", body: `상대는 ${kstDateTime(intro.dueAt)}까지 답할 수 있어요. 답이 없으면 자동으로 마무리되고, 결과는 알림과 메일로 알려 드릴게요.`, clock };
+    if (intro.status === "published" && !intro.ownResponse) return { label: "오늘의 인연", title: "오늘의 인연이 도착했어요.", action: "소개 확인하기", to: "/us", body: `${kstDateTime(intro.dueAt)}까지 답해 주세요. 내 답은 상대에게 알리지 않고, 두 분 모두 ‘알아가고 싶어요’일 때만 교류가 열려요.`, clock };
+    if (intro.status === "published" && intro.ownResponse === "negative") return { label: "소개 마무리 예정", title: "이번에는 넘기겠다고 답했어요.", action: "두 사람 화면 보기", to: "/us", body: `이번 소개는 ${kstDateTime(intro.dueAt)}에 마무리돼요. 상대에게는 누가 어떤 답을 했는지 알리지 않아요.`, clock };
+    if (intro.status === "published") return { label: "답을 보냈어요", title: "알아가고 싶다고 답했어요.", action: "두 사람 화면 보기", to: "/us", body: `두 분 모두 원하면 그 순간 교류가 열려요. 아니면 ${kstDateTime(intro.dueAt)}에 마무리 소식을 알림과 메일로 알려 드려요. 상대가 이미 답했는지는 알려 드리지 않아요.`, clock };
     if (intro.status === "expired") return { label: "소개 마무리", title: "응답 기한이 지났어요.", action: "다음 소개 기다리기", to: null, body: "곧 결과를 알림으로 알려 드릴게요. 잘 맞는 분이 준비되면 다시 정오에 소개해 드릴게요." };
     const copy = endedCopy(intro, program);
     return { label: "소개 마무리", title: copy.title, action: "다음 소개 기다리기", to: null, body: copy.body };
   }
   if (!application || application.status === "draft") return { label: "신청 전", title: "소개 신청을 마저 적어 주세요.", action: application ? "이어서 작성하기" : "소개 신청하기", to: "/apply", body: "나에 대해 · 사진 · 원하는 만남 · 공개 확인, 네 단계예요. 단계마다 저장돼요." };
   if (application.status === "needs_changes") return { label: "보완 요청", title: "신청서에 보완할 부분이 있어요.", action: "보완하기", to: "/apply", body: application.decisionNote || "운영진 안내를 확인해 주세요." };
+  const photoRequest = data.photos?.requests[0];
+  if (photoRequest && (application.status === "submitted" || application.status === "reviewing")) return { label: "사진 보완", title: "사진 한 장을 다시 올려 주세요.", action: "사진 다시 올리기", to: "/apply?edit=1&step=1", body: `${slotLabel(photoRequest.slot)} 사진 · ${photoRequest.reason || "운영진 안내를 확인해 주세요"}. 이 칸의 사진만 다시 올리면 돼요. 새 사진을 확인하기 전까지는 소개를 준비하지 않아요.` };
   if (application.status === "submitted" || application.status === "reviewing") return { label: "검토 중", title: "신청서를 확인하고 있어요.", action: "신청서 보기", to: "/apply", body: `운영진이 사진과 내용을 확인하고 있어요. 검토가 끝나면 이 화면에서 알려 드릴게요.${cohort && kstToday() < cohort.startsOn ? ` ${cohortName(cohort.number)} 첫 소개는 ${noonOf(cohort.startsOn)} 정오예요.` : ""}` };
   if (application.status === "approved" && data.notices?.paused_at) return data.notices.paused_by === "operator"
     ? { label: "잠시 멈춤", title: "운영진이 새 소개를 잠시 멈췄어요.", action: "문의하기", to: "/contact", body: "확인할 일이 있어 새 소개 준비를 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." }
@@ -163,6 +168,7 @@ function LiveTodayView() {
           {data.notifications.length ? <><ul className="mt-4 divide-y divide-border border-y border-border">{data.notifications.slice(0, allNotes ? undefined : NOTIFICATION_FIRST).map(item => <li key={item.id} className="py-4"><p className={`text-sm ${item.read_at ? "" : "font-semibold"}`}>{item.link ? <Link to={item.link} className="hover:text-primary">{item.title}</Link> : item.title}</p>{item.body && <p className="mt-1 text-xs leading-6 text-muted-foreground">{item.body}</p>}<p className="mt-1 text-[11px] text-muted-foreground">{kstDateTime(item.created_at)}</p></li>)}</ul>{data.notifications.length > NOTIFICATION_FIRST && <Button variant="ghost" onClick={() => setAllNotes(value => !value)} aria-expanded={allNotes} className={`mt-2 h-9 rounded-full px-4 text-xs text-muted-foreground ${interaction}`}>{allNotes ? "접기" : `지난 알림 ${data.notifications.length - NOTIFICATION_FIRST}개 더 보기`}</Button>}</> : <p className="mt-4 border-y border-border py-6 text-xs leading-6 text-muted-foreground">아직 알림이 없어요. 소개가 준비되면 정오에 여기와 오늘 화면에서 알려 드려요.</p>}
         </aside>
       </div>
+      {data.application?.status === "approved" && data.photos && <PhotoChangeNotice photos={data.photos} />}
       {data.application && data.application.status !== "draft" && data.introduction.status === "waiting" && <div className="mt-10"><FirstWordCard /></div>}
       <section className="mt-14 border-t border-border pt-8" aria-labelledby="status-title">
         <h2 id="status-title" className="mb-5 text-sm font-semibold">지금 알아두면 좋은 것</h2>
@@ -171,6 +177,47 @@ function LiveTodayView() {
       </section>
     </section>
   );
+}
+
+// 사진 교체 안내(승인된 회원): 운영진이 바꿔 달라고 한 사진 · 다시 올려 달라고 한 사진 · 확인을 기다리는 새 사진.
+// 신청과 소개는 그대로 이어지고, 새 사진을 확인할 때까지 지금 사진이 그대로 보인다.
+function PhotoChangeNotice({ photos }: { photos: NonNullable<MemberSnapshot["photos"]> }) {
+  const retry = photos.replacements.find(item => item.review === "재등록 요청");
+  const waiting = photos.replacements.filter(item => item.review === "대기");
+  const change = photos.changes.find(item => !photos.replacements.some(swap => swap.slot === item.slot));
+  const request = photos.requests[0];
+  const notice = retry ? { title: "바꿀 사진을 한 번 더 골라 주세요.", body: `${slotLabel(retry.slot)} 사진 · ${retry.reason || "운영진 안내를 확인해 주세요"}. 지금 사진은 그대로 보여요.`, action: true }
+    : change ? { title: "사진 한 장을 바꿔 주세요.", body: `${slotLabel(change.slot)} 사진 · ${change.reason}. 새 사진을 올려 주시면 확인한 뒤 바꿔 드려요. 그동안 소개는 그대로 이어지고, 지금 사진도 그대로 보여요.`, action: true }
+    : request ? { title: "사진 한 장을 다시 올려 주세요.", body: `${slotLabel(request.slot)} 사진 · ${request.reason || "운영진 안내를 확인해 주세요"}. 확인한 뒤 상대에게 보여요.`, action: true }
+    : waiting.length ? { title: "새 사진을 확인하고 있어요.", body: "확인되면 지금 사진과 자연스럽게 바뀌어요. 그동안은 지금 사진이 그대로 보여요.", action: false }
+    : null;
+  if (!notice) return null;
+  return <Sheet tone="soft" className="mt-10 flex flex-wrap items-center justify-between gap-5 p-6 sm:p-8">
+    <div className="min-w-0 max-w-xl"><p className="text-xs font-semibold text-accent">사진 안내</p><h2 className="mt-3 text-lg font-semibold leading-[1.5]">{notice.title}</h2><p className="mt-2 text-sm leading-7 text-muted-foreground">{notice.body}</p></div>
+    {notice.action && <Button asChild className={`h-11 shrink-0 rounded-xl px-5 ${interaction}`}><Link to="/profile#photos">사진 바꾸기 <ArrowUpRight size={15} /></Link></Button>}
+  </Sheet>;
+}
+
+// 내 정보 · 내 사진(승인된 회원): 진행 중인 소개가 있어도 바꿀 수 있다. 새 사진은 운영진이 확인한 뒤 바뀐다.
+function PhotosPanel({ photos }: { photos: MemberSnapshot["photos"] }) {
+  const needed = !!photos && (photos.changes.length > 0 || photos.requests.length > 0 || photos.replacements.length > 0);
+  const [open, setOpen] = useState(() => needed || (typeof window !== "undefined" && window.location.hash === "#photos"));
+  const [rows, setRows] = useState<{ rows: PhotoRow[]; replacements: ReplacementRow[] } | "error" | null>(null);
+  const load = async () => { const { data, error } = await loadMyApplication(); setRows(error || !data ? "error" : { rows: data.photoRows, replacements: data.replacements }); };
+  useEffect(() => { void load(); }, []);
+  // 알림의 ‘사진 바꾸기’(/profile#photos)나 이 화면의 사진 버튼으로 오면 펼쳐서 보여 준다.
+  useEffect(() => {
+    const reveal = () => { if (window.location.hash !== "#photos") return; setOpen(true); window.requestAnimationFrame(() => document.getElementById("photos")?.scrollIntoView({ block: "start" })); };
+    reveal(); window.addEventListener("hashchange", reveal);
+    return () => window.removeEventListener("hashchange", reveal);
+  }, [rows !== null]);
+  return <section id="photos" aria-labelledby="photos-panel-title" className="scroll-mt-24 rounded-3xl border border-border bg-card">
+    <button type="button" aria-expanded={open} aria-controls="photos-panel" onClick={() => setOpen(value => !value)} className={`flex w-full flex-wrap items-center justify-between gap-3 p-6 text-left sm:px-8 ${interaction}`}>
+      <span className="min-w-0"><span className="block text-xs font-semibold text-accent">내 사진</span><span id="photos-panel-title" className="mt-2 block text-lg font-semibold">{needed ? "확인할 사진 안내가 있어요." : "사진은 언제든 바꿀 수 있어요."}</span><span className="mt-1 block text-xs leading-6 text-muted-foreground">새 사진은 운영진이 확인한 뒤 바뀌고, 그동안 지금 사진이 그대로 보여요. 소개는 멈추지 않아요.</span></span>
+      <span className="shrink-0 rounded-full border border-border px-4 py-2 text-xs">{open ? "접기" : "사진 보기·바꾸기"}</span>
+    </button>
+    {open && <div id="photos-panel" className="border-t border-border p-6 sm:p-8">{rows === null ? <p role="status" className="text-xs text-muted-foreground">사진을 불러오고 있어요.</p> : rows === "error" ? <p role="status" className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">사진을 불러오지 못했어요.<button type="button" onClick={() => { setRows(null); void load(); }} className="font-semibold text-primary underline-offset-4 hover:underline">다시 불러오기</button></p> : <LivePhotoStep rows={rows.rows} replacements={rows.replacements} approved editable onChanged={load} />}</div>}
+  </section>;
 }
 
 // ─────────────────────────────────────────────
@@ -250,7 +297,7 @@ const labelOf = (id: string) => id === "self.age" ? "만 나이" : APPLICATION_F
 const valueOf = (value: string | string[]) => Array.isArray(value) ? value.join(" · ") : value;
 
 // 내 정보: 상대에게 보이는 내 소개. 신청서에서 ‘상대 공개’로 켠 항목과 운영진이 확인한 사진을, 상대가 정오에 보는 모양 그대로 미리 본다.
-type MyPublic = { name: string | null; items: { id: string; value: string | string[] }[]; photos: PhotoRow[]; waitingPhotos: number };
+type MyPublic = { name: string | null; items: { id: string; value: string | string[] }[]; photos: PhotoRow[]; waitingPhotos: number; swapping: number };
 function OwnPhoto({ path, label }: { path: string; label: string }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => { let alive = true; void photoUrl(path).then(next => { if (alive) setUrl(next); }); return () => { alive = false; }; }, [path]);
@@ -270,7 +317,7 @@ function MyPublicProfileCard() {
       const shared = data.photoRows.filter(row => data.draft.sharing[row.slot] !== false);
       const photos = shared.filter(row => row.review === "기준 확인").sort((a, b) => PHOTO_ORDER.indexOf(a.slot) - PHOTO_ORDER.indexOf(b.slot));
       const name = profile.items.find(item => item.id === "self.name");
-      setState({ name: name ? valueOf(name.value) : null, items: profile.items.filter(item => item.id !== "self.name"), photos, waitingPhotos: shared.length - photos.length });
+      setState({ name: name ? valueOf(name.value) : null, items: profile.items.filter(item => item.id !== "self.name"), photos, waitingPhotos: shared.length - photos.length, swapping: data.replacements.filter(item => item.review === "대기").length });
     });
     return () => { alive = false; };
   }, [attempt]);
@@ -288,6 +335,7 @@ function MyPublicProfileCard() {
         <div className="flex flex-col justify-center">
           {state.photos.length ? <div className="grid grid-cols-3 gap-2">{state.photos.map(photo => <OwnPhoto key={photo.path} path={photo.path} label={PHOTO_SLOTS.find(slot => slot.id === photo.slot)?.label ?? "사진"} />)}</div> : <p className="rounded-2xl bg-mist p-5 text-xs leading-6 text-muted-foreground">운영진이 사진을 확인하면 여기에 보여요.</p>}
           {state.waitingPhotos > 0 && <p className="mt-3 text-[11px] leading-5 text-muted-foreground">확인 중인 사진 {state.waitingPhotos}장은 확인이 끝난 뒤에 보여요.</p>}
+          {state.swapping > 0 && <p className="mt-3 text-[11px] leading-5 text-muted-foreground">바꿀 새 사진 {state.swapping}장을 확인하고 있어요. 확인되면 이곳의 사진도 바뀌어요.</p>}
         </div>
         <div>
           <dl className="divide-y divide-border border-y border-border">{items.map(item => <div key={item.id} className="grid gap-1 py-3.5 sm:grid-cols-[120px_1fr]"><dt className="text-xs text-muted-foreground">{labelOf(item.id)}</dt><dd className="whitespace-pre-wrap break-words text-sm leading-7">{valueOf(item.value)}</dd></div>)}</dl>
@@ -428,13 +476,14 @@ function LiveIntroductionView() {
         <div className="space-y-6">
           <Sheet className="p-6 sm:p-8">
             <p className="text-xs font-semibold text-accent">나의 답</p>
-            {intro.ownResponse ? <><h2 className="mt-4 text-xl font-semibold">{intro.ownResponse === "positive" ? "알아가고 싶다고 답했어요." : "이번에는 넘기겠다고 답했어요."}</h2><p className="mt-3 text-sm leading-7 text-muted-foreground">{intro.status === "mutual" ? "두 분 모두 알아가고 싶다고 답했어요." : intro.status === "published" ? intro.ownResponse === "positive" ? `상대는 ${kstDateTime(intro.dueAt)}까지 답할 수 있어요. 답이 없으면 자동으로 마무리되고, 결과는 알림과 메일로 알려 드릴게요. 보낸 답은 바꿀 수 없어요.` : `이번 소개는 ${kstDateTime(intro.dueAt)}까지 마무리돼요. 상대에게는 누가 어떤 답을 했는지 알리지 않아요.` : "이번 소개는 마무리됐어요."}</p></> : intro.status === "published" ? <>
+            {intro.ownResponse ? <><h2 className="mt-4 text-xl font-semibold">{intro.ownResponse === "positive" ? "알아가고 싶다고 답했어요." : "이번에는 넘기겠다고 답했어요."}</h2><p className="mt-3 text-sm leading-7 text-muted-foreground">{intro.status === "mutual" ? "두 분 모두 알아가고 싶다고 답했어요." : intro.status === "published" ? intro.ownResponse === "positive" ? `두 분 모두 원하면 그 순간 교류가 열려요. 아니면 ${kstDateTime(intro.dueAt)}에 마무리 소식을 알림과 메일로 알려 드려요. 상대가 이미 답했는지는 알려 드리지 않고, 보낸 답은 바꿀 수 없어요.` : `이번 소개는 ${kstDateTime(intro.dueAt)}에 마무리돼요. 상대에게는 누가 어떤 답을 했는지 알리지 않아요.` : "이번 소개는 마무리됐어요."}</p></> : intro.status === "published" ? <>
               <h2 className="mt-4 text-xl font-semibold">이 분을 더 알아가고 싶나요?</h2>
               <div className="mt-5 grid gap-2">{([["positive", "알아가고 싶어요"], ["negative", "이번엔 넘길게요"]] as const).map(([value, label]) => <Button key={value} variant="outline" aria-pressed={choice === value} onClick={() => { setChoice(value); setReason(null); }} className={`h-12 justify-start rounded-xl ${choice === value ? "border-primary bg-primary/5 text-primary" : "border-border"} ${interaction}`}>{label}</Button>)}</div>
+              {choice === "positive" && <p role="note" className="mt-4 flex items-start gap-2.5 rounded-xl bg-primary/5 p-3.5 text-xs leading-6 text-ink"><LockKeyhole size={14} aria-hidden="true" className="mt-1 shrink-0 text-primary" /><span>상대가 먼저 골랐는지는 서로 알 수 없어요. 두 분 모두 ‘알아가고 싶어요’일 때만 그 순간 교류가 열려요.</span></p>}
               {choice === "negative" && <div className="mt-5"><p className="text-xs leading-6 text-muted-foreground">이유를 골라 주시면 다음 소개에 참고해요(선택). 상대에게는 절대 보이지 않아요.</p><div className="mt-3 flex flex-wrap gap-2">{DECLINE_REASONS.map(item => <button key={item} type="button" aria-pressed={reason === item} onClick={() => setReason(value => value === item ? null : item)} className={`rounded-full border px-3 py-1.5 text-xs ${reason === item ? "border-primary bg-primary/5 text-primary" : "border-border"} ${interaction}`}>{item}</button>)}</div></div>}
               <Button disabled={!choice || sending} onClick={() => void respond()} className={`mt-6 h-12 w-full rounded-xl ${interaction}`}>답 보내기 <ArrowRight size={15} /></Button>
               {answerMessage && <p role="alert" className="mt-3 rounded-xl bg-destructive/5 p-3 text-xs leading-6 text-destructive">{answerMessage}</p>}
-              <p className="mt-3 text-[11px] leading-5 text-muted-foreground">보낸 답은 바꿀 수 없어요. 두 분 모두 답한 뒤에 결과만 알려 드려요.</p>
+              <p className="mt-3 text-[11px] leading-5 text-muted-foreground">보낸 답은 바꿀 수 없어요. 내 답은 상대에게 알리지 않아요.</p>
               <div className="mt-5 rounded-2xl bg-mist p-4"><p className="text-xs font-semibold text-ink">두 분 모두 ‘알아가고 싶어요’라면</p><p className="mt-1.5 text-xs leading-6 text-muted-foreground">{AFTER_YES}</p></div>
             </> : <p className="mt-4 text-sm leading-7 text-muted-foreground">응답 기한이 지났어요.</p>}
           </Sheet>
@@ -505,8 +554,9 @@ function LiveProfileView() {
         </div>
       </div>
       <MyPublicProfileCard />
+      {data.application?.status === "approved" && <PhotosPanel photos={data.photos ?? null} />}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Sheet className="p-6"><p className="text-xs font-semibold text-accent">소개 신청서 고치기</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{!data?.application || data.application.status === "draft" ? "쓰던 곳부터 이어서 쓸 수 있어요." : data.application.status === "submitted" ? "검토 전이라 바로 고칠 수 있어요." : ["rejected", "withdrawn"].includes(data.application.status) || editBlocked ? "" : "고친 내용을 ‘수정 내용 제출’로 보내면 운영진이 다시 확인해요. 그동안 새 소개 준비는 잠시 멈춰요."}</p>{data?.application && ["rejected", "withdrawn"].includes(data.application.status) ? <p className="mt-4 text-xs leading-6 text-muted-foreground">지금 상태에서는 신청서를 고칠 수 없어요. 문의하기로 남겨 주시면 확인해 드릴게요.</p> : editBlocked ? <p role="status" className="mt-4 rounded-xl bg-mist p-4 text-xs leading-6">{editBlocked}</p> : <div className="mt-4 grid grid-cols-2 gap-2">{[["나에 대해", 0], ["사진", 1], ["원하는 만남", 2], ["공개·동의", 3]].map(([label, step]) => <Button key={label} asChild variant="outline" className={`h-auto justify-between rounded-xl border-border px-4 py-3 text-xs ${interaction}`}><Link to={`/apply?edit=1&step=${step}`}>{label} <ArrowUpRight size={13} /></Link></Button>)}</div>}</Sheet>
+        <Sheet className="p-6"><p className="text-xs font-semibold text-accent">소개 신청서 고치기</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{!data?.application || data.application.status === "draft" ? "쓰던 곳부터 이어서 쓸 수 있어요." : data.application.status === "submitted" ? "검토 전이라 바로 고칠 수 있어요." : ["rejected", "withdrawn"].includes(data.application.status) || editBlocked ? "" : "고친 내용을 ‘수정 내용 제출’로 보내면 운영진이 다시 확인해요. 그동안 새 소개 준비는 잠시 멈춰요."}</p>{data?.application && ["rejected", "withdrawn"].includes(data.application.status) ? <p className="mt-4 text-xs leading-6 text-muted-foreground">지금 상태에서는 신청서를 고칠 수 없어요. 문의하기로 남겨 주시면 확인해 드릴게요.</p> : editBlocked ? <><p role="status" className="mt-4 rounded-xl bg-mist p-4 text-xs leading-6">{editBlocked}</p>{data.application?.status === "approved" && <p className="mt-3 text-xs leading-6 text-muted-foreground">사진은 지금도 <a href="#photos" className="font-semibold text-primary underline-offset-4 hover:underline">내 사진</a>에서 바꿀 수 있어요.</p>}</> : <div className="mt-4 grid grid-cols-2 gap-2">{[["나에 대해", 0], ["사진", 1], ["원하는 만남", 2], ["공개·동의", 3]].map(([label, step]) => <Button key={label} asChild variant="outline" className={`h-auto justify-between rounded-xl border-border px-4 py-3 text-xs ${interaction}`}>{step === 1 && data.application?.status === "approved" ? <a href="#photos">{label} <ArrowUpRight size={13} /></a> : <Link to={`/apply?edit=1&step=${step}`}>{label} <ArrowUpRight size={13} /></Link>}</Button>)}</div>}</Sheet>
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">알림 설정</p><div className="mt-4 space-y-3 text-sm"><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.notice_daily_waiting} onCheckedChange={value => void toggle("notice_daily_waiting", value === true)} />소개가 없는 날에도 정오에 사이트에서 알려 주세요. <span className="text-muted-foreground">(선택)</span></label><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.marketing_opt_in} onCheckedChange={value => void toggle("marketing_opt_in", value === true)} />새 소식과 혜택 안내를 받을게요. <span className="text-muted-foreground">(선택 · 광고성 정보)</span></label></div><fieldset className="mt-5 border-t border-border pt-4"><legend className="sr-only">알림 받을 방법</legend><p className="text-xs font-semibold">알림 받을 방법{!BETA_ACTIVE && <span className="font-normal text-muted-foreground"> · 카카오톡·문자 중 1개 이상</span>}</p>{BETA_ACTIVE && <p className="mt-1.5 text-xs leading-6">지금은 메일과 사이트로 알려 드려요.</p>}<div className="mt-3 flex flex-wrap gap-2">{([["kakao", "카카오톡"], ["sms", "문자"], ["email", "메일"]] as const).filter(([key]) => !(BETA_ACTIVE && key === "email")).map(([key, label]) => <button key={key} type="button" aria-pressed={channels[key]} onClick={() => void setChannel(key, !channels[key])} className={`rounded-full border px-4 py-2 text-xs ${interaction} ${channels[key] ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"}`}>{label}{BETA_ACTIVE && <span className="ml-1.5 text-[10px] opacity-75">정식 운영부터</span>}</button>)}</div>{BETA_ACTIVE && <p className="mt-2 text-[11px] leading-5 text-muted-foreground">정식 운영부터 받을 방법이에요. 하나 이상 골라 두세요.</p>}</fieldset><fieldset className="mt-5 border-t border-border pt-4"><legend className="sr-only">메일로 받을 알림</legend><p className="text-xs font-semibold">메일로 받을 알림</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{([[false, "중요한 것만", "소개 도착·마감·약속처럼 할 일이 있을 때만"], [true, "모두 받기", "상대가 편지를 보냈을 때 같은 소식까지"]] as const).map(([all, label, sub]) => <button key={label} type="button" aria-pressed={!!notices?.email_all === all} onClick={() => void saveNoticeSettings({ email_all: all }).then(result => { setMessage(result.error || "메일 받을 범위를 바꿨어요."); return reload(); })} className={`rounded-xl border p-3 text-left ${interaction} ${!!notices?.email_all === all ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"}`}><span className="block text-xs font-semibold">{label}{!all && " (기본)"}</span><span className="mt-1 block text-[11px] leading-5 text-muted-foreground">{sub}</span></button>)}</div></fieldset><p className="mt-4 text-[11px] leading-5 text-muted-foreground">모든 알림은 사이트에서 늘 보여 드려요. 메일은 가입한 주소로 보내고, 밤 10시~아침 8시에는 보내지 않고 아침에 보내요.</p>{message && <p role="status" className="mt-3 text-xs text-primary">{message}</p>}</Sheet>
       </div>
       {data?.application?.status === "approved" && notices?.status === "active" && <Sheet className="flex flex-wrap items-center justify-between gap-5 p-6"><div className="min-w-0 max-w-xl"><p className="text-xs font-semibold text-accent">새 소개 {paused ? "다시 받기" : "잠시 쉬기"}</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{paused ? notices.paused_by === "operator" ? "운영진이 확인할 일이 있어 새 소개를 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." : `${kstDay(notices.paused_at!)}부터 쉬고 있어요. 다시 받기를 누르면 다음 정오부터 소개를 준비해요.` : "여행·바쁜 시기처럼 잠시 쉬고 싶을 때 눌러 주세요. 진행 중인 소개는 그대로 이어지고, 새 소개만 멈춰요."}</p>{pauseMessage && <p role="status" className="mt-2 text-xs text-primary">{pauseMessage}</p>}</div><Button variant={paused ? "default" : "outline"} disabled={pausing || notices.paused_by === "operator"} onClick={() => void togglePause()} className="h-11 shrink-0 rounded-xl border-border px-5">{paused ? "다시 받기" : "잠시 쉬기"}</Button></Sheet>}

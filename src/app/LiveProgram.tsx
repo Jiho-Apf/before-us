@@ -585,9 +585,9 @@ function MeetingDecision({ program, act }: { program: Program; act: Act }) {
   const nothingOpened = !program.entries.some(entry => (entry.kind === "letter" || entry.kind === "scene") && !!entry.own && !!entry.partner);
   return <Sheet className="p-6 sm:p-8">
     <Eyebrow mark="04" label="만남 선택" en="넷째 날" />
-    {program.ownMeeting ? <p className="mt-4 text-sm leading-7">{program.ownMeeting === "positive" ? "만나고 싶다고 답했어요." : "이번에는 여기까지라고 답했어요."} 두 분이 모두 답하면 결과만 알려 드려요. 상대의 답은 알려 드리지 않아요.</p> : <>
+    {program.ownMeeting ? <p className="mt-4 text-sm leading-7">{program.ownMeeting === "positive" ? "만나고 싶다고 답했어요." : "이번에는 여기까지라고 답했어요."} {program.ownMeeting === "positive" ? `두 분 모두 만나고 싶으면 그 순간 약속 정하기가 열려요. 아니면 ${program.meetingBy ? kstDateTime(program.meetingBy) : "만남 선택 마감"}에 마무리 소식을 알려 드려요.` : `이번 교류는 ${program.meetingBy ? kstDateTime(program.meetingBy) : "만남 선택 마감"}에 마무리돼요.`} 상대가 이미 골랐는지는 알려 드리지 않아요.</p> : <>
       {nothingOpened && <p className="mt-4 rounded-2xl bg-mist p-4 text-sm leading-7">사흘 동안 함께 열린 글은 없었어요. 바쁜 날이 겹쳤을 수도 있어요. 그래도 한 번 만나 보고 싶은 마음이 있다면, 그 마음대로 골라 주세요.</p>}
-      <p className="mt-4 text-sm leading-7 text-muted-foreground">{program.meetingBy && `${kstDateTime(program.meetingBy)}까지`} 골라 주세요. 두 분 모두 ‘만나고 싶어요’일 때만 약속을 정해요. 답은 바꿀 수 없어요.</p>
+      <p className="mt-4 text-sm leading-7 text-muted-foreground">{program.meetingBy && `${kstDateTime(program.meetingBy)}까지`} 골라 주세요. 상대가 먼저 골랐는지는 서로 알 수 없고, 두 분 모두 ‘만나고 싶어요’일 때만 약속을 정해요. 답은 바꿀 수 없어요.</p>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">{([["positive", "만나고 싶어요", "약속 날짜·장소를 함께 정해요."], ["negative", "이번에는 여기까지", "상대에게 내 답은 알리지 않아요."]] as const).map(([value, title, sub]) => <button key={value} type="button" aria-pressed={confirm === value} onClick={() => setConfirm(value)} className={choice(confirm === value)}><span className="font-semibold">{title}</span><span className="mt-1 block text-xs text-muted-foreground">{sub}</span></button>)}</div>
       {confirm && <div className="mt-5 flex justify-end"><Button onClick={() => void act(() => chooseMeeting(program.id, confirm), "답을 남겼어요.")} className="h-11 rounded-xl px-6">이 답으로 보내기</Button></div>}
     </>}

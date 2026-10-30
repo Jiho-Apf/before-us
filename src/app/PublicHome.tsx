@@ -491,17 +491,30 @@ const FAQ_BASE = [
   { id: "refund", title: "환불과 보유기간, 재이용 기준은 무엇인가요?", text: `소개비는 첫 상대 프로필을 열기 전에 취소하면 10,000원 전액, 연 뒤에는 남은 소개 1번에 2,000원씩 돌려드려요. 교류비는 아직 열리지 않은 날만큼 환불하고, 날짜별 금액은 결제 전에 안내해요. 법정 청약철회 권리와 약관에 따른 더 유리한 권리를 제한하지 않아요. 정상 교류를 마친 뒤 새 소개를 원하면 새 회차 소개비 10,000원부터 다시 시작해요. 교류 중단·약속 취소·노쇼 기준은 이용약관에서, 자료 보유·삭제 기간은 개인정보처리방침에서 확인할 수 있어요.` },
   { id: "visibility", title: "어떤 정보가 상대에게 공개되나요?", text: "신청서 마지막 단계에서 상대에게 보일 항목을 직접 고르고, 고른 항목만 소개된 상대에게 보여요. 소개할 때마다 다시 묻지는 않으니, 보일 항목은 내 정보의 ‘보일 항목 고치기’에서 언제든 바꿔 주세요. 상대 프로필은 소개된 날 정오부터 다음 날 11:00 응답 마감까지 볼 수 있고, 서로 알아가기로 하면 교류와 약속이 끝날 때까지 이어져요. 끝난 소개의 프로필을 다시 보는 보관함은 없어요. 넷째 날 두 분 모두 만나고 싶다고 한 교류만, 마무리 뒤 30일 동안 주고받은 글을 다시 읽을 수 있어요." },
   { id: "name", title: "‘플라비’는 무슨 뜻인가요?", text: "플라비(Flavie)는 ‘금빛’을 뜻하는 라틴어 flavus에서 온 이름이에요. 소개가 도착하는 정오의 햇살처럼, 한 사람을 밝은 빛 아래에서 천천히 알아가자는 마음을 담았어요. 2026년 10월 30일에 ‘비포어스’에서 지금 이름으로 바꿨고, 서비스와 회원 정보는 그대로예요." },
+  { id: "blind", title: "상대가 나를 골랐는지 미리 알 수 있나요?", text: "아니요. 내가 답하기 전에도, 답한 뒤에도 상대가 이미 답했는지는 서로 알 수 없어요. 두 분 모두 ‘알아가고 싶어요’를 고른 순간에만 교류가 열리고, 그렇지 않으면 다음 날 오전 11시 응답 마감에 두 분께 같은 마무리 소식을 보내요. 누가 넘겼는지도 알리지 않아요. 넷째 날 만남 선택도 같은 방식이에요." },
+  { id: "photo-change", title: "사진을 바꿔 달라는 요청을 받을 수도 있나요?", text: "대표 사진에 얼굴이 잘 보이지 않는 등 기준에 맞지 않으면 운영진이 그 사진만 다시 요청해요. 승인 전이라면 새 사진을 확인한 뒤에 소개를 준비해요. 이미 소개를 받고 있다면 신청은 그대로 두고, 새 사진을 확인할 때까지 지금 사진이 그대로 보여요. 요청은 사이트 알림과 메일로 알려 드려요. 사진은 내 정보의 ‘내 사진’에서 언제든 바꿀 수 있어요." },
+  { id: "safety", title: "불편한 일이 생기면 어떻게 하나요?", text: "두 사람 화면에서 신고하거나 차단할 수 있어요. 차단하면 진행 중인 소개와 교류가 바로 끝나고, 다시는 서로 소개되지 않아요. 신고는 운영진이 가장 먼저 확인하고, 급한 일이면 ‘급한 일이에요’를 골라 주세요. 상대에게는 신고·차단 사실을 알리지 않아요. 위급하면 112에 먼저 연락해 주세요." },
+  { id: "avoid", title: "아는 사람과 소개되지 않게 할 수 있나요?", text: "내 정보의 ‘아는 사람 피하기’에 휴대폰 번호를 적어 두면, 그 번호로 신청한 분과는 서로 소개하지 않아요. 번호는 원래 값 그대로 두지 않고 암호값으로 바꿔 두며, 번호 주인에게는 알리지 않아요." },
   { id: "contact", title: "문의는 어디에서 할 수 있나요?", text: "페이지 맨 아래의 ‘문의하기’에서 남길 수 있어요. 회원이라면 회원 화면 맨 아래의 ‘문의·요청’에서 정정·삭제 같은 요청을, 상대와 관련된 일은 두 사람 화면의 ‘신고’로 남기면 더 빨리 확인할 수 있어요." },
 ];
 
 // 처음 보는 분들이 가장 많이 헷갈린 것(베타 피드백): 사진은 언제 · 동시에 여러 명? · 비용 · 다른 서비스와의 차이
 const FIRST_FAQ = [
-  { id: "photos", title: "사진은 언제 보나요?", text: "정오에 소개가 도착하면 상대의 사진과, 상대가 공개하기로 고른 프로필을 함께 봐요. 그걸 보고 다음 날 오전 11시까지 ‘알아가고 싶어요’ 또는 ‘이번에는 넘길게요’를 골라요. 두 분 모두 알아가고 싶다고 하면 그때 3일 교류가 시작돼요." },
+  { id: "photos", title: "사진은 언제 보나요?", text: "정오에 소개가 도착하면 상대의 사진과, 상대가 공개하기로 고른 프로필을 함께 봐요. 그걸 보고 다음 날 오전 11시까지 ‘알아가고 싶어요’ 또는 ‘이번엔 넘길게요’를 골라요. 두 분 모두 알아가고 싶다고 하면 그때 3일 교류가 시작돼요." },
   { id: "one-at-a-time", title: "여러 명과 동시에 연락하나요?", text: "아니요. 한 번에 한 분만 소개해요. 소개에 답하는 동안에는 다음 소개가 오지 않고, 서로 선택해 3일 교류를 하는 동안에도 새 소개를 멈춰요. 이번 소개가 마무리되면 잘 맞는 분이 준비된 날 정오에 다음 분을 소개해요." },
   { id: "cost", title: "비용은 언제, 얼마인가요?", text: `${BETA ? "지금은 베타 기간이라 모두 무료예요. 정식 운영 기준으로는 " : ""}신청과 검토는 무료이고, 소개 이용료 ${money(BEFORE_US.pricing.introduction)}으로 최대 5번 소개받아요. 서로 선택해 3일 교류를 시작할 때만 1인 ${money(BEFORE_US.pricing.exchangePerPerson)}의 교류비가 들어요. 월정액이 아니고 자동 결제도 없어요.` },
   { id: "difference", title: "다른 소개 서비스와 무엇이 다른가요?", text: "넘기며 고르지 않아요. 운영진이 신청서를 직접 읽고 한 분을 골라 정오에 소개해요. 서로 선택해도 바로 연락처를 주고받지 않고, 3일 동안 편지나 ‘첫 장면’으로 먼저 알아가요. 만날지는 넷째 날 각자 정하고, 번호는 만나는 날에만 서로 보여요." },
 ];
 const FAQ = BETA ? [BETA_FAQ, ...FIRST_FAQ, BETA_COHORT_FAQ, ...FAQ_BASE.filter(item => item.id !== "cohort" && item.id !== "bonus")] : [...FIRST_FAQ, ...FAQ_BASE];
+// 07 자주 묻는 질문은 주제별로 묶어 원하는 것만 골라 볼 수 있게 한다(‘전체’는 주제 이름 아래 모두).
+const FAQ_GROUPS = [
+  { id: "start", label: "처음이라면", ids: ["beta", "difference", "one-at-a-time", "name"] },
+  { id: "apply", label: "신청·사진", ids: ["cohort", "photo-change", "visibility", "waiting"] },
+  { id: "intro", label: "소개·답하기", ids: ["photos", "blind", "no-answer"] },
+  { id: "exchange", label: "교류·만남", ids: ["three-days", "not-started"] },
+  { id: "money", label: "비용·환불", ids: ["cost", "cancellation", "refund", "bonus"] },
+  { id: "safety", label: "안전·문의", ids: ["safety", "avoid", "contact"] },
+].map(group => ({ ...group, items: group.ids.map(id => FAQ.find(item => item.id === id)).filter((item): item is (typeof FAQ)[number] => !!item) })).filter(group => group.items.length > 0);
 
 function Pricing() {
   const promises = BETA ? BETA_PROMISES : PROMISES;
@@ -527,9 +540,11 @@ function Pricing() {
 function Faq() {
   const location = useLocation();
   const [open, setOpen] = useState("");
+  const [topic, setTopic] = useState("all");
   useEffect(() => {
     const id = location.hash.startsWith("#faq-") ? location.hash.slice(5) : "";
     if (!id || !FAQ.some(item => item.id === id)) return;
+    setTopic(current => current === "all" || FAQ_GROUPS.find(group => group.id === current)?.ids.includes(id) ? current : "all");
     setOpen(id);
     const frame = requestAnimationFrame(() => document.getElementById(`faq-${id}`)?.scrollIntoView({ block: "center" }));
     return () => cancelAnimationFrame(frame);
@@ -537,9 +552,15 @@ function Faq() {
   return (
     <section id="faq" className="grid gap-8 pt-20 pb-14 sm:pt-24 sm:pb-18 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="faq-title">
       <div><SectionLabel number="07" ko="자주 묻는 질문">BEFORE YOU BEGIN</SectionLabel><h2 id="faq-title" className="text-ink text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청하기 전에 많이 묻는 것들을 모았어요.<br />더 궁금한 건 <Link to="/contact" className="font-semibold text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary">문의하기</Link>로 남겨 주세요.</p></div>
-      <Accordion type="single" collapsible value={open} onValueChange={setOpen} className="border-t border-border [&_[data-slot=accordion-content]]:motion-reduce:animate-none [&_svg]:motion-reduce:transition-none">
-        {FAQ.map(item => <AccordionItem key={item.id} value={item.id} id={`faq-${item.id}`}><AccordionTrigger className={`py-6 text-[15px] hover:no-underline hover:text-primary ${interaction}`}>{item.title}</AccordionTrigger><AccordionContent className="pb-6 text-sm leading-7 text-muted-foreground">{item.text}</AccordionContent></AccordionItem>)}
-      </Accordion>
+      <div>
+        <div role="group" aria-label="질문 주제" className="flex flex-wrap gap-2">{[{ id: "all", label: "전체", count: FAQ.length }, ...FAQ_GROUPS.map(group => ({ id: group.id, label: group.label, count: group.items.length }))].map(chip => <button key={chip.id} type="button" aria-pressed={topic === chip.id} onClick={() => { setTopic(chip.id); setOpen(""); }} className={`rounded-full border px-3.5 py-1.5 text-xs ${interaction} ${topic === chip.id ? "border-primary bg-primary/5 font-semibold text-primary" : "border-border bg-card text-foreground/80 hover:border-primary/40 hover:text-primary"}`}>{chip.label}<span className="ml-1 tabular-nums text-muted-foreground">{chip.count}</span></button>)}</div>
+        <Accordion type="single" collapsible value={open} onValueChange={setOpen} className="mt-6 border-t border-border [&_[data-slot=accordion-content]]:motion-reduce:animate-none [&_svg]:motion-reduce:transition-none">
+          {FAQ_GROUPS.filter(group => topic === "all" || group.id === topic).map(group => <Fragment key={group.id}>
+            {topic === "all" && <p className="pt-7 pb-1 text-xs font-semibold tracking-[0.08em] text-accent">{group.label}</p>}
+            {group.items.map(item => <AccordionItem key={item.id} value={item.id} id={`faq-${item.id}`}><AccordionTrigger className={`py-6 text-[15px] hover:no-underline hover:text-primary ${interaction}`}>{item.title}</AccordionTrigger><AccordionContent className="pb-6 text-sm leading-7 text-muted-foreground">{item.text}</AccordionContent></AccordionItem>)}
+          </Fragment>)}
+        </Accordion>
+      </div>
     </section>
   );
 }

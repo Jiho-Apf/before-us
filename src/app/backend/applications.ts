@@ -9,8 +9,10 @@ export type ApplicationStatus = "draft" | "submitted" | "reviewing" | "needs_cha
 export const EDITABLE: ApplicationStatus[] = ["draft", "needs_changes"]
 // 제출한 뒤에도 ‘고치기’로 열 수 있는 상태(검토 중·승인·보류는 고치면 다시 확인 받는다)
 export const EDIT_ALLOWED: ApplicationStatus[] = ["draft", "needs_changes", "submitted", "reviewing", "approved", "held"]
-export type PhotoRow = { slot: PhotoSlotId; path: string; mime: string; bytes: number; width: number; height: number; sha256: string; review: PhotoReview; reason: string | null; created_at: string }
-export type MyApplication = { draft: ApplicationDraft; status: ApplicationStatus; decisionNote: string | null; submittedAt: string | null; photoRows: PhotoRow[] }
+export type PhotoRow = { slot: PhotoSlotId; path: string; mime: string; bytes: number; width: number; height: number; sha256: string; review: PhotoReview; reason: string | null; created_at: string; change_reason?: string | null }
+// 이미 소개를 받고 있는(승인된) 회원이 바꾸려고 올린 새 사진. 운영진이 확인하면 그 칸의 사진과 바뀌고, 그동안 지금 사진이 그대로 보인다.
+export type ReplacementRow = { slot: PhotoSlotId; path: string; width: number; height: number; bytes: number; review: "대기" | "재등록 요청"; reason: string | null; created_at: string }
+export type MyApplication = { draft: ApplicationDraft; status: ApplicationStatus; decisionNote: string | null; submittedAt: string | null; photoRows: PhotoRow[]; replacements: ReplacementRow[] }
 
 // 서버 사진 기록을 신청서 화면의 사진 모양으로 바꾼다(검사 함수를 그대로 쓰기 위해).
 export function photosFromRows(rows: PhotoRow[]): ApplicationPhotos {
@@ -33,9 +35,11 @@ export async function loadMyApplication(): Promise<{ data: MyApplication | null;
     const db = await supabase()
     const { data: auth } = await db.auth.getUser()
     if (!auth.user) return { data: null, error: "로그인이 필요해요." }
-    const [{ data: row, error }, { data: rows, error: photoError }] = await Promise.all([
+    const [{ data: row, error }, { data: rows, error: photoError }, swaps] = await Promise.all([
       db.from("applications").select("draft, status, decision_note, submitted_at").eq("member_id", auth.user.id).maybeSingle(),
-      db.from("application_photos").select("slot, path, mime, bytes, width, height, sha256, review, reason, created_at").eq("member_id", auth.user.id),
+      db.from("application_photos").select("slot, path, mime, bytes, width, height, sha256, review, reason, created_at, change_reason").eq("member_id", auth.user.id),
+      // 교체 사진은 못 읽어도 신청서는 그대로 보여 준다(교체 대기 표시만 빠진다).
+      db.from("photo_replacements").select("slot, path, width, height, bytes, review, reason, created_at").eq("member_id", auth.user.id),
     ])
     if (error || photoError) return { data: null, error: friendlyError(error || photoError) }
     const base = emptyApplication()
@@ -58,7 +62,7 @@ export async function loadMyApplication(): Promise<{ data: MyApplication | null;
       savedAt: null,
       completedDemo: false,
     }
-    return { data: { draft, status, decisionNote: row?.decision_note ?? null, submittedAt: row?.submitted_at ?? null, photoRows }, error: null }
+    return { data: { draft, status, decisionNote: row?.decision_note ?? null, submittedAt: row?.submitted_at ?? null, photoRows, replacements: swaps.error ? [] : ((swaps.data ?? []) as ReplacementRow[]) }, error: null }
   } catch (error) {
     return { data: null, error: friendlyError(error as Error) }
   }
@@ -148,6 +152,15 @@ export async function uploadPreparedPhoto(slot: PhotoSlotId, prepared: PreparedP
   } catch (error) {
     return { error: friendlyError(error as Error) }
   }
+}
+
+// 확인을 기다리는 교체 사진 취소(지금 사진은 그대로)
+export async function cancelReplacement(slot: PhotoSlotId, path: string) {
+  const { error } = await rpc("delete_photo_replacement", { p_slot: slot })
+  if (error) return { error }
+  const db = await supabase()
+  await db.storage.from(PHOTO_BUCKET).remove([path])
+  return { error: null }
 }
 
 export async function removePhoto(slot: PhotoSlotId, path: string) {

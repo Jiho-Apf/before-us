@@ -62,7 +62,7 @@ function ConfirmDialog({ title, body, confirm, danger, reason, onClose }: Ask & 
 
 // ─────────────────────────────────────────────
 // 소개서(신청서) 보기: 운영진 열람은 admin_get_application이 하루 한 번 감사 기록을 남긴다.
-export type ApplicationDetail = { memberId: string; status: string; profileVersion: number; submittedAt: string | null; decisionNote: string | null; draft: { values: Record<string, unknown>; sharing: Record<string, boolean>; preferences?: Preferences }; photos: { slot: string; path: string; review: string; reason: string | null; width: number; height: number }[] };
+export type ApplicationDetail = { memberId: string; status: string; profileVersion: number; submittedAt: string | null; decisionNote: string | null; draft: { values: Record<string, unknown>; sharing: Record<string, boolean>; preferences?: Preferences }; photos: { slot: string; path: string; review: string; reason: string | null; width: number; height: number; changeReason?: string | null }[]; replacements?: { slot: string; path: string; review: string; reason: string | null; width: number; height: number }[] };
 export const show = (value: unknown) => Array.isArray(value) ? value.join(" · ") : typeof value === "boolean" ? value ? "예" : "아니요" : String(value ?? "");
 const filled = (value: unknown) => value !== undefined && value !== null && value !== "" && !(Array.isArray(value) && value.length === 0);
 const KEY_ITEMS: [string, string][] = [["self.purpose", "관계 목적"], ["self.height", "키"], ["self.body", "체형"], ["self.style", "스타일"], ["self.smoking", "흡연"], ["self.drinking", "음주"], ["self.schedule", "생활"], ["self.available", "편한 시간"], ["self.interests", "관심사"], ["self.work", "직업·분야"], ["self.mbti", "MBTI"]];
