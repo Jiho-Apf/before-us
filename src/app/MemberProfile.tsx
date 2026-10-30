@@ -315,7 +315,7 @@ export default function MemberProfile() {
     <section className="space-y-12 pb-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <Eyebrow mark="내 정보" label="나의 기록" en="MY, BEFORE US" />
+          <Eyebrow mark="내 정보" label="나의 기록" en="MY · FLAVIE" />
           <h1 className="mt-5 text-3xl font-semibold leading-[1.4] sm:text-[34px]">{name ? `${name} 님의 자리` : "내 정보"}</h1>
           <p className="mt-3 text-sm text-muted-foreground">지금 어디쯤인지, 다음에 무엇을 하면 되는지 먼저 보여 드려요.</p>
         </div>

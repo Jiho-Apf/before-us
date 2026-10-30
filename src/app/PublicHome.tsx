@@ -135,7 +135,7 @@ function withUnderlines(text: string, phrases: readonly string[]) {
 // 첫 화면 세 가지 표시와 마감 배지(2026-10-27). 서비스의 핵심을 한눈에, 지금 신청할 이유는 버튼 바로 위에.
 const HERO_POINTS = ["운영진이 고른 한 사람", "정오 12시 도착", "만나기 전 3일 교류"];
 function HeroPoints() {
-  return <ul className="mt-6 flex flex-wrap gap-2" aria-label="비포어스의 소개 방식">{HERO_POINTS.map(point => <li key={point} className="flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/25 backdrop-blur-sm"><Check size={12} aria-hidden="true" />{point}</li>)}</ul>;
+  return <ul className="mt-6 flex flex-wrap gap-2" aria-label="플라비의 소개 방식">{HERO_POINTS.map(point => <li key={point} className="flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/25 backdrop-blur-sm"><Check size={12} aria-hidden="true" />{point}</li>)}</ul>;
 }
 function HeroDeadline() {
   const cohort = useRecruitingCohort();
@@ -220,13 +220,13 @@ function FounderLetter() {
       <article className={`relative border border-border bg-card p-7 shadow-[0_1px_0_var(--border)] sm:p-10 hover:-translate-y-1 ${lift}`}>
         <div className="mb-7 flex gap-1.5" aria-hidden="true"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></div>
         <div className="space-y-5 text-[15px] leading-[2]">
-          <p>안녕하세요, 비포어스를 만든 사람이에요.</p>
+          <p>안녕하세요, 플라비를 만든 사람이에요.</p>
           <p>누군가를 진심으로 알아가 본 적이 언제였는지 생각해 봤어요.<br />많이 볼수록, 한 사람에게 마음을 쓰기는 오히려 어려워지니까요.</p>
-          <p>그래서 비포어스는 <Underline>한 번에 한 사람만</Underline> 소개해요. 신청서를 한 장씩 읽고, 두 분이 좋아하는 것과 중요하게 여기는 것을 나란히 놓고 오래 고민해요. ‘이 두 사람’이라고 정하는 건 처음부터 끝까지 <Underline>언제나 사람</Underline>이에요.</p>
+          <p>그래서 플라비는 <Underline>한 번에 한 사람만</Underline> 소개해요. 신청서를 한 장씩 읽고, 두 분이 좋아하는 것과 중요하게 여기는 것을 나란히 놓고 오래 고민해요. ‘이 두 사람’이라고 정하는 건 처음부터 끝까지 <Underline>언제나 사람</Underline>이에요.</p>
           <p>빠르지는 않을 거예요. 대신 소개가 도착한 날에는, 그 한 사람에게 온전히 마음을 써 보셨으면 해요.</p>
         </div>
         <p className="mt-9 text-sm font-semibold text-primary">끌리는 사람을, 천천히 알아갑니다.</p>
-        <p className="mt-2 text-sm text-muted-foreground">비포어스 드림</p>
+        <p className="mt-2 text-sm text-muted-foreground">플라비 드림</p>
       </article>
       <div className="lg:col-span-2"><DirectIntroduction /></div>
     </section>
@@ -240,7 +240,7 @@ function InitialOperation({ detailsTo = "#faq-cohort" }: { detailsTo?: string })
   return (
     <section className="bleed relative isolate overflow-clip bg-[#F8E5A6] py-16 text-[#2B2540] sm:py-20 dark:bg-[#3B3424] dark:text-white" aria-labelledby="initial-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
-      <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.15em] text-[#7A5A10] dark:text-[#F3D98A]"><span aria-hidden="true" className="flex gap-1"><span className="size-1.5 rounded-full bg-primary" /><span className="size-1.5 rounded-full bg-accent" /></span>{cohortCode(cohort.number)} · TOGETHER AT NOON</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">{cohortName(cohort.number)} 첫 소개는,<br /><span className="text-primary dark:text-[#B9ABF2]">{kstDay(cohort.startsOn).replace(/ \(.\)$/, "")}</span> 정오에.</h2><p className="mt-6 inline-flex items-center gap-2.5 rounded-full bg-white/70 py-2 pl-3 pr-4 text-xs shadow-[0_10px_24px_-16px_rgba(120,90,20,0.6)] ring-1 ring-[#2B2540]/5 dark:bg-white/10"><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" /><span className="text-[#2B2540]/65 dark:text-white/70">신청 마감</span><span className="font-semibold text-primary dark:text-[#B9ABF2]">{kstDay(cohort.applicationDeadline)}</span></p></div><div className="space-y-4 text-sm leading-[1.95]">{cohort.number === 0 ? <><p>정식으로 열기 전에, 베타 테스터와 먼저 시작해요. 같은 날 신청을 마친 분들이 시작하는 날 정오에 함께 첫 소개를 받아요.</p><p className="opacity-95"><strong className="font-semibold">베타는 무료예요</strong> · 소개도, 서로 선택한 뒤의 3일 교류도 결제 없이 진행해요. 써 보신 의견으로 비포어스를 다듬어 갈게요.</p></> : BETA ? <><p>한 달 단위 기수제로 시작해요. 같은 기수의 분들이 시작하는 날 정오에 함께 첫 소개를 받아요. 첫 소개 날짜를 미리 알려 드려서 오래 기다리지 않아요.</p><p className="opacity-95"><strong className="font-semibold">베타라서 {cohortName(cohort.number)}도 무료예요</strong> · 소개도, 서로 선택한 뒤의 3일 교류도 결제 없이 진행해요. 유료 운영은 사업자등록을 마친 뒤 시작하고, 시작하기 전에 사이트와 메일로 미리 알려 드려요.</p></> : <><p>처음에는 한 달 단위 기수제로 시작해요. 같은 기수의 분들이 모이면, 시작하는 날 정오에 함께 첫 소개를 받아요. 첫 소개 날짜를 미리 알려 드려서 오래 기다리지 않아요.</p><p className="opacity-95"><strong className="font-semibold">한 번 더, 5번</strong> · 2026년 12월 31일까지 소개비를 낸 분이 5번의 소개 동안 교류를 시작하지 못했다면, 한 번 더 5번을 추가 비용 없이 소개해 드려요. 계정마다 한 번이에요.</p></>}<p className="border-t border-current/20 pt-4 text-xs"><Link to={detailsTo} className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline">{cohort.number === 0 || BETA ? "베타 운영 자세히" : "기수제와 ‘한 번 더, 5번’ 자세히"} <ArrowRight size={13} /></Link></p></div></div>
+      <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.15em] text-[#7A5A10] dark:text-[#F3D98A]"><span aria-hidden="true" className="flex gap-1"><span className="size-1.5 rounded-full bg-primary" /><span className="size-1.5 rounded-full bg-accent" /></span>{cohortCode(cohort.number)} · TOGETHER AT NOON</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">{cohortName(cohort.number)} 첫 소개는,<br /><span className="text-primary dark:text-[#B9ABF2]">{kstDay(cohort.startsOn).replace(/ \(.\)$/, "")}</span> 정오에.</h2><p className="mt-6 inline-flex items-center gap-2.5 rounded-full bg-white/70 py-2 pl-3 pr-4 text-xs shadow-[0_10px_24px_-16px_rgba(120,90,20,0.6)] ring-1 ring-[#2B2540]/5 dark:bg-white/10"><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" /><span className="text-[#2B2540]/65 dark:text-white/70">신청 마감</span><span className="font-semibold text-primary dark:text-[#B9ABF2]">{kstDay(cohort.applicationDeadline)}</span></p></div><div className="space-y-4 text-sm leading-[1.95]">{cohort.number === 0 ? <><p>정식으로 열기 전에, 베타 테스터와 먼저 시작해요. 같은 날 신청을 마친 분들이 시작하는 날 정오에 함께 첫 소개를 받아요.</p><p className="opacity-95"><strong className="font-semibold">베타는 무료예요</strong> · 소개도, 서로 선택한 뒤의 3일 교류도 결제 없이 진행해요. 써 보신 의견으로 플라비를 다듬어 갈게요.</p></> : BETA ? <><p>한 달 단위 기수제로 시작해요. 같은 기수의 분들이 시작하는 날 정오에 함께 첫 소개를 받아요. 첫 소개 날짜를 미리 알려 드려서 오래 기다리지 않아요.</p><p className="opacity-95"><strong className="font-semibold">베타라서 {cohortName(cohort.number)}도 무료예요</strong> · 소개도, 서로 선택한 뒤의 3일 교류도 결제 없이 진행해요. 유료 운영은 사업자등록을 마친 뒤 시작하고, 시작하기 전에 사이트와 메일로 미리 알려 드려요.</p></> : <><p>처음에는 한 달 단위 기수제로 시작해요. 같은 기수의 분들이 모이면, 시작하는 날 정오에 함께 첫 소개를 받아요. 첫 소개 날짜를 미리 알려 드려서 오래 기다리지 않아요.</p><p className="opacity-95"><strong className="font-semibold">한 번 더, 5번</strong> · 2026년 12월 31일까지 소개비를 낸 분이 5번의 소개 동안 교류를 시작하지 못했다면, 한 번 더 5번을 추가 비용 없이 소개해 드려요. 계정마다 한 번이에요.</p></>}<p className="border-t border-current/20 pt-4 text-xs"><Link to={detailsTo} className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline">{cohort.number === 0 || BETA ? "베타 운영 자세히" : "기수제와 ‘한 번 더, 5번’ 자세히"} <ArrowRight size={13} /></Link></p></div></div>
     </section>
   );
 }
@@ -490,6 +490,7 @@ const FAQ_BASE = [
   { id: "no-answer", title: "상대가 답하지 않으면 어떻게 되나요?", text: `상대는 다음 날 오전 11시까지 답할 수 있어요. 그때까지 답이 없으면 소개는 자동으로 마무리되고, 먼저 답한 분에게는 ‘상대가 기한 안에 답하지 않았어요’라고 알림과 메일로 알려 드려요. 거절과 무응답을 구분해서 알려 드려요.${BETA ? "" : " 상대가 답하지 않은 소개는 5번에 넣지 않아요."} 두 번 이어서 답하지 않은 분은 새 소개를 잠시 쉬게 되고, 내 정보에서 다시 받을 수 있어요.` },
   { id: "refund", title: "환불과 보유기간, 재이용 기준은 무엇인가요?", text: `소개비는 첫 상대 프로필을 열기 전에 취소하면 10,000원 전액, 연 뒤에는 남은 소개 1번에 2,000원씩 돌려드려요. 교류비는 아직 열리지 않은 날만큼 환불하고, 날짜별 금액은 결제 전에 안내해요. 법정 청약철회 권리와 약관에 따른 더 유리한 권리를 제한하지 않아요. 정상 교류를 마친 뒤 새 소개를 원하면 새 회차 소개비 10,000원부터 다시 시작해요. 교류 중단·약속 취소·노쇼 기준과 자료 보유·삭제 기간은 내 정보에서 확인할 수 있어요.` },
   { id: "visibility", title: "어떤 정보가 상대에게 공개되나요?", text: "신청서 마지막 단계에서 상대에게 보일 항목을 직접 고르고, 고른 항목만 소개된 상대에게 보여요. 소개할 때마다 다시 묻지는 않으니, 보일 항목은 내 정보의 ‘보일 항목 고치기’에서 언제든 바꿔 주세요. 상대 프로필은 소개된 날 정오부터 다음 날 11:00 응답 마감까지 볼 수 있고, 서로 알아가기로 하면 교류와 약속이 끝날 때까지 이어져요. 끝난 소개의 프로필을 다시 보는 보관함은 없어요. 넷째 날 두 분 모두 만나고 싶다고 한 교류만, 마무리 뒤 30일 동안 주고받은 글을 다시 읽을 수 있어요." },
+  { id: "name", title: "‘플라비’는 무슨 뜻인가요?", text: "플라비(Flavie)는 ‘금빛’을 뜻하는 라틴어 flavus에서 온 이름이에요. 소개가 도착하는 정오의 햇살처럼, 한 사람을 밝은 빛 아래에서 천천히 알아가자는 마음을 담았어요. 2026년 10월 30일에 ‘비포어스’에서 지금 이름으로 바꿨고, 서비스와 회원 정보는 그대로예요." },
   { id: "contact", title: "문의는 어디에서 할 수 있나요?", text: "페이지 맨 아래의 ‘문의하기’에서 남길 수 있어요. 회원이라면 회원 화면 맨 아래의 ‘문의·요청’에서 정정·삭제 같은 요청을, 상대와 관련된 일은 두 사람 화면의 ‘신고’로 남기면 더 빨리 확인할 수 있어요." },
 ];
 
@@ -618,7 +619,7 @@ function Together() {
       </div>
       <div className="mx-auto mt-16 max-w-xl border-t border-white/20 pt-6 text-xs leading-6 text-white/95">
         <p className="text-sm text-white">다음 이야기는, 준비된 날 정오에 시작돼요.</p>
-        <p className="mt-1">— 비포어스 드림</p>
+        <p className="mt-1">— 플라비 드림</p>
       </div>
     </section>
   );

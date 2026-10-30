@@ -192,7 +192,7 @@ export function Journey() {
   );
 }
 
-// 비교해 보세요: 비포어스 칸만 카드처럼 떠오른다(요금표의 추천 칸 방식)
+// 비교해 보세요: 플라비 칸만 카드처럼 떠오른다(요금표의 추천 칸 방식)
 const COMPARE = [
   { row: "누가 고르나요", app: "내가 넘기며 직접", agency: "매니저가 조건 위주로", us: "운영진이 신청서를 읽고 한 분" },
   { row: "동시에 몇 명과", app: "여러 명과 동시에", agency: "일정에 따라 여러 번", us: "한 번에 한 분" },
@@ -206,7 +206,7 @@ export function CompareTable() {
   return (
     <div className="relative mt-20 sm:mt-24">
       <div className="mx-auto max-w-xl text-center">
-        <p className="text-[11px] font-semibold tracking-[0.24em] text-accent">WHY BEFORE US</p>
+        <p className="text-[11px] font-semibold tracking-[0.24em] text-accent">WHY FLAVIE</p>
         <h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">비교해 보세요</h3>
         <p className="mt-4 text-sm leading-7 text-muted-foreground">앱은 너무 가볍고, 결혼정보회사는 너무 무거웠다면.</p>
       </div>
@@ -216,7 +216,7 @@ export function CompareTable() {
           <span className="border-b border-border" />
           <span className="flex items-center justify-center border-b border-border px-2 pb-4 text-[11px] font-semibold text-muted-foreground sm:text-xs">소개팅 앱</span>
           <span className="flex items-center justify-center border-b border-border px-2 pb-4 text-[11px] font-semibold text-muted-foreground sm:text-xs">결혼정보회사</span>
-          <span className="flex flex-col items-center justify-center gap-1.5 border-b border-primary/15 px-2 pb-4"><span aria-hidden="true" className="flex gap-1"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></span><span className="text-xs font-semibold text-primary sm:text-sm">비포어스</span></span>
+          <span className="flex flex-col items-center justify-center gap-1.5 border-b border-primary/15 px-2 pb-4"><span aria-hidden="true" className="flex gap-1"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></span><span className="text-xs font-semibold text-primary sm:text-sm">플라비</span></span>
           {COMPARE.map((item, index) => {
             const last = index === COMPARE.length - 1;
             return [
@@ -247,7 +247,7 @@ export function Standards() {
       <div className="mx-auto max-w-xl text-center">
         <p className="text-[11px] font-semibold tracking-[0.24em] text-accent">OUR STANDARDS</p>
         <h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">안심하고 알아가도록,<br /><span className="text-primary">네 가지를 지켜요.</span></h3>
-        <p className="mt-4 text-sm leading-7 text-muted-foreground">소개부터 만나는 날까지, 비포어스가 대신 지키는 약속이에요.</p>
+        <p className="mt-4 text-sm leading-7 text-muted-foreground">소개부터 만나는 날까지, 플라비가 대신 지키는 약속이에요.</p>
       </div>
       <div className="relative mx-auto mt-12 max-w-4xl">
         <svg aria-hidden="true" viewBox="0 0 1000 120" preserveAspectRatio="none" className="absolute inset-x-0 top-0 hidden h-[120px] w-full overflow-visible sm:block">

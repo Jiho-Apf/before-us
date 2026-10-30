@@ -24,7 +24,7 @@ export function encodedWord(text: string) {
   return parts.map((part) => `=?UTF-8?B?${base64(part)}?=`).join("\r\n ")
 }
 
-// "비포어스 <hello@example.com>" → { name, address }
+// "플라비 <hello@example.com>" → { name, address }
 export function parseAddress(value: string) {
   const match = value.match(/^\s*(.*?)\s*<\s*([^<>\s]+@[^<>\s]+)\s*>\s*$/)
   if (match) return { name: match[1].replace(/^"|"$/g, ""), address: match[2] }

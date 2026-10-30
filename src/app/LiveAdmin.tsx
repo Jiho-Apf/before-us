@@ -50,7 +50,7 @@ function Title({ children, lead }: { children: ReactNode; lead?: ReactNode }) {
   return <div className="mb-6"><h1 className="text-2xl font-semibold">{children}</h1>{lead && <p className="mt-2 text-sm leading-6 text-muted-foreground">{lead}</p>}</div>;
 }
 function Gate({ title, children }: { title: string; children: ReactNode }) {
-  return <main className="flex min-h-screen items-center justify-center bg-secondary p-6 text-foreground"><section className="w-full max-w-md rounded-xl border border-border bg-card p-6 sm:p-8"><p className="text-xs font-semibold tracking-widest text-primary">BEFORE US · OPERATIONS</p><h1 className="mt-4 text-2xl font-semibold">{title}</h1><div className="mt-6 space-y-4 text-sm">{children}</div></section></main>;
+  return <main className="flex min-h-screen items-center justify-center bg-secondary p-6 text-foreground"><section className="w-full max-w-md rounded-xl border border-border bg-card p-6 sm:p-8"><p className="text-xs font-semibold tracking-widest text-primary">FLAVIE · OPERATIONS</p><h1 className="mt-4 text-2xl font-semibold">{title}</h1><div className="mt-6 space-y-4 text-sm">{children}</div></section></main>;
 }
 // 상태 고르는 작은 탭(숫자를 함께 보여 줄 수 있다)
 function Tabs<T extends string>({ value, options, onChange }: { value: T; options: [T, string, number?][]; onChange: (value: T) => void }) {
@@ -107,7 +107,8 @@ function SecondFactor({ onDone }: { onDone: () => Promise<void> }) {
     if (verified) { setFactorId(verified.id); return; }
     // 등록하다 만 인증 수단은 지우고 새로 만든다.
     for (const factor of data?.all ?? []) if (factor.status !== "verified") await db.auth.mfa.unenroll({ factorId: factor.id });
-    const { data: enrolled, error } = await db.auth.mfa.enroll({ factorType: "totp", friendlyName: `before-us-${Date.now().toString(36)}` });
+    // issuer 는 인증 앱에 보이는 이름이다(새로 등록할 때만 적용된다).
+    const { data: enrolled, error } = await db.auth.mfa.enroll({ factorType: "totp", issuer: BEFORE_US.brand.name, friendlyName: `flavie-${Date.now().toString(36)}` });
     if (error || !enrolled) { setError(friendlyError(error, "인증 앱 등록을 시작하지 못했어요.")); return; }
     setFactorId(enrolled.id); setQr(enrolled.totp.qr_code); setSecret(enrolled.totp.secret);
   })(); }, []);
@@ -136,7 +137,7 @@ function AdminShell({ role }: { role: Role }) {
     <div className={`${dark ? "dark " : ""}min-h-screen bg-secondary font-sans text-foreground`}>
       <a href="#admin-content" className="fixed left-3 top-3 z-50 -translate-y-24 rounded-lg bg-primary px-4 py-3 text-sm text-primary-foreground focus:translate-y-0">관리자 본문으로</a>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r border-border bg-card lg:flex">
-        <div className="border-b border-border px-6 py-6"><Link to="/admin" className="text-xl font-bold">비포어스<span className="ml-2 inline-flex gap-1 align-middle"><span className="h-2 w-2 rounded-full bg-primary" /><span className="h-2 w-2 rounded-full bg-accent" /></span></Link><p className="mt-1 text-xs tracking-widest text-muted-foreground">BEFORE US · OPERATIONS</p></div>
+        <div className="border-b border-border px-6 py-6"><Link to="/admin" className="text-xl font-bold">플라비<span className="ml-2 inline-flex gap-1 align-middle"><span className="h-2 w-2 rounded-full bg-primary" /><span className="h-2 w-2 rounded-full bg-accent" /></span></Link><p className="mt-1 text-xs tracking-widest text-muted-foreground">FLAVIE · OPERATIONS</p></div>
         <nav aria-label="관리자 메뉴" className="grid flex-1 content-start gap-1 overflow-y-auto p-3">{nav.map(({ path, label, icon: Icon }) => <NavLink key={path} to={path} end={path === "/admin"} className={({ isActive }) => `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-200 motion-reduce:transition-none ${isActive ? "bg-primary/10 font-semibold text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}><Icon size={17} strokeWidth={1.7} />{label}</NavLink>)}</nav>
         <div className="border-t border-border p-5"><div className="mb-2 flex items-center gap-2 text-xs font-semibold"><ShieldCheck size={15} className="text-primary" />{ROLE_LABEL[role]} · 2단계 인증</div><p className="break-all text-xs leading-5 text-muted-foreground">{user?.email}</p></div>
       </aside>
@@ -736,7 +737,7 @@ function Broadcast() {
   return <section className={`${box} mt-8 space-y-3 p-5`}>
     <h2 className="text-sm font-semibold">전체 공지 · 사이트 알림 + 메일</h2>
     <p className="text-xs leading-6 text-muted-foreground">대표만 보낼 수 있어요. 가입 확인을 마친 이용 중인 회원에게 가고, ‘메일 알림’을 고르지 않은 회원에게도 메일로 가요. 베타를 끝내거나 정식 운영으로 바꿀 때는 적어도 7일 전에 보내 주세요(약관 부칙).</p>
-    <Input aria-label="공지 제목" value={title} maxLength={60} onChange={event => setTitle(event.target.value)} placeholder="제목(5~60자) · 예: 비포어스 정식 운영 안내" />
+    <Input aria-label="공지 제목" value={title} maxLength={60} onChange={event => setTitle(event.target.value)} placeholder="제목(5~60자) · 예: 플라비 정식 운영 안내" />
     <Textarea aria-label="공지 내용" value={body} maxLength={1000} onChange={event => setBody(event.target.value)} rows={5} placeholder="내용(10~1000자) · 바뀌는 날짜, 무엇이 바뀌는지, 원하지 않으면 탈퇴할 수 있다는 안내" />
     <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">{body.trim().length} / 1000자</span><Button disabled={!!busy || title.trim().length < 5 || body.trim().length < 10} onClick={() => void send()}>{busy ? "보내고 있어요" : "모든 회원에게 보내기"}</Button></div>
     <Notice text={message} />

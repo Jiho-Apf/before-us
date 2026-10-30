@@ -568,7 +568,7 @@ export function SceneFlow({ view, onCommand }: SceneFlowProps) {
           <p className="text-sm leading-7">
             두 분이 함께 고른 장면 v{view.recommendation.boardVersion}을 실제 약속을
             정할 때 참고할 수 있어요. 상상 속 일요일·세 시간은 실제 일정이 아니고,
-            장소와 시간은 두 분이 직접 정해요. 비포어스는 장소를 추천하거나 예약하지 않아요.
+            장소와 시간은 두 분이 직접 정해요. 플라비는 장소를 추천하거나 예약하지 않아요.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             {(["activity", "region", "duration", "budget"] as const).map(

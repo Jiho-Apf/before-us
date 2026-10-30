@@ -255,7 +255,7 @@ export function AdminGovernance({ section }: { section: string }) {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="mb-2 text-xs tracking-widest text-accent">
-            BEFORE US / OPERATIONS
+            FLAVIE / OPERATIONS
           </p>
           <h1 className="text-2xl font-semibold">{titles[section]}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -794,7 +794,7 @@ export function AdminGovernance({ section }: { section: string }) {
           <div className="space-y-5">
             <Panel title="현재 적용 기준 · V6">
               <dl className="space-y-3 text-sm">
-                <div>브랜드: 비포어스 / BEFORE US</div>
+                <div>브랜드: 플라비 / FLAVIE</div>
                 <div>공개: {BEFORE_US.introduction.readyAt} · Asia/Seoul</div>
                 <div>
                   소개 {money(BEFORE_US.pricing.introduction)} / 교류{" "}

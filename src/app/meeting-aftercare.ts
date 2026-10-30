@@ -8,7 +8,7 @@ export const SAFETY_GUIDE = [
   { title: "음주는 천천히", body: "술은 내가 편한 만큼만. 음료를 자리에 두고 오래 비우지 않는 것이 좋아요." },
   { title: "불편하면 언제든 일어나도 돼요", body: "설명 없이 자리를 떠나도 괜찮아요. 이후 진행은 내 정보에서 멈출 수 있어요." },
   { title: "돈·투자·개인 연락 요구는 신고", body: "금전 요청, 투자 권유, 외부 메신저 이동 요구는 바로 신고해 주세요." },
-  { title: "위급할 때는 112", body: "위험을 느끼면 즉시 112에 신고하세요. 비포어스 신고는 긴급 출동을 대신하지 않아요." },
+  { title: "위급할 때는 112", body: "위험을 느끼면 즉시 112에 신고하세요. 플라비 신고는 긴급 출동을 대신하지 않아요." },
 ] as const
 export const FEEDBACK_OPENS_AFTER_MINUTES = 60
 export type MeetingFeedback = {

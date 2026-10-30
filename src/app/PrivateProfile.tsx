@@ -66,7 +66,7 @@ export function PrivatePhoto({ memberId, children, className = "" }: {
     >
       {children}
       <div aria-hidden="true" className={`pointer-events-none absolute max-w-full rounded-md bg-background/65 px-2 py-1 text-xs font-medium text-foreground/70 ${positions[position]}`}>
-        BEFORE US · 개인 열람용 · {session?.code || "DEMO"}
+        FLAVIE · 개인 열람용 · {session?.code || "DEMO"}
       </div>
     </div>
   );

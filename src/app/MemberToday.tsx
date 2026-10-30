@@ -90,7 +90,7 @@ export function TodayView({ snapshot = EMPTY_TODAY, dateOverride }: { snapshot?:
     <section aria-labelledby="today-title">
       <header className="flex flex-wrap items-end justify-between gap-8 border-b border-border pb-8">
         <div className="min-w-0">
-          <Eyebrow mark="오늘" label={meta.label} en="TODAY, BEFORE US" />
+          <Eyebrow mark="오늘" label={meta.label} en="TODAY · FLAVIE" />
           <h1 id="today-title" className="mt-5 text-3xl font-semibold leading-[1.4] sm:text-[34px]">{meta.title}</h1>
           <p className="mt-3 text-xs text-muted-foreground"><time dateTime={today}>{formatDate(today)}</time> · 서울{snapshot.demo ? " · 데모" : ""}</p>
         </div>

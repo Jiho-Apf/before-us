@@ -196,7 +196,7 @@ const CONTACT = [
 export function contactProblem(...texts: (string | null | undefined)[]) {
   // 직접 쓴 말의 표시('custom:')는 빼고 살핀다(서버와 같은 기준).
   const text = stripDates(texts.filter(Boolean).join(" ").split(CUSTOM).join(" ").normalize("NFKC"))
-  return CONTACT.some(pattern => pattern.test(text)) ? "연락처·SNS 아이디·링크·계좌번호가 들어 있는 것 같아요. 그 부분을 빼고 보내 주세요. 연락처는 두 분이 동의하면 만나는 날 비포어스에서 열려요." : null
+  return CONTACT.some(pattern => pattern.test(text)) ? "연락처·SNS 아이디·링크·계좌번호가 들어 있는 것 같아요. 그 부분을 빼고 보내 주세요. 연락처는 두 분이 동의하면 만나는 날 플라비에서 열려요." : null
 }
 
 export const END_REASON: Record<string, string> = {

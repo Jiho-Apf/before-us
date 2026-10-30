@@ -1,6 +1,6 @@
 {
-  "title": "비포어스 · 편지로 시작하는 1:1 소개팅",
-  "description": "편지로 시작하는 1:1 소개팅, 비포어스. 운영진이 직접 고른 한 사람을 준비된 날 정오에 소개하고, 만나기 전 3일 동안 편지로 먼저 알아가요. 지금은 베타를 무료로 운영하고 있어요.",
+  "title": "플라비 · 편지로 시작하는 1:1 소개팅",
+  "description": "편지로 시작하는 1:1 소개팅, 플라비. 운영진이 직접 고른 한 사람을 준비된 날 정오에 소개하고, 만나기 전 3일 동안 편지로 먼저 알아가요. 지금은 베타를 무료로 운영하고 있어요.",
   "language": "ko",
   "robots": {
     "index": true
@@ -13,6 +13,6 @@
     "icon": "/favicon.svg"
   },
   "openGraph": {
-    "image": "https://before-us-3jr4.vercel.app/og-image.png"
+    "image": "https://before-us-3jr4.vercel.app/og-flavie.png"
   }
 }

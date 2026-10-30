@@ -287,7 +287,7 @@ export default function AdminDemo({ embedded = false }: { embedded?: boolean }) 
             회원 데모로
           </Link>
           <span className="text-xs text-muted-foreground">
-            BEFORE US / OPERATIONS · V6
+            FLAVIE / OPERATIONS · V6
           </span>
           <span className="rounded-full bg-secondary px-3 py-2 text-xs font-semibold text-primary">
             가상 관리자 데모

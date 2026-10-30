@@ -52,18 +52,18 @@
 ## 3. 정식 출시 전에 꼭 바꿀 것
 
 - **도메인 없이 바로(베타용) — Gmail로 가입 확인 메일·알림 메일 보내기(대표가 직접, 비밀번호는 채팅에 붙이지 않기):**
-  1. 비포어스 전용 Gmail을 만들고 Google 계정 → 보안 → 2단계 인증을 켠다 → ‘앱 비밀번호’에서 16자리 비밀번호를 만든다.
-  2. Supabase 대시보드 → Authentication → Emails(또는 Settings → SMTP) → Enable custom SMTP: Host `smtp.gmail.com`, Port `465`, Username 그 Gmail 주소, Password 앱 비밀번호, Sender email 그 Gmail 주소, Sender name `비포어스`. 저장하면 회원 누구나 가입 확인 메일을 받는다.
+  1. 플라비 전용 Gmail을 만들고 Google 계정 → 보안 → 2단계 인증을 켠다 → ‘앱 비밀번호’에서 16자리 비밀번호를 만든다.
+  2. Supabase 대시보드 → Authentication → Emails(또는 Settings → SMTP) → Enable custom SMTP: Host `smtp.gmail.com`, Port `465`, Username 그 Gmail 주소, Password 앱 비밀번호, Sender email 그 Gmail 주소, Sender name `플라비`. 저장하면 회원 누구나 가입 확인 메일을 받는다.
   3. 같은 화면의 Rate limits에서 ‘이메일 발송’을 시간당 30통 이상으로 둔다(기본값이 낮으면 가입이 몰릴 때 막힌다).
-  4. 알림 메일: Edge Functions → Secrets에 `SMTP_HOST`=`smtp.gmail.com`, `SMTP_USER`=Gmail 주소, `SMTP_PASS`=앱 비밀번호, `MAIL_FROM`=`비포어스 <Gmail 주소>`, `SITE_URL`=`https://before-us-3jr4.vercel.app` 을 넣는다.
-  5. 다 넣었다고 알려 주면 Claude가 비포어스 메일 디자인(가입 확인·비밀번호 재설정)을 적용한다. Gmail은 하루 약 500통까지라 베타에는 충분하다.
+  4. 알림 메일: Edge Functions → Secrets에 `SMTP_HOST`=`smtp.gmail.com`, `SMTP_USER`=Gmail 주소, `SMTP_PASS`=앱 비밀번호, `MAIL_FROM`=`플라비 <Gmail 주소>`, `SITE_URL`=`https://before-us-3jr4.vercel.app` 을 넣는다.
+  5. 다 넣었다고 알려 주면 Claude가 플라비 메일 디자인(가입 확인·비밀번호 재설정)을 적용한다. Gmail은 하루 약 500통까지라 베타에는 충분하다.
 - **메일 알림 켜기(도메인이 생기면, 대표가 직접, 키는 채팅에 붙이지 않기):**
   1. 도메인을 산다(예: 가비아·Cloudflare). Resend(resend.com)에 가입하고 Domains에서 그 도메인을 추가 → 안내된 DNS 기록(TXT·MX)을 도메인 관리 화면에 넣고 Verify.
   2. Resend → API Keys에서 키를 만든다(Sending access).
-  3. Supabase 대시보드 → Edge Functions → Secrets(또는 Project Settings → Edge Functions)에 세 값을 넣는다: `RESEND_API_KEY`(위 키), `MAIL_FROM`(예: `비포어스 <hello@도메인>`), `SITE_URL`(회원이 쓰는 사이트 주소).
+  3. Supabase 대시보드 → Edge Functions → Secrets(또는 Project Settings → Edge Functions)에 세 값을 넣는다: `RESEND_API_KEY`(위 키), `MAIL_FROM`(예: `플라비 <hello@도메인>`), `SITE_URL`(회원이 쓰는 사이트 주소).
   4. 넣으면 5분 안에 ‘메일’을 고른 회원에게 알림 메일이 가기 시작한다. 같은 Resend를 아래 가입 확인 메일(SMTP)에도 쓸 수 있다(Resend → SMTP 안내의 호스트·포트·사용자 `resend`·비밀번호=API 키를 Supabase Authentication → SMTP에 입력).
 
-- **메일 발송(베타 전 필수):** Supabase 기본 메일은 Supabase 팀에 등록된 이메일로만, 그것도 시간당 몇 통만 보낸다. 대표 본인 테스트는 되지만 베타 회원은 가입 확인·비밀번호 재설정 메일을 못 받는다. 베타 전에 대시보드 Authentication → SMTP에 발송 서비스(예: Resend)를 연결한다. 보내는 주소는 도메인을 산 뒤 그 도메인으로. 연결한 뒤 `config push`를 하면 비포어스 메일 디자인(`supabase/templates/`)이 함께 적용된다(무료 기본 메일에서는 Supabase가 거부함).
+- **메일 발송(베타 전 필수):** Supabase 기본 메일은 Supabase 팀에 등록된 이메일로만, 그것도 시간당 몇 통만 보낸다. 대표 본인 테스트는 되지만 베타 회원은 가입 확인·비밀번호 재설정 메일을 못 받는다. 베타 전에 대시보드 Authentication → SMTP에 발송 서비스(예: Resend)를 연결한다. 보내는 주소는 도메인을 산 뒤 그 도메인으로. 연결한 뒤 `config push`를 하면 플라비 메일 디자인(`supabase/templates/`)이 함께 적용된다(무료 기본 메일에서는 Supabase가 거부함).
 - **요금제:** 무료 요금제는 7일 동안 쓰지 않으면 일시정지되고 자동 백업·PITR이 없다. 베타 시작 때 Pro로 올리고 PITR을 켠다(`Reliability.md`).
 - **사이트 주소:** 공개 사이트를 실제 서버 모드로 바꾸는 날, `config.toml`의 `site_url`·`additional_redirect_urls`를 실제 도메인으로 맞추고 `config push`.
 - **본인인증·결제·알림톡:** 사업자등록 뒤 서버 8~10단계에서 연결한다. 지금 실제 서버 모드에서는 휴대폰 본인인증 칸을 보여 주지 않고, 만 19세 확인은 가입 동의 + 신청서 생년월일(서버에서 다시 계산)로 한다.

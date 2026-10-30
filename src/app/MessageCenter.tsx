@@ -55,11 +55,11 @@ function NoonPlan({ state }: { state: AdminState }) {
 function KakaoPreview({ body }: { body: string }) {
   return (
     <div className="rounded-2xl bg-[#B2C7DA] p-4 dark:bg-[#2a3440]">
-      <p className="mb-2 text-[11px] text-[#1f2a37] dark:text-white/80">비포어스 · 알림톡</p>
+      <p className="mb-2 text-[11px] text-[#1f2a37] dark:text-white/80">플라비 · 알림톡</p>
       <div className="max-w-sm overflow-hidden rounded-xl bg-white text-[#191919] shadow-sm">
         <div className="bg-[#FEE500] px-4 py-2 text-xs font-semibold">알림톡 도착</div>
         <p className="whitespace-pre-wrap px-4 py-3 text-[13px] leading-6">{fillSample(body)}</p>
-        <div className="border-t border-black/10 px-4 py-2 text-center text-xs">비포어스에서 확인하기</div>
+        <div className="border-t border-black/10 px-4 py-2 text-center text-xs">플라비에서 확인하기</div>
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 {
-  "name": "비포어스 · BEFORE US",
-  "short_name": "비포어스",
+  "name": "플라비 · FLAVIE",
+  "short_name": "플라비",
   "description": "운영진이 고른 한 사람을 정오에 소개하고, 만나기 전 3일 동안 천천히 알아가는 소개팅",
   "lang": "ko",
   "start_url": "/today",
@@ -9,8 +9,21 @@
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

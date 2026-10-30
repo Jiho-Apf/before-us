@@ -2,15 +2,19 @@
 // 사이트 안 알림 가운데 ‘메일’을 고른 회원의 것만 메일로 보낸다. 보낸 알림은 emailed_at 을 남겨 두 번 보내지 않는다.
 // 받는 값이 없고 대기 중인 알림만 보내므로, 누가 불러도 다른 일을 할 수 없다.
 // 보내는 방법(대표가 Supabase 대시보드 → Edge Functions → Secrets 에 직접 넣는다. 채팅에 붙이지 않는다):
-//   A) Resend(도메인이 있을 때 · 권장): RESEND_API_KEY, MAIL_FROM(예: 비포어스 <hello@도메인>)
+//   A) Resend(도메인이 있을 때 · 권장): RESEND_API_KEY, MAIL_FROM(예: 플라비 <hello@도메인>)
 //   B) 메일 계정 SMTP(도메인 없이 · 베타용): SMTP_HOST(예: smtp.gmail.com), SMTP_USER(메일 주소), SMTP_PASS(앱 비밀번호),
-//      MAIL_FROM(예: 비포어스 <그 메일 주소>) · Supabase 함수는 465 포트(SSL)만 쓸 수 있다.
+//      MAIL_FROM(예: 플라비 <그 메일 주소>) · Supabase 함수는 465 포트(SSL)만 쓸 수 있다.
+// 보낸 사람 이름은 MAIL_FROM 에 무엇이 적혀 있든 BRAND(서비스 이름)로 보낸다. 이름을 바꿀 때 비밀 값을 고치지 않아도 되게.
 //   공통: SITE_URL(버튼이 열 사이트 주소, 없으면 공개 사이트)
 // 아무것도 없으면 보내지 않고 건너뛴다(사이트 안 알림은 그대로 보인다). 이때 보낼 메일이 쌓여 있으면 작업 기록에 남겨 대시보드가 경고한다(한 시간에 한 번).
 // 한 통이 실패하면 실패 횟수를 남기고 다음 차례(5분 뒤)에 다시 보낸다. 3번 실패한 메일은 더 보내지 않는다(record_email_failure · pending_email_notifications).
 import { createClient } from "npm:@supabase/supabase-js@2.49.4"
 import { buildMessage, parseAddress } from "./mime.ts"
 import { Smtp } from "./smtp.ts"
+
+// 서비스 이름(화면 src/app/config.ts 의 brand 와 같이 바꾼다)
+const BRAND = { name: "플라비", english: "FLAVIE", message: "끌리는 사람을, 천천히 알아갑니다." }
 
 const escape = (text: string) => text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!)
 
@@ -19,14 +23,14 @@ function html(title: string, body: string | null, url: string) {
 <body style="margin:0;padding:0;background:#F9F8FD;font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;color:#24204A;word-break:keep-all;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F9F8FD;"><tr><td align="center" style="padding:40px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
-<tr><td style="padding:0 8px 24px;"><span style="display:inline-block;width:12px;height:12px;border-radius:6px;background:#614CC4;"></span><span style="display:inline-block;width:12px;height:12px;border-radius:6px;background:#3A54CA;margin-left:4px;"></span><span style="font-size:20px;font-weight:700;margin-left:10px;vertical-align:middle;">비포어스</span></td></tr>
+<tr><td style="padding:0 8px 24px;"><span style="display:inline-block;width:12px;height:12px;border-radius:6px;background:#614CC4;"></span><span style="display:inline-block;width:12px;height:12px;border-radius:6px;background:#3A54CA;margin-left:4px;"></span><span style="font-size:20px;font-weight:700;margin-left:10px;vertical-align:middle;">${BRAND.name}</span></td></tr>
 <tr><td style="background:#FFFFFF;border:1px solid #EEEAFA;border-radius:20px;padding:36px 30px;">
-<p style="margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:2px;color:#3A54CA;">BEFORE US · 알림</p>
+<p style="margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:2px;color:#3A54CA;">${BRAND.english} · 알림</p>
 <h1 style="margin:0 0 14px;font-size:22px;line-height:1.5;font-weight:700;">${escape(title)}</h1>
 ${body ? `<p style="margin:0 0 24px;font-size:15px;line-height:1.85;color:#4A4670;">${escape(body).split("\n").join("<br>")}</p>` : ""}
-<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:12px;background:#614CC4;"><a href="${escape(url)}" style="display:inline-block;padding:14px 26px;font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;">비포어스에서 확인하기 →</a></td></tr></table>
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:12px;background:#614CC4;"><a href="${escape(url)}" style="display:inline-block;padding:14px 26px;font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;">${BRAND.name}에서 확인하기 →</a></td></tr></table>
 </td></tr>
-<tr><td style="padding:22px 8px 0;font-size:12px;line-height:1.8;color:#7A76A0;"><p style="margin:0 0 6px;">메일로 받을 알림의 범위는 내 정보 → 알림 설정에서 고를 수 있어요. 밤 10시~아침 8시에는 보내지 않아요(모든 회원에게 보내는 운영 공지는 예외예요).</p><p style="margin:0 0 6px;">이 메일이 스팸함에 있었다면 beforeus.official.kr@gmail.com을 주소록에 추가해 주세요.</p><p style="margin:0;color:#A19DC0;">BEFORE US · 끌리는 사람을, 천천히 알아갑니다. · 19세 미만 이용 불가</p></td></tr>
+<tr><td style="padding:22px 8px 0;font-size:12px;line-height:1.8;color:#7A76A0;"><p style="margin:0 0 6px;">메일로 받을 알림의 범위는 내 정보 → 알림 설정에서 고를 수 있어요. 밤 10시~아침 8시에는 보내지 않아요(모든 회원에게 보내는 운영 공지는 예외예요).</p><p style="margin:0 0 6px;">이 메일이 스팸함에 있었다면 beforeus.official.kr@gmail.com을 주소록에 추가해 주세요.</p><p style="margin:0;color:#A19DC0;">${BRAND.english} · ${BRAND.message} · 19세 미만 이용 불가</p></td></tr>
 </table></td></tr></table></body></html>`
 }
 
@@ -59,7 +63,7 @@ Deno.serve(async () => {
   if (error) return Response.json({ error: error.message }, { status: 500 })
   const mails: Mail[] = ((data ?? []) as { id: string; email: string; title: string; body: string | null; link: string | null; source: string }[]).map((item) => {
     const url = site + (item.link?.startsWith("/") ? item.link : "/today")
-    return { id: item.id, source: item.source, to: item.email, subject: `[비포어스] ${item.title}`, html: html(item.title, item.body, url), text: `${item.title}\n\n${item.body ?? ""}\n\n${url}` }
+    return { id: item.id, source: item.source, to: item.email, subject: `[${BRAND.name}] ${item.title}`, html: html(item.title, item.body, url), text: `${item.title}\n\n${item.body ?? ""}\n\n${url}` }
   })
   if (!mails.length) return Response.json({ sent: 0, failed: 0 })
   let sent = 0, failed = 0, gaveUp = 0
@@ -76,7 +80,7 @@ Deno.serve(async () => {
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "Idempotency-Key": `notification-${mail.id}` },
-        body: JSON.stringify({ from, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text }),
+        body: JSON.stringify({ from: `${BRAND.name} <${parseAddress(from!).address}>`, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text }),
       })
       if (response.ok) await done(mail); else await fail(mail, `Resend ${response.status} ${response.statusText}`)
     }
@@ -87,7 +91,7 @@ Deno.serve(async () => {
       const client = await Smtp.open(smtp.host!, smtp.user!, smtp.pass!)
       // 보내는 주소는 로그인한 Gmail 주소로 고정한다(MAIL_FROM에서는 보낸 사람 이름만 쓴다).
       const sender = smtp.user!
-      const fromHeader = `${parseAddress(from!).name || "비포어스"} <${sender}>`
+      const fromHeader = `${BRAND.name} <${sender}>`
       try {
         for (const mail of mails) {
           try { await client.send(sender, mail.to, buildMessage({ from: fromHeader, to: mail.to, subject: mail.subject, text: mail.text, html: mail.html, id: mail.id })); await done(mail) } catch (error) { const message = String((error as Error)?.message ?? error); await fail(mail, message); reason ||= message.replaceAll(mail.to, "(받는 주소)").slice(0, 300) }

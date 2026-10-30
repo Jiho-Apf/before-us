@@ -221,7 +221,7 @@ export function AppointmentContact({ view, onCommand, recheckContact }: ContactP
               </Button>
               <div className="border-t border-primary/15 pt-4 text-xs leading-6 text-muted-foreground">
                 <p className="flex items-start gap-2"><ShieldCheck className="mt-1 size-3.5 shrink-0 text-primary" />처음 만날 때는 사람이 많은 공공장소에서, 일정은 가까운 사람에게 알려 두세요.</p>
-                <p className="mt-1 pl-5">만남 뒤 연락을 원하지 않거나 불편한 연락을 받으면, 비포어스에서 바로 차단·신고할 수 있어요. 상대에게 이유를 알리지 않아요.</p>
+                <p className="mt-1 pl-5">만남 뒤 연락을 원하지 않거나 불편한 연락을 받으면, 플라비에서 바로 차단·신고할 수 있어요. 상대에게 이유를 알리지 않아요.</p>
                 <Link to="/support?demo=agreement" className="mt-2 inline-block pl-5 text-primary underline underline-offset-4">차단·신고하러 가기</Link>
               </div>
             </div>
@@ -259,7 +259,7 @@ export function AppointmentContact({ view, onCommand, recheckContact }: ContactP
           취소해요. 상대의 동의 여부는 공개 전까지 안내하지 않아요.
         </p>
         <p>
-          공개 알림 예시: [비포어스] 오늘은 두 분이 만나기로 한 날이에요. 서로
+          공개 알림 예시: [플라비] 오늘은 두 분이 만나기로 한 날이에요. 서로
           동의한 연락처가 공개되었어요. 홈페이지에서 확인해 주세요. / 버튼:
           연락처 확인하기
         </p>

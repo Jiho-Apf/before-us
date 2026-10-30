@@ -50,6 +50,6 @@ export function identityAccount(record: IdentityRecord | null): AccountFacts {
 export function identityGate(record: IdentityRecord | null) {
   if (!record) return "본인·성인 인증을 먼저 진행해 주세요."
   if (record.status === "failed") return "인증이 완료되지 않았어요. 다시 시도해 주세요."
-  if (record.status === "minor") return `비포어스는 만 ${BEFORE_US.operatingDraft.minimumAge}세 이상만 이용할 수 있어요.`
+  if (record.status === "minor") return `플라비는 만 ${BEFORE_US.operatingDraft.minimumAge}세 이상만 이용할 수 있어요.`
   return null
 }

@@ -1,5 +1,5 @@
 export const BEFORE_US = {
-  brand: { name: "비포어스", english: "BEFORE US", message: "끌리는 사람을, 천천히 알아갑니다." },
+  brand: { name: "플라비", english: "FLAVIE", message: "끌리는 사람을, 천천히 알아갑니다." },
   policyVersion: "V6",
   mode: "demo",
   operatingDraft: { minimumAge: 19, additionalRequiredConditionsMaximum: 3, defaultIntroductionProduct: "opposite-sex", photos: { recentMonths: 3, differentPhotos: true } },

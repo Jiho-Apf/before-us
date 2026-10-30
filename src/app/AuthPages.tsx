@@ -107,7 +107,7 @@ export function SignupPage() {
         <div className="rounded-xl bg-mist p-4 text-xs leading-6">
           <p className="font-semibold">메일이 오지 않나요?</p>
           <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-muted-foreground">
-            <li>스팸함·프로모션함을 확인해 주세요. 보내는 주소는 beforeus.official.kr@gmail.com 이에요.</li>
+            <li>스팸함·프로모션함을 확인해 주세요. 보내는 주소는 {BEFORE_US.operator.email} 이에요.</li>
             <li>주소를 잘못 적었다면 아래 ‘다른 주소로 다시 가입’을 눌러 주세요.</li>
             <li>그래도 없으면 확인 메일을 다시 받아 주세요.</li>
           </ol>

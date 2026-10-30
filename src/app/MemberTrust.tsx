@@ -55,7 +55,7 @@ export function IdentityPanel({ memberId = "current-member" }: { memberId?: stri
       ) : (
         <>
           <p className="text-xs leading-6 text-muted-foreground">
-            비포어스는 만 {BEFORE_US.operatingDraft.minimumAge}세 이상 성인만 이용할 수 있어요. 휴대폰 본인인증으로 확인하며,
+            플라비는 만 {BEFORE_US.operatingDraft.minimumAge}세 이상 성인만 이용할 수 있어요. 휴대폰 본인인증으로 확인하며,
             같은 사람이 여러 계정을 만들거나 이용이 제한된 분이 다시 가입하는 것을 막는 데도 쓰여요.
           </p>
           <p className="rounded-lg bg-accent/5 p-3 text-xs leading-6 text-accent">

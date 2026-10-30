@@ -140,7 +140,7 @@ export function AdminLayout() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-secondary p-6 text-foreground">
         <section className="w-full max-w-lg rounded-xl border border-border bg-card p-6 sm:p-8" aria-labelledby="admin-demo-title">
-          <p className="text-xs font-semibold tracking-widest text-primary">BEFORE US · OWNER DEMO</p>
+          <p className="text-xs font-semibold tracking-widest text-primary">FLAVIE · OWNER DEMO</p>
           <h1 id="admin-demo-title" className="mt-4 text-2xl font-semibold">별도의 가상 관리자 화면입니다.</h1>
           <p className="mt-4 text-sm leading-7 text-muted-foreground">
             일반 회원 화면과 분리된 운영 시연입니다. 실제 개인정보·결제 데이터는 연결되어 있지 않습니다.
@@ -190,14 +190,14 @@ function AdminConsoleLayout() {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r border-border bg-card lg:flex">
         <div className="border-b border-border px-6 py-6">
           <Link to="/admin" className="text-xl font-bold">
-            비포어스
+            플라비
             <span className="ml-2 inline-flex gap-1 align-middle">
               <span className="h-2 w-2 rounded-full bg-primary" />
               <span className="h-2 w-2 rounded-full bg-accent" />
             </span>
           </Link>
           <p className="mt-1 text-xs tracking-widest text-muted-foreground">
-            BEFORE US · OPERATIONS
+            FLAVIE · OPERATIONS
           </p>
         </div>
         <div className="flex-1 overflow-y-auto p-3">

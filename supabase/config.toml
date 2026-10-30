@@ -1,4 +1,4 @@
-# 비포어스 Supabase 설정(로그인·메일·2단계 인증). `npx supabase config push` 로 실제 프로젝트에 반영한다.
+# 플라비 Supabase 설정(로그인·메일·2단계 인증). `npx supabase config push` 로 실제 프로젝트에 반영한다.
 project_id = "mmrqcefipllmcqztksqm"
 
 [auth]
@@ -16,13 +16,13 @@ double_confirm_changes = true
 secure_password_change = true
 otp_expiry = 3600
 
-# 비포어스 메일(라벤더 안개 톤). {{ .ConfirmationURL }}은 Supabase가 채운다.
+# 플라비 메일(라벤더 안개 톤). {{ .ConfirmationURL }}은 Supabase가 채운다.
 [auth.email.template.confirmation]
-subject = "[비포어스] 가입을 마치고 소개 신청을 시작해 주세요"
+subject = "[플라비] 가입을 마치고 소개 신청을 시작해 주세요"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.recovery]
-subject = "[비포어스] 새 비밀번호를 정해 주세요"
+subject = "[플라비] 새 비밀번호를 정해 주세요"
 content_path = "./supabase/templates/recovery.html"
 
 [auth.mfa]

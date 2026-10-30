@@ -1447,6 +1447,10 @@ await db.exec("reset role")
   const cfg = (await one("select public.payment_config() c")).c
   eq("결제: 서버 금액이 화면 설정(config.ts)과 같다", [cfg.introduction, cfg.exchange], [priceOf("introduction"), priceOf("exchangePerPerson")])
   eq("결제: 서버 결제 모드가 화면 설정과 같다(지금은 테스트)", [cfg.mode, cfg.provider], [configText.match(/payments: \{[^}]*mode: "(test|live)"/)[1], "toss"])
+  // 서비스 이름(마이그레이션 4200): 결제 상품명은 화면 설정의 이름을 쓰고, 옛 이름이 남은 서버 함수가 없다.
+  const brandName = configText.match(/brand: \{ name: "([^"]+)"/)[1]
+  eq("이름: 결제 상품명이 화면 설정의 서비스 이름과 같다", [cfg.introductionName, cfg.exchangeName], [`${brandName} 소개비`, `${brandName} 교류비`])
+  eq("이름: 옛 이름(비포어스)이 남은 서버 함수가 없다", (await one("select count(*)::int n from pg_proc p join pg_namespace s on s.oid = p.pronamespace where s.nspname = 'public' and p.prosrc like '%비포어스%'")).n, 0)
   const asService = async () => { await db.exec("reset role"); await db.query("select set_config('request.jwt.claims', '', false)"); await db.exec("set role service_role") }
   const payFresh = async (email, name, gender, desired, base, phone, approve = true) => {
     await as("postgres")

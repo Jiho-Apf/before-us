@@ -94,7 +94,7 @@ function PaymentsView() {
           : <p className="mt-4 border-y border-border py-6 text-xs text-muted-foreground">아직 결제 내역이 없어요.</p>}
       </section>
 
-      <QuietNote>결제창은 토스페이먼츠가 열고, 카드 번호 같은 결제 정보는 비포어스에 저장되지 않아요. 결제가 궁금하면 <Link to="/contact" className="font-semibold text-primary underline-offset-4 hover:underline">문의하기</Link>로 알려 주세요.</QuietNote>
+      <QuietNote>결제창은 토스페이먼츠가 열고, 카드 번호 같은 결제 정보는 플라비에 저장되지 않아요. 결제가 궁금하면 <Link to="/contact" className="font-semibold text-primary underline-offset-4 hover:underline">문의하기</Link>로 알려 주세요.</QuietNote>
     </section>
   );
 }
