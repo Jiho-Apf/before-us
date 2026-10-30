@@ -5,7 +5,8 @@
 - FAQ ‘‘플라비’는 무슨 뜻인가요?’(id `name`, 라틴어 flavus=금빛, 2026-10-30에 비포어스에서 바꿨다는 안내). 공유 그림은 `public/og-flavie.png`(예전과 같은 배치, 파일 이름을 바꿔 카카오·인스타 미리보기 캐시를 피함).
 - 서버(`20261030004200_brand_flavie.sql`): 옛 이름이 든 public 함수(4개)를 정의를 읽어 이름만 바꿔 다시 만듦 + 남은 함수가 없는지 확인. 결제 상품명 ‘플라비 소개비/교류비’. 지난 알림·결제 기록은 그대로. 점검 658개(이름 검사 2개 추가).
 - 메일: send-notifications는 `BRAND` 상수로 제목·본문·보낸 사람 이름(MAIL_FROM의 이름은 무시). 가입 확인·비밀번호 메일 템플릿·제목(`config.toml`)은 바꿨고, 실제 반영은 `config push`(대표 승인 필요). Supabase SMTP 보낸 사람 이름(대시보드, 지금 `beforeus`)은 대표가 바꿈.
-- 일부러 그대로 둔 것: 코드 이름(`BEFORE_US`, `BeforeUsRoot`), 저장 키 `before-us:*`, 휴대폰 해시 소금 `before-us:`, 예약 작업 이름, 저장소·Vercel 주소, 운영 메일 `beforeus.official.kr@gmail.com`과 SNS 아이디(실제 계정 — 새로 만들면 `config.ts`의 operator·social만 바꾸면 됨).
+- 일부러 그대로 둔 것: 코드 이름(`BEFORE_US`, `BeforeUsRoot`), 저장 키 `before-us:*`, 휴대폰 해시 소금 `before-us:`, 예약 작업 이름, 저장소·Vercel 주소, 운영 메일 `beforeus.official.kr@gmail.com`(실제 발송 계정 — 새로 만들면 `config.ts` operator·메일 템플릿·SMTP 설정을 함께 바꿈).
+- SNS: 바닥글 인스타그램·스레드를 `@flavie.official.kr`로(2026-10-30 인스타그램에서 비어 있음 확인, 예전 `beforeus.official.kr`도 계정이 없었음). 대표가 이 아이디로 계정을 만들어야 링크가 열린다.
 - 인증 앱 이름: 새로 등록하는 운영진 2단계 인증부터 issuer ‘플라비’.
 
 ## 92 — A 질문 묶음 · 무제한 회원 · 베타 전 점검 고치기 (2026-10-30 사용자 요청, 되돌림 지점 `before-r94`)

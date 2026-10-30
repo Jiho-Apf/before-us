@@ -33,6 +33,7 @@ export const BEFORE_US = {
   payments: { provider: "toss", mode: "test" as "test" | "live", clientKey: (import.meta.env.VITE_TOSS_CLIENT_KEY as string | undefined) || "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm" },
   // 운영자(개인정보 보호책임자) 정보와 공식 SNS. 비어 있으면 화면에 ‘문의하기’로 대신 안내한다.
   operator: { name: "정지호", email: "beforeus.official.kr@gmail.com" },
-  social: { instagram: "beforeus.official.kr", threads: "beforeus.official.kr" },
+  // 2026-10-30 이름을 바꾸며 새 아이디로(인스타그램에서 비어 있음을 확인). 대표가 이 아이디로 계정을 만들어야 링크가 열린다.
+  social: { instagram: "flavie.official.kr", threads: "flavie.official.kr" },
   meeting: { policyVersion: "V6-DAY04-draft-1", timezone: "Asia/Seoul", decisionOpensAt: "09:00", decisionHours: 24, methodHours: 24, proposalHours: 48, replyHours: 24, coordinationTargetHours: 72, status: "operating-draft" },
 } as const;
