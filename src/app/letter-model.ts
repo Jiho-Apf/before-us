@@ -4,8 +4,9 @@ import { BEFORE_US } from "./config";
 import { agreementGate, agreementView, shiftDay, type AgreementState } from "./agreement-model";
 import { canOpenMeeting, meetingDecisionAt, startedExchangeGate } from "./exchange-common";
 
+// 데모 편지 질문: 실제 교류 질문 묶음의 처음 묶음(backend/program.ts LETTER_SETS[0])과 같은 글. 실제 교류는 교류마다 묶음이 달라진다.
 export const LETTER_DAYS = [
-  { title: "나의 쉬는 날", question: "쉬는 날, 보통 어떤 시간을 보내나요?" },
+  { title: "나의 쉬는 날", question: "쉬는 날, 보통 어떤 시간을 보내나요? 지난 쉬는 날 이야기로 들려줘도 좋아요." },
   { title: "요즘 마음을 쓰는 것", question: "요즘 가장 마음을 쓰고 있는 건 무엇인가요? 왜 소중한지도 들려주세요." },
   { title: "함께 보내고 싶은 시간", question: "만나게 된다면, 함께 어떤 시간을 보내고 싶나요?" },
 ] as const;

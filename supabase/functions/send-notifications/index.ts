@@ -26,7 +26,7 @@ function html(title: string, body: string | null, url: string) {
 ${body ? `<p style="margin:0 0 24px;font-size:15px;line-height:1.85;color:#4A4670;">${escape(body).split("\n").join("<br>")}</p>` : ""}
 <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:12px;background:#614CC4;"><a href="${escape(url)}" style="display:inline-block;padding:14px 26px;font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;">비포어스에서 확인하기 →</a></td></tr></table>
 </td></tr>
-<tr><td style="padding:22px 8px 0;font-size:12px;line-height:1.8;color:#7A76A0;"><p style="margin:0 0 6px;">메일로 받을 알림의 범위는 내 정보 → 알림 설정에서 고를 수 있어요. 밤 10시~아침 8시에는 보내지 않아요.</p><p style="margin:0 0 6px;">이 메일이 스팸함에 있었다면 beforeus.official.kr@gmail.com을 주소록에 추가해 주세요.</p><p style="margin:0;color:#A19DC0;">BEFORE US · 끌리는 사람을, 천천히 알아갑니다. · 19세 미만 이용 불가</p></td></tr>
+<tr><td style="padding:22px 8px 0;font-size:12px;line-height:1.8;color:#7A76A0;"><p style="margin:0 0 6px;">메일로 받을 알림의 범위는 내 정보 → 알림 설정에서 고를 수 있어요. 밤 10시~아침 8시에는 보내지 않아요(모든 회원에게 보내는 운영 공지는 예외예요).</p><p style="margin:0 0 6px;">이 메일이 스팸함에 있었다면 beforeus.official.kr@gmail.com을 주소록에 추가해 주세요.</p><p style="margin:0;color:#A19DC0;">BEFORE US · 끌리는 사람을, 천천히 알아갑니다. · 19세 미만 이용 불가</p></td></tr>
 </table></td></tr></table></body></html>`
 }
 

@@ -249,7 +249,8 @@ function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
             <Link to="/privacy" className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">개인정보처리방침</Link>
             <Link to="/faq" className="underline-offset-4 hover:text-primary hover:underline">자주 묻는 질문</Link>
             <Link to="/support" className="underline-offset-4 hover:text-primary hover:underline">문의·요청</Link>
-            <Link to="/payments" className="underline-offset-4 hover:text-primary hover:underline">결제</Link>
+            {/* 베타는 결제가 필요 없어 링크를 숨긴다(대표의 흐름 점검용 /payments 는 주소로 바로 열 수 있다). */}
+            {!(LIVE && BEFORE_US.beta.active) && <Link to="/payments" className="underline-offset-4 hover:text-primary hover:underline">결제</Link>}
             <Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
           </nav>
         </footer>

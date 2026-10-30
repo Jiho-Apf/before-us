@@ -13,7 +13,7 @@ export default function DirectIntroduction() {
             운영진이 직접 고르는 소개
           </div>
           <div className="mt-4 text-xl font-semibold leading-relaxed sm:text-2xl">
-            자동 점수로<br className="hidden sm:block" /> 사람을 붙이지 않아요.
+            점수보다 먼저,<br className="hidden sm:block" /> 사람이 읽고 골라요.
           </div>
         </div>
         <div>
@@ -21,8 +21,8 @@ export default function DirectIntroduction() {
             <Underline>운영진이 신청서와 사진, 외적인 취향, 관계 기준, 생활·대화 성향</Underline>을 직접 살펴 최종 한 사람을 제안해요.
           </p>
           <p className="mt-3 border-t border-[#2B2540]/10 pt-3 text-xs leading-6 text-[#2B2540]/65 dark:border-white/15 dark:text-white/65">
-            신청이 많을 때는 직접 입력하신 답변이 서로 겹치는 지점부터 살펴봐요.<br className="hidden lg:block" />{" "}
-            사진이나 외모로 판단하지 않으며, 누구를 소개할지는 운영진이 직접 정해요.
+            누구를 소개할지는 운영진이 두 분의 신청서를 직접 읽고 정해요.<br className="hidden lg:block" />{" "}
+            정한 뒤에는 두 분 모두 공개한 항목만으로 만든 참고용 궁합을 함께 보여 드려요. 사진·MBTI·공개하지 않은 답은 쓰지 않아요.
           </p>
         </div>
       </div>

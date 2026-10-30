@@ -3,7 +3,8 @@ import { friendlyError, supabase } from "./client"
 
 // A 편지 사진 한 장(선택). 신청서 사진과 같은 길: HEIC는 JPG로 바꾸고, 이 기기에서 다시 그려 촬영 위치 같은 정보를 지운 뒤 올린다.
 // 비공개 저장소 letter-photos · 경로 {교류 id}/{내 id}/day{n}-{임의값}.jpg.
-// 상대는 그날 편지가 함께 열린 뒤에만 볼 수 있다(저장소 정책 can_view_letter_photo). 주소는 5분짜리로만 만든다.
+// 저장소에서 직접 볼 수 있는 사람은 쓴 사람뿐이다. 상대는 그날 편지가 함께 열린 뒤에만, letter-photo 함수가
+// can_view_letter_photo 로 확인한 뒤 만들어 주는 주소로 본다. 주소는 어느 쪽이든 5분짜리로만 만든다.
 export const LETTER_PHOTO_BUCKET = "letter-photos"
 const MAX_SIDE = 1600
 
@@ -48,16 +49,31 @@ export async function removeLetterPhoto(path: string) {
 }
 
 const urlCache = new Map<string, { url: string; until: number }>()
+// 내 사진은 바로 5분짜리 주소를 만들고, 상대 사진은 서버 함수(letter-photo)로 연다.
 export async function letterPhotoUrl(path: string) {
   const cached = urlCache.get(path)
   if (cached && cached.until > Date.now()) return cached.url
   try {
     const db = await supabase()
-    const { data } = await db.storage.from(LETTER_PHOTO_BUCKET).createSignedUrl(path, 300)
-    if (!data?.signedUrl) return null
-    urlCache.set(path, { url: data.signedUrl, until: Date.now() + 240000 })
-    return data.signedUrl
+    const { data: session } = await db.auth.getSession()
+    const mine = !!session.session && path.split("/")[1] === session.session.user.id
+    const url = mine
+      ? (await db.storage.from(LETTER_PHOTO_BUCKET).createSignedUrl(path, 300)).data?.signedUrl
+      : await viaFunction(db, path)
+    if (!url) return null
+    urlCache.set(path, { url, until: Date.now() + 240000 })
+    return url
   } catch {
     return null
   }
+}
+
+async function viaFunction(db: Awaited<ReturnType<typeof supabase>>, path: string, reason?: string) {
+  const { data, error } = await db.functions.invoke<{ url?: string }>("letter-photo", { body: { path, reason } })
+  return error ? null : data?.url ?? null
+}
+
+// 운영진: 신고가 들어온 교류의 편지 사진만(서버가 역할·2단계 인증·신고 여부를 확인하고, 열 때마다 감사 기록을 남긴다).
+export async function adminLetterPhotoUrl(path: string, reason: string) {
+  try { return await viaFunction(await supabase(), path, reason) } catch { return null }
 }

@@ -56,6 +56,7 @@ function PaymentsView() {
     setOrder(data);
   };
   if (choices === undefined) return <Waiting />;
+  const unlimited = !!choices?.unlimited;
   const paid = (kind: PaymentKind, programId?: string) => !!history?.some(item => item.kind === kind && item.status === "paid" && (kind === "introduction" || item.programId === programId));
   const program = choices?.program ?? null;
   const action = (kind: PaymentKind, allowed: boolean, blockedText: string, programId?: string) => {
@@ -71,9 +72,9 @@ function PaymentsView() {
       <PageHeader mark="결제" label={BETA ? "베타 기간" : "결제"} en="PAYMENTS" title={BETA ? "베타 기간에는 결제가 없어요." : "소개비와 교류비"}
         lead={BETA ? "소개도, 서로 선택한 뒤의 3일 교류도 무료예요. 이 화면은 정식 운영을 준비하며 결제 과정을 미리 시험해 보는 곳이에요." : "소개비는 신청서가 승인된 뒤에, 교류비는 두 분이 서로 선택한 뒤 3일 교류를 시작하기 전에 내요. 금액은 서버에서 정해져요."}
         aside={<TwoDots apart faded />} />
-      {TEST && <TestBanner />}
+      {TEST && !unlimited && <TestBanner />}
 
-      {order ? <CheckoutSheet order={order} onClose={() => { setOrder(null); void refresh(); }} /> : (
+      {unlimited ? <FreeAccountSheet /> : order ? <CheckoutSheet order={order} onClose={() => { setOrder(null); void refresh(); }} /> : (
         <div className="grid gap-5 md:grid-cols-2">
           <PriceSheet label="소개비" amount={BEFORE_US.pricing.introduction} body="정식 운영에서는 신청서가 승인된 뒤 한 번 내고, 최대 5번 소개받아요. 월정액이나 자동 결제는 없어요.">
             {choices === null ? <LoadError onRetry={() => void refresh()} /> : action("introduction", choices.approved, "신청서가 승인된 뒤에 시험해 볼 수 있어요.")}
@@ -95,6 +96,17 @@ function PaymentsView() {
 
       <QuietNote>결제창은 토스페이먼츠가 열고, 카드 번호 같은 결제 정보는 비포어스에 저장되지 않아요. 결제가 궁금하면 <Link to="/contact" className="font-semibold text-primary underline-offset-4 hover:underline">문의하기</Link>로 알려 주세요.</QuietNote>
     </section>
+  );
+}
+
+// 무제한 회원(대표가 정한 계정): 결제 버튼 대신 조용한 안내만. 결제 내역은 아래에 그대로 보인다.
+function FreeAccountSheet() {
+  return (
+    <Sheet className="p-6 sm:p-8">
+      <p className="text-xs font-semibold text-accent">결제 없이 이용</p>
+      <p className="mt-4 text-lg font-semibold leading-8">이 계정은 결제 없이 이용해요.</p>
+      <p className="mt-2 text-sm leading-7 text-muted-foreground">소개비와 교류비를 내지 않아도 소개와 3일 교류를 그대로 이용할 수 있어요. 지난 결제 내역은 아래에서 볼 수 있어요.</p>
+    </Sheet>
   );
 }
 
@@ -193,14 +205,14 @@ const confirming = new Map<string, ReturnType<typeof confirmPayment>>();
 function SuccessView() {
   const location = useLocation();
   const params = useMemo(() => readSuccessReturn(location.search), [location.search]);
-  const [result, setResult] = useState<{ payment: Payment | null; error: string | null } | null>(null);
+  const [result, setResult] = useState<{ payment: Payment | null; error: string | null; retry: boolean } | null>(null);
   const run = (again = false) => {
     if (!params) return;
     if (again) confirming.delete(params.orderId);
     const task = confirming.get(params.orderId) ?? confirmPayment(params);
     confirming.set(params.orderId, task);
     setResult(null);
-    void task.then(next => { if (next.error) confirming.delete(params.orderId); setResult({ payment: next.data, error: next.error }); });
+    void task.then(next => { if (next.error) confirming.delete(params.orderId); setResult({ payment: next.data, error: next.error, retry: next.retry }); });
   };
   useEffect(() => { run(); }, [params?.orderId]);
   const back = <div className="flex flex-wrap gap-2"><Button asChild className={`h-12 rounded-full px-6 ${interaction}`}><Link to="/payments">결제 화면으로 <ArrowRight size={15} /></Link></Button><Button asChild variant="outline" className={`h-12 rounded-full ${interaction}`}><Link to="/today">오늘로 돌아가기</Link></Button></div>;
@@ -211,7 +223,8 @@ function SuccessView() {
     <section className="space-y-8">
       <PageHeader mark="결제" label="결제 확인" en="PAYMENTS" title="결제를 마치지 못했어요." lead={result.error ?? "결제를 확인하지 못했어요."} aside={<TwoDots apart faded />} />
       {TEST && <TestBanner />}
-      <div className="flex flex-wrap gap-2"><Button onClick={() => run(true)} className={`h-12 rounded-full px-6 ${interaction}`}>다시 확인하기</Button><Button asChild variant="outline" className={`h-12 rounded-full ${interaction}`}><Link to="/payments">결제 화면으로</Link></Button></div>
+      {/* 같은 주문으로 다시 확인해도 되는 실패만 ‘다시 확인하기’. 그 밖에는 결제 화면에서 새 주문으로 다시 결제한다(같은 주문 번호는 같은 실패를 되풀이한다). */}
+      <div className="flex flex-wrap gap-2">{result.retry ? <><Button onClick={() => run(true)} className={`h-12 rounded-full px-6 ${interaction}`}>다시 확인하기</Button><Button asChild variant="outline" className={`h-12 rounded-full ${interaction}`}><Link to="/payments">결제 화면으로</Link></Button></> : <><Button asChild className={`h-12 rounded-full px-6 ${interaction}`}><Link to="/payments">새로 결제하기 <ArrowRight size={15} /></Link></Button><Button asChild variant="outline" className={`h-12 rounded-full ${interaction}`}><Link to="/today">오늘로 돌아가기</Link></Button></>}</div>
     </section>
   );
   const payment = result.payment;

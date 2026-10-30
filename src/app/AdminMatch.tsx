@@ -108,6 +108,7 @@ function MemberFlags({ member, date }: { member: ReadyMember; date: string }) {
   const photos = member.photos_confirmed ?? 3;
   return <>
     <WaitBadge since={member.waiting_since} />
+    {member.perk === "unlimited" && <span className="ml-2"><Pill tone="ok">무제한 회원</Pill></span>}
     {photos < 3 && <span className="ml-2"><Pill tone="danger">사진 확인 {photos}/3</Pill></span>}
     {member.cohort_starts_on && date < member.cohort_starts_on && <span className="ml-2"><Pill tone="warn">기수 시작 {kstDay(`${member.cohort_starts_on}T12:00:00+09:00`)}</Pill></span>}
     {member.released_at && <span className="ml-2"><Pill tone="warn">방금 마무리 · {kstDateTime(member.released_at)}</Pill></span>}

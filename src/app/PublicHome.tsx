@@ -7,7 +7,7 @@ import { Textarea } from "./components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./components/ui/accordion";
 import { BEFORE_US } from "./config";
 import { LIVE, rpc } from "./backend/client";
-import { CUSTOM, LETTER_PROMPTS, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_ACTIVITY_ROWS, SCENE_CUSTOM_MAX, SCENE_TOPIC_EXAMPLES, SCENE_TOPIC_MAX, isCustom, sceneLabel, stayFor } from "./backend/program";
+import { CUSTOM, LETTER_SETS, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_ACTIVITY_ROWS, SCENE_CUSTOM_MAX, SCENE_TOPIC_EXAMPLES, SCENE_TOPIC_MAX, isCustom, sceneLabel, stayFor } from "./backend/program";
 import { cohortCode, cohortName, useRecruitingCohort } from "./cohort";
 import { PLAN_NOTICE } from "./introduction-plan";
 import { kstDay } from "./dates";
@@ -245,17 +245,20 @@ function InitialOperation({ detailsTo = "#faq-cohort" }: { detailsTo?: string })
   );
 }
 
-// A 체험: 실제 교류의 사흘 질문 그대로. 예시는 읽기만 하는 참고(편지에 넣지 않는다). 쓴 글은 저장하지 않는다.
+// A 체험: 실제 교류의 질문 묶음 하나(질문은 교류마다 달라서 ‘다른 질문 보기’로 다른 묶음도 볼 수 있다). 예시는 읽기만 하는 참고(편지에 넣지 않는다). 쓴 글은 저장하지 않는다.
 function LetterTrial() {
   const [day, setDay] = useState(0);
-  const prompt = LETTER_PROMPTS[day];
+  const [set, setSet] = useState(0);
+  const days = LETTER_SETS[set].days;
+  const prompt = days[day];
   const [text, setText] = useState("");
   const [sent, setSent] = useState(false);
   const [examples, setExamples] = useState(false);
   return (
     <div className="mt-8 border border-border bg-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs font-medium text-accent"><span>실제 교류의 질문 · {prompt.title}</span><span className="flex gap-1">{LETTER_PROMPTS.map((item, index) => <button key={item.title} type="button" aria-pressed={day === index} onClick={() => { setDay(index); setSent(false); setText(""); setExamples(false); }} className={`rounded-full border px-2.5 py-1 text-[11px] ${interaction} ${day === index ? "border-accent bg-accent text-white" : "border-border text-muted-foreground hover:border-accent/50"}`}>DAY 0{index + 1}</button>)}</span></div>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs font-medium text-accent"><span>실제 교류의 질문 · {prompt.title}</span><span className="flex gap-1">{days.map((item, index) => <button key={index} type="button" aria-pressed={day === index} onClick={() => { setDay(index); setSent(false); setText(""); setExamples(false); }} className={`rounded-full border px-2.5 py-1 text-[11px] ${interaction} ${day === index ? "border-accent bg-accent text-white" : "border-border text-muted-foreground hover:border-accent/50"}`}>DAY 0{index + 1}</button>)}</span></div>
       <p className="mt-4 text-[15px] font-semibold leading-7" aria-live="polite">{prompt.question}</p>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">질문은 교류마다 달라져요. 지난 교류에서 받은 질문은 되도록 다시 나오지 않아요. <button type="button" onClick={() => { setSet(value => (value + 1) % LETTER_SETS.length); setSent(false); setText(""); setExamples(false); }} className={`rounded-full font-medium text-accent underline-offset-4 hover:underline ${interaction}`}>다른 질문 보기</button></p>
       {sent ? (
         <div className="mt-4 space-y-3" aria-live="polite">
           <div className="flex items-center gap-3 rounded-xl bg-accent/5 p-4 text-sm"><Lock size={16} className="shrink-0 text-accent" />한 통을 봉투에 넣었어요.</div>

@@ -44,6 +44,7 @@ export type ReadyMember = {
   member_id: string; name: string | null; gender: string | null; desired: string | null; age: number | null; province: string | null; area: string | null; purpose: string | null;
   last_published_at: string | null; introductions: number; blocked: string[]; previous: string[]; avoided?: string[]; released_at?: string | null; history?: string[]; waiting_since?: string | null;
   held?: string[]; photos_confirmed?: number; cohort?: number | null; cohort_starts_on?: string | null; profile?: MatchProfile;
+  perk?: "unlimited" | null; // 무제한 회원(결제 없이 · 소개 횟수에 넣지 않음). 운영진만 본다.
 };
 
 const list = (value: unknown) => Array.isArray(value) ? value.map(String) : value === undefined || value === null || value === "" ? [] : [String(value)];

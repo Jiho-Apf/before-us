@@ -6,6 +6,7 @@ import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
 import { signIn, signOut, useAuth, useAuthReady } from "./auth-service";
 import { friendlyError, rpc, supabase } from "./backend/client";
+import { adminLetterPhotoUrl } from "./backend/letterPhotos";
 import { PHOTO_REVIEW_REASONS, PHOTO_SLOTS } from "./photo-model";
 import { INQUIRY_STATUS } from "./inquiry-model";
 import { REQUEST_LABELS } from "./member-operations-model";
@@ -155,8 +156,8 @@ function AdminShell({ role }: { role: Role }) {
 
 // ─────────────────────────────────────────────
 // 대시보드: 오늘 처리할 일. 역할마다 볼 수 있는 자료가 달라서, 못 불러온 칸은 빼고 나머지를 보여 준다.
-const JOB_LABEL: Record<string, string> = { noon: "정오 공개", deadlines: "응답 마감", retention: "보존 기간 정리", email: "메일 발송", reminders: "마감 전 알림", programs: "교류 진행", "program-retention": "교류 글 정리", "cohort-eve": "기수 전날 알림" };
-const JOB_KEYS: Record<string, string> = { sent: "보냄", failed: "실패", reason: "사유", closed: "마감", published: "공개", cancelled: "취소", entries: "교류 글", proposals: "약속 제안", orphanPhotos: "남은 사진", error: "오류", deleted: "삭제", reminded: "알림", gaveUp: "3번 실패해 멈춤" };
+const JOB_LABEL: Record<string, string> = { noon: "정오 공개", deadlines: "응답 마감", retention: "보존 기간 정리", email: "메일 발송", reminders: "마감 전 알림", programs: "교류 진행", "program-retention": "교류 글 정리", "cohort-eve": "기수 전날 알림", "storage-cleanup": "사진 파일 정리" };
+const JOB_KEYS: Record<string, string> = { sent: "보냄", failed: "실패", reason: "사유", closed: "마감", published: "공개", cancelled: "취소", entries: "교류 글", proposals: "약속 제안", orphanPhotos: "남은 사진", letterPhotos: "편지 사진", error: "오류", deleted: "삭제", reminded: "알림", gaveUp: "3번 실패해 멈춤", removed: "지운 파일", notified: "알림", members: "탈퇴 회원", snapshots: "프로필 사본", inquiries: "문의", audits: "감사 기록", notifications: "읽은 알림", testPayments: "테스트 결제" };
 const jobDetail = (detail: Record<string, unknown> | null) => Object.entries(detail ?? {}).map(([key, value]) => `${JOB_KEYS[key] ?? key} ${typeof value === "object" ? JSON.stringify(value) : String(value)}`.slice(0, 120)).join(" · ") || "처리할 것 없음";
 const maybe = <T,>(task: Promise<T>) => task.then(value => value, () => null);
 
@@ -433,6 +434,23 @@ type Report = { id: string; source: string; type: string; description: string | 
 type InquiryRow = { id: string; userId: string | null; type: string; name: string; email: string; body: string; status: keyof typeof INQUIRY_STATUS; answerBody: string | null; answeredAt: string | null; createdAt: string; member: Brief };
 type RequestRow = { id: string; kind: keyof typeof REQUEST_LABELS; description: string | null; status: string; decision: string | null; urgent: boolean; createdAt: string; decidedAt: string | null; member: Brief };
 const REPORT_STATUS: Record<string, string> = { new: "새 신고", reviewing: "검토 중", checking: "사실 확인", action: "조치", closed: "종결" };
+// 신고된 교류 열람(admin_report_exchange): 읽기 전용. 사진은 letter-photo 함수가 5분짜리 주소로 열고, 열 때마다 감사 기록이 남는다.
+type ReportExchange = { reportId: string; programId: string; status: string; plan: string | null; startOn: string | null; memberA: string | null; memberB: string | null; nameA: string | null; nameB: string | null; entries: { day: number; kind: string; author: string; body: string | null; payload: Record<string, unknown> | null; at: string }[]; photos: string[]; reason: string };
+const ENTRY_KIND: Record<string, string> = { letter: "편지", reply: "답장", scene: "첫 장면 답", final: "첫 장면 선택", piece: "첫 장면 이야기", comment: "한마디", "piece-comment": "이야기에 남긴 한마디" };
+const PAYLOAD_LABEL: Record<string, string> = { activity: "분위기", place: "곳", flow: "머무는 방식", rest: "쉬어 갈 곳", topic: "나누고 싶은 이야기", reaction: "한마디", about: "나를 소개하는 답" };
+const payloadText = (payload: Record<string, unknown> | null) => Object.entries(payload ?? {}).filter(([key]) => key !== "photo").map(([key, value]) => `${PAYLOAD_LABEL[key] ?? key}: ${String(value).replace(/^custom:/, "직접 씀 · ")}`).join(" · ");
+function ReportLetterPhoto({ path, reason }: { path: string; reason: string }) {
+  const [url, setUrl] = useState<string | null | undefined>(undefined);
+  return <div className="w-28 space-y-1 text-[11px]">{url ? <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="편지 사진" draggable={false} className="aspect-[4/5] w-full rounded-md border border-border object-cover" /></a> : <Button size="sm" variant="outline" className="h-7 w-full text-[11px]" disabled={url === null} onClick={() => void adminLetterPhotoUrl(path, reason).then(next => setUrl(next))}>{url === null ? "열 수 없어요" : "사진 열기(기록)"}</Button>}</div>;
+}
+function ReportExchangeView({ data, onClose }: { data: ReportExchange; onClose: () => void }) {
+  const who = (author: string) => author === data.memberA ? data.nameA ?? "A" : author === data.memberB ? data.nameB ?? "B" : "탈퇴 회원";
+  return <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs">
+    <p className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold">교류 내용 · {data.plan === "B" ? "첫 장면 만들기" : "편지 나누기"} · {PROGRAM_LABEL[data.status] ?? data.status}{data.startOn ? ` · 시작 ${kstDay(`${data.startOn}T09:00:00+09:00`)}` : ""}</span><Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onClose}>닫기</Button></p>
+    <p className="text-muted-foreground">열람 이유 · {data.reason} · 감사 기록에 남았어요. 확인에 필요한 범위만 보고, 옮겨 적거나 저장하지 마세요.</p>
+    {data.entries.length ? <ol className="divide-y divide-border">{data.entries.map((entry, index) => <li key={index} className="space-y-1 py-2"><p className="font-semibold">DAY0{entry.day} · {ENTRY_KIND[entry.kind] ?? entry.kind} · {who(entry.author)}<span className="ml-2 font-normal text-muted-foreground">{kstDateTime(entry.at)}</span></p>{entry.body && <p className="whitespace-pre-wrap leading-6">{entry.body}</p>}{payloadText(entry.payload) && <p className="leading-6 text-muted-foreground">{payloadText(entry.payload)}</p>}{typeof entry.payload?.photo === "string" && <ReportLetterPhoto path={entry.payload.photo} reason={data.reason} />}</li>)}</ol> : <p className="text-muted-foreground">남아 있는 교류 글이 없어요.</p>}
+  </div>;
+}
 const REQUEST_STATUS: Record<string, string> = { requested: "접수", protection: "보호 조치", checking: "확인 중", decided: "처리 완료", reconsidering: "재검토" };
 type SafetyTab = "reports" | "inquiries" | "requests" | "greetings";
 
@@ -470,9 +488,20 @@ function ReportsPanel({ role }: { role: Role }) {
   const list = useLoad(() => call<Report[]>("admin_list_reports"), []);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
+  const [exchanges, setExchanges] = useState<Record<string, ReportExchange>>({});
   const { busy, run } = useBusy();
   const { ask, dialog } = useConfirm();
   const rows = (list.data ?? []).filter(report => filter === "all" || (filter === "closed" ? report.status === "closed" : report.status !== "closed"));
+  // 신고된 교류 열람: 이유를 받아 서버가 감사 기록을 남긴 뒤 글을 돌려준다(읽기 전용).
+  const openExchange = (report: Report) => run(`${report.id}-exchange`, async () => {
+    const reason = await ask({ title: "신고된 교류 내용을 열람할까요?", confirm: "열람",
+      body: <><p>신고 확인에 필요한 범위에서만 열람해요. 열람 이유와 시각이 감사 기록에 남아요.</p><p>편지 사진은 하나씩 열 때마다 따로 기록돼요.</p></>,
+      reason: { label: "열람 이유(감사 기록에 남아요)", required: true, placeholder: "예: 신고된 편지 내용의 사실 확인" } });
+    if (reason === null) return;
+    const { data, error } = await rpc<Omit<ReportExchange, "reason">>("admin_report_exchange", { p_report: report.id, p_reason: reason });
+    if (error || !data) { setMessage(error || "교류 내용을 불러오지 못했어요."); return; }
+    setExchanges(current => ({ ...current, [report.id]: { ...data, reason } }));
+  });
   const update = (report: Report, status: string) => run(`${report.id}-${status}`, async () => {
     if (status === "closed" && await ask({ title: "신고를 종결할까요?", body: <p>종결한 신고는 다시 바꿀 수 없어요. 처리 메모가 함께 남아요.</p>, confirm: "종결" }) === null) return;
     const { error } = await rpc("admin_update_report", { p_id: report.id, p_status: status, p_resolution: notes[report.id]?.trim() || null });
@@ -502,6 +531,8 @@ function ReportsPanel({ role }: { role: Role }) {
       {(report.introductionId || report.programId) && <p className="flex flex-wrap gap-3 text-xs">{report.introductionId && <Link to={`/admin/introductions?intro=${report.introductionId}`} className="text-primary hover:underline">이어진 소개 · {INTRO_LABEL[report.introductionStatus ?? ""] ?? report.introductionStatus}{report.introductionRevealAt ? ` · ${kstDay(report.introductionRevealAt)}` : ""} →</Link>}{report.programId && <Link to={`/admin/programs?id=${report.programId}`} className="text-primary hover:underline">이어진 교류 · {PROGRAM_LABEL[report.programStatus ?? ""] ?? report.programStatus} →</Link>}</p>}
       {report.description && <p className="whitespace-pre-wrap text-xs leading-6">{report.description}</p>}
       {report.resolution && <p className="text-xs text-muted-foreground">처리 메모 · {report.resolution}</p>}
+      {report.programId && !exchanges[report.id] && <Button size="sm" variant="outline" className="h-8 text-xs" disabled={!!busy} onClick={() => void openExchange(report)}>교류 내용 열람</Button>}
+      {exchanges[report.id] && <ReportExchangeView data={exchanges[report.id]} onClose={() => setExchanges(current => { const next = { ...current }; delete next[report.id]; return next; })} />}
       {report.status !== "closed" && <div className="flex flex-wrap items-center gap-2 pt-1"><Input aria-label="처리 메모" value={memo} onChange={event => setNotes(current => ({ ...current, [report.id]: event.target.value }))} placeholder={report.resolution ? "메모 더하기(비우면 이전 메모 유지)" : "처리 메모(종결할 때 필요)"} className="h-8 max-w-xs text-xs" />{["reviewing", "checking", "action", "closed"].map(status => <Button key={status} size="sm" variant="outline" className="h-8 text-xs" disabled={!!busy || (status === report.status && !memo.trim()) || (status === "closed" && !canClose)} title={status === "closed" && !canClose ? "처리 메모를 먼저 적어 주세요" : undefined} onClick={() => void update(report, status)}>{REPORT_STATUS[status]}</Button>)}{canOperate(role) && report.target?.status === "active" && <Button size="sm" variant="ghost" className="h-8 text-xs text-destructive" disabled={!!busy} onClick={() => void suspend(report)}>이용 정지로</Button>}</div>}
     </article>; })}
     {!list.loading && !rows.length && <p className="text-sm text-muted-foreground">해당하는 신고가 없어요.</p>}
@@ -560,7 +591,7 @@ function RequestsPanel() {
 
 // ─────────────────────────────────────────────
 // 교류·약속: 진행 단계만 본다(글 원문은 보지 않는다) · 운영 종료
-type ProgramRow = { id: string; introductionId: string; status: string; endReason: string | null; createdAt: string; closedAt: string | null; memberA: string | null; memberB: string | null; emailA: string | null; emailB: string | null; nameA: string | null; nameB: string | null; planA: string | null; planB: string | null; startOn: string | null; agreeBy: string; confirmed: number; entriesA: number; entriesB: number; meetingAnswers: number; meetingBy: string | null; arrangeBy: string | null; meetingOn: string | null; meetingTime: string | null; contacts: number };
+type ProgramRow = { id: string; introductionId: string; status: string; endReason: string | null; createdAt: string; closedAt: string | null; memberA: string | null; memberB: string | null; emailA: string | null; emailB: string | null; nameA: string | null; nameB: string | null; planA: string | null; planB: string | null; startOn: string | null; agreeBy: string; confirmed: number; entriesA: number; entriesB: number; extrasA?: number; extrasB?: number; meetingAnswers: number; meetingBy: string | null; arrangeBy: string | null; meetingOn: string | null; meetingTime: string | null; contacts: number };
 const PLAN_LABEL: Record<string, string> = { A: "A 편지 나누기", B: "B 첫 장면 만들기" };
 const plan = (value: string | null) => value ? PLAN_LABEL[value] ?? value : "미선택";
 // 기한을 넘긴 단계(예약 작업이 아직 닫지 않았을 때 눈에 띄게)
@@ -588,7 +619,7 @@ export function LivePrograms() {
     <div className="mt-3 space-y-3">{(list.data ?? []).map(row => { const late = overdue(row); return <article key={row.id} id={`program-${row.id}`} className={`${box} p-4 text-sm ${late ? "border-destructive/40" : ""} ${focus === row.id ? "ring-2 ring-primary/30" : ""}`}>
       <div className="flex flex-wrap items-start justify-between gap-3"><p className="font-semibold">{person(row.nameA, row.emailA)} · {person(row.nameB, row.emailB)}</p><span className="flex flex-wrap gap-1.5">{late && <Pill tone="danger">기한 지남</Pill>}<span className={`rounded-full px-2.5 py-1 text-[11px] ${row.status === "closed" ? "bg-muted" : "bg-lilac"}`}>{PROGRAM_LABEL[row.status] ?? row.status}{row.endReason ? ` · ${PROGRAM_END[row.endReason] ?? row.endReason}` : ""}</span></span></div>
       <p className={`mt-2 text-xs leading-6 ${late ? "text-destructive" : "text-muted-foreground"}`}>
-        {row.status === "choosing" ? `방식 ${plan(row.planA)} / ${plan(row.planB)} · 확인 ${row.confirmed}/2 · 기한 ${kstDateTime(row.agreeBy)}` : `방식 ${plan(row.planA)} · 시작 ${row.startOn ? kstDay(`${row.startOn}T09:00:00+09:00`) : "-"} · 보낸 글 ${row.entriesA}/${row.entriesB}`}
+        {row.status === "choosing" ? `방식 ${plan(row.planA)} / ${plan(row.planB)} · 확인 ${row.confirmed}/2 · 기한 ${kstDateTime(row.agreeBy)}` : `방식 ${plan(row.planA)} · 시작 ${row.startOn ? kstDay(`${row.startOn}T09:00:00+09:00`) : "-"} · 보낸 글 ${row.entriesA}/${row.entriesB}${(row.extrasA ?? 0) + (row.extrasB ?? 0) > 0 ? ` · 답장·한마디 ${row.extrasA ?? 0}/${row.extrasB ?? 0}` : ""}`}
         {row.status === "deciding" && ` · 만남 답 ${row.meetingAnswers}/2 · 기한 ${kstDateTime(row.meetingBy)}`}
         {row.status === "arranging" && (row.meetingOn ? ` · 약속 ${kstDay(`${row.meetingOn}T12:00:00+09:00`)} ${row.meetingTime ?? ""} · 연락처 동의 ${row.contacts}/2` : ` · 약속 기한 ${kstDateTime(row.arrangeBy)}`)}
       </p>
@@ -599,8 +630,8 @@ export function LivePrograms() {
 }
 
 // ─────────────────────────────────────────────
-// 회원: 찾기 · 상태(쉬기·이용 정지) · 연락처(운영진만)
-type MemberRow = { id: string; email: string; status: "active" | "withdrawal_requested" | "suspended"; withdrawalRequestedAt?: string | null; deletionDueAt?: string | null; pausedAt: string | null; pausedBy: "member" | "auto" | "operator" | null; resumedAt: string | null; suspendedReason: string | null; createdAt: string; name: string | null; phone: string | null; gender: string | null; age: number | null; area: string | null; application: string | null; cohort: number | null; channels: { kakao: boolean; sms: boolean; email: boolean }; introductions: number; reports: number };
+// 회원: 찾기 · 상태(쉬기·이용 정지) · 연락처(운영진만) · 무제한 회원(대표만 정함 · 결제 없이 · 소개 횟수에 넣지 않음)
+type MemberRow = { id: string; email: string; status: "active" | "withdrawal_requested" | "suspended"; perk?: "unlimited" | null; withdrawalRequestedAt?: string | null; deletionDueAt?: string | null; pausedAt: string | null; pausedBy: "member" | "auto" | "operator" | null; resumedAt: string | null; suspendedReason: string | null; createdAt: string; name: string | null; phone: string | null; gender: string | null; age: number | null; area: string | null; application: string | null; cohort: number | null; channels: { kakao: boolean; sms: boolean; email: boolean }; introductions: number; reports: number };
 export function LiveMembers() {
   const role = useRole();
   const initial = new URLSearchParams(useLocation().search).get("q") ?? "";
@@ -623,6 +654,16 @@ export function LiveMembers() {
     setMessage(error || "바꿨어요. 감사 기록에 남았어요.");
     await list.reload();
   });
+  // 무제한 회원(대표만): 결제 없이 이용하고 소개 횟수에 넣지 않아요. 차단·신고·재소개 금지·정지·자동 쉬기는 그대로예요. 회원·상대에게 알리지 않아요.
+  const setPerk = (member: MemberRow, on: boolean) => run(`${member.id}-perk`, async () => {
+    const reason = on
+      ? await ask({ title: `${who(member)}님을 무제한 회원으로 바꿀까요?`, confirm: "무제한 회원으로", body: <><p>결제 없이 이용하고, 소개 횟수에 넣지 않아요. 운영진 권한은 생기지 않는 보통 회원이에요.</p><p>차단·신고·재소개 금지·이용 정지와 무응답·교류 뒤 자동 쉬기는 그대로예요. 회원과 상대에게 알림은 가지 않아요.</p></>, reason: { label: "바꾸는 이유(감사 기록에 남아요)", required: true, placeholder: "예: 대표 본인 회원 계정이에요." } })
+      : await ask({ title: `${who(member)}님 무제한 회원을 풀까요?`, danger: true, confirm: "무제한 풀기", body: <p>다음 결제부터 보통 회원과 같아져요. 지난 소개 기록은 그대로예요. 회원에게 알림은 가지 않아요.</p>, reason: { label: "푸는 이유(감사 기록에 남아요)", required: true } });
+    if (reason === null) return;
+    const { error } = await rpc("admin_set_member_perk", { p_member: member.id, p_perk: on ? "unlimited" : null, p_reason: reason });
+    setMessage(error || (on ? "무제한 회원으로 바꿨어요. 감사 기록에 남았어요." : "무제한 회원을 풀었어요. 감사 기록에 남았어요."));
+    await list.reload();
+  });
   // 탈퇴 요청 취소(삭제 예정 시각 전) · 철회한 신청서 다시 열기: 둘 다 회원이 문의로 직접 요청한 경우에만.
   const restore = (member: MemberRow, kind: "withdrawal" | "reopen") => run(`${member.id}-${kind}`, async () => {
     const reason = kind === "withdrawal"
@@ -642,7 +683,7 @@ export function LiveMembers() {
     <div className="mt-3 space-y-3">{(list.data ?? []).map(member => <article key={member.id} className={`${box} p-4 text-sm`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0"><p className="font-semibold">{member.name ?? "이름 없음"} <span className="font-normal text-muted-foreground">· {[member.gender, member.age !== null ? `만 ${member.age}세` : null, member.area].filter(Boolean).join(" · ")}</span></p><p className="mt-1 text-xs text-muted-foreground">{member.email} · {member.phone ?? "번호 없음"} · 가입 {kstDay(member.createdAt)}</p></div>
-        <p className="flex flex-wrap gap-1.5 text-[11px]"><span className={`rounded-full px-2.5 py-1 ${member.status === "suspended" ? "bg-destructive/10 text-destructive" : "bg-muted"}`}>{MEMBER_STATE[member.status]}{member.status === "withdrawal_requested" && member.deletionDueAt ? ` · ${kstDateTime(member.deletionDueAt)} 삭제 예정` : ""}</span>{member.pausedAt && <span className="rounded-full bg-lilac px-2.5 py-1">{PAUSED_BY[member.pausedBy ?? "member"]} · {kstDay(member.pausedAt)}</span>}<span className="rounded-full bg-muted px-2.5 py-1">{member.application ? STATUS_LABEL[member.application] ?? member.application : "신청 전"}{member.cohort != null ? ` · ${cohortName(member.cohort)}` : ""}</span></p>
+        <p className="flex flex-wrap gap-1.5 text-[11px]"><span className={`rounded-full px-2.5 py-1 ${member.status === "suspended" ? "bg-destructive/10 text-destructive" : "bg-muted"}`}>{MEMBER_STATE[member.status]}{member.status === "withdrawal_requested" && member.deletionDueAt ? ` · ${kstDateTime(member.deletionDueAt)} 삭제 예정` : ""}</span>{member.perk === "unlimited" && <span className="rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary" title="결제 없이 이용 · 소개 횟수에 넣지 않음(대표가 정함)">무제한 회원</span>}{member.pausedAt && <span className="rounded-full bg-lilac px-2.5 py-1">{PAUSED_BY[member.pausedBy ?? "member"]} · {kstDay(member.pausedAt)}</span>}<span className="rounded-full bg-muted px-2.5 py-1">{member.application ? STATUS_LABEL[member.application] ?? member.application : "신청 전"}{member.cohort != null ? ` · ${cohortName(member.cohort)}` : ""}</span></p>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">알림 {[member.channels.kakao && "카카오톡", member.channels.sms && "문자", member.channels.email && "메일"].filter(Boolean).join("·") || "미선택"} · 소개 {member.introductions}회 · 받은 신고 {member.reports}건{member.resumedAt ? ` · 다시 받기 ${kstDay(member.resumedAt)}` : ""}{member.suspendedReason ? ` · 정지 사유: ${member.suspendedReason}` : ""}</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -655,6 +696,9 @@ export function LiveMembers() {
         {canOperate(role) && member.status === "suspended" && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => void change(member, "unsuspend")}>정지 풀기</Button>}
         {canOperate(role) && member.status === "withdrawal_requested" && (!member.deletionDueAt || Date.parse(member.deletionDueAt) > Date.now()) && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => void restore(member, "withdrawal")}>탈퇴 요청 취소…</Button>}
         {canOperate(role) && member.status === "active" && member.application === "withdrawn" && <Button size="sm" variant="outline" disabled={!!busy} onClick={() => void restore(member, "reopen")}>신청서 다시 열기…</Button>}
+        {role === "owner" && (member.perk === "unlimited"
+          ? <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => void setPerk(member, false)}>무제한 풀기…</Button>
+          : member.status !== "withdrawal_requested" && <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => void setPerk(member, true)}>무제한 회원으로…</Button>)}
       </div>
     </article>)}{list.data && !list.data.length && <p className="text-sm text-muted-foreground">찾는 회원이 없어요.</p>}</div>
     {dialog}

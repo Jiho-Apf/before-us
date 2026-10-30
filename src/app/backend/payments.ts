@@ -57,20 +57,23 @@ export async function loadMyPayments(): Promise<Payment[] | null> {
 }
 
 // 결제 화면에 보여 줄 항목: 소개비(신청서 승인 뒤) · 교류비(시작 전 교류가 있을 때). 결제는 베타 흐름에 아무 영향이 없다.
-export type PaymentChoices = { approved: boolean; program: { id: string; status: "choosing" | "scheduled"; partnerName: string | null } | null }
+// unlimited: 대표가 ‘무제한 회원’으로 정한 계정(결제 없이 이용). 서버(create_payment_order)도 주문을 막는다.
+export type PaymentChoices = { approved: boolean; unlimited: boolean; program: { id: string; status: "choosing" | "scheduled"; partnerName: string | null } | null }
 export async function loadPaymentChoices(): Promise<PaymentChoices | null> {
   try {
     const db = await supabase()
     const { data: auth } = await db.auth.getUser()
     if (!auth.user) return null
-    const [application, program] = await Promise.all([
+    const [application, program, perk] = await Promise.all([
       db.from("applications").select("status").eq("member_id", auth.user.id).maybeSingle(),
       db.rpc("my_program"),
+      db.from("profiles").select("perk").eq("id", auth.user.id).maybeSingle(),
     ])
     if (application.error) return null
     const current = (program.error ? null : program.data) as { id: string; status: string; partnerName?: string | null } | null
     return {
       approved: application.data?.status === "approved",
+      unlimited: !perk.error && (perk.data as { perk?: string | null } | null)?.perk === "unlimited",
       program: current && (current.status === "choosing" || current.status === "scheduled") ? { id: current.id, status: current.status, partnerName: current.partnerName ?? null } : null,
     }
   } catch {
@@ -78,23 +81,30 @@ export async function loadPaymentChoices(): Promise<PaymentChoices | null> {
   }
 }
 
-// edge function 오류 응답({ error })의 한국어 안내를 꺼낸다.
-async function functionError(error: unknown, fallback: string) {
+// edge function 오류 응답({ error, retry })을 꺼낸다. 한국어 안내가 없으면 정해 둔 문장으로.
+async function functionFailure(error: unknown, fallback: string) {
   const context = (error as { context?: Response } | null)?.context
   const body = context && typeof context.json === "function" ? await context.json().catch(() => null) : null
-  return typeof body?.error === "string" && body.error ? body.error : friendlyError(error as Error, fallback)
+  return { message: typeof body?.error === "string" && body.error ? body.error as string : friendlyError(error as Error, fallback), retry: body?.retry === true, answered: !!body }
 }
+const functionError = async (error: unknown, fallback: string) => (await functionFailure(error, fallback)).message
 
 // 결제 승인(성공 화면에서 한 번). 같은 주문을 다시 보내도 서버가 한 번만 승인한다.
-export async function confirmPayment(params: { paymentKey: string; orderId: string; amount: number }): Promise<{ data: Payment | null; error: string | null }> {
+// retry: 같은 주문으로 ‘다시 확인하기’를 해도 되는 실패(승인됐지만 기록 못 함 · 연결 실패). 그 밖의 실패는 같은 주문 번호로 다시 보내면
+// 결제사가 같은 실패를 되풀이하므로(멱등키) 화면은 새 주문으로 다시 결제하게 한다.
+export async function confirmPayment(params: { paymentKey: string; orderId: string; amount: number }): Promise<{ data: Payment | null; error: string | null; retry: boolean }> {
   try {
     const db = await supabase()
-    const { data, error } = await db.functions.invoke<{ ok?: boolean; payment?: Payment; error?: string }>("payments-confirm", { body: params })
-    if (error) return { data: null, error: await functionError(error, "결제를 확인하지 못했어요. 잠시 뒤 다시 확인해 주세요.") }
-    if (!data?.ok || !data.payment) return { data: null, error: data?.error ?? "결제를 확인하지 못했어요." }
-    return { data: data.payment, error: null }
+    const { data, error } = await db.functions.invoke<{ ok?: boolean; payment?: Payment; error?: string; retry?: boolean }>("payments-confirm", { body: params })
+    if (error) {
+      const failure = await functionFailure(error, "결제를 확인하지 못했어요. 잠시 뒤 다시 확인해 주세요.")
+      // 함수에 닿지 못했으면(응답 본문 없음) 결과를 모르므로 같은 주문으로 다시 확인할 수 있다.
+      return { data: null, error: failure.message, retry: failure.retry || !failure.answered }
+    }
+    if (!data?.ok || !data.payment) return { data: null, error: data?.error ?? "결제를 확인하지 못했어요.", retry: data?.retry === true }
+    return { data: data.payment, error: null, retry: false }
   } catch (error) {
-    return { data: null, error: friendlyError(error as Error) }
+    return { data: null, error: friendlyError(error as Error), retry: true }
   }
 }
 

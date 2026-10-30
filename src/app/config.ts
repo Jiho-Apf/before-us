@@ -25,7 +25,7 @@ export const BEFORE_US = {
   // 정식 운영으로 바꿀 때 active 를 false 로 바꾼다.
   // 베타 나이 범위(출생 연도 · 한국 나이 20~35세). 서버의 birth_year_range() 와 같이 바꾼다.
   ageBand: { minBirthYear: 1992, maxBirthYear: 2007, label: "1992~2007년생", korean: "한국 나이 20~35세", maxAge: 35 },
-  beta: { active: true, startsOn: "2026-10-20", legalUpdatedOn: "2026-10-28", legalVersion: "beta-2026-10-28" },
+  beta: { active: true, startsOn: "2026-10-20", legalUpdatedOn: "2026-10-30", legalVersion: "beta-2026-10-30" },
   // 결제(PG): 토스페이먼츠 결제위젯(주문서형). 사업자등록 전이라 테스트 모드만 쓴다(승인돼도 실제로 돈이 나가지 않는다).
   // 클라이언트 키는 원래 브라우저에 들어가는 공개 값이다. 기본값은 토스가 문서·공식 예제에 공개한 결제위젯 문서 테스트 키이고,
   // 빌드할 때 VITE_TOSS_CLIENT_KEY 로 바꿀 수 있다. 시크릿 키는 절대 여기 두지 않는다(Supabase 비밀 값 TOSS_SECRET_KEY).

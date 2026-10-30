@@ -37,6 +37,8 @@ export type MemberSnapshot = {
   notices: { notice_daily_waiting: boolean; notice_new_introduction: boolean; marketing_opt_in: boolean; notify_kakao: boolean; notify_sms: boolean; notify_email: boolean; email_all: boolean; status: "active" | "withdrawal_requested" | "suspended"; paused_at: string | null; resumed_at?: string | null; paused_by?: "member" | "operator" | "auto" | null; suspended_reason: string | null } | null
   cohort: { number: number; startsOn: string; applicationDeadline: string } | null
   program: Program | null
+  // 회원 혜택(대표가 정함). 'unlimited' = 결제 없이 이용하는 계정. 본인 내 정보에만 조용히 보여 주고, 상대에게는 보이지 않는다.
+  perk?: "unlimited" | null
 }
 
 // 오늘 화면은 처음에 10개를 보여 주고 ‘지난 알림 더 보기’로 30개까지 펼친다. 읽음은 화면에 보여 준 것만 바꾼다.
@@ -78,13 +80,15 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
     const db = await supabase()
     const { data: auth } = await db.auth.getUser()
     if (!auth.user) return { data: null, error: "로그인이 필요해요." }
-    const [application, introduction, notifications, profile, cohort, program] = await Promise.all([
+    const [application, introduction, notifications, profile, cohort, program, perk] = await Promise.all([
       db.from("applications").select("status, decision_note, submitted_at").eq("member_id", auth.user.id).maybeSingle(),
       db.rpc("my_introduction"),
       db.from("notifications").select("id, kind, title, body, link, created_at, read_at").order("created_at", { ascending: false }).limit(NOTIFICATION_LOAD),
       db.from("profiles").select("notice_daily_waiting, notice_new_introduction, marketing_opt_in, notify_kakao, notify_sms, notify_email, email_all, status, paused_at, resumed_at, paused_by, suspended_reason").eq("id", auth.user.id).maybeSingle(),
       db.rpc("my_cohort"),
       db.rpc("my_program"),
+      // 혜택 칸은 따로 읽는다(못 읽어도 화면은 그대로 · 보통 회원으로 본다).
+      db.from("profiles").select("perk").eq("id", auth.user.id).maybeSingle(),
     ])
     const failed = application.error || introduction.error || notifications.error || profile.error
     if (failed) return { data: null, error: friendlyError(failed) }
@@ -96,6 +100,7 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
         notices: profile.data ?? null,
         cohort: (cohort.data as MemberSnapshot["cohort"]) ?? null,
         program: program.error ? null : ((program.data as Program | null) ?? null),
+        perk: !perk.error && (perk.data as { perk?: string | null } | null)?.perk === "unlimited" ? "unlimited" : null,
       },
       error: null,
     }

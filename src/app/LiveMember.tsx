@@ -502,6 +502,7 @@ function LiveProfileView() {
       {data?.application?.status === "approved" && notices?.status === "active" && <Sheet className="flex flex-wrap items-center justify-between gap-5 p-6"><div className="min-w-0 max-w-xl"><p className="text-xs font-semibold text-accent">새 소개 {paused ? "다시 받기" : "잠시 쉬기"}</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{paused ? notices.paused_by === "operator" ? "운영진이 확인할 일이 있어 새 소개를 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." : `${kstDay(notices.paused_at!)}부터 쉬고 있어요. 다시 받기를 누르면 다음 정오부터 소개를 준비해요.` : "여행·바쁜 시기처럼 잠시 쉬고 싶을 때 눌러 주세요. 진행 중인 소개는 그대로 이어지고, 새 소개만 멈춰요."}</p>{pauseMessage && <p role="status" className="mt-2 text-xs text-primary">{pauseMessage}</p>}</div><Button variant={paused ? "default" : "outline"} disabled={pausing || notices.paused_by === "operator"} onClick={() => void togglePause()} className="h-11 shrink-0 rounded-xl border-border px-5">{paused ? "다시 받기" : "잠시 쉬기"}</Button></Sheet>}
       <FirstWordCard />
       <AvoidContactsCard />
+      {data.perk === "unlimited" && <QuietNote>결제 없이 이용하는 계정이에요. 소개비와 교류비를 내지 않아도 돼요.</QuietNote>}
       {BEFORE_US.beta.active && <QuietNote>베타 테스터로 함께해 주셔서 고마워요. 불편했던 점이나 바라는 점이 있다면 <Link to="/contact?type=베타 의견" className="font-semibold text-primary underline-offset-4 hover:underline">베타 의견 남기기</Link>로 알려 주세요. 하나하나 읽고 반영할게요.</QuietNote>}
       <AccountPanel />
     </section>

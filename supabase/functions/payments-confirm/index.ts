@@ -3,9 +3,11 @@
 //     여기서 멈추면 승인 API를 부르지 않으므로 돈이 나가지 않는다(토스는 승인하지 않은 결제를 청구하지 않고, 10분 뒤 세션이 끝난다).
 //  2) 토스 결제 승인 API(_shared/toss.ts · POST https://api.tosspayments.com/v1/payments/confirm)를 부른다.
 //  3) 결과는 service_role 로 record_payment_result 에 남긴다. 이미 결제된 주문이면 토스를 다시 부르지 않고 그대로 성공을 돌려준다.
+//  · 같은 주문으로 다시 확인해도 되는 경우(승인은 됐는데 기록을 못 함 · 결제사에 연결하지 못함)에만 retry: true 를 준다.
+//    그 밖의 실패는 같은 주문 번호로 다시 보내면 멱등키(confirm-주문 번호, 15일) 때문에 같은 실패가 되풀이되므로, 화면이 새 주문으로 다시 결제하게 한다.
 // 비밀 값: TOSS_SECRET_KEY(없고 테스트 모드면 토스 문서 테스트 키를 쓴다 · _shared/toss.ts 설명). 키는 어디에도 기록하지 않는다.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4"
-import { cancelPayment, confirmPayment, isDone, secretKeyFor, trimPayment } from "../_shared/toss.ts"
+import { cancelPayment, confirmPayment, isDone, lastCanceledAt, secretKeyFor, trimPayment } from "../_shared/toss.ts"
 
 const PUBLISHABLE_KEY = "sb_publishable_vJTN2b31pClzNM-uKNWPVQ_Aw4278cg"
 const cors = {
@@ -55,6 +57,8 @@ Deno.serve(async (req) => {
 
   const result = await confirmPayment(key, paymentKey, orderId, amount)
   if (!result.ok) {
+    // 결제사에 닿지 못한 경우는 결제가 됐는지 모르므로 실패로 남기지 않고, 같은 주문으로 다시 확인하게 한다(승인됐다면 멱등키로 같은 결과가 온다).
+    if (result.code === "NETWORK") return reply({ error: "결제사에 연결하지 못했어요. 잠시 뒤 ‘다시 확인하기’를 눌러 주세요.", retry: true }, 502)
     await record({ p_status: "failed", p_payment_key: paymentKey, p_code: result.code, p_message: result.message })
     return reply({ error: korean(result.message, "결제를 승인하지 못했어요."), code: result.code }, result.status >= 500 ? 502 : 400)
   }
@@ -68,13 +72,18 @@ Deno.serve(async (req) => {
   const saved = await record({ p_status: "paid", p_payment_key: paymentKey, p_method: payment.method ?? null, p_at: payment.approvedAt ?? null, p_raw: { confirm: trimPayment(payment) } })
   if (saved.error) {
     if (/중복 결제/.test(saved.error.message)) {
-      // 두 창에서 거의 같은 때 결제한 경우: 나중 결제는 바로 취소한다.
+      // 두 창에서 거의 같은 때 결제한 경우(서버가 확인 단계나 유일 색인에서 ‘중복 결제’로 막는다): 나중 결제는 토스에서 바로 취소하고 취소로 남긴다.
       const cancelled = await cancelPayment(key, paymentKey, orderId, "중복 결제 자동 취소")
-      if (cancelled.ok) await record({ p_status: "cancelled", p_payment_key: paymentKey, p_message: "중복 결제 자동 취소", p_raw: { cancel: trimPayment(cancelled.payment) } })
-      return reply({ error: "이미 결제한 항목이라 이번 결제는 바로 취소했어요." }, 409)
+      if (cancelled.ok) {
+        await record({ p_status: "cancelled", p_payment_key: paymentKey, p_at: lastCanceledAt(cancelled.payment), p_message: "중복 결제 자동 취소", p_raw: { cancel: trimPayment(cancelled.payment) } })
+        return reply({ error: "이미 결제한 항목이라 이번 결제는 바로 취소했어요. 결제 내역에서 취소된 것을 확인할 수 있어요." }, 409)
+      }
+      // 취소까지 실패하면 운영진이 찾을 수 있게 남긴다(결제 내역 ‘결제 안 됨’ · 사유 코드).
+      await record({ p_status: "failed", p_payment_key: paymentKey, p_code: "DUPLICATE_CANCEL_FAILED", p_message: `중복 결제를 자동으로 취소하지 못했어요(${cancelled.code}). 운영진이 확인해 취소해요.`, p_raw: { duplicate: { paymentKey } } })
+      return reply({ error: "이미 결제한 항목이에요. 이번 결제를 자동으로 취소하지 못해 운영진이 확인해 취소해 드릴게요. 문의하기로 알려 주시면 더 빨라요." }, 409)
     }
     // 승인은 됐는데 기록을 못 한 경우: 같은 요청을 다시 보내면 멱등키 덕분에 같은 승인 결과로 다시 기록된다.
-    return reply({ error: "결제는 승인됐지만 기록하지 못했어요. 잠시 뒤 ‘다시 확인하기’를 눌러 주세요." }, 500)
+    return reply({ error: "결제는 승인됐지만 기록하지 못했어요. 잠시 뒤 ‘다시 확인하기’를 눌러 주세요.", retry: true }, 500)
   }
   return reply({ ok: true, payment: saved.data })
 })

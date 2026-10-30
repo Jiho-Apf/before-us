@@ -235,7 +235,7 @@ function OurDays({ program }: { program: Program }) {
       </li>
     </ol>
     {plan === "A" && <p className="mt-6 border-t border-border pt-4 text-xs leading-6 text-muted-foreground">{opened ? <>함께 연 편지 {strong(`${opened}통`)}{replies > 0 && <> · 주고받은 답장 {strong(`${replies}번`)}</>}{photos > 0 && <> · 나눈 사진 {strong(`${photos}장`)}</>}</> : program.status === "started" ? "두 분 모두 보내면 그날의 도장이 채워져요." : "사흘 동안 함께 열린 편지는 없었어요."}</p>}
-    {plan === "A" && recap && opened > 0 && <div className="mt-4"><p className="text-xs font-semibold">상대가 들려준 사흘</p><ul className="mt-3 space-y-2.5">{[1, 2, 3].map(day => { const item = entry(day); if (!isOpen(item) || !item?.partner?.body) return null; return <li key={day} className="flex gap-3 text-sm leading-6"><span className="w-14 shrink-0 pt-0.5 text-[11px] font-semibold text-accent">DAY 0{day}</span><span className="min-w-0 text-foreground/85">“{firstLine(item.partner.body)}”{item.partner.payload?.photo && <span className="ml-1.5 whitespace-nowrap text-[11px] text-muted-foreground">· 사진 한 장</span>}</span></li>; })}</ul></div>}
+    {plan === "A" && recap && opened > 0 && <div className="mt-4"><p className="text-xs font-semibold">상대가 들려준 사흘</p><ul className="mt-3 space-y-2.5">{[1, 2, 3].map(day => { const item = entry(day); if (!isOpen(item) || !item?.partner?.body) return null; return <li key={day} className="flex gap-3 text-sm leading-6"><span className="w-14 shrink-0 pt-0.5 text-[11px] font-semibold text-accent">DAY 0{day}</span><span className="min-w-0 text-foreground/85"><span className="block text-[11px] text-muted-foreground">{letterPrompt(day, day === 1 || isOpen(entry(day - 1)), program.letterSet).title}</span>“{firstLine(item.partner.body)}”{item.partner.payload?.photo && <span className="ml-1.5 whitespace-nowrap text-[11px] text-muted-foreground">· 사진 한 장</span>}</span></li>; })}</ul></div>}
     {plan === "B" && (isOpen(entry(3))
       ? <p className="mt-6 border-t border-border pt-4 text-xs leading-6 text-muted-foreground">{agreed ? <>{strong("함께 맞춘 첫 장면")} · {sceneSummary(final!.own!.payload)}{isOpen(program.entries.find(item => item.kind === "piece")) && " · 첫 장면 이야기도 함께 열렸어요"}</> : "사흘 동안 고른 것이 모두 모였어요. 아래에서 두 분이 고른 것 중에서 첫 장면을 함께 맞춰요."}</p>
       : <div className="mt-6 border-t border-border pt-5">
@@ -275,7 +275,7 @@ function Days({ program, act }: { program: Program; act: Act }) {
     const date = shift(program.startOn!, day - 1);
     const previous = day > 1 ? find(day - 1) : undefined;
     const previousOpened = day === 1 || isOpen(previous);
-    const letter = letterPrompt(day, previousOpened), scene = SCENE_PROMPTS[day - 1];
+    const letter = letterPrompt(day, previousOpened, program.letterSet), scene = SCENE_PROMPTS[day - 1];
     const main = find(day), reply = find(day, "reply");
     const isToday = program.status === "started" && program.day === day;
     const early = isToday && kstHour() < 9;
@@ -345,7 +345,7 @@ function LetterPhoto({ path, caption, className = "" }: { path: string; caption:
   useEffect(() => { let alive = true; setUrl(null); setFailed(false); void letterPhotoUrl(path).then(next => { if (!alive) return; if (next) setUrl(next); else setFailed(true); }); return () => { alive = false; }; }, [path]);
   return <>
     <button type="button" disabled={!url} onClick={() => setOpen(true)} aria-label={`${caption} 사진 크게 보기`} className={`block w-40 -rotate-[1.5deg] bg-[#FFFEFA] p-2 pb-1.5 shadow-[0_18px_36px_-22px_rgba(30,20,80,0.6)] ring-1 ring-black/5 transition-transform duration-300 hover:rotate-0 focus-visible:rotate-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default motion-reduce:transition-none sm:w-44 ${className}`}>
-      <span className="block aspect-[4/5] overflow-hidden bg-lilac">{url ? <img src={url} alt="" onError={() => { setUrl(null); setFailed(true); }} className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center px-3 text-center text-[11px] leading-5 text-[#1F1B33]/55">{failed ? "지금은 사진을 볼 수 없어요" : "사진을 불러오는 중…"}</span>}</span>
+      <span className="block aspect-[4/5] overflow-hidden bg-lilac">{url ? <img src={url} alt="" draggable={false} onContextMenu={event => event.preventDefault()} onError={() => { setUrl(null); setFailed(true); }} className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center px-3 text-center text-[11px] leading-5 text-[#1F1B33]/55">{failed ? "지금은 사진을 볼 수 없어요" : "사진을 불러오는 중…"}</span>}</span>
       <span className="mt-1.5 block text-center text-[10px] font-semibold tracking-[0.12em] text-[#1F1B33]/55">{caption}</span>
     </button>
     {open && url && <Lightbox url={url} caption={caption} onClose={() => setOpen(false)} />}
@@ -366,7 +366,7 @@ function Lightbox({ url, caption, onClose }: { url: string; caption: string; onC
   }, []);
   return <div role="dialog" aria-modal="true" aria-label={`${caption} 사진`} onClick={() => close.current()} className="fixed inset-0 z-[60] flex items-center justify-center bg-[rgba(24,18,52,0.82)] p-4 backdrop-blur-sm">
     <figure onClick={event => event.stopPropagation()} className="max-w-3xl">
-      <img src={url} alt={`${caption} 편지에 담긴 사진`} className="max-h-[80dvh] w-auto max-w-full bg-[#FFFEFA] object-contain p-2 shadow-[0_40px_80px_-30px_rgba(0,0,0,0.6)]" />
+      <img src={url} alt={`${caption} 편지에 담긴 사진`} draggable={false} onContextMenu={event => event.preventDefault()} className="max-h-[80dvh] w-auto max-w-full bg-[#FFFEFA] object-contain p-2 shadow-[0_40px_80px_-30px_rgba(0,0,0,0.6)]" />
       <figcaption className="mt-3 text-center text-xs tracking-[0.12em] text-white/80">{caption}</figcaption>
     </figure>
     <button ref={closeButton} type="button" aria-label="닫기" onClick={() => close.current()} className={`absolute right-4 top-4 grid size-11 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${interaction}`}><X size={18} /></button>
