@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Share, Smartphone, X } from "lucide-react";
 
 // 홈 화면에 추가 안내: 휴대폰 브라우저에서만 보이고, 이미 홈 화면에서 연 경우에는 숨긴다.
-// 아이폰은 홈 화면에 둔 사이트의 로그인을 오래 지켜 준다(사파리의 7일 정리에서 빠짐). 안드로이드 크롬은 바로 추가 창을 띄울 수 있다.
+// 아이폰은 홈 화면에 둔 사이트의 로그인을 오래 지켜 준다(사파리의 7일 정리에서 빠짐). 다만 저장 공간이 사파리와 따로라 처음 한 번은 다시 로그인한다. 안드로이드 크롬은 바로 추가 창을 띄울 수 있다.
 // 카카오톡·인스타그램 같은 앱 안 브라우저에서는 추가할 수 없어, 다른 브라우저로 여는 방법을 먼저 알린다.
 type Where = "ios" | "android" | "inapp";
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
@@ -33,7 +33,7 @@ export function HomeScreenTip({ compact = false, className = "" }: { compact?: b
   if (!env || hidden) return null;
   const close = () => { try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch { /* 저장 못 해도 이번에는 닫는다 */ } setHidden(true); };
   const text = env === "ios"
-    ? <>Safari 아래쪽 <Share size={13} aria-label="공유" className="mx-0.5 inline -translate-y-px text-primary" /> 공유 버튼에서 ‘홈 화면에 추가’를 고르면, 앱처럼 바로 열리고 로그인도 오래 유지돼요.</>
+    ? <>Safari 아래쪽 <Share size={13} aria-label="공유" className="mx-0.5 inline -translate-y-px text-primary" /> 공유 버튼에서 ‘홈 화면에 추가’를 고르면, 앱처럼 바로 열리고 로그인도 오래 유지돼요. 처음 열 때 한 번만 다시 로그인해 주세요.</>
     : env === "android"
       ? install ? "홈 화면에 두면 앱처럼 바로 열려요." : "브라우저 메뉴(⋮)에서 ‘홈 화면에 추가’를 고르면 앱처럼 바로 열려요."
       : "지금은 앱 안 브라우저예요. 오른쪽 위 메뉴에서 ‘다른 브라우저로 열기’를 누른 뒤 홈 화면에 추가하면 앱처럼 바로 열려요.";
