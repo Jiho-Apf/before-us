@@ -2369,6 +2369,11 @@ await db.exec("reset role")
   // 서로 선택한 순간 소개 전 편지가 전해진다
   for (const m of [R1, R2]) { await as(m); await q("select public.record_introduction_view($1)", [intro]); await q("select public.respond_introduction($1, 'positive')", [intro]) }
   eq("소개 전 편지: 서로 선택하면 상대에게 전해진다(나는 쓰지 않았으면 비어 있다)", (await mine()).prelude, { own: null, partner: prelude })
+  await as("postgres")
+  const mutualNote = async (m) => (await one("select body from public.notifications where member_id = $1 and kind = 'mutual' and dedupe_key = $2", [m, `mutual:${intro}:${m}`])).body
+  ok("서로 선택 알림: 편지를 써 둔 분에게는 ‘써 두신 편지가 함께 전해졌어요’", (await mutualNote(R1)).includes("써 두신 편지가 함께 전해졌어요") && !(await mutualNote(R1)).includes("상대가 소개 전에"))
+  ok("서로 선택 알림: 상대가 써 둔 편지가 온 분에게는 교류 화면에서 읽을 수 있다고", (await mutualNote(R2)).includes("상대가 소개 전에 써 둔 편지도") && !(await mutualNote(R2)).includes("써 두신 편지"))
+  await as(R2)
   eq("닮은 두 문장: 교류 화면에도 함께 온다", (await mine()).echo, { own: "천천히 알아가고 싶어요.", partner: "산책과 음악을 좋아해요." })
   await as(R1)
   eq("소개 전 편지: 내 화면에는 내가 쓴 편지가 보인다", (await mine()).prelude.own, prelude)
