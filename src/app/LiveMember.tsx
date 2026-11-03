@@ -22,7 +22,6 @@ import LivePhotoStep from "./LivePhotoStep";
 import { HomeScreenTip } from "./HomeScreenTip";
 import { VouchCard } from "./Vouch";
 import { WeeklyNote } from "./WeeklyNote";
-import { MailboxCard } from "./WorryLetters";
 import { publicApplicationProfile } from "./application-review";
 import { addAvoidContacts, deleteAvoidContact, loadAvoidContacts, type AvoidContact, blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, NOTIFICATION_FIRST, editBlockReason, loadReflection, loadPrelude, savePrelude, deletePrelude, type Prelude, PRELUDE_MIN, PRELUDE_MAX, loadWindow, saveWindowAnswer, deleteWindowAnswer, type WindowQuestion, photoHoldAt, recordIntroductionView, saveReflection, deleteReflection, type Reflection, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type IntroMatch, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
 
@@ -674,7 +673,6 @@ function LiveProfileView() {
         </div>
       </div>
       <MyPublicProfileCard />
-      <MailboxCard />
       {data.application?.status === "approved" && <PhotosPanel photos={data.photos ?? null} />}
       <div className="grid gap-6 lg:grid-cols-2">
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">소개 신청서 고치기</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{!data?.application || data.application.status === "draft" ? "쓰던 곳부터 이어서 쓸 수 있어요." : data.application.status === "submitted" ? "검토 전이라 바로 고칠 수 있어요." : ["rejected", "withdrawn"].includes(data.application.status) || editBlocked ? "" : "고친 내용을 ‘수정 내용 제출’로 보내면 운영진이 다시 확인해요. 그동안 새 소개 준비는 잠시 멈춰요."}</p>{data?.application && ["rejected", "withdrawn"].includes(data.application.status) ? <p className="mt-4 text-xs leading-6 text-muted-foreground">지금 상태에서는 신청서를 고칠 수 없어요. 문의하기로 남겨 주시면 확인해 드릴게요.</p> : editBlocked ? <><p role="status" className="mt-4 rounded-xl bg-mist p-4 text-xs leading-6">{editBlocked}</p>{data.application?.status === "approved" && <p className="mt-3 text-xs leading-6 text-muted-foreground">사진은 지금도 <a href="#photos" className="font-semibold text-primary underline-offset-4 hover:underline">내 사진</a>에서 바꿀 수 있어요.</p>}</> : <div className="mt-4 grid grid-cols-2 gap-2">{[["나에 대해", 0], ["사진", 1], ["원하는 만남", 2], ["공개·동의", 3]].map(([label, step]) => <Button key={label} asChild variant="outline" className={`h-auto justify-between rounded-xl border-border px-4 py-3 text-xs ${interaction}`}>{step === 1 && data.application?.status === "approved" ? <a href="#photos">{label} <ArrowUpRight size={13} /></a> : <Link to={`/apply?edit=1&step=${step}`}>{label} <ArrowUpRight size={13} /></Link>}</Button>)}</div>}</Sheet>
