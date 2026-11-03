@@ -190,15 +190,19 @@ export async function resetPassword(token: string, password: string, now = Date.
   return { error: null }
 }
 
+// 탈퇴 이유(선택 · 여러 개). 서버의 withdrawal_reason_list()와 같게 둔다. ‘비용’은 결제가 있는 정식 운영에서만 보인다.
+export const WITHDRAWAL_REASONS = ["플라비에서 좋은 분을 만났어요", "다른 곳에서 좋은 분을 만났어요", "소개가 오래 걸려요", "소개받은 분이 잘 맞지 않았어요", "과정이 번거로워요", "개인정보가 걱정돼요", "비용이 부담돼요", "잠시 쉬고 싶어요", "그 밖의 이유"] as const
+export type WithdrawalFeedback = { reasons: string[]; note: string }
+
 // 탈퇴: 비밀번호를 다시 확인한 뒤 탈퇴 요청을 기록하고 바로 로그아웃한다. 상대 노출·알림은 즉시 멈추고,
 // 일반 자료는 개인정보 기준(activeDeleteDays) 안에 지운다.
-export async function withdraw(password: string, now = new Date()): Promise<{ error: string | null; deletionDueAt?: string | null }> {
+export async function withdraw(password: string, now = new Date(), feedback: WithdrawalFeedback = { reasons: [], note: "" }): Promise<{ error: string | null; deletionDueAt?: string | null }> {
   if (!session) return { error: "로그인한 뒤 진행해 주세요." }
   if (LIVE) {
     const db = await supabase()
     const { error: wrong } = await db.auth.signInWithPassword({ email: session.email, password })
     if (wrong) return { error: "비밀번호가 맞지 않아요." }
-    const { data, error } = await rpc<{ deletionDueAt: string }>("request_withdrawal")
+    const { data, error } = await rpc<{ deletionDueAt: string }>("request_withdrawal", { p_reasons: feedback.reasons, p_note: feedback.note.trim() || null })
     if (error || !data) return { error: error || "탈퇴 요청을 저장하지 못했어요. 다시 시도해 주세요." }
     // 바로 로그아웃한다. 회원 화면은 로그아웃한 뒤에도 탈퇴 안내(삭제 예정일 · 취소는 문의하기)를 보여 준다.
     withdrawnNotice = { deletionDueAt: data.deletionDueAt }

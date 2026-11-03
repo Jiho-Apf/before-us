@@ -165,7 +165,7 @@ const maybe = <T,>(task: Promise<T>) => task.then(value => value, () => null);
 export function LiveAdminHome() {
   const { data, error } = useLoad(async () => {
     const day = new Date(Date.now() - 86400000).toISOString();
-    const [applications, ready, intros, reports, inquiries, requests, jobs, mail, errors, failedJobs] = await Promise.all([
+    const [applications, ready, intros, reports, inquiries, requests, jobs, mail, errors, failedJobs, leaving] = await Promise.all([
       maybe(call<{ status: string; source: string | null; cohort: number | null; photo_checks?: number }[]>("admin_list_applications")),
       maybe(call<ReadyMember[]>("admin_ready_members")),
       maybe(call<{ status: string; reveal_at: string }[]>("admin_list_introductions")),
@@ -177,8 +177,10 @@ export function LiveAdminHome() {
       maybe(table<{ id: number; at: string; context: string | null; message: string | null; path: string | null }>("client_errors", query => query.select("id, at, context, message, path").gt("at", new Date(Date.now() - 7 * 86400000).toISOString()).order("id", { ascending: false }).limit(20))),
       // 정오 공개·응답 마감·교류·알림 작업이 실패하면 맨 위에 알린다(최근 24시간).
       maybe(table<{ job: string; started_at: string; detail: { error?: string } | null }>("job_runs", query => query.select("job, started_at, detail").eq("ok", false).neq("job", "email").gt("started_at", day).order("started_at", { ascending: false }).limit(5))),
+      // 최근 30일 탈퇴(운영 권한이 있을 때만 · 상담 역할은 빠진다)
+      maybe(call<WithdrawalFeedback>("admin_withdrawal_feedback", { p_days: 30 })),
     ]);
-    return { applications, ready, intros, reports, inquiries, requests, jobs: jobs ?? [], mail: mail?.[0] ?? null, errors: errors ?? [], failedJobs: failedJobs ?? [] };
+    return { applications, ready, intros, reports, inquiries, requests, jobs: jobs ?? [], mail: mail?.[0] ?? null, errors: errors ?? [], failedJobs: failedJobs ?? [], leaving };
   });
   if (error) return <Notice text={error} />;
   if (!data) return <p className="text-sm text-muted-foreground">불러오고 있어요.</p>;
@@ -193,6 +195,7 @@ export function LiveAdminHome() {
     ["처리할 신고", data.reports?.length, "/admin/safety?tab=reports"],
     ["답변 대기 문의", data.inquiries?.length, "/admin/safety?tab=inquiries"],
     ["회원 요청", data.requests?.length, "/admin/safety?tab=requests"],
+    ["최근 30일 탈퇴", data.leaving?.total, "/admin/members#withdrawals"],
   ] as [string, number | undefined, string][]).filter(([, count]) => count !== undefined) as [string, number, string][];
   const urgent = data.reports?.filter(item => item.urgent).length ?? 0;
   // 유입 경로: 제출한 신청서 기준(작성 중·철회 제외)
@@ -638,6 +641,35 @@ export function LivePrograms() {
 // ─────────────────────────────────────────────
 // 회원: 찾기 · 상태(쉬기·이용 정지) · 연락처(운영진만) · 무제한 회원(대표만 정함 · 결제 없이 · 소개 횟수에 넣지 않음)
 type MemberRow = { id: string; email: string; status: "active" | "withdrawal_requested" | "suspended"; perk?: "unlimited" | null; withdrawalRequestedAt?: string | null; deletionDueAt?: string | null; pausedAt: string | null; pausedBy: "member" | "auto" | "operator" | null; resumedAt: string | null; suspendedReason: string | null; createdAt: string; name: string | null; phone: string | null; gender: string | null; age: number | null; area: string | null; application: string | null; cohort: number | null; channels: { kakao: boolean; sms: boolean; email: boolean }; introductions: number; reports: number };
+// 탈퇴 이유: 이유별 수 · 어느 단계에서 떠났는지 · 최근 기록(직접 남긴 말은 계정을 지우면 사라진다)
+type WithdrawalFeedback = { days: number; total: number; reasons: { reason: string; count: number }[]; stages: Record<string, number>; items: { createdAt: string; reasons: string[]; note: string | null; stage: string; cohort: number | null; introductions: number; memberId: string | null; name: string | null }[] };
+const STAGE_LABEL: Record<string, string> = { "signed-up": "가입만", applied: "신청까지", approved: "승인까지", introduced: "소개까지", mutual: "서로 선택까지", exchanged: "교류까지", met: "약속까지" };
+const STAGE_ORDER = ["signed-up", "applied", "approved", "introduced", "mutual", "exchanged", "met"];
+function WithdrawalPanel() {
+  const [days, setDays] = useState(90);
+  const [open, setOpen] = useState(() => typeof window !== "undefined" && window.location.hash === "#withdrawals");
+  const feed = useLoad(() => call<WithdrawalFeedback>("admin_withdrawal_feedback", { p_days: days }), [days]);
+  const data = feed.data;
+  const top = Math.max(1, ...(data?.reasons.map(item => item.count) ?? [1]));
+  return <section id="withdrawals" className={`${box} mb-6 scroll-mt-24 p-4 text-sm`} aria-labelledby="withdrawals-title">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <h2 id="withdrawals-title" className="font-semibold">탈퇴 이유 <span className="font-normal text-muted-foreground">· 최근 {days}일 {data ? `${data.total}명` : ""}</span></h2>
+      <div className="flex items-center gap-2 text-xs"><select aria-label="기간" value={days} onChange={event => setDays(Number(event.target.value))} className="h-8 rounded-md border border-border bg-card px-2">{[30, 90, 365].map(value => <option key={value} value={value}>최근 {value}일</option>)}</select><Button size="sm" variant="ghost" aria-expanded={open} onClick={() => setOpen(value => !value)}>{open ? "접기" : "펼치기"}</Button></div>
+    </div>
+    {feed.error && <Notice text={feed.error} />}
+    {open && data && (data.total ? <div className="mt-4 grid gap-6 lg:grid-cols-2">
+      <div className="space-y-2 text-xs">
+        <p className="font-semibold">고른 이유(여러 개 가능)</p>
+        {data.reasons.length ? data.reasons.map(item => <div key={item.reason} className="grid grid-cols-[minmax(0,11rem)_1fr_2rem] items-center gap-2"><span className="truncate">{item.reason}</span><span className="h-2 rounded-full bg-primary/15"><span className="block h-2 rounded-full bg-primary" style={{ width: `${(item.count / top) * 100}%` }} /></span><span className="text-right tabular-nums">{item.count}</span></div>) : <p className="text-muted-foreground">이유를 고르지 않고 떠난 분만 있어요.</p>}
+        <p className="pt-3 font-semibold">어디까지 이용하고 떠났나요</p>
+        <p className="leading-6 text-muted-foreground">{STAGE_ORDER.filter(key => data.stages[key]).map(key => `${STAGE_LABEL[key]} ${data.stages[key]}`).join(" · ") || "—"}</p>
+      </div>
+      <ul className="max-h-80 divide-y divide-border overflow-y-auto text-xs">{data.items.map(item => <li key={item.createdAt + (item.memberId ?? "")} className="py-2.5"><p className="flex flex-wrap items-center gap-x-2"><span className="font-semibold">{item.name ?? (item.memberId ? "이름 없음" : "지운 계정")}</span><span className="text-muted-foreground">{kstDateTime(item.createdAt)} · {STAGE_LABEL[item.stage] ?? item.stage} · 소개 {item.introductions}번{item.cohort != null ? ` · ${cohortName(item.cohort)}` : ""}</span></p><p className="mt-1 leading-6">{item.reasons.length ? item.reasons.join(" · ") : "이유 고르지 않음"}</p>{item.note && <p className="mt-1 rounded-md bg-muted px-2 py-1 leading-6">“{item.note}”</p>}</li>)}</ul>
+    </div> : <p className="mt-3 text-xs text-muted-foreground">이 기간에 탈퇴한 회원이 없어요.</p>)}
+    {open && <p className="mt-3 text-[11px] leading-5 text-muted-foreground">이유는 선택이에요. 직접 남긴 말은 계정을 지울 때 함께 지워지고, 고른 이유와 단계는 누구인지 알 수 없게 1년 동안 남아요.</p>}
+  </section>;
+}
+
 export function LiveMembers() {
   const role = useRole();
   const initial = new URLSearchParams(useLocation().search).get("q") ?? "";
@@ -683,6 +715,7 @@ export function LiveMembers() {
   const submit = (event: FormEvent) => { event.preventDefault(); setSearch(query.trim()); };
   return <>
     <Title lead="이름·이메일·휴대폰 번호로 찾아요. 휴대폰 번호는 운영진만 보고, 연락이 꼭 필요할 때만 써 주세요.">회원</Title>
+    {canOperate(role) && <WithdrawalPanel />}
     <form onSubmit={submit} className="mb-5 flex flex-wrap gap-2"><Input aria-label="회원 찾기" value={query} onChange={event => setQuery(event.target.value)} placeholder="이름 · 이메일 · 번호 일부" className="max-w-xs" /><Button type="submit">찾기</Button>{search && <Button type="button" variant="ghost" onClick={() => { setQuery(""); setSearch(""); }}>모두 보기</Button>}</form>
     <Notice text={message || list.error || ""} />
     {list.loading && !list.data && <p className="text-sm text-muted-foreground">불러오고 있어요.</p>}

@@ -4,8 +4,8 @@ import { ChevronDown } from "lucide-react"
 // 편지 화면에서 시작한 조용한 편집 톤을 회원 화면 전체에 맞추기 위한 공통 조각.
 // 진한 색 면 대신 얇은 선·여백·큰 숫자로 무게를 준다.
 
-export function Sheet({ children, tone = "plain", className = "" }: { children: ReactNode; tone?: "plain" | "soft"; className?: string }) {
-  return <div className={`relative rounded-3xl border border-border ${tone === "soft" ? "bg-muted/40" : "bg-card"} shadow-[0_1px_0_var(--border),0_24px_48px_-32px_color-mix(in_oklch,var(--primary)_35%,transparent)] ${className}`}>{children}</div>
+export function Sheet({ children, tone = "plain", className = "", id }: { children: ReactNode; tone?: "plain" | "soft"; className?: string; id?: string }) {
+  return <div id={id} className={`relative rounded-3xl border border-border ${tone === "soft" ? "bg-muted/40" : "bg-card"} shadow-[0_1px_0_var(--border),0_24px_48px_-32px_color-mix(in_oklch,var(--primary)_35%,transparent)] ${className}`}>{children}</div>
 }
 
 export function TwoDots({ apart = false, faded = false }: { apart?: boolean; faded?: boolean }) {

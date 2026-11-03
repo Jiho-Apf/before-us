@@ -463,8 +463,14 @@ await fails("감사 기록 삭제 불가", "delete from public.audit_log", [], /
 
 // ── 탈퇴와 삭제 예약
 await as(B)
-const due = (await one("select public.request_withdrawal() r")).r
+await fails("탈퇴 이유는 정해진 것 중에서만 고른다", "select public.request_withdrawal(array['아무 이유'])", [], /다시 골라/)
+const due = (await one("select public.request_withdrawal(array['소개가 오래 걸려요', '과정이 번거로워요'], '다음에 다시 올게요') r")).r
 ok("탈퇴 요청은 7일 뒤 삭제 예정", Date.parse(due.deletionDueAt) - Date.now() > 6.9 * 86400000)
+await fails("탈퇴 이유는 회원이 직접 볼 수 없다", "select * from public.withdrawal_feedback", [], /permission denied/)
+await as(O, "aal2")
+const leaving = (await one("select public.admin_withdrawal_feedback() f")).f
+eq("운영진은 탈퇴 이유·단계·남긴 말을 본다", [leaving.total, leaving.reasons.map((r) => r.reason).sort(), leaving.items[0].stage, leaving.items[0].note, leaving.items[0].name], [1, ["과정이 번거로워요", "소개가 오래 걸려요"], "introduced", "다음에 다시 올게요", "준"])
+await as(B)
 await fails("탈퇴 요청 뒤에는 신청서를 저장할 수 없다", "select public.save_application_draft($1)", [draft("준", "남성", "여성", "1993-07-15")], /로그인한 회원/)
 await as("postgres")
 await q("update public.profiles set deletion_due_at = now() - interval '1 minute' where id = $1", [B])
@@ -474,6 +480,10 @@ eq("탈퇴 회원 1명 삭제", retention.members, 1)
 eq("계정이 지워졌다", (await q("select * from auth.users where id = $1", [B])).length, 0)
 ok("지운 회원의 사진 파일은 정리 대기열에 들어간다", (await one("select count(*)::int n from public.storage_cleanup where path like $1", [`${B}/%`])).n >= 3)
 ok("작업 기록이 남는다", (await one("select ok from public.job_runs where job = 'retention' order by id desc limit 1")).ok)
+eq("계정을 지우면 탈퇴 이유는 회원과 떼어 남기고, 직접 적은 말은 지운다", { ...(await one("select member_id, note, reasons from public.withdrawal_feedback")) }, { member_id: null, note: null, reasons: ["과정이 번거로워요", "소개가 오래 걸려요"] })
+await as(A)
+await fails("회원은 운영진의 탈퇴 이유 모음을 볼 수 없다", "select public.admin_withdrawal_feedback()", [], /운영 권한/)
+await as("postgres")
 
 // ── 운영 편의: 회원 목록·일시정지·이용 정지·사진 횟수·오류 모으기·메일 알림
 await as(O, "aal2")

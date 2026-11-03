@@ -7,7 +7,8 @@ import { Label } from "./components/ui/label"
 import { Checkbox } from "./components/ui/checkbox"
 import { BEFORE_US } from "./config"
 import { kstDay } from "./dates"
-import { EXISTING_EMAIL_NOTE, PASSWORD_RULE, confirmEmailLink, requestPasswordReset, resetPassword, signIn, signOut, signUp, suggestEmail, useAuth, withdraw, resendConfirmation } from "./auth-service"
+import { EXISTING_EMAIL_NOTE, PASSWORD_RULE, WITHDRAWAL_REASONS, confirmEmailLink, requestPasswordReset, resetPassword, signIn, signOut, signUp, suggestEmail, useAuth, withdraw, resendConfirmation } from "./auth-service"
+import { Textarea } from "./components/ui/textarea"
 
 // 누르는 동안 돌아가는 표시(두 번 누르지 않게)
 const Busy = ({ text }: { text: string }) => <><LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />{text}</>
@@ -231,6 +232,11 @@ export function AccountPanel() {
   const [error, setError] = useState("")
   const [result, setResult] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  // 떠나는 이유(선택). 서비스를 고치는 데만 쓰고, 운영진만 봐요.
+  const [reasons, setReasons] = useState<string[]>([])
+  const [note, setNote] = useState("")
+  const reasonList = WITHDRAWAL_REASONS.filter(item => item !== "비용이 부담돼요" || !(LIVE && BEFORE_US.beta.active))
+  const toggleReason = (item: string) => setReasons(current => current.includes(item) ? current.filter(value => value !== item) : [...current, item])
   if (result) return <section className="border-t border-border pt-6 text-sm leading-7" aria-label="계정"><p className="font-semibold">탈퇴 요청을 받았어요.</p><p className="mt-1 text-muted-foreground">상대 노출과 알림은 바로 멈췄고, 일반 자료는 {result}까지 지워요. 그 전에 마음이 바뀌면 문의하기로 남겨 주세요. 그동안 고마웠어요.</p><Button className="mt-4 h-11 rounded-full px-6" onClick={() => { signOut(); navigate("/") }}>확인했어요 · 로그아웃</Button></section>
   if (!user) return (
     <section className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6 text-sm" aria-label="계정">
@@ -243,7 +249,7 @@ export function AccountPanel() {
     if (!agree) return setError("안내를 확인했다고 체크해 주세요.")
     if (sending) return
     setSending(true)
-    const outcome = await withdraw(password)
+    const outcome = await withdraw(password, new Date(), { reasons, note })
     setSending(false)
     if (outcome.error) return setError(outcome.error)
     setResult(outcome.deletionDueAt ? kstDay(outcome.deletionDueAt) : "7일 안")
@@ -260,6 +266,14 @@ export function AccountPanel() {
       {open && (
         <form onSubmit={submit} className="space-y-4 rounded-xl border border-border p-5" noValidate>
           <p className="leading-7">탈퇴하면 상대 노출과 알림이 바로 멈추고, 진행 중인 소개·교류는 종료돼요. 일반 자료는 {BEFORE_US.privacy.activeDeleteDays}일 안에, 백업은 최대 {BEFORE_US.privacy.backupMaxDays}일 안에 지워요.{LIVE && BEFORE_US.beta.active ? "" : " 결제 환불은 환불 기준에 따라 따로 안내해요."}</p>
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-semibold">떠나시는 이유를 알려 주세요 <span className="font-normal text-muted-foreground">(선택 · 여러 개)</span></legend>
+            <p className="text-xs leading-6 text-muted-foreground">운영진만 보고, 서비스를 고치는 데에만 써요.</p>
+            <div className="flex flex-wrap gap-2">{reasonList.map(item => <button key={item} type="button" aria-pressed={reasons.includes(item)} onClick={() => toggleReason(item)} className={`rounded-full border px-3 py-1.5 text-xs ${motion} ${reasons.includes(item) ? "border-primary bg-primary/5 text-primary" : "border-border hover:border-primary/40"}`}>{item}</button>)}</div>
+            {reasons.includes("잠시 쉬고 싶어요") && typeof document !== "undefined" && !!document.getElementById("pause") && <p role="note" className="rounded-xl bg-muted p-3 text-xs leading-6">탈퇴하지 않고 쉬어 갈 수도 있어요. 내 정보의 <a href="#pause" className="font-semibold text-primary underline-offset-4 hover:underline">‘새 소개 잠시 쉬기’</a>를 누르면 신청서와 기록은 그대로 두고 새 소개만 멈춰요.</p>}
+            {reasons.includes("플라비에서 좋은 분을 만났어요") && <p role="note" className="rounded-xl bg-primary/5 p-3 text-xs leading-6 text-primary">좋은 소식이라 기뻐요. 두 분의 앞날을 응원할게요.</p>}
+            <Textarea aria-label="하고 싶은 말" value={note} maxLength={300} onChange={(event) => setNote(event.target.value)} placeholder="더 하고 싶은 말이 있다면 적어 주세요. (선택 · 300자)" className="min-h-20 rounded-xl text-base md:text-sm" />
+          </fieldset>
           <Field id="withdraw-password" label="비밀번호 다시 입력" type="password" autoComplete="current-password" value={password} onChange={(value) => { setPassword(value); setError("") }} />
           <label htmlFor="withdraw-agree" className="flex items-start gap-3 leading-6"><Checkbox id="withdraw-agree" className="mt-1" checked={agree} onCheckedChange={(value) => { setAgree(value === true); setError("") }} />위 내용을 확인했어요.</label>
           <ErrorText text={error} />
