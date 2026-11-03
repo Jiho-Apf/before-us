@@ -32,6 +32,14 @@ export type Program = {
   meetingOn: string | null
   meetingTime: string | null
   proposals: Proposal[]
+  // 정하는 단계 줄이기(4700): ‘이대로 시작’(고른 방식으로 기본 시작일에 바로 시작) · 넷째 날 고른 가능한 때 · 약속을 정할 때 두 분 모두 되는 시간
+  ownReady?: "A" | "B" | null
+  partnerReady?: boolean
+  ownAvailability?: string[]
+  ownRegion?: string | null
+  partnerRegion?: string | null
+  partnerAvailabilitySet?: boolean
+  overlap?: string[]
   ownContact: boolean
   contactReleaseAt: string | null
   contactUntil: string | null
@@ -57,7 +65,13 @@ export const submitEntry = (id: string, day: number, kind: EntryKind, body: stri
 export const writeScenePiece = (id: string, body: string) => rpc<Program>("write_scene_piece", { p_program: id, p_body: body })
 export const leaveComment = (id: string, on: "scene" | "piece", day: number | null, body: string) => rpc<Program>("leave_scene_comment", { p_program: id, p_on: on, p_day: day, p_body: body })
 export const PIECE_MIN = 10, PIECE_MAX = 300, COMMENT_MAX = 100
-export const chooseMeeting = (id: string, choice: "positive" | "negative") => rpc<Program>("choose_meeting", { p_program: id, p_choice: choice })
+export const chooseMeeting = (id: string, choice: "positive" | "negative", avail: string[] | null = null, region = "") => rpc<Program>("choose_meeting", { p_program: id, p_choice: choice, p_avail: choice === "positive" ? avail : null, p_region: choice === "positive" ? region.trim() || null : null })
+export const quickStart = (id: string, plan: "A" | "B") => rpc<Program>("quick_start_program", { p_program: id, p_plan: plan })
+export const setAvailability = (id: string, avail: string[], region = "") => rpc<Program>("set_meeting_availability", { p_program: id, p_avail: avail, p_region: region.trim() || null })
+export const bookSlot = (id: string, slot: string, activity: string, region: string, place = "") => rpc<Program>("book_meeting_slot", { p_program: id, p_slot: slot, p_activity: activity, p_region: region, p_place: place || null })
+// 가능한 때: "YYYY-MM-DD|noon" 처럼 날짜와 시간대. 서버 availability_band()와 같게.
+export const AVAIL_BANDS = [{ id: "noon", label: "낮", start: "12:00", end: "15:00" }, { id: "afternoon", label: "오후", start: "15:00", end: "18:00" }, { id: "evening", label: "저녁", start: "18:00", end: "21:00" }] as const
+export const availLabel = (slot: string, dayLabel: (date: string) => string) => { const [date, band] = slot.split("|"); const b = AVAIL_BANDS.find(item => item.id === band); return `${dayLabel(date)} ${b?.label ?? ""} ${b ? `${b.start}~${b.end}` : ""}`.trim(); }
 export const proposeAppointment = (id: string, slots: Slot[], activity: string, region: string, place: string, note: string) =>
   rpc<Program>("propose_appointment", { p_program: id, p_slots: slots, p_activity: activity, p_region: region, p_place: place || null, p_note: note || null })
 export const acceptAppointment = (proposal: string, slot: number) => rpc<Program>("accept_appointment", { p_proposal: proposal, p_slot: slot })

@@ -2229,4 +2229,77 @@ await db.exec("reset role")
   eq("한 줄: 1년이 지나면 보존 정리에서 지운다", (await one("select count(*)::int n from public.reflections where member_id = $1", [H1])).n, 0)
 }
 
+// ── 정하는 단계 줄이기(4700): 이대로 시작 · 넷째 날 가능한 때 · 겹치는 시간 하나로 약속
+{
+  await as("postgres")
+  await clock(null)
+  const pair = async (a, b, sql, extra = []) => {
+    const intro = (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at, mutual_at) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'mutual', now() - interval '1 day', now() + interval '1 hour', 'infinity', $3, $3, now() - interval '1 day', now()) returning id", [a, b, snap])).id
+    return (await one(sql, [intro, a, b, ...extra])).id
+  }
+  const choosingSql = "insert into public.programs (introduction_id, member_a, member_b, agree_by) values ($1, $2, $3, now() + interval '20 hours') returning id"
+  const mine = async () => (await one("select public.my_program() v")).v
+
+  // 두 분 모두 ‘이대로 시작’
+  const Q1 = await signup("q1-4700@example.test"), Q2 = await signup("q2-4700@example.test")
+  const qp = await pair(Q1, Q2, choosingSql)
+  await as(Q1)
+  const first = (await one("select public.quick_start_program($1, 'A') v", [qp])).v
+  eq("이대로 시작: 상대가 아직이면 내 뜻만 남긴다", [first.ownPlan, first.ownReady, first.status, first.notice.includes("같은 방식을 고르면")], ["A", "A", "choosing", true])
+  await as(Q2)
+  eq("이대로 시작: 상대에게는 ‘이대로 시작’을 눌러 둔 것이 보인다", (await mine()).partnerReady, true)
+  const second = (await one("select public.quick_start_program($1, 'A') v", [qp])).v
+  eq("이대로 시작: 두 분 모두 누르면 바로 일정이 정해진다", [second.status, second.notice.includes("두 분 모두")], ["scheduled", true])
+  await as("postgres")
+  eq("이대로 시작: 일정이 정해졌다고 두 분에게 알린다", (await one("select count(*)::int n from public.notifications where dedupe_key like $1", [`scheduled:${qp}:%`])).n, 2)
+
+  // 한 분은 ‘이대로’, 다른 분은 같은 방식을 고르고 확인 한 번
+  const Q3 = await signup("q3-4700@example.test"), Q4 = await signup("q4-4700@example.test")
+  const qp2 = await pair(Q3, Q4, choosingSql)
+  await as(Q3); await q("select public.quick_start_program($1, 'B')", [qp2])
+  await as(Q4); await q("select public.choose_program_plan($1, 'B')", [qp2])
+  eq("이대로 시작: 상대가 같은 방식을 고르면 확인 한 번으로 정해진다", (await one("select public.confirm_program($1) v", [qp2])).v.status, "scheduled")
+
+  // 다른 날짜를 제안하면 상대의 ‘이대로’는 지워진다 · 방식을 바꾸면 내 ‘이대로’도 지워진다
+  await as("postgres")
+  const Q5 = await signup("q5-4700@example.test"), Q6 = await signup("q6-4700@example.test")
+  const qp3 = await pair(Q5, Q6, choosingSql)
+  await as(Q5); await q("select public.quick_start_program($1, 'A')", [qp3])
+  await as(Q6); await q("select public.choose_program_plan($1, 'A')", [qp3])
+  await q("select public.propose_program_start($1, (public.kst_today() + 3))", [qp3])
+  await as(Q5)
+  const after = await mine()
+  eq("다른 날짜를 제안하면 ‘이대로 시작’은 지워지고 다시 확인을 받는다", [after.ownReady, after.status, after.partnerConfirmed], [null, "choosing", true])
+  await q("select public.quick_start_program($1, 'A')", [qp3])
+  eq("다시 이대로 시작을 누르면 제안된 날짜로 정해진다", (await mine()).status, "scheduled")
+  await as("postgres")
+  const Q7 = await signup("q7-4700@example.test"), Q8 = await signup("q8-4700@example.test")
+  const qp4 = await pair(Q7, Q8, choosingSql)
+  await as(Q7); await q("select public.quick_start_program($1, 'A')", [qp4]); await q("select public.choose_program_plan($1, 'B')", [qp4])
+  eq("방식을 바꾸면 내 ‘이대로 시작’도 지워진다", (await mine()).ownReady, null)
+
+  // 넷째 날: 가능한 때와 지역을 함께 받고, 겹치는 시간 하나로 바로 약속
+  await as("postgres")
+  const M1 = await signup("m1-4700@example.test"), M2 = await signup("m2-4700@example.test")
+  const mp = await pair(M1, M2, "insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at, meeting_by) values ($1, $2, $3, 'deciding', 'A', 'A', public.kst_today() - 3, now() - interval '4 days', now() - interval '3 days', now() + interval '20 hours') returning id")
+  const d1 = (await one("select (public.kst_today() + 2)::text d")).d, d2 = (await one("select (public.kst_today() + 3)::text d")).d
+  await as(M1)
+  await fails("넷째 날: 가능한 때는 정해진 모양만 받는다", "select public.choose_meeting($1, 'positive', $2::jsonb)", [mp, JSON.stringify(["아무 때나"])], /다시 골라/)
+  await fails("넷째 날: 가능한 때는 2주 안에서만", "select public.choose_meeting($1, 'positive', $2::jsonb)", [mp, JSON.stringify(["2099-01-01|noon"])], /2주 안/)
+  await q("select public.choose_meeting($1, 'positive', $2::jsonb, '합정역 근처')", [mp, JSON.stringify([`${d1}|noon`, `${d1}|evening`, `${d2}|afternoon`])])
+  const one1 = await mine()
+  eq("넷째 날: 내가 고른 가능한 때만 남고, 상대 것은 보이지 않는다", [one1.ownAvailability.length, one1.overlap.length, one1.partnerRegion ?? null, one1.ownRegion], [3, 0, null, "합정역 근처"])
+  await as(M2)
+  await q("select public.choose_meeting($1, 'positive', $2::jsonb, '망원역')", [mp, JSON.stringify([`${d1}|evening`, `${d2}|afternoon`, `${d2}|evening`])])
+  const both = await mine()
+  eq("넷째 날: 두 분 모두 만나고 싶으면 겹치는 시간과 상대가 편한 지역만 보인다", [both.status, both.overlap, both.partnerRegion], ["arranging", [`${d1}|evening`, `${d2}|afternoon`], "합정역 근처"])
+  await fails("겹치지 않는 시간으로는 바로 정할 수 없다", "select public.book_meeting_slot($1, $2, '카페·디저트', '합정역')", [mp, `${d2}|evening`], /두 분 모두/)
+  const booked = (await one("select public.book_meeting_slot($1, $2, '카페·디저트', '합정역', '동네 서점 옆 카페') v", [mp, `${d1}|evening`])).v
+  eq("겹치는 시간 하나를 누르면 그 자리에서 약속이 정해진다", [booked.meetingOn, booked.meetingTime, booked.proposals.find((x) => x.status === "accepted")?.activity], [d1, "18:00~21:00", "카페·디저트"])
+  await as("postgres")
+  eq("약속이 정해졌다고 두 분에게 알린다", (await one("select count(*)::int n from public.notifications where member_id in ($1, $2) and kind = 'appointment-final'", [M1, M2])).n, 2)
+  await q("select public.close_program($1, 'completed')", [mp])
+  eq("교류가 끝나면 고른 시간·지역을 지운다", { ...(await one("select avail_a, avail_b, region_a, region_b from public.programs where id = $1", [mp])) }, { avail_a: null, avail_b: null, region_a: null, region_b: null })
+}
+
 console.log(`서버 데이터베이스 점검 통과: ${passed}개`)

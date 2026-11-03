@@ -12,12 +12,41 @@ export const LIVE = import.meta.env.VITE_BACKEND === "supabase"
 // 처음 열린 주소(메일 링크로 돌아왔는지 확인용). Supabase가 주소를 정리하기 전에 남겨 둔다.
 export const LANDING = typeof window === "undefined" ? { path: "", search: "", hash: "" } : { path: window.location.pathname, search: window.location.search, hash: window.location.hash }
 
+// 로그인 유지: 아이폰 사파리는 7일 넘게 열지 않은 사이트의 저장값을 지워 로그인이 풀릴 수 있다.
+// 새로 고침 토큰을 우리 사이트 쿠키(/api/session · HttpOnly)에도 보관해 두고, 저장값이 비었으면 그걸로 로그인을 이어 준다.
+// 보관한 게 있다는 표시(flv_has)가 있을 때만 물어보고, 실패하면 지금처럼 로그인 화면으로 간다(개발 서버에는 /api가 없다).
+const SESSION_API = "/api/session"
+const sessionBackup = (method: "GET" | "POST" | "DELETE", body?: { refreshToken: string }) => window.fetch(SESSION_API, { method, credentials: "same-origin", headers: { "x-flavie-session": "1", ...(body ? { "content-type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined })
+const hasBackup = () => typeof document !== "undefined" && /(?:^|;\s*)flv_has=1(?:;|$)/.test(document.cookie)
+async function keepSession(db: SupabaseClient) {
+  try {
+    const { data } = await db.auth.getSession()
+    if (!data.session && hasBackup()) {
+      const response = await sessionBackup("GET")
+      const saved = response.ok && response.headers.get("content-type")?.includes("json") ? ((await response.json()) as { refreshToken?: string | null }).refreshToken : null
+      if (saved) {
+        const { error } = await db.auth.refreshSession({ refresh_token: saved })
+        if (error) void sessionBackup("DELETE").catch(() => undefined)
+      }
+    }
+  } catch {
+    // 보관을 못 읽어도 화면은 그대로(로그인이 필요하면 로그인 화면으로)
+  }
+  let last = ""
+  db.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_OUT") { last = ""; void sessionBackup("DELETE").catch(() => undefined); return }
+    if (session?.refresh_token && session.refresh_token !== last) { last = session.refresh_token; void sessionBackup("POST", { refreshToken: session.refresh_token }).catch(() => undefined) }
+  })
+}
+
 let client: Promise<SupabaseClient> | null = null
 export function supabase() {
   if (!LIVE) throw new Error("데모 모드에서는 실제 서버를 쓰지 않아요.")
-  return (client ??= import("@supabase/supabase-js").then(({ createClient }) =>
-    createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, { auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }, global: { fetch: (...args: Parameters<typeof fetch>) => window.fetch(...args) } }),
-  ))
+  return (client ??= import("@supabase/supabase-js").then(async ({ createClient }) => {
+    const db = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, { auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }, global: { fetch: (...args: Parameters<typeof fetch>) => window.fetch(...args) } })
+    await keepSession(db)
+    return db
+  }))
 }
 
 // 서버 오류를 회원이 읽을 수 있는 문장으로 바꾼다. 서버 함수가 보낸 한국어 안내는 그대로 쓴다.

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { ArrowRight, Check, ChevronDown, ImagePlus, Loader2, LockOpen, PenLine, X } from "lucide-react";
+import { ArrowRight, CalendarPlus, Check, ChevronDown, ImagePlus, Loader2, LockOpen, PenLine, X } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
@@ -9,7 +9,7 @@ import { Member, Waiting } from "./LiveMember";
 import { kstDateTime, kstDay } from "./dates";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
 import { APPOINTMENT_ACTIVITIES, QUICK_TIMES } from "./appointment-details";
-import { COMMENT_MAX, CUSTOM, END_REASON, PIECE_MAX, PIECE_MIN, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_ACTIVITY_ROWS, SCENE_CUSTOM_MAX, SCENE_PROMPTS, SCENE_REASON_MAX, SCENE_STAY, SCENE_TOPIC_EXAMPLES, SCENE_TOPIC_MAX, acceptAppointment, chooseFirstScene, chooseMeeting, choosePlan, confirmProgram, contactProblem, customOk, isCustom, leaveComment, letterPrompt, loadMyProgram, loadReadablePrograms, proposeAppointment, proposeStart, sceneAppointment, sceneLabel, sceneNote, setContactConsent, stayFor, submitEntry, tidyChoice, writeScenePiece, type EntryContent, type Program, type ProgramEntry, type ReadableProgram, type ScenePick, type Slot } from "./backend/program";
+import { COMMENT_MAX, CUSTOM, END_REASON, PIECE_MAX, PIECE_MIN, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_ACTIVITY_ROWS, SCENE_CUSTOM_MAX, SCENE_PROMPTS, SCENE_REASON_MAX, SCENE_STAY, SCENE_TOPIC_EXAMPLES, SCENE_TOPIC_MAX, AVAIL_BANDS, acceptAppointment, availLabel, bookSlot, chooseFirstScene, quickStart, setAvailability, chooseMeeting, choosePlan, confirmProgram, contactProblem, customOk, isCustom, leaveComment, letterPrompt, loadMyProgram, loadReadablePrograms, proposeAppointment, proposeStart, sceneAppointment, sceneLabel, sceneNote, setContactConsent, stayFor, submitEntry, tidyChoice, writeScenePiece, type EntryContent, type Program, type ProgramEntry, type ReadableProgram, type ScenePick, type Slot } from "./backend/program";
 import { letterPhotoUrl, removeLetterPhoto, uploadLetterPhoto } from "./backend/letterPhotos";
 
 // 실제 서버 모드의 교류(/exchange)와 약속·연락처(/meeting). 데모 화면과 같은 편집 톤을 쓴다.
@@ -132,9 +132,32 @@ function Agreement({ program, act }: { program: Program; act: Act }) {
   const same = !!program.ownPlan && program.ownPlan === program.partnerPlan;
   const differ = !!program.ownPlan && !!program.partnerPlan && !same;
   const min = shift(program.today, 1), max = shift(program.today, 14);
+  // 추천: 상대가 고른 방식 → 내가 고른 방식 → A. 시작일은 기본(내일 09:00, 상대가 다른 날을 제안했다면 그날).
+  const suggested: "A" | "B" = program.partnerPlan ?? program.ownPlan ?? "A";
+  const [pick, setPick] = useState<"A" | "B">(suggested);
+  useEffect(() => setPick(suggested), [suggested]);
+  const [detail, setDetail] = useState(false);
+  const startText = `${program.startOn && program.ownPlan === program.partnerPlan ? dayLabel(program.startOn) : dayLabel(shift(program.today, 1))} 09:00 시작`;
+  const waiting = program.ownReady === pick && !program.partnerReady;
+  const openDetail = detail || differ || (program.partnerConfirmed && !program.ownConfirmed && !program.partnerReady);
   return <>
     <Sheet className="p-6 sm:p-8">
-      <Eyebrow mark="01" label="방식 고르기" en="CHOOSE TOGETHER" />
+      <Eyebrow mark="01" label="이대로 시작하기" en="START SIMPLY" />
+      <p className="mt-3 text-sm leading-7 text-muted-foreground">방식을 하나 고르고 ‘이대로 시작’을 누르면 끝이에요. 두 분이 같은 방식으로 누르면 바로 일정이 정해져요.</p>
+      <div role="radiogroup" aria-label="교류 방식" className="mt-5 grid gap-2 sm:grid-cols-2">{(["A", "B"] as const).map(plan => <button key={plan} type="button" role="radio" aria-checked={pick === plan} onClick={() => setPick(plan)} className={`rounded-2xl border px-4 py-3 text-left ${interaction} ${pick === plan ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"}`}>
+        <span className="flex items-center justify-between gap-2 text-sm font-semibold">{PLAN_COPY[plan].name}{program.partnerPlan === plan && <span className="rounded-full bg-[#F8E5A6] px-2 py-0.5 text-[10px] font-semibold text-[#5A4310]">상대가 고른 방식</span>}</span>
+        <span className="mt-1 block text-xs leading-5 text-muted-foreground">{PLAN_COPY[plan].fit}</span>
+      </button>)}</div>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-mist p-5">
+        <p className="text-sm leading-7"><span className="font-semibold">{planName(pick)} · {startText}</span><br /><span className="text-xs text-muted-foreground">{program.partnerReady && program.partnerPlan === pick ? "상대는 이대로 시작을 눌러 두었어요. 나도 누르면 바로 정해져요." : waiting ? "이대로 시작을 눌렀어요. 상대가 같은 방식을 고르면 그때 바로 정해져요." : program.partnerReady && program.partnerPlan !== pick ? `상대는 ${planName(program.partnerPlan!)}로 이대로 시작을 눌러 두었어요.` : "상대도 같은 방식을 고르면 이 일정으로 시작해요."}</span></p>
+        <Button disabled={waiting || program.ownConfirmed && program.ownPlan === pick} onClick={() => void act(() => quickStart(program.id, pick), "")} className="h-11 rounded-xl px-6">{waiting || program.ownConfirmed && program.ownPlan === pick ? "눌렀어요" : "이대로 시작"}</Button>
+      </div>
+      {!openDetail && <button type="button" onClick={() => setDetail(true)} className={`mt-4 text-xs font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>방식을 자세히 보고 고르거나, 다른 시작일 제안하기</button>}
+      <p className="mt-4 text-xs leading-6 text-muted-foreground"><span className="font-semibold text-foreground">{kstDateTime(program.agreeBy)}까지</span> 정해지지 않으면 교류는 열리지 않고 이번 소개는 마무리돼요.</p>
+    </Sheet>
+    {openDetail && <>
+    <Sheet className="p-6 sm:p-8">
+      <Eyebrow mark="02" label="방식 자세히 보기" en="CHOOSE TOGETHER" />
       <p className="mt-3 text-sm leading-7 text-muted-foreground">두 분이 같은 방식을 고르면 시작일을 확인해요. 날마다 무엇을 하는지 보고 골라 주세요.</p>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">{(["A", "B"] as const).map(plan => <button key={plan} type="button" aria-pressed={program.ownPlan === plan} onClick={() => void act(() => choosePlan(program.id, plan), "골랐어요.")} className={choice(program.ownPlan === plan)}>
         <span className="flex items-center justify-between gap-2"><span className="font-semibold">{PLAN_COPY[plan].name}</span>{program.ownPlan === plan && <Check size={16} className="text-primary" />}</span>
@@ -152,7 +175,7 @@ function Agreement({ program, act }: { program: Program; act: Act }) {
       <p className="mt-5 border-t border-border pt-4 text-xs leading-6 text-muted-foreground"><span className="font-semibold text-foreground">{kstDateTime(program.agreeBy)}까지</span> 두 분이 같은 방식과 시작일을 모두 확인해야 교류가 시작돼요. 그때까지 정해지지 않으면 교류는 열리지 않고 이번 소개는 마무리돼요. 그 뒤에는 다음 소개를 기다리게 돼요.</p>
     </Sheet>
     {same && <Sheet className="p-6 sm:p-8">
-      <Eyebrow mark="02" label="시작일 확인" en="DAY 01" />
+      <Eyebrow mark="03" label="시작일 확인" en="DAY 01" />
       <p className="mt-3 text-sm leading-7 text-muted-foreground">기본은 내일 09:00 시작이에요. 다른 날이 좋으면 14일 안에서 제안할 수 있어요. 제안한 사람은 그 날짜로 확인한 것으로 보고, 상대의 확인만 다시 받아요.</p>
       <div className="mt-5 flex flex-wrap items-end gap-3">
         <label className="grid gap-1.5 text-xs font-semibold">시작일<Input type="date" min={min} max={max} value={date} onChange={event => setDate(event.target.value)} className="h-11 w-48 rounded-xl border-border bg-card" /></label>
@@ -163,6 +186,7 @@ function Agreement({ program, act }: { program: Program; act: Act }) {
         <Button disabled={program.ownConfirmed} onClick={() => void act(() => confirmProgram(program.id), "확인했어요.")} className="h-11 rounded-xl px-6">{program.ownConfirmed ? "확인했어요" : "이 일정으로 시작하기"}</Button>
       </div>
     </Sheet>}
+    </>}
     <NoteList items={[{ title: "베타 기간", body: "지금은 교류비 없이 진행해요. 정식 운영부터 각자 교류비를 결제한 뒤 시작해요." }, { title: "시작한 뒤에는", body: "방식은 바꿀 수 없어요. 3일 동안 하루 한 번씩 쓰고, 넷째 날 09:00에 만남을 정해요." }]} />
   </>;
 }
@@ -579,8 +603,26 @@ function Comments({ program, act, on, day, until, open }: { program: Program; ac
   </div>;
 }
 
+// 가능한 때 고르기: 내일부터 10일 · 낮(12~15시)·오후(15~18시)·저녁(18~21시). 두 분 모두 만나고 싶을 때 겹치는 시간만 보여 줘요.
+function AvailabilityPicker({ program, value, onChange, region, onRegion }: { program: Program; value: string[]; onChange: (update: (current: string[]) => string[]) => void; region: string; onRegion: (next: string) => void }) {
+  const days = Array.from({ length: 10 }, (_, index) => shift(program.today, index + 1));
+  const toggle = (slot: string) => onChange(current => current.includes(slot) ? current.filter(item => item !== slot) : [...current, slot]);
+  return <div className="space-y-4">
+    <div>
+      <p className="text-xs font-semibold">만날 수 있는 때 <span className="font-normal text-muted-foreground">(선택 · 여러 개)</span></p>
+      <p className="mt-1 text-[11px] leading-5 text-muted-foreground">두 분 모두 만나고 싶다면, 겹치는 시간만 보여 드려요. 한 번 누르면 약속이 정해져요. 상대가 고른 다른 시간은 보이지 않아요.</p>
+      <ul className="mt-3 divide-y divide-border rounded-2xl border border-border">{days.map(date => <li key={date} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-2.5"><span className="shrink-0 text-xs sm:w-28">{dayLabel(date)}</span><span className="flex gap-1.5">{AVAIL_BANDS.map(band => { const slot = `${date}|${band.id}`; const on = value.includes(slot); return <button key={band.id} type="button" aria-pressed={on} aria-label={`${dayLabel(date)} ${band.label} ${band.start}~${band.end}`} onClick={() => toggle(slot)} className={`h-9 rounded-full border px-3 text-[11px] ${interaction} ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"}`}>{band.label}</button>; })}</span></li>)}</ul>
+      <p className="mt-2 text-[11px] text-muted-foreground">낮 12~15시 · 오후 15~18시 · 저녁 18~21시{value.length ? ` · ${value.length}개 골랐어요` : ""}</p>
+    </div>
+    <label className="grid gap-1.5 text-xs font-semibold">만나기 편한 지역·역 <span className="sr-only">(선택)</span><Input value={region} maxLength={40} onChange={event => onRegion(event.target.value)} placeholder="예: 합정역 근처 (선택)" className="h-11 rounded-xl border-border bg-card font-normal" /></label>
+  </div>;
+}
+
 function MeetingDecision({ program, act }: { program: Program; act: Act }) {
   const [confirm, setConfirm] = useState<"positive" | "negative" | null>(null);
+  const [avail, setAvail] = useState<string[]>(program.ownAvailability ?? []);
+  const [region, setRegion] = useState(program.ownRegion ?? "");
+  const [editing, setEditing] = useState(false);
   // 사흘 동안 함께 열린 글이 하나도 없었는지
   const nothingOpened = !program.entries.some(entry => (entry.kind === "letter" || entry.kind === "scene") && !!entry.own && !!entry.partner);
   return <Sheet className="p-6 sm:p-8">
@@ -589,8 +631,13 @@ function MeetingDecision({ program, act }: { program: Program; act: Act }) {
       {nothingOpened && <p className="mt-4 rounded-2xl bg-mist p-4 text-sm leading-7">사흘 동안 함께 열린 글은 없었어요. 바쁜 날이 겹쳤을 수도 있어요. 그래도 한 번 만나 보고 싶은 마음이 있다면, 그 마음대로 골라 주세요.</p>}
       <p className="mt-4 text-sm leading-7 text-muted-foreground">{program.meetingBy && `${kstDateTime(program.meetingBy)}까지`} 골라 주세요. 상대가 먼저 골랐는지는 서로 알 수 없고, 두 분 모두 ‘만나고 싶어요’일 때만 약속을 정해요. 답은 바꿀 수 없어요.</p>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">{([["positive", "만나고 싶어요", "약속 날짜·장소를 함께 정해요."], ["negative", "이번에는 여기까지", "상대에게 내 답은 알리지 않아요."]] as const).map(([value, title, sub]) => <button key={value} type="button" aria-pressed={confirm === value} onClick={() => setConfirm(value)} className={choice(confirm === value)}><span className="font-semibold">{title}</span><span className="mt-1 block text-xs text-muted-foreground">{sub}</span></button>)}</div>
-      {confirm && <div className="mt-5 flex justify-end"><Button onClick={() => void act(() => chooseMeeting(program.id, confirm), "답을 남겼어요.")} className="h-11 rounded-xl px-6">이 답으로 보내기</Button></div>}
+      {confirm === "positive" && <div className="mt-5 rounded-2xl bg-mist p-4 sm:p-5"><AvailabilityPicker program={program} value={avail} onChange={setAvail} region={region} onRegion={setRegion} /></div>}
+      {confirm && <div className="mt-5 flex justify-end"><Button onClick={() => void act(() => chooseMeeting(program.id, confirm, avail, region), "답을 남겼어요.")} className="h-11 rounded-xl px-6">이 답으로 보내기</Button></div>}
     </>}
+    {program.ownMeeting === "positive" && <div className="mt-5 border-t border-border pt-4">
+      {editing ? <><AvailabilityPicker program={program} value={avail} onChange={setAvail} region={region} onRegion={setRegion} /><div className="mt-4 flex justify-end gap-2"><Button variant="ghost" onClick={() => { setEditing(false); setAvail(program.ownAvailability ?? []); setRegion(program.ownRegion ?? ""); }} className="h-10">닫기</Button><Button onClick={async () => { if (await act(() => setAvailability(program.id, avail, region), "가능한 때를 고쳤어요.")) setEditing(false); }} className="h-10 rounded-xl px-5">저장하기</Button></div></>
+        : <p className="flex flex-wrap items-center justify-between gap-3 text-xs leading-6 text-muted-foreground"><span>만날 수 있는 때 {program.ownAvailability?.length ? `${program.ownAvailability.length}개` : "아직 고르지 않았어요"}{program.ownRegion ? ` · ${program.ownRegion}` : ""}</span><button type="button" onClick={() => setEditing(true)} className="font-semibold text-primary underline-offset-4 hover:underline">{program.ownAvailability?.length ? "고치기" : "골라 두기"}</button></p>}
+    </div>}
   </Sheet>;
 }
 
@@ -638,14 +685,62 @@ function MeetingView() {
     <section className="space-y-8" aria-labelledby="meeting-title">
       <PageHeader mark="약속" label={accepted ? "약속 확정" : "약속 정하기"} en="THE NEXT SCENE" titleId="meeting-title" title={accepted ? <>{data.meetingOn && dayLabel(data.meetingOn)} {data.meetingTime?.split("~")[0]},<br />만나기로 했어요.</> : "만날 시간과 장소를 함께 정해요."} lead={accepted ? undefined : data.arrangeBy ? `${kstDateTime(data.arrangeBy)}까지 정하지 않으면 교류는 마무리돼요.` : undefined} />
       <Notice text={message} />
+      {!accepted && <OverlapPicker program={data} act={act} />}
+      {accepted && accepted.selected && <CalendarLinks proposal={accepted} />}
       {accepted && accepted.selected && <Sheet className="p-6 sm:p-8"><Eyebrow mark="✓" label="정해진 약속" en="IT'S A DATE" /><dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">{[["날짜·시간", `${dayLabel(accepted.selected.date)} ${accepted.selected.start}~${accepted.selected.end}`], ["활동", accepted.activity], ["지역", accepted.region], ["장소", accepted.place || "만나서 정해요"]].map(([label, value]) => <div key={label}><dt className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{label}</dt><dd className="mt-1 font-semibold">{value}</dd></div>)}</dl>{accepted.note && <p className="mt-4 rounded-xl bg-mist p-4 text-sm leading-7">{accepted.note}</p>}</Sheet>}
       {open && !open.mine && <Sheet className="p-6 sm:p-8"><Eyebrow label="상대의 약속 제안" en="PROPOSAL" /><p className="mt-3 text-sm leading-7">{open.activity} · {open.region}{open.place ? ` · ${open.place}` : ""}</p>{open.note && <p className="mt-2 text-sm leading-7 text-muted-foreground">{open.note}</p>}<p className="mt-5 text-xs font-semibold">좋은 시간 하나를 골라 주세요</p><div className="mt-3 flex flex-wrap gap-2">{open.slots.map((slot, index) => <Button key={index} variant="outline" onClick={() => void act(() => acceptAppointment(open.id, index), "약속이 정해졌어요.")} className="h-auto rounded-xl border-border px-4 py-3 text-sm">{dayLabel(slot.date)} {slot.start}~{slot.end}</Button>)}</div><p className="mt-4 text-xs text-muted-foreground">맞는 시간이 없으면 아래에서 다른 시간을 제안해 주세요.</p></Sheet>}
       {open && open.mine && <QuietNote>보낸 제안: {open.slots.map(slot => `${dayLabel(slot.date)} ${slot.start}`).join(", ")} · 상대가 시간을 고르면 약속이 정해져요.</QuietNote>}
-      <ProposalForm program={data} act={act} again={!!(open || accepted)} />
+      <ProposalForm program={data} act={act} again={!!(open || accepted || data.overlap?.length)} />
       {accepted && <Contact program={data} act={act} />}
       <NoteList items={[{ title: "처음 만남은", body: "사람이 많은 공개된 장소에서, 돌아가는 길을 각자 정해 두고 만나요." }, { title: "불편한 일이 생기면", body: "두 사람 화면에서 바로 신고·차단할 수 있어요. 만남이 어려워지면 문의로 알려 주세요." }]} />
     </section>
   );
+}
+
+// 두 분 모두 되는 시간: 넷째 날 각자 고른 때 중 겹치는 것만. 하나를 누르면(무엇을·어디서만 확인) 그 자리에서 약속이 정해져요.
+function OverlapPicker({ program, act }: { program: Program; act: Act }) {
+  const overlap = program.overlap ?? [];
+  const [slot, setSlot] = useState<string | null>(null);
+  const [activity, setActivity] = useState(() => program.ownPlan === "B" ? sceneAppointment(scenePick(program).activity) || "카페·디저트" : "카페·디저트");
+  const [region, setRegion] = useState(program.ownRegion || program.partnerRegion || "");
+  const [place, setPlace] = useState("");
+  const [picking, setPicking] = useState(false);
+  const [avail, setAvail] = useState<string[]>(program.ownAvailability ?? []);
+  const [myRegion, setMyRegion] = useState(program.ownRegion ?? "");
+  if (!overlap.length) {
+    if (!program.ownAvailability?.length) return <Sheet className="p-6 sm:p-8" tone="soft"><Eyebrow label="두 분 모두 되는 시간" en="WHEN WE'RE BOTH FREE" />
+      <p className="mt-3 text-sm leading-7 text-muted-foreground">만날 수 있는 때를 골라 두면, 상대가 고른 때와 겹치는 시간만 보여 드려요. 한 번 누르면 약속이 정해져요.</p>
+      {picking ? <div className="mt-5"><AvailabilityPicker program={program} value={avail} onChange={setAvail} region={myRegion} onRegion={setMyRegion} /><div className="mt-4 flex justify-end"><Button disabled={!avail.length} onClick={async () => { if (await act(() => setAvailability(program.id, avail, myRegion), "골라 두었어요.")) setPicking(false); }} className="h-11 rounded-xl px-6">골라 두기</Button></div></div>
+        : <Button variant="outline" onClick={() => setPicking(true)} className="mt-4 h-11 rounded-full border-border px-5">만날 수 있는 때 고르기</Button>}
+    </Sheet>;
+    return program.partnerAvailabilitySet ? <QuietNote>두 분이 고른 때 중 겹치는 시간이 없어요. 아래에서 다른 시간을 직접 제안해 주세요.</QuietNote> : <QuietNote>상대가 만날 수 있는 때를 아직 고르지 않았어요. 고르면 겹치는 시간을 바로 보여 드려요. 먼저 제안해도 좋아요.</QuietNote>;
+  }
+  return <Sheet className="p-6 sm:p-8">
+    <Eyebrow label="두 분 모두 되는 시간" en="WHEN WE'RE BOTH FREE" />
+    <p className="mt-3 text-sm leading-7 text-muted-foreground">하나를 고르고 무엇을 할지만 확인하면 바로 약속이 정해져요.{program.partnerRegion ? ` 상대가 편하다고 한 곳 · ${program.partnerRegion}` : ""}</p>
+    <div className="mt-5 flex flex-wrap gap-2">{overlap.map(item => <button key={item} type="button" aria-pressed={slot === item} onClick={() => setSlot(item)} className={`rounded-full border px-4 py-2 text-xs ${interaction} ${slot === item ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"}`}>{availLabel(item, dayLabel)}</button>)}</div>
+    {slot && <div className="mt-5 grid gap-4 sm:grid-cols-3">
+      <label className="grid gap-1.5 text-xs font-semibold">무엇을<select value={activity} onChange={event => setActivity(event.target.value)} className="h-11 rounded-xl border border-primary/15 bg-card px-3 text-sm font-normal max-md:text-base">{APPOINTMENT_ACTIVITIES.map(item => <option key={item}>{item}</option>)}</select></label>
+      <label className="grid gap-1.5 text-xs font-semibold">지역·역<Input value={region} maxLength={40} onChange={event => setRegion(event.target.value)} placeholder="예: 합정역 근처" className="h-11 rounded-xl border-border bg-card font-normal" /></label>
+      <label className="grid gap-1.5 text-xs font-semibold">장소(선택)<Input value={place} maxLength={80} onChange={event => setPlace(event.target.value)} placeholder="공개된 장소 이름" className="h-11 rounded-xl border-border bg-card font-normal" /></label>
+    </div>}
+    {slot && <div className="mt-6 flex justify-end"><Button disabled={!activity || !region.trim()} onClick={() => void act(() => bookSlot(program.id, slot, activity, region, place), "약속이 정해졌어요.")} className="h-11 rounded-xl px-6">이 시간으로 정하기</Button></div>}
+  </Sheet>;
+}
+
+// 캘린더에 넣기: 일정 파일(.ics, 장소 포함 · 이 기기에서만 만들어요)과 구글 캘린더(날짜·시간만). 상대 이름은 넣지 않아요.
+function CalendarLinks({ proposal }: { proposal: { id: string; selected: Slot | null; activity: string; region: string; place: string | null } }) {
+  if (!proposal.selected) return null;
+  const { date, start, end } = proposal.selected;
+  const utc = (time: string) => new Date(kstAt(date, time)).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const title = "플라비 첫 만남";
+  const details = "플라비에서 정한 첫 만남이에요. 연락처는 두 분이 동의하면 만나는 날 0시부터 플라비에서 볼 수 있어요.";
+  const location = [proposal.region, proposal.place].filter(Boolean).join(" · ");
+  const esc = (text: string) => text.replace(/[\\,;]/g, match => `\\${match}`).replace(/\n/g, "\\n");
+  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//FLAVIE//KO", "CALSCALE:GREGORIAN", "BEGIN:VEVENT", `UID:${proposal.id}@flavie`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "")}`, `DTSTART:${utc(start)}`, `DTEND:${utc(end)}`, `SUMMARY:${esc(title)}`, `DESCRIPTION:${esc(`${proposal.activity} · ${details}`)}`, ...(location ? [`LOCATION:${esc(location)}`] : []), "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+  const download = () => { const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = "flavie-first-meeting.ics"; document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); };
+  const google = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${utc(start)}/${utc(end)}&details=${encodeURIComponent(details)}`;
+  return <div className="flex flex-wrap items-center gap-2"><Button variant="outline" onClick={download} className="h-10 rounded-full border-border px-4 text-xs"><CalendarPlus size={14} />캘린더에 넣기</Button><Button asChild variant="ghost" className="h-10 rounded-full px-4 text-xs text-muted-foreground"><a href={google} target="_blank" rel="noreferrer">구글 캘린더로</a></Button><span className="text-[11px] text-muted-foreground">상대 이름은 넣지 않아요.</span></div>;
 }
 
 // B 첫 장면 → 약속 제안: 두 분이 맞춘 장면(아직이면 내가 고른 장면, 그것도 없으면 사흘 동안 고른 것)을 미리 채운다.
@@ -788,7 +883,7 @@ function ProposalForm({ program, act, again }: { program: Program; act: Act; aga
   const [slots, setSlots] = useState<Slot[]>([{ date: "", start: "14:00", end: "17:00" }]);
   // B는 첫 장면의 장소를 활동으로, 흐름·쉬어 갈 곳·이야기를 한마디로 미리 채워 둔다(고칠 수 있다).
   const [activity, setActivity] = useState(() => program.ownPlan === "B" ? sceneAppointment(scenePick(program).activity) : "");
-  const [region, setRegion] = useState("");
+  const [region, setRegion] = useState(program.ownRegion ?? "");
   const [place, setPlace] = useState("");
   const [note, setNote] = useState(() => program.ownPlan === "B" ? sceneNote(scenePick(program)) : "");
   const min = shift(program.today, 1), max = shift(program.today, 21);
