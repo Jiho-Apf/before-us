@@ -539,9 +539,28 @@ function Pricing() {
   );
 }
 
+// 07 왼쪽 칸: 제목이 화면 안에 머물며 따라 내려오고(넓은 화면), 질문을 읽어 내려갈수록 두 점이 가까워진다.
+// 끝까지 읽으면 두 점이 맞닿고 ‘소개 신청하기’가 나타난다. 휴대폰은 그대로(한 줄).
+function useReadProgress<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let frame = 0;
+    const measure = () => { frame = 0; const box = ref.current?.getBoundingClientRect(); if (box) setValue(Math.min(1, Math.max(0, (80 - box.top) / Math.max(1, box.height - window.innerHeight + 80)))); };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure); };
+    measure();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); cancelAnimationFrame(frame); };
+  }, []);
+  return [ref, value] as const;
+}
 function Faq() {
   const location = useLocation();
   const [open, setOpen] = useState("");
+  const [ref, read] = useReadProgress<HTMLElement>();
+  const done = read >= 0.94;
+  const offset = Math.round(done ? 5 : 5 + 27 * (1 - read));
   useEffect(() => {
     const id = location.hash.startsWith("#faq-") ? location.hash.slice(5) : "";
     if (!id || !FAQ.some(item => item.id === id)) return;
@@ -550,8 +569,25 @@ function Faq() {
     return () => cancelAnimationFrame(frame);
   }, [location.hash, location.key]);
   return (
-    <section id="faq" className="grid gap-8 pt-20 pb-14 sm:pt-24 sm:pb-18 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="faq-title">
-      <div><SectionLabel number="07" ko="자주 묻는 질문">BEFORE YOU BEGIN</SectionLabel><h2 id="faq-title" className="text-ink text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청하기 전에 많이 묻는 것들을 모았어요.<br />더 궁금한 건 <Link to="/contact" className="font-semibold text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary">문의하기</Link>로 남겨 주세요.</p></div>
+    <section ref={ref} id="faq" className="grid gap-8 pt-20 pb-14 sm:pt-24 sm:pb-18 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="faq-title">
+      <div><div className="lg:sticky lg:top-10">
+        <SectionLabel number="07" ko="자주 묻는 질문">BEFORE YOU BEGIN</SectionLabel><h2 id="faq-title" className="text-ink text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청하기 전에 많이 묻는 것들을 모았어요.<br />더 궁금한 건 <Link to="/contact" className="font-semibold text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary">문의하기</Link>로 남겨 주세요.</p>
+        <div className="mt-10 hidden max-w-sm rounded-3xl border border-border bg-card p-6 shadow-[0_22px_44px_-34px_color-mix(in_oklch,var(--primary)_55%,transparent)] lg:block">
+          <span aria-hidden="true" className="relative flex h-5 w-20 items-center justify-center">
+            <span className="absolute size-4 rounded-full bg-primary transition-transform duration-300 ease-out motion-reduce:transition-none" style={{ transform: `translateX(${-offset}px)` }} />
+            <span className="absolute size-4 rounded-full bg-accent/85 transition-transform duration-300 ease-out motion-reduce:transition-none" style={{ transform: `translateX(${offset}px)` }} />
+          </span>
+          {done ? <div key="done" className="letter-drop">
+            <p className="mt-5 text-base font-semibold">이제, 시작해 볼까요?</p>
+            <p className="mt-1.5 text-xs leading-6 text-muted-foreground">궁금한 것이 풀렸다면, 소개 신청서를 천천히 써 보세요.</p>
+            <div className="mt-4 flex flex-wrap items-center gap-2"><Button asChild className={`h-10 rounded-full px-5 text-xs ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={14} /></Link></Button><Button asChild variant="ghost" className={`h-10 rounded-full px-4 text-xs text-muted-foreground hover:bg-muted hover:text-foreground ${interaction}`}><Link to="/contact">문의하기</Link></Button></div>
+          </div> : <div key="reading">
+            <p className="mt-5 text-sm font-semibold">찾는 답이 없나요?</p>
+            <p className="mt-1.5 text-xs leading-6 text-muted-foreground">문의하기로 남겨 주시면 운영진이 직접 읽고 답해 드려요.</p>
+            <Link to="/contact" className={`mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>문의하기 <ArrowUpRight size={13} /></Link>
+          </div>}
+        </div>
+      </div></div>
       <Accordion type="single" collapsible value={open} onValueChange={setOpen} className="border-t border-border [&_[data-slot=accordion-content]]:motion-reduce:animate-none [&_svg]:motion-reduce:transition-none">
         {FAQ_GROUPS.map(group => <Fragment key={group.id}>
           <p className="pt-7 pb-1 text-xs font-semibold tracking-[0.08em] text-accent">{group.label}</p>

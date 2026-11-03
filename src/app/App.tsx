@@ -13,6 +13,7 @@ import { useUnreadCount } from "./backend/member";
 const later = <T, K extends keyof T>(load: () => Promise<T>, name: K) =>
   lazy(async () => ({ default: (await load())[name] as T[K] extends ComponentType<any> ? T[K] : never }));
 const MemberToday = later(() => import("./MemberToday"), "default");
+const NoonDrawer = later(() => import("./NoonDrawer"), "default");
 const TodayDemo = later(() => import("./MemberToday"), "TodayDemo");
 const ApplicationForm = later(() => import("./ApplicationForm"), "default");
 const MemberProfile = later(() => import("./MemberProfile"), "default");
@@ -76,6 +77,7 @@ const PUBLIC_NAV = [
   { to: "/pricing", label: "이용 요금", number: "02" },
   { to: "/faq", label: "자주 묻는 질문", number: "03" },
   { to: "/contact", label: "문의하기", number: "04" },
+  { to: "/drawer", label: "정오의 서랍", number: "05" },
 ];
 
 const MEMBER_NAV = [
@@ -336,6 +338,7 @@ const beforeUsRouter = createBrowserRouter([
     { path: "/two-starts", element: <PublicInformation section="exchange" /> },
     { path: "/pricing", element: <PublicInformation section="pricing" /> },
     { path: "/faq", element: <PublicInformation section="faq" /> },
+    { path: "/drawer", element: <NoonDrawer /> },
     { path: "/terms", element: <TermsPage /> },
     { path: "/privacy", element: <PrivacyPage /> },
     { path: "/contact", element: <InquiryPage /> },
