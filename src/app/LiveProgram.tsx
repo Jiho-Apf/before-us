@@ -814,7 +814,7 @@ function BookCard({ program }: { program: Program }) {
   };
   return <Sheet tone="soft" className="p-6 sm:p-8">
     <Eyebrow label="우리의 사흘, 한 권" en="KEEPSAKE" />
-    <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">두 분 모두 동의하면 사흘 동안 나눈 글을 표지 있는 한 권으로 펼쳐 볼 수 있어요. 인쇄하거나 PDF로 저장할 수 있고, 사진과 연락처는 넣지 않아요.</p>
+    <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">두 분 모두 동의하면 사흘 동안 나눈 글을 표지 있는 한 권으로 펼쳐 볼 수 있어요. 인쇄하거나 PDF로 저장할 수 있고, 사진과 연락처는 넣지 않아요. 교류가 마무리되고 30일이 지나면 다시 읽기와 함께 닫히니, 남기고 싶다면 그 전에 저장해 주세요.</p>
     <div className="mt-5 flex flex-wrap items-center gap-2">
       {state.bookOpen ? <Button onClick={() => setOpen(true)} className="h-11 rounded-full px-6"><BookOpen size={15} />한 권 펼치기</Button>
         : state.ownBook ? <span className={butter}>동의했어요 · 상대도 동의하면 열려요</span>
