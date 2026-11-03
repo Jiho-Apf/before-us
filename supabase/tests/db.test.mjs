@@ -2453,4 +2453,74 @@ await db.exec("reset role")
   eq("보존 정리: 창가 질문 답은 1년이 지나면 지운다", (await one("select count(*)::int n from public.window_answers where member_id = $1", [R1])).n, 0)
 }
 
+// ── 정오의 서랍: 오늘의 질문에 이름 없이 답하고 댓글 나누기(5000)
+{
+  await as("postgres")
+  await clock(null)
+  const at = async (date, time) => clock((await one("select public.kst_at($1::date, $2::time)::text t", [date, time])).t)
+  const plus = async (date, days) => (await one("select ($1::date + $2::int)::text d", [date, days])).d
+  const today = (await one("select public.kst_today()::text d")).d
+  const day = async (d) => (await one("select public.drawer_day($1::date) v", [d])).v
+  const D1 = await signup("d1-5000@example.test"), D2 = await signup("d2-5000@example.test"), D3 = await signup("d3-5000@example.test"), D4 = await signup("d4-5000@example.test")
+  await at(today, "13:00")
+  await as("anon")
+  const first = await day(today)
+  eq("서랍: 로그인 없이도 그날 질문과 답을 본다", [first.opened, first.signedIn, first.answers.length, first.question.length > 5], [true, false, 0, true])
+  eq("서랍: 질문은 화면과 같은 목록(날 수 % 31)", first.question, (await one("select public.drawer_question($1::date) q", [today])).q)
+  await fails("서랍: 로그인하지 않으면 남길 수 없다", "select public.drawer_answer($1::date, '창밖에 은행나무가 보여요.')", [today], /permission denied|로그인/)
+  await as(D1)
+  await fails("서랍: 연락처·SNS는 막는다", "select public.drawer_answer($1::date, '카톡 아이디 sky_walk 로 연락 주세요')", [today], /연락처/)
+  const mine = (await one("select public.drawer_answer($1::date, '창밖에 은행나무가 보여요.') v", [today])).v
+  eq("서랍: 답을 남기면 내 답과 목록에 보인다", [mine.mine.body, mine.answers.length, mine.answers[0].mine], ["창밖에 은행나무가 보여요.", 1, true])
+  ok("서랍: 이름·계정 대신 별명만 보인다", !JSON.stringify(mine).includes(D1) && mine.answers[0].alias.includes(" "))
+  eq("서랍: 다시 쓰면 고쳐진다(한 질문에 하나)", (await one("select public.drawer_answer($1::date, '창밖에 노란 은행나무가 보여요.') v", [today])).v.answers.map((a) => a.body), ["창밖에 노란 은행나무가 보여요."])
+  await fails("서랍: 표는 직접 읽을 수 없다", "select body from public.drawer_answers", [], /permission denied/)
+  const answerId = mine.answers[0].id
+  await as(D2)
+  await q("select public.drawer_answer($1::date, '빨래가 바람에 흔들려요.')", [today])
+  const thread = (await one("select public.drawer_comment($1, '은행나무 좋아요. 사진 찍고 싶네요.') v", [answerId])).v
+  await as(D1)
+  const reply = (await one("select public.drawer_comment($1, '오늘 정말 노랗더라고요.') v", [answerId])).v
+  eq("서랍 댓글: 글쓴이는 ‘글쓴이’, 다른 분은 같은 별명으로 이어진다", [reply.length, reply[1].alias, reply[0].alias === thread[0].alias, reply[1].mine], [2, "글쓴이", true, true])
+  await fails("서랍 댓글: 연락처는 막는다", "select public.drawer_comment($1, '인스타 @sky.walk 팔로우해요')", [answerId], /연락처/)
+  await as("anon")
+  eq("서랍 댓글: 로그인 없이도 댓글을 읽는다", (await one("select public.drawer_comments_of($1) v", [answerId])).v.length, 2)
+  eq("서랍: 목록에 댓글 수가 함께 온다", (await day(today)).answers.find((a) => a.id === answerId).comments, 2)
+  // 신고: 내 글은 안 되고, 서로 다른 세 분이 신고하면 바로 가린다
+  await as(D2)
+  await fails("서랍 신고: 내 글은 신고할 수 없다", "select public.drawer_report('answer', $1)", [(await day(today)).answers.find((a) => a.mine).id], /내 글/)
+  for (const m of [D2, D3, D4]) { await as(m); await q("select public.drawer_report('answer', $1, '광고 같아요')", [answerId]) }
+  await as(D2)
+  await q("select public.drawer_report('answer', $1, '광고 같아요')", [answerId])
+  await as("anon")
+  eq("서랍 신고: 서로 다른 세 분이 신고하면 바로 가려진다", (await day(today)).answers.some((a) => a.id === answerId), false)
+  await as(D1)
+  eq("서랍 신고: 글쓴이에게는 가려졌다고 보인다", (await day(today)).mine.hidden, true)
+  await fails("서랍 신고: 가려진 뒤에는 그 질문에 다시 남길 수 없다", "select public.drawer_answer($1::date, '다시 써 볼게요.')", [today], /가려진/)
+  await as(O, "aal2")
+  const reports = (await one("select public.admin_drawer_reports() v")).v
+  eq("서랍 운영: 신고된 글이 신고 수와 함께 보인다(같은 분의 신고는 한 번)", [reports[0].reports, reports[0].hidden, reports[0].hiddenBy, reports[0].body], [3, true, "reports", "창밖에 노란 은행나무가 보여요."])
+  await q("select public.admin_drawer_moderate('answer', $1, 'restore')", [answerId])
+  await as("anon")
+  ok("서랍 운영: 되돌리면 다시 보인다", (await day(today)).answers.some((a) => a.id === answerId))
+  await as(D3)
+  await fails("서랍: 회원은 운영진 목록을 볼 수 없다", "select public.admin_drawer_reports()", [], /권한/)
+  // 시간: 그날 정오부터 다음 날 정오 전까지 · 정오 전에는 그날 답을 보여 주지 않는다
+  const tomorrow = await plus(today, 1)
+  await at(tomorrow, "10:00")
+  await as("anon")
+  eq("서랍: 정오 전에는 그날 질문과 답을 보여 주지 않는다", [(await day(tomorrow)).opened, (await day(tomorrow)).question ?? null], [false, null])
+  await as(D3)
+  ok("서랍: 다음 날 정오 전까지는 어제 질문에 답할 수 있다", (await one("select public.drawer_answer($1::date, '어제 질문에 늦게 답해요.') v", [today])).v.mine.body === "어제 질문에 늦게 답해요.")
+  await at(tomorrow, "12:30")
+  await fails("서랍: 다음 날 정오가 지나면 그날 질문에는 답할 수 없다", "select public.drawer_answer($1::date, '너무 늦었네요.')", [today], /정오/)
+  await fails("서랍: 지난 일주일보다 오래된 날은 볼 수 없다", "select public.drawer_day(public.kst_today() - 10)", [], /볼 수 없는/)
+  // 보존 정리: 30일이 지난 답은 댓글과 함께 지운다
+  await as("postgres")
+  await clock(null)
+  await q("update public.drawer_answers set day = day - 31 where id = $1", [answerId])
+  await one("select public.run_retention()")
+  eq("보존 정리: 30일이 지난 서랍 답은 댓글과 함께 지운다", [(await one("select count(*)::int n from public.drawer_answers where id = $1", [answerId])).n, (await one("select count(*)::int n from public.drawer_comments where answer_id = $1", [answerId])).n], [0, 0])
+}
+
 console.log(`서버 데이터베이스 점검 통과: ${passed}개`)

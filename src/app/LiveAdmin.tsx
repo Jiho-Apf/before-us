@@ -462,18 +462,37 @@ function ReportExchangeView({ data, onClose }: { data: ReportExchange; onClose: 
   </div>;
 }
 const REQUEST_STATUS: Record<string, string> = { requested: "접수", protection: "보호 조치", checking: "확인 중", decided: "처리 완료", reconsidering: "재검토" };
-type SafetyTab = "reports" | "inquiries" | "requests" | "greetings";
+type SafetyTab = "reports" | "inquiries" | "requests" | "greetings" | "drawer";
 
 export function LiveSafety() {
   const role = useRole();
   const asked = new URLSearchParams(useLocation().search).get("tab") as SafetyTab | null;
-  const tabs = (role === "finance" ? [["requests", "회원 요청"]] : [["reports", "신고"], ["inquiries", "고객 문의"], ["requests", "회원 요청"], ["greetings", "첫 마디 · 홈"]]) as [SafetyTab, string][];
+  const tabs = (role === "finance" ? [["requests", "회원 요청"]] : [["reports", "신고"], ["inquiries", "고객 문의"], ["requests", "회원 요청"], ["greetings", "첫 마디 · 홈"], ["drawer", "서랍 글"]]) as [SafetyTab, string][];
   const [tab, setTab] = useState<SafetyTab>(() => tabs.some(([key]) => key === asked) ? asked! : tabs[0][0]);
   return <>
     <Title lead="안전 신고를 가장 먼저 봐요. 문의 본문과 이메일은 감사 기록에 남기지 않아요. 문의 답변을 기록하면 문의한 분의 이메일로 답변이 가고, 접수 번호로도 확인할 수 있어요.">신고·문의</Title>
     <Tabs value={tab} onChange={setTab} options={tabs} />
-    {tab === "reports" ? <ReportsPanel role={role} /> : tab === "inquiries" ? <InquiriesPanel /> : tab === "requests" ? <RequestsPanel /> : <GreetingsPanel role={role} />}
+    {tab === "reports" ? <ReportsPanel role={role} /> : tab === "inquiries" ? <InquiriesPanel /> : tab === "requests" ? <RequestsPanel /> : tab === "drawer" ? <DrawerPanel role={role} /> : <GreetingsPanel role={role} />}
   </>;
+}
+// 정오의 서랍: 이름 없이 남긴 답·댓글 중 신고된 글과 가려진 글(서로 다른 세 분이 신고하면 바로 가려진다). 누가 썼는지는 보이지 않는다.
+type DrawerRow = { kind: "answer" | "comment"; id: string; day: string; body: string; createdAt: string; hidden: boolean; hiddenBy: "reports" | "operator" | null; reports: number; reasons: string[] };
+function DrawerPanel({ role }: { role: Role }) {
+  const list = useLoad(() => call<DrawerRow[]>("admin_drawer_reports"), []);
+  const [message, setMessage] = useState("");
+  const { busy, run } = useBusy();
+  const moderate = (row: DrawerRow, action: "hide" | "restore" | "dismiss") => run(`${row.kind}-${row.id}`, async () => { const { error } = await rpc("admin_drawer_moderate", { p_kind: row.kind, p_id: row.id, p_action: action }); setMessage(error || (action === "hide" ? "가렸어요." : action === "restore" ? "다시 보이게 했어요." : "신고를 닫았어요.")); await list.reload(); });
+  return <div className="space-y-3">
+    <p className="text-xs leading-6 text-muted-foreground">정오의 서랍에 이름 없이 남긴 답·댓글 중 신고된 글과 가려진 글이에요. 서로 다른 세 분이 신고하면 바로 가려지고, 여기서 되돌리거나 계속 가릴 수 있어요. 특정인 이야기·연락처를 돌려 쓴 글·광고는 가려 주세요.</p>
+    <Notice text={message || list.error || ""} />
+    {(list.data ?? []).map(row => <article key={`${row.kind}-${row.id}`} className={`${box} p-4 text-sm`}>
+      <p className="text-[11px] text-muted-foreground">{row.kind === "answer" ? "답" : "댓글"} · {row.day} 질문 · {kstDateTime(row.createdAt)} · 열린 신고 {row.reports}건{row.hidden ? ` · 가려짐(${row.hiddenBy === "operator" ? "운영진" : "신고 3건"})` : ""}</p>
+      <p className="mt-2 whitespace-pre-wrap leading-7">{row.body}</p>
+      {row.reasons.length > 0 && <p className="mt-1 text-xs text-muted-foreground">사유 · {row.reasons.join(" / ")}</p>}
+      {canOperate(role) && <div className="mt-3 flex flex-wrap gap-2">{row.hidden ? <Button size="sm" variant="outline" disabled={busy === `${row.kind}-${row.id}`} onClick={() => void moderate(row, "restore")}>되돌리기</Button> : <Button size="sm" variant="outline" disabled={busy === `${row.kind}-${row.id}`} onClick={() => void moderate(row, "hide")}>가리기</Button>}{row.reports > 0 && <Button size="sm" variant="ghost" disabled={busy === `${row.kind}-${row.id}`} onClick={() => void moderate(row, "dismiss")}>신고 닫기</Button>}</div>}
+    </article>)}
+    {!list.loading && !list.data?.length && <p className="text-sm text-muted-foreground">확인할 서랍 글이 없어요.</p>}
+  </div>;
 }
 // 홈 공개를 신청한 첫 마디: 문장만 보고 확인한다(홈에는 이름·사진 없이, 확인된 문장이 12개 이상일 때만 나간다).
 type GreetingRow = { memberId: string; body: string; homeStatus: string; reason: string | null; updatedAt: string; name: string | null; cohort: number | null };
