@@ -14,6 +14,8 @@ const later = <T, K extends keyof T>(load: () => Promise<T>, name: K) =>
   lazy(async () => ({ default: (await load())[name] as T[K] extends ComponentType<any> ? T[K] : never }));
 const MemberToday = later(() => import("./MemberToday"), "default");
 const NoonDrawer = later(() => import("./NoonDrawer"), "default");
+const WorryBoard = later(() => import("./WorryLetters"), "default");
+const VouchPage = later(() => import("./Vouch"), "VouchPage");
 const TodayDemo = later(() => import("./MemberToday"), "TodayDemo");
 const ApplicationForm = later(() => import("./ApplicationForm"), "default");
 const MemberProfile = later(() => import("./MemberProfile"), "default");
@@ -78,6 +80,7 @@ const PUBLIC_NAV = [
   { to: "/faq", label: "자주 묻는 질문", number: "03" },
   { to: "/contact", label: "문의하기", number: "04" },
   { to: "/drawer", label: "정오의 서랍", number: "05" },
+  { to: "/mailbox", label: "고민 편지함", number: "06" },
 ];
 
 const MEMBER_NAV = [
@@ -170,8 +173,8 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
       <header className="border-b border-border">
         <div className="mx-auto flex min-h-24 max-w-7xl items-center justify-between gap-5 px-5 sm:px-8 lg:px-12">
           <Brand />
-          <nav aria-label="공개 메뉴" className="hidden items-center gap-8 lg:flex">
-            {PUBLIC_NAV.map(item => <NavLink key={item.to} to={item.to} className={({ isActive }) => `rounded-sm py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "text-primary" : "text-foreground hover:text-primary"}`}>{item.label}</NavLink>)}
+          <nav aria-label="공개 메뉴" className="hidden items-center gap-5 lg:flex xl:gap-8">
+            {PUBLIC_NAV.map(item => <NavLink key={item.to} to={item.to} className={({ isActive }) => `whitespace-nowrap rounded-sm py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "text-primary" : "text-foreground hover:text-primary"}`}>{item.label}</NavLink>)}
           </nav>
           {/* 아주 좁은 휴대폰(360px 미만)에서는 다크 모드 버튼을 메뉴 안으로 옮겨 메뉴 버튼이 밀려나지 않게 한다. */}
           <div className="flex items-center gap-1.5 sm:gap-4">
@@ -339,6 +342,8 @@ const beforeUsRouter = createBrowserRouter([
     { path: "/pricing", element: <PublicInformation section="pricing" /> },
     { path: "/faq", element: <PublicInformation section="faq" /> },
     { path: "/drawer", element: <NoonDrawer /> },
+    { path: "/mailbox", element: <WorryBoard /> },
+    { path: "/vouch/:token", element: <VouchPage /> },
     { path: "/terms", element: <TermsPage /> },
     { path: "/privacy", element: <PrivacyPage /> },
     { path: "/contact", element: <InquiryPage /> },

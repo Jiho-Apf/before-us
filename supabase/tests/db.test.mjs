@@ -2523,4 +2523,225 @@ await db.exec("reset role")
   eq("보존 정리: 30일이 지난 서랍 답은 댓글과 함께 지운다", [(await one("select count(*)::int n from public.drawer_answers where id = $1", [answerId])).n, (await one("select count(*)::int n from public.drawer_comments where answer_id = $1", [answerId])).n], [0, 0])
 }
 
+// ── 친구 추천사 · 이번 주 노트(5200)
+{
+  await as("postgres")
+  await clock(null)
+  const V1 = await signup("v1-5200@example.test"), V2 = await signup("v2-5200@example.test")
+  const KIND = "늘 약속 시간보다 먼저 와서 기다려 주는 친구예요."
+  await as("anon")
+  await fails("추천사: 로그인하지 않으면 링크를 만들 수 없다", "select public.vouch_link()", [], /permission denied/)
+  await fails("추천사: 로그인하지 않으면 받은 추천사를 볼 수 없다", "select public.my_vouches()", [], /permission denied/)
+  eq("추천사: 없는 링크는 ‘없음’으로만 알린다", (await one("select public.vouch_info('abc') v")).v, { ok: false, reason: "missing" })
+  await as(V1)
+  eq("추천사: 처음에는 링크도 추천사도 없다", (await one("select public.my_vouches() v")).v, { link: null, vouches: [], max: 3 })
+  const first = (await one("select public.vouch_link() v")).v
+  ok("추천사: 링크는 64자리 토큰 · 14일", /^[0-9a-f]{64}$/.test(first.token) && Math.round((Date.parse(first.expiresAt) - Date.now()) / 86400000) === 14)
+  const link = (await one("select public.vouch_link() v")).v
+  ok("추천사: 다시 만들면 새 링크로 바뀐다", link.token !== first.token)
+  await as("anon")
+  eq("추천사: 예전 링크는 바로 닫힌다", (await one("select public.vouch_info($1) v", [first.token])).v.reason, "missing")
+  eq("추천사: 새 링크는 열려 있고, 회원 정보는 알려 주지 않는다", (await one("select public.vouch_info($1) v", [link.token])).v, { ok: true, reason: null })
+  await fails("추천사: 연락처·SNS는 막는다", "select public.vouch_write($1, '대학 친구', '인스타 @sky.walk 팔로우하면 금방 알 수 있어요')", [link.token], /연락처/)
+  await fails("추천사: 관계에도 연락처는 막는다", "select public.vouch_write($1, '010-1234-5678', $2)", [link.token, KIND], /연락처/)
+  await fails("추천사: 너무 짧으면 받지 않는다", "select public.vouch_write($1, '대학 친구', '좋아요')", [link.token], /10~150/)
+  await fails("추천사: 관계는 20자까지", "select public.vouch_write($1, $2, $3)", [link.token, "가".repeat(21), KIND], /20자/)
+  eq("추천사: 친구는 로그인 없이 한 줄을 남긴다", (await one("select public.vouch_write($1, '대학 친구', $2) v", [link.token, KIND])).v, { ok: true })
+  await as(V1)
+  await fails("추천사: 내 링크에 내가 쓸 수는 없다", "select public.vouch_write($1, '나', '저는 정말 좋은 사람이에요. 믿어 주세요.')", [link.token], /친구가 써/)
+  const mine = (await one("select public.my_vouches() v")).v
+  eq("추천사: 회원은 받은 한 줄을 읽는다", [mine.vouches.length, mine.vouches[0].relation, mine.vouches[0].body, mine.link.token, mine.link.expired], [1, "대학 친구", KIND, link.token, false])
+  await as(V2)
+  await fails("추천사: 남의 추천사는 지울 수 없다", "select public.vouch_delete($1)", [mine.vouches[0].id], /지울 수 있는/)
+  await fails("추천사: 표는 직접 읽을 수 없다", "select body from public.vouches", [], /permission denied/)
+  await fails("추천사: 링크 표도 직접 읽을 수 없다", "select token from public.vouch_links", [], /permission denied/)
+  await fails("추천사: 회원은 운영진 목록을 볼 수 없다", "select public.admin_member_vouches($1)", [V1], /권한/)
+  await as("postgres")
+  eq("추천사: 받으면 회원에게 사이트 알림이 간다", (await one("select count(*)::int n from public.notifications where member_id = $1 and kind = 'vouch' and link = '/profile#vouch'", [V1])).n, 1)
+  await as("anon")
+  for (const body of ["같이 있으면 마음이 편해지는 사람이에요.", "작은 약속도 꼭 지키는 사람이에요, 진짜로요."]) await q("select public.vouch_write($1, '직장 동료', $2)", [link.token, body])
+  eq("추천사: 세 개가 차면 링크가 ‘충분히 받음’", (await one("select public.vouch_info($1) v", [link.token])).v.reason, "full")
+  await fails("추천사: 세 개를 넘으면 받지 않는다", "select public.vouch_write($1, '가족', '정말 다정하고 따뜻한 사람이에요.')", [link.token], /충분히/)
+  await as(V1)
+  await fails("추천사: 세 개가 차면 새 링크를 만들 수 없다", "select public.vouch_link()", [], /세 개/)
+  await q("select public.vouch_delete($1)", [mine.vouches[0].id])
+  eq("추천사: 하나를 지우면 다시 받을 수 있다", [(await one("select public.my_vouches() v")).v.vouches.length, (await one("select public.vouch_info($1) v", [link.token])).v.ok], [2, true])
+  await as(O, "aal2")
+  eq("추천사: 운영진은 신청자 화면에서 읽는다", (await one("select public.admin_member_vouches($1) v", [V1])).v.map((v) => v.relation), ["직장 동료", "직장 동료"])
+  // 기한: 14일이 지나면 닫힌다
+  await as("postgres")
+  await clock((await one("select (now() + interval '15 days')::text t")).t)
+  await as("anon")
+  eq("추천사: 14일이 지나면 링크가 닫힌다", (await one("select public.vouch_info($1) v", [link.token])).v.reason, "expired")
+  await fails("추천사: 기한이 지난 링크로는 남길 수 없다", "select public.vouch_write($1, '가족', '정말 다정하고 따뜻한 사람이에요.')", [link.token], /기한/)
+  await as(V1)
+  eq("추천사: 기한이 지난 링크는 회원에게 지났다고 보인다", (await one("select public.my_vouches() v")).v.link.expired, true)
+  await q("select public.vouch_close()")
+  eq("추천사: 링크를 닫으면 사라진다", (await one("select public.my_vouches() v")).v.link, null)
+  await as("postgres")
+  await clock(null)
+  // 탈퇴로 프로필이 지워지면 추천사도 함께 지운다
+  await q("delete from auth.users where id = $1", [V1])
+  eq("추천사: 회원이 지워지면 추천사도 함께 지운다", (await one("select count(*)::int n from public.vouches where member = $1", [V1])).n, 0)
+
+  // 이번 주 노트: 운영진이 쓰고, 회원 오늘 화면에 14일 동안 가장 최근 것 하나
+  const NOTE = "이번 주에는 천천히 걷는 걸 좋아하는 분들의 신청서를 오래 읽었어요."
+  await as("anon")
+  await fails("노트: 로그인하지 않으면 볼 수 없다", "select public.current_note()", [], /permission denied/)
+  await as(V2)
+  eq("노트: 아직 없으면 아무것도 보이지 않는다", (await one("select public.current_note() v")).v, null)
+  await fails("노트: 회원은 쓸 수 없다", "select public.admin_note_write($1)", [NOTE], /권한/)
+  await fails("노트: 회원은 운영진 목록을 볼 수 없다", "select public.admin_notes()", [], /권한/)
+  await fails("노트: 표는 직접 읽을 수 없다", "select body from public.weekly_notes", [], /permission denied/)
+  await as(O, "aal2")
+  await fails("노트: 10자보다 짧으면 막는다", "select public.admin_note_write('짧아요')", [], /10~200/)
+  const notes = (await one("select public.admin_note_write($1) v", [NOTE])).v
+  eq("노트: 쓰면 지금 보이는 노트가 된다", [notes.length, notes[0].current, notes[0].body], [1, true, NOTE])
+  await as("postgres")
+  eq("노트: 쓰면 감사 기록에 남는다", (await one("select count(*)::int n from public.audit_log where action = '이번 주 노트 씀'")).n, 1)
+  await as(V2)
+  eq("노트: 회원 오늘 화면에 보인다", (await one("select public.current_note() v")).v.body, NOTE)
+  await as("postgres")
+  await clock((await one("select (now() + interval '15 days')::text t")).t)
+  await as(V2)
+  eq("노트: 14일이 지나면 보이지 않는다", (await one("select public.current_note() v")).v, null)
+  await as("postgres")
+  await clock(null)
+  await as(O, "aal2")
+  eq("노트: 지우면 목록에서 사라진다", (await one("select public.admin_note_delete($1) v", [notes[0].id])).v, [])
+}
+
+// ── 고마워요 · 고민 편지함(5100)
+{
+  await as("postgres")
+  await clock(null)
+  const at = async (date, time) => clock((await one("select public.kst_at($1::date, $2::time)::text t", [date, time])).t)
+  const plus = async (date, days) => (await one("select ($1::date + $2::int)::text d", [date, days])).d
+  const today = (await one("select public.kst_today()::text d")).d
+  const T1 = await signup("t1-5100@example.test"), T2 = await signup("t2-5100@example.test"), T3 = await signup("t3-5100@example.test"), T4 = await signup("t4-5100@example.test")
+  await at(today, "13:00")
+  // 고마워요
+  await as(T1)
+  const answer = (await one("select public.drawer_answer($1::date, '오늘은 창가 자리가 제일 좋았어요.') v", [today])).v.mine.id
+  await fails("고마워요: 내 글에는 누를 수 없다", "select public.drawer_thank('answer', $1)", [answer], /내 글/)
+  await as("anon")
+  await fails("고마워요: 로그인하지 않으면 누를 수 없다", "select public.drawer_thank('answer', $1)", [answer], /permission denied|로그인/)
+  const anonDay = (await one("select public.drawer_day($1::date) v", [today])).v
+  eq("고마워요: 남에게는 숫자가 보이지 않는다", [anonDay.answers[0].thanked, anonDay.answers[0].thanks ?? null], [false, null])
+  await as(T2)
+  eq("고마워요: 누르면 눌렀다고 보인다", (await one("select public.drawer_thank('answer', $1) v", [answer])).v, true)
+  await q("select public.drawer_thank('answer', $1)", [answer])
+  const seen = (await one("select public.drawer_day($1::date) v", [today])).v.answers.find((a) => a.id === answer)
+  eq("고마워요: 누른 분에게도 숫자는 가지 않는다", [seen.thanked, seen.thanks ?? null], [true, null])
+  await as(T3)
+  await q("select public.drawer_thank('answer', $1)", [answer])
+  await as(T1)
+  eq("고마워요: 쓴 분에게만 받은 수가 간다", (await one("select public.drawer_day($1::date) v", [today])).v.answers.find((a) => a.id === answer).thanks, 2)
+  await as("postgres")
+  eq("고마워요: 쓴 분에게 글마다 한 번만 알린다", (await one("select count(*)::int n from public.notifications where member_id = $1 and kind = 'drawer-thanks'", [T1])).n, 1)
+  eq("고마워요 알림은 사이트에서 보여 주고 메일은 ‘모두 받기’만", (await one("select public.email_class('drawer-thanks') c")).c, "site")
+  await as(T2)
+  eq("고마워요: 다시 누르면 거둔다", (await one("select public.drawer_thank('answer', $1, false) v", [answer])).v, false)
+  const comment = (await one("select public.drawer_comment($1, '저도 창가 자리 좋아해요.') v", [answer])).v[0].id
+  await as(T1)
+  await q("select public.drawer_thank('comment', $1)", [comment])
+  await as(T2)
+  eq("고마워요: 댓글도 쓴 분에게만 수가 간다", (await one("select public.drawer_comments_of($1) v", [answer])).v[0].thanks, 1)
+  // 고민 편지함: 글은 누구나 읽고, 편지는 고민을 쓴 분만 읽는다
+  await as("anon")
+  eq("고민 편지함: 로그인 없이 목록을 본다", (await one("select public.worry_board() v")).v.signedIn, false)
+  await fails("고민 편지함: 로그인하지 않으면 올릴 수 없다", "select public.worry_post('mind', '요즘 잠들기 전에 생각이 너무 많아요.')", [], /permission denied|로그인/)
+  await as(T1)
+  await fails("고민 편지함: 연락처는 막는다", "select public.worry_post('love', '카톡 아이디 sky_walk 로 이야기해요. 고민이 많아요.')", [], /연락처/)
+  await fails("고민 편지함: 주제를 골라야 한다", "select public.worry_post('etc', '요즘 잠들기 전에 생각이 너무 많아요.')", [], /주제/)
+  const post = (await one("select public.worry_post('mind', '요즘 잠들기 전에 생각이 너무 많아요. 다들 어떻게 하세요?') v")).v
+  await fails("고민 편지함: 고민은 하루에 하나", "select public.worry_post('work', '회사에서 말 걸기가 어려워요. 어떻게 하죠?')", [], /하루에 하나/)
+  await fails("고민 편지함: 내 고민에는 편지를 보낼 수 없다", "select public.worry_send_letter($1, '저도 그래요. 같이 힘내요.')", [post], /내 고민/)
+  await as(T2)
+  const sent = (await one("select public.worry_send_letter($1, '저는 잠들기 전에 따뜻한 물을 한 잔 마셔요. 생각이 조금 느려져요.') v", [post])).v
+  eq("편지: 보낸 분에게는 보낸 편지가 ‘정오에 도착’으로 보인다", [sent.role, sent.letters.length, sent.letters[0].delivered, sent.partner], ["writer", 1, false, "고민을 쓴 분"])
+  await fails("편지: 한 고민에 첫 편지는 한 번", "select public.worry_send_letter($1, '하나 더 보내고 싶어요.')", [post], /이미 편지를/)
+  await as(T3)
+  await q("select public.worry_send_letter($1, '산책을 짧게 하고 오면 잠이 잘 와요.')", [post])
+  await as("anon")
+  const board = (await one("select public.worry_board() v")).v.posts.find((p) => p.id === post)
+  eq("고민 편지함: 글마다 편지 수만 보이고 내용은 없다", [board.letters, board.open, JSON.stringify(board).includes("따뜻한 물")], [2, true, false])
+  await as(T1)
+  let box = (await one("select public.worry_mailbox() v")).v
+  eq("편지: 정오 전에는 고민을 쓴 분에게 내용이 보이지 않고 ‘도착 예정’만", [box.posts[0].threads.length, box.posts[0].threads[0].last ?? null, box.posts[0].threads[0].waiting], [2, null, 1])
+  const threadId = box.posts[0].threads.find((t) => t.waiting).id
+  eq("편지: 도착 전에는 묶음을 열어도 내용이 없다", (await one("select public.worry_thread($1) v", [threadId])).v.letters.length, 0)
+  await as(T4)
+  await fails("편지: 남의 편지 묶음은 열 수 없다", "select public.worry_thread($1)", [threadId], /찾을 수 없어요/)
+  // 정오 배달
+  const tomorrow = await plus(today, 1)
+  await at(tomorrow, "12:01")
+  await as("postgres")
+  eq("정오 배달: 받는 분마다 묶어서 알린다", (await one("select public.run_letter_delivery() n")).n, 1)
+  eq("정오 배달 알림: 편지 2통", (await one("select body from public.notifications where member_id = $1 and kind = 'worry-letter'", [T1])).body, "고민 편지함에 편지 2통이 와 있어요.")
+  eq("정오 배달: 두 번 알리지 않는다", (await one("select public.run_letter_delivery() n")).n, 0)
+  await as(T1)
+  box = (await one("select public.worry_mailbox() v")).v
+  eq("편지: 정오가 지나면 읽지 않은 편지로 보인다", box.posts[0].threads.map((t) => t.unread).sort(), [1, 1])
+  const opened = (await one("select public.worry_thread($1) v", [threadId])).v
+  eq("편지: 열면 내용이 보이고 상대는 별명으로", [opened.role, opened.letters.length, opened.partner.includes(" ")], ["author", 1, true])
+  eq("편지: 연 뒤에는 읽음", (await one("select public.worry_mailbox() v")).v.posts[0].threads.find((t) => t.id === threadId).unread, 0)
+  ok("편지: 계정은 드러나지 않는다", !JSON.stringify(opened).includes(T2) && !JSON.stringify(opened).includes(T3))
+  // 답장은 횟수 제한 없이
+  for (const line of ["고마워요. 오늘 밤에 해 볼게요.", "따뜻한 물은 어떤 걸로 마셔요?", "하나 더 궁금한 게 있어요."]) await q("select public.worry_reply($1, $2)", [threadId, line])
+  const writerThread = threadId
+  await as(T2)
+  eq("답장: 정오 전에는 받는 분에게 보이지 않는다", (await one("select public.worry_thread($1) v", [writerThread])).v.letters.length, 1)
+  const myReplyCheck = (await one("select public.worry_mailbox() v")).v.sent[0]
+  eq("편지: 보낸 편지함에 고민 앞부분이 보인다", myReplyCheck.post.startsWith("요즘 잠들기 전에"), true)
+  await at(await plus(today, 2), "12:00")
+  eq("답장: 다음 정오에 세 통이 함께 도착한다", (await one("select public.worry_thread($1) v", [writerThread])).v.letters.length, 4)
+  await q("select public.worry_reply($1, '보리차요. 따뜻하게요.')", [writerThread])
+  const pending = (await one("select public.worry_thread($1) v", [writerThread])).v.letters.at(-1)
+  await q("select public.worry_cancel_letter($1)", [pending.id])
+  eq("편지: 도착 전이면 거둘 수 있다", (await one("select public.worry_thread($1) v", [writerThread])).v.letters.length, 4)
+  const delivered = (await one("select public.worry_thread($1) v", [writerThread])).v.letters[0]
+  await fails("편지: 도착한 편지는 거둘 수 없다", "select public.worry_cancel_letter($1)", [delivered.id], /도착한 편지/)
+  // 신고: 받은 편지만, 신고하면 가리고 멈춘다
+  const fromAuthor = (await one("select public.worry_thread($1) v", [writerThread])).v.letters.find((l) => !l.mine)
+  await fails("신고: 내가 보낸 편지는 신고할 수 없다", "select public.worry_report('letter', $1)", [delivered.id], /받은 편지만/)
+  await as(T4)
+  await fails("신고: 남의 편지는 신고할 수 없다", "select public.worry_report('letter', $1)", [fromAuthor.id], /받은 편지만/)
+  await as(T2)
+  await q("select public.worry_report('letter', $1, '불편한 말이 있어요')", [fromAuthor.id])
+  const afterReport = (await one("select public.worry_thread($1) v", [writerThread])).v
+  eq("신고: 신고한 편지는 가려지고 주고받기가 멈춘다", [afterReport.closed, afterReport.letters.some((l) => l.id === fromAuthor.id)], [true, false])
+  await fails("신고 뒤에는 이어 쓸 수 없다", "select public.worry_reply($1, '다시 써 볼게요.')", [writerThread], /주고받지 않기로/)
+  // 그만 주고받기
+  await as(T1)
+  const other = (await one("select public.worry_mailbox() v")).v.posts[0].threads.find((t) => t.id !== threadId).id
+  await q("select public.worry_close_thread($1)", [other])
+  await as(T3)
+  await fails("그만 주고받기: 상대도 더 보낼 수 없다", "select public.worry_reply($1, '그래도 한마디만요.')", [other], /주고받지 않기로/)
+  // 글 신고 세 번이면 가린다 · 운영진 처리
+  for (const m of [T2, T3, T4]) { await as(m); await q("select public.worry_report('post', $1, '특정인 이야기 같아요')", [post]) }
+  await as("anon")
+  ok("신고: 고민 글은 서로 다른 세 분이 신고하면 바로 가려진다", !(await one("select public.worry_board() v")).v.posts.some((p) => p.id === post))
+  await as(O, "aal2")
+  const reports = (await one("select public.admin_worry_reports() v")).v
+  eq("운영: 신고된 고민과 편지가 함께 보인다", reports.map((r) => r.kind).sort(), ["letter", "post"])
+  await q("select public.admin_worry_moderate('post', $1, 'restore')", [post])
+  await as("anon")
+  ok("운영: 되돌리면 다시 보인다", (await one("select public.worry_board() v")).v.posts.some((p) => p.id === post))
+  await as(T2)
+  await fails("운영 목록은 회원이 볼 수 없다", "select public.admin_worry_reports()", [], /권한/)
+  // 7일이 지나면 새 편지를 받지 않는다
+  await at(await plus(today, 8), "13:00")
+  await as(T4)
+  await fails("편지를 받는 기간(7일)이 지나면 첫 편지를 보낼 수 없다", "select public.worry_send_letter($1, '늦었지만 응원해요.')", [post], /기간이 끝난/)
+  // 보존 정리
+  await as("postgres")
+  await clock(null)
+  await q("update public.worry_letters set created_at = created_at - interval '120 days'")
+  await q("update public.worry_threads set created_at = created_at - interval '120 days'")
+  await q("update public.worry_posts set created_at = created_at - interval '120 days' where id = $1", [post])
+  await one("select public.run_retention()")
+  eq("보존 정리: 오래된 편지 묶음과 고민 글을 지운다", [(await one("select count(*)::int n from public.worry_threads where post_id = $1", [post])).n, (await one("select count(*)::int n from public.worry_posts where id = $1", [post])).n], [0, 0])
+}
+
 console.log(`서버 데이터베이스 점검 통과: ${passed}개`)

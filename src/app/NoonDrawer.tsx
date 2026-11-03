@@ -1,22 +1,27 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { ArrowUpRight, Download, Link2, MessageCircle, RotateCcw } from "lucide-react";
+import { ArrowDown, ArrowUpRight, Clock, Download, HandHeart, Link2, Lock, Mail, MessageCircle, PenLine, RotateCcw } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Textarea } from "./components/ui/textarea";
 import { LIVE, rpc } from "./backend/client";
 import { useAuth } from "./auth-service";
+import { AliasSeal, PaperBackdrop, ReportButton, SLIP, SectionLabel, Wave, ago, interaction, kstClock, useMessage, useNoonCountdown } from "./community";
+import { TOPICS, type WorryPost } from "./WorryLetters";
 
-// 정오의 서랍(/drawer): 가입하지 않아도 누구나 여는 작은 놀이 세 가지.
+// 정오의 서랍(/drawer): 이름 없이 나누는 하루 한 질문(2026-11-03 다시 짬).
+// 들어오자마자 ‘질문 하나 + 여러 사람이 이름 없이 남긴 쪽지’가 보이게 한다 — 설명 대신 구조로.
+//   첫 화면: 지금 열려 있는 질문(정오에 열리고 다음 정오에 닫힌다)과 최근 쪽지 세 장이 햇빛 드는 벽에 붙어 있다.
+//   01 오늘의 답: 쪽지 벽(쓰기 칸이 첫 장) · 지난 7일 · 댓글 · 고마워요(숫자는 쓴 분에게만)
+//   02 고민 편지함 미리 보기(/mailbox) · 03 서랍 속 작은 것들(질문 카드·첫 장면·편지지, 이 기기에서만 만든다)
 // 회원 화면과 겹치지 않게 한다 — 소개·편지·첫 마디·창가 질문처럼 운영진에게 가거나 소개에 쓰이는 것은 두지 않는다.
-// 카드·편지지·첫 장면 이미지는 이 기기에서만 만든다. 오늘의 질문에 남기는 답·댓글만 서버에 남고, 이름 대신 별명으로 함께 보인다(5000).
-const interaction = "transition-colors duration-200 motion-reduce:transition-none";
 const LEAF = "https://images.unsplash.com/photo-1530651796427-6edd0e06319e?auto=format&fit=crop&w=1200&q=70";
 const kstNow = () => new Date(Date.now() + 9 * 3600000);
 const kstDate = (date = kstNow()) => date.toISOString().slice(0, 10);
+const dayBefore = (iso: string, days = 1) => new Date(Date.parse(`${iso}T00:00:00Z`) - days * 86400000).toISOString().slice(0, 10);
 const dateText = (iso: string) => `${Number(iso.slice(5, 7))}월 ${Number(iso.slice(8, 10))}일`;
 
-// ── 01 오늘의 질문 카드: 하루 한 장. 오전에는 잎 그림자에 가려 있다가 정오에 선명해진다.
-// 누군가와 함께 있을 때 꺼내는 질문이라, 편지·창가 질문과 겹치지 않는 가벼운 것들로만 둔다(뒤에만 덧붙인다).
+// ── 하루 한 질문: 정오에 열린다. 누군가와 함께 있을 때 꺼내는 가벼운 것들로만 둔다(뒤에만 덧붙인다).
+// 서버 drawer_question과 같은 목록·같은 순서다(1970-01-01부터 날 수 % 31). 둘을 함께 바꾼다.
 const DAILY = [
   "오늘 하루 중 가장 조용했던 순간은 언제였나요?", "요즘 자꾸 손이 가는 음식이 있나요?", "어릴 적 살던 동네에서 가장 기억나는 길은요?", "최근에 산 것 중 가장 마음에 드는 물건은요?",
   "지금 창밖에는 무엇이 보이나요?", "요즘 나도 모르게 자주 쓰는 말이 있나요?", "비 오는 날에만 하고 싶어지는 일이 있나요?", "요즘 휴대폰에서 가장 자주 여는 것은 무엇인가요?",
@@ -58,7 +63,7 @@ const sceneOf = (answers: number[]): SceneId => {
 type Paper = "leaf" | "butter" | "sage" | "lavender";
 const PAPERS: Record<Paper, { label: string; fill: string; ink: string; swatch: string; leaf: number }> = {
   leaf: { label: "정오의 잎 그림자", fill: "#FBFAF7", ink: "#24212F", swatch: "bg-[#FBFAF7]", leaf: 0.3 },
-  butter: { label: "버터 노랑", fill: "#FBF1D2", ink: "#3D3216", swatch: "bg-[#FBF1D2]", leaf: 0.1 },
+  butter: { label: "버터 노랑", fill: "#FCF6E4", ink: "#3D3216", swatch: "bg-[#FCF6E4]", leaf: 0.1 },
   sage: { label: "초록 그늘", fill: "#E8EEE3", ink: "#22301F", swatch: "bg-[#E8EEE3]", leaf: 0.22 },
   lavender: { label: "라벤더 안개", fill: "#EEEAF8", ink: "#2B2540", swatch: "bg-[#EEEAF8]", leaf: 0.14 },
 };
@@ -124,132 +129,175 @@ async function keep(canvas: HTMLCanvasElement, name: string) {
   return "이미지를 저장했어요.";
 }
 
-type Drawer = "question" | "scene" | "letter";
-const DRAWERS: { id: Drawer; no: string; label: string }[] = [{ id: "question", no: "01", label: "오늘의 질문 카드" }, { id: "scene", no: "02", label: "나의 첫 장면" }, { id: "letter", no: "03", label: "편지지 가게" }];
+// ── 서버(5000·5100): 그날의 질문과 이름 없이 남긴 답·댓글·고마워요. 보는 것은 누구나, 남기는 것은 로그인한 분만.
+type DrawerAnswer = { id: string; alias: string; body: string; at: string; mine: boolean; comments: number; thanked?: boolean; thanks?: number | null };
+type DrawerComment = { id: string; alias: string; body: string; at: string; mine: boolean; thanked?: boolean; thanks?: number | null };
+type DrawerDay = { day: string; opened: boolean; open: boolean; question?: string; signedIn?: boolean; mine?: { id: string; body: string; hidden: boolean } | null; answers: DrawerAnswer[] };
+type Loaded = DrawerDay | { error: string };
+const ANSWER_MAX = 200, COMMENT_LIMIT = 200;
+const RULES = "이름 대신 글마다 새 별명이 붙어요. 연락처·SNS는 남길 수 없고, 소개받은 분이나 특정한 사람 이야기는 쓰지 않아요. 서로 다른 세 분이 신고하면 바로 가려지고, 답과 댓글은 30일 뒤 지워져요.";
+const isDay = (value: Loaded | undefined): value is DrawerDay => !!value && "answers" in value;
+
+type Little = "card" | "scene" | "letter";
+const LITTLE: { id: Little; no: string; label: string }[] = [{ id: "card", no: "01", label: "오늘의 질문 카드" }, { id: "scene", no: "02", label: "나의 첫 장면" }, { id: "letter", no: "03", label: "편지지 가게" }];
+
+// 지금의 질문: 정오 전에는 어제 질문(오늘 정오까지 열려 있다), 정오부터는 오늘 질문.
+function useNoonDay() {
+  const [now, setNow] = useState(kstNow);
+  useEffect(() => { const timer = window.setInterval(() => setNow(kstNow()), 30000); return () => window.clearInterval(timer); }, []);
+  const today = kstDate(now);
+  const beforeNoon = now.getUTCHours() < 12;
+  return { today, beforeNoon, noonDay: beforeNoon ? dayBefore(today) : today };
+}
 
 export default function NoonDrawer() {
   const location = useLocation();
   const navigate = useNavigate();
-  const fromHash = location.hash.slice(1) as Drawer;
-  const drawer: Drawer = DRAWERS.some(item => item.id === fromHash) ? fromHash : new URLSearchParams(location.search).get("scene") ? "scene" : "question";
-  const open = (id: Drawer) => navigate({ pathname: "/drawer", hash: id }, { replace: true });
-  return <div className="break-keep [overflow-wrap:anywhere] pb-20">
-    <header className="pt-16 sm:pt-20">
-      <div className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2"><span aria-hidden="true" className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></span><span aria-hidden="true" className="h-px w-8 bg-accent/40" /><span className="text-xs font-semibold">정오의 서랍</span><span className="text-[10px] tracking-[0.16em] text-muted-foreground">NOON DRAWER</span></div>
-      <h1 className="text-ink text-3xl font-semibold leading-[1.4] sm:text-[38px]">서랍을 열면,<br />작은 것들이 있어요.</h1>
-      <p className="mt-5 max-w-xl text-sm leading-7 text-muted-foreground">가입하지 않아도 누구나 열어 볼 수 있어요. 카드와 편지지는 내 기기에서만 만들고, 오늘의 질문에 남긴 답만 이름 없이 함께 보여요.</p>
-    </header>
-    <div role="tablist" aria-label="서랍" className="mt-10 flex flex-wrap gap-2 border-b border-border pb-5">
-      {DRAWERS.map(item => <button key={item.id} type="button" role="tab" id={`drawer-tab-${item.id}`} aria-selected={drawer === item.id} aria-controls={`drawer-${item.id}`} onClick={() => open(item.id)} className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm ${interaction} ${drawer === item.id ? "border-primary bg-primary/5 font-semibold text-primary" : "border-border bg-card hover:border-primary/40"}`}><span className="text-[11px] tabular-nums text-accent">{item.no}</span>{item.label}</button>)}
-    </div>
-    <section role="tabpanel" id={`drawer-${drawer}`} aria-labelledby={`drawer-tab-${drawer}`} className="pt-10">
-      {drawer === "question" && <QuestionDrawer />}
-      {drawer === "scene" && <SceneDrawer />}
-      {drawer === "letter" && <LetterDrawer />}
-    </section>
-    <p className="mt-16 border-t border-border pt-6 text-xs leading-6 text-muted-foreground">소개와 편지, 첫 마디처럼 회원이 쓰는 것은 회원 화면에 있어요. 서랍은 누구나 가볍게 즐기는 곳이에요. 플라비의 3일 교류가 궁금하다면 <Link to="/two-starts" className="font-semibold text-primary underline-offset-4 hover:underline">두 가지 시작</Link>을 둘러보세요.</p>
-  </div>;
-}
-
-function Lead({ title, children }: { title: string; children: ReactNode }) {
-  return <div className="max-w-md"><h2 className="text-xl font-semibold leading-[1.5]">{title}</h2><p className="mt-3 text-sm leading-7 text-muted-foreground">{children}</p></div>;
-}
-function useMessage() {
-  const [message, setMessage] = useState("");
-  useEffect(() => { if (!message) return; const timer = window.setTimeout(() => setMessage(""), 3500); return () => window.clearTimeout(timer); }, [message]);
-  return [message, setMessage] as const;
-}
-
-function QuestionDrawer() {
-  const [now, setNow] = useState(kstNow);
-  useEffect(() => { const timer = window.setInterval(() => setNow(kstNow()), 30000); return () => window.clearInterval(timer); }, []);
-  const [yesterday, setYesterday] = useState(false);
-  const [paper, setPaper] = useState<Paper>(savedPaper);
-  const [message, setMessage] = useMessage();
-  const today = kstDate(now);
-  const minutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-  // 정오까지 남은 정도: 9시 전에는 가장 짙고, 9시부터 12시까지 차츰 걷힌다.
-  const shade = minutes >= 720 ? 0 : minutes <= 540 ? 1 : (720 - minutes) / 180;
-  const day = yesterday ? kstDate(new Date(now.getTime() - 86400000)) : today;
-  const question = DAILY[dailyIndex(day)];
-  const hidden = !yesterday && shade > 0;
-  const left = 720 - minutes;
-  const tone = PAPERS[paper];
-  const save = async () => setMessage(await keep(await drawCard({ paper, eyebrow: `오늘의 질문 · ${dateText(day)}`, title: question, body: "", footer: "누군가와 함께라면, 이 질문으로 시작해 보세요." }), `flavie-question-${day}.png`));
-  return <div className="grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
-    <div className="lg:col-start-1 lg:row-start-1"><Lead title="하루 한 장, 정오에 열리는 질문.">오전에는 잎 그림자에 가려 있다가, 정오가 되면 선명해져요. 누군가와 함께 있다면 오늘은 이 질문으로 이야기를 시작해 보세요.</Lead></div>
-    <div className="lg:sticky lg:top-10 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-      <figure className="relative isolate mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-3xl border border-border p-8 shadow-[0_30px_60px_-40px_rgba(30,20,80,0.55)] transition-colors duration-500 motion-reduce:transition-none sm:p-10" style={{ background: tone.fill, color: tone.ink }}>
-        <img src={LEAF} alt="" aria-hidden="true" className="absolute inset-0 -z-10 h-full w-full object-cover mix-blend-multiply transition-opacity duration-1000 motion-reduce:transition-none" style={{ opacity: Math.min(0.85, tone.leaf + 0.5 * (hidden ? shade : 0)) }} />
-        <p className="text-[11px] font-semibold tracking-[0.12em] opacity-60">{yesterday ? "어제의 질문" : "오늘의 질문"} · {dateText(day)}</p>
-        <p className="mt-10 text-2xl font-semibold leading-[1.6] transition-[filter] duration-1000 motion-reduce:transition-none sm:text-[28px]" style={{ filter: hidden ? `blur(${(2 + 6 * shade).toFixed(1)}px)` : "none" }} aria-hidden={hidden}>{question}</p>
-        {hidden && <p className="sr-only">오늘의 질문은 정오에 열려요.</p>}
-        <figcaption className="absolute inset-x-8 bottom-8 flex items-end justify-between gap-3 sm:inset-x-10 sm:bottom-10">
-          <span className="text-xs leading-5 opacity-70">{hidden ? `정오에 선명해져요 · ${Math.floor(left / 60) ? `${Math.floor(left / 60)}시간 ` : ""}${left % 60}분 남았어요` : "누군가와 함께라면, 이 질문으로."}</span>
-          <span aria-hidden="true" className="flex shrink-0 items-center"><span className="size-2.5 rounded-full bg-[#5B4FCF]" /><span className="-ml-1 size-2.5 rounded-full bg-[#3560C0]/85" /></span>
-        </figcaption>
-      </figure>
-      <div className="mx-auto mt-4 max-w-md"><PaperPicker value={paper} onChange={setPaper} label="카드 색" /></div>
-      <div className="mx-auto mt-4 flex max-w-md flex-wrap items-center justify-between gap-2">
-        <button type="button" onClick={() => setYesterday(value => !value)} className={`text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline ${interaction}`}>{yesterday ? "오늘의 질문으로" : "어제의 질문 보기"}</button>
-        <Button variant="outline" disabled={hidden} onClick={() => void save()} className="h-10 rounded-full border-border px-4 text-xs"><Download size={14} />카드 이미지로 저장</Button>
-      </div>
-      {message && <p role="status" className="mx-auto mt-2 max-w-md text-right text-xs text-primary">{message}</p>}
-    </div>
-    <div className="lg:col-start-1 lg:row-start-2">{LIVE ? <DayAnswers key={day} day={day} onYesterday={() => setYesterday(true)} /> : <p className="text-xs leading-6 text-muted-foreground">다른 분들이 남긴 답은 실제 서비스에서 함께 볼 수 있어요.</p>}</div>
-  </div>;
-}
-
-// ── 01 아래: 그날 질문에 이름 없이 남긴 답과 댓글(서버 5000). 보는 것은 누구나, 남기는 것은 로그인한 분만.
-type DrawerAnswer = { id: string; alias: string; body: string; at: string; mine: boolean; comments: number };
-type DrawerComment = { id: string; alias: string; body: string; at: string; mine: boolean };
-type DrawerDay = { day: string; opened: boolean; open: boolean; question?: string; signedIn?: boolean; mine?: { id: string; body: string; hidden: boolean } | null; answers: DrawerAnswer[] };
-const ANSWER_MAX = 200, COMMENT_LIMIT = 200;
-const clock = (iso: string) => new Date(iso).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hour12: false });
-const RULES = "이름 대신 글마다 새 별명이 붙어요. 연락처·SNS는 남길 수 없고, 소개받은 분이나 특정한 사람 이야기는 쓰지 않아요. 답과 댓글은 30일 뒤 지워져요.";
-function DayAnswers({ day, onYesterday }: { day: string; onYesterday: () => void }) {
   const session = useAuth();
-  const [data, setData] = useState<DrawerDay | null>(null);
-  const [error, setError] = useState("");
+  const { today, beforeNoon, noonDay } = useNoonDay();
+  const [selected, setSelected] = useState(noonDay);
+  useEffect(() => setSelected(noonDay), [noonDay]);
+  const [days, setDays] = useState<Record<string, Loaded>>({});
+  const load = useCallback(async (day: string) => {
+    const result = await rpc<DrawerDay>("drawer_day", { p_day: day });
+    setDays(current => ({ ...current, [day]: result.data ?? { error: result.error || "답을 불러오지 못했어요." } }));
+  }, []);
+  const put = useCallback((day: string, data: DrawerDay) => setDays(current => ({ ...current, [day]: data })), []);
+  useEffect(() => { if (LIVE) void load(noonDay); }, [noonDay, !!session]);
+  useEffect(() => { if (LIVE && selected !== noonDay) void load(selected); }, [selected, !!session]);
+  // 서랍 속 작은 것들: #card · #scene · #letter(첫 장면 링크 ?scene= 포함). 예전 #question은 오늘의 답으로.
+  const hash = location.hash.slice(1);
+  const little: Little = LITTLE.some(item => item.id === hash) ? hash as Little : new URLSearchParams(location.search).get("scene") ? "scene" : "card";
+  useEffect(() => {
+    const target = ["card", "scene", "letter"].includes(hash) || new URLSearchParams(location.search).get("scene") ? "little" : ["answers", "question"].includes(hash) ? "answers" : "";
+    if (!target) return;
+    const timer = window.setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+    return () => window.clearTimeout(timer);
+  }, [hash]);
+  const write = () => {
+    document.getElementById("answers")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setSelected(noonDay);
+    window.setTimeout(() => (document.getElementById("drawer-compose") as HTMLTextAreaElement | null)?.focus({ preventScroll: true }), 600);
+  };
+  return <div className="break-keep [overflow-wrap:anywhere]">
+    <DrawerHero day={noonDay} data={days[noonDay]} beforeNoon={beforeNoon} next={DAILY[dailyIndex(today)]} onWrite={write} />
+    <AnswerWall noonDay={noonDay} today={today} selected={selected} onSelect={setSelected} data={days[selected]} signedIn={!!session} onReload={() => load(selected)} onSaved={data => put(selected, data)} />
+    <MailboxTeaser />
+    <section id="little" className="scroll-mt-20 py-20 sm:py-24" aria-labelledby="little-title">
+      <SectionLabel number="03" ko="서랍 속 작은 것들">LITTLE THINGS</SectionLabel>
+      <div className="flex flex-wrap items-end justify-between gap-6"><h2 id="little-title" className="text-ink text-3xl font-semibold leading-[1.45] sm:text-[34px]">혼자서도, 둘이서도<br />꺼내 보는 것들.</h2><p className="max-w-sm text-sm leading-7 text-muted-foreground">카드와 편지지, 첫 장면은 이 기기에서만 만들어요. 어디에도 보내지 않아요.</p></div>
+      <div role="tablist" aria-label="서랍 속 작은 것들" className="mt-10 flex flex-wrap gap-2 border-b border-border pb-5">
+        {LITTLE.map(item => <button key={item.id} type="button" role="tab" id={`little-tab-${item.id}`} aria-selected={little === item.id} aria-controls={`little-${item.id}`} onClick={() => navigate({ pathname: "/drawer", hash: item.id }, { replace: true })} className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm ${interaction} ${little === item.id ? "border-primary bg-primary/5 font-semibold text-primary" : "border-border bg-card hover:border-primary/40"}`}><span className="text-[11px] tabular-nums text-accent">{item.no}</span>{item.label}</button>)}
+      </div>
+      <div role="tabpanel" id={`little-${little}`} aria-labelledby={`little-tab-${little}`} className="pt-10">
+        {little === "card" && <QuestionCard />}
+        {little === "scene" && <SceneDrawer />}
+        {little === "letter" && <LetterDrawer />}
+      </div>
+    </section>
+    <p className="mb-20 border-t border-border pt-6 text-xs leading-6 text-muted-foreground">소개와 편지, 첫 마디처럼 소개에 쓰이는 것은 회원 화면에 있어요. 서랍은 누구나 가볍게 들르는 곳이에요. 플라비의 3일 교류가 궁금하다면 <Link to="/two-starts" className="font-semibold text-primary underline-offset-4 hover:underline">두 가지 시작</Link>을 둘러보세요.</p>
+  </div>;
+}
+
+// ── 첫 화면: 지금의 질문 + 최근 쪽지 세 장(진짜 답만 · 없으면 빈 쪽지 한 장)
+function DrawerHero({ day, data, beforeNoon, next, onWrite }: { day: string; data?: Loaded; beforeNoon: boolean; next: string; onWrite: () => void }) {
+  const clock = useNoonCountdown();
+  const question = DAILY[dailyIndex(day)];
+  const answers = isDay(data) ? data.answers : [];
+  return <section className="bleed relative isolate overflow-clip" aria-labelledby="drawer-title">
+    <PaperBackdrop />
+    <div className="relative grid gap-12 pt-14 pb-28 sm:pt-20 sm:pb-32 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:pb-36">
+      <div className="relative z-10">
+        <p className="-mt-3 mb-9 inline-flex items-center gap-2 rounded-full bg-white/75 px-3 py-1 text-xs font-semibold text-ink ring-1 ring-black/5 backdrop-blur-sm dark:bg-white/10 dark:ring-white/15 sm:-mt-4 sm:mb-10"><span aria-hidden="true" className="flex gap-1"><span className="size-1.5 rounded-full bg-primary" /><span className="size-1.5 rounded-full bg-accent" /></span>정오의 서랍 · 이름 없이 나누는 하루 한 질문</p>
+        <p className="mb-5 flex items-center gap-2.5 text-sm font-semibold text-accent sm:text-base"><span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />{dateText(day)} 정오의 질문</p>
+        <h1 id="drawer-title" className="text-ink max-w-2xl text-[clamp(2rem,4.4vw,3.5rem)] font-semibold leading-[1.3] tracking-[-0.02em]">{question}</h1>
+        <ul className="mt-7 flex flex-wrap gap-2" aria-label="서랍의 약속">{["이름 대신 별명", "정오에 열리고 다음 정오에 닫혀요", "댓글 · 고마워요"].map(point => <li key={point} className="rounded-full bg-white/70 px-3 py-1.5 text-xs font-medium text-ink ring-1 ring-black/5 backdrop-blur-sm dark:bg-white/10 dark:ring-white/15">{point}</li>)}</ul>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Button onClick={onWrite} className={`h-12 rounded-full px-6 ${interaction}`}><PenLine size={16} />나도 한 줄 남기기</Button>
+          <Button asChild variant="outline" className={`h-12 rounded-full border-ink/15 bg-white/60 px-5 backdrop-blur-sm hover:bg-white dark:bg-transparent ${interaction}`}><Link to="/mailbox">고민 편지함 <ArrowUpRight size={16} /></Link></Button>
+        </div>
+        <div className="mt-12 w-full max-w-[17rem]">
+          <p className="text-xs text-muted-foreground">{beforeNoon ? "새 질문까지" : "다음 질문까지"}</p>
+          <p className="text-ink mt-1.5 text-[2.5rem] font-extralight leading-none tracking-[-0.02em] tabular-nums" role="timer" aria-label={`다음 질문까지 ${clock.text}`}>{clock.text}</p>
+          <div aria-hidden="true" className="mt-4 h-px bg-ink/10"><div className="h-px bg-primary" style={{ width: `${clock.filled}%` }} /></div>
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">{beforeNoon ? "이 질문은 오늘 정오에 닫히고, 새 질문이 열려요." : "이 질문은 내일 정오까지 열려 있어요."}</p>
+        </div>
+      </div>
+      <div className="relative z-10 lg:flex lg:items-center lg:justify-end">
+        <div className="hero-float mx-auto flex w-full max-w-[420px] flex-col gap-3 lg:ml-auto lg:mr-0" aria-label="이 질문에 이름 없이 남긴 답">
+          {beforeNoon && <p className={`letter-drop mx-auto flex max-w-full items-center gap-2 rounded-full px-3.5 py-1.5 text-[11px] font-medium text-ink ${SLIP}`} style={{ animationDelay: "0.4s" }}><Lock size={12} className="shrink-0 text-primary" /><span className="shrink-0 font-semibold text-primary">다음 질문</span><span aria-hidden="true" className="truncate blur-[3px]">{next}</span><span className="sr-only">정오에 열려요</span></p>}
+          {!LIVE ? <div className={`rounded-[22px] p-6 text-sm leading-7 text-ink ${SLIP}`}>다른 분들이 남긴 답은 실제 서비스에서 함께 볼 수 있어요.</div>
+            : data === undefined ? <div className={`h-32 animate-pulse rounded-[22px] ${SLIP}`} />
+            : answers.length ? answers.slice(0, 3).map((answer, index) => <figure key={answer.id} className={`letter-drop rounded-[22px] p-5 ${SLIP} ${["lg:-rotate-[1.2deg]", "lg:ml-12 lg:rotate-[0.8deg]", "lg:-ml-2 lg:-rotate-[0.4deg]"][index]}`} style={{ animationDelay: `${0.7 + index * 0.45}s` }}>
+              <figcaption className="flex items-center gap-2 text-[11px] text-muted-foreground"><AliasSeal alias={answer.alias} size="sm" /><span className="font-semibold text-ink">{answer.alias}</span><span>{kstClock(answer.at)}</span></figcaption>
+              <p className="text-ink mt-2.5 line-clamp-3 text-sm leading-7">{answer.body}</p>
+            </figure>)
+            : <button type="button" onClick={onWrite} className={`letter-drop group rounded-[22px] border border-dashed border-ink/20 p-6 text-left ${SLIP}`} style={{ animationDelay: "0.7s" }}><span className="block text-[11px] font-semibold text-muted-foreground">아직 비어 있는 첫 쪽지</span><span className="text-ink mt-3 block text-base font-semibold leading-7">이 질문의 첫 줄을 남겨 보세요.</span><span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-primary">한 줄 쓰기 <ArrowDown size={13} className="transition-transform group-hover:translate-y-0.5" /></span></button>}
+          {answers.length > 3 && <a href="#answers" onClick={event => { event.preventDefault(); document.getElementById("answers")?.scrollIntoView({ behavior: "smooth" }); }} className="text-ink mt-1 inline-flex items-center gap-1 self-end rounded-full bg-white/70 px-3.5 py-1.5 text-xs font-semibold ring-1 ring-black/5 backdrop-blur-sm hover:text-primary dark:bg-white/10">남긴 답 모두 읽기 <ArrowDown size={13} /></a>}
+        </div>
+      </div>
+    </div>
+    <Wave />
+  </section>;
+}
+
+// ── 01 오늘의 답: 쪽지 벽. 첫 장은 쓰기 칸(로그인 전에는 로그인 안내), 나머지는 최근 것부터.
+function AnswerWall({ noonDay, today, selected, onSelect, data, signedIn, onReload, onSaved }: { noonDay: string; today: string; selected: string; onSelect: (day: string) => void; data?: Loaded; signedIn: boolean; onReload: () => Promise<void>; onSaved: (data: DrawerDay) => void }) {
+  // 볼 수 있는 날: 지금의 질문부터 지난 7일(서버는 오늘-6일까지)
+  const choices = useMemo(() => Array.from({ length: 7 }, (_, index) => dayBefore(noonDay, index)).filter(day => day >= dayBefore(today, 6)), [noonDay, today]);
+  return <section id="answers" className="scroll-mt-20 pt-16 pb-20 sm:pt-20 sm:pb-24" aria-labelledby="answers-title">
+    <SectionLabel number="01" ko="오늘의 답">ANSWERS AT NOON</SectionLabel>
+    <div className="flex flex-wrap items-end justify-between gap-6">
+      <h2 id="answers-title" className="text-ink text-3xl font-semibold leading-[1.45] sm:text-[34px]">이름 없이,<br />한 줄씩.</h2>
+      <div className="flex max-w-full gap-1.5 overflow-x-auto pb-1" role="radiogroup" aria-label="질문 날짜">{choices.map(day => <button key={day} type="button" role="radio" aria-checked={selected === day} onClick={() => onSelect(day)} className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs tabular-nums ${interaction} ${selected === day ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"}`}>{day === noonDay ? "지금의 질문" : dateText(day)}</button>)}</div>
+    </div>
+    {selected !== noonDay && <p className="text-ink mt-8 border-l-2 border-accent/50 pl-4 text-lg font-semibold leading-8">{DAILY[dailyIndex(selected)]}<span className="ml-2 align-middle text-xs font-normal text-muted-foreground">{dateText(selected)}의 질문 · 읽기만 할 수 있어요</span></p>}
+    <div className="mt-10">
+      {!LIVE ? <p className="rounded-3xl border border-dashed border-border p-6 text-sm leading-7 text-muted-foreground">다른 분들이 남긴 답은 실제 서비스에서 함께 볼 수 있어요.</p>
+        : data === undefined ? <p role="status" className="text-xs text-muted-foreground">답을 불러오고 있어요.</p>
+        : !isDay(data) ? <p role="status" className="text-xs leading-6 text-muted-foreground">{data.error} <button type="button" onClick={() => void onReload()} className="text-xs font-semibold text-primary underline-offset-4 hover:underline">다시 불러오기</button></p>
+        : <Wall key={selected} day={selected} data={data} signedIn={signedIn} onReload={onReload} onSaved={onSaved} />}
+    </div>
+    <p className="mt-8 max-w-3xl text-[11px] leading-5 text-muted-foreground">{RULES}</p>
+  </section>;
+}
+
+function Wall({ day, data, signedIn, onReload, onSaved }: { day: string; data: DrawerDay; signedIn: boolean; onReload: () => Promise<void>; onSaved: (data: DrawerDay) => void }) {
   const [body, setBody] = useState("");
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useMessage();
-  const load = async () => { const result = await rpc<DrawerDay>("drawer_day", { p_day: day }); if (result.error || !result.data) { setError(result.error || "답을 불러오지 못했어요."); return; } setError(""); setData(result.data); };
-  useEffect(() => { void load(); }, [day, !!session]);
-  if (error) return <p role="status" className="text-xs leading-6 text-muted-foreground">{error} <button type="button" onClick={() => void load()} className="font-semibold text-primary underline-offset-4 hover:underline">다시 불러오기</button></p>;
-  if (!data) return <p role="status" className="text-xs text-muted-foreground">답을 불러오고 있어요.</p>;
-  if (!data.opened) return <div className="rounded-3xl border border-dashed border-border p-6 text-sm leading-7 text-muted-foreground">오늘의 답은 정오에 함께 열려요. 그동안 <button type="button" onClick={onYesterday} className="font-semibold text-primary underline-offset-4 hover:underline">어제의 답</button>을 읽어 볼 수 있어요.</div>;
   const length = Array.from(body.trim()).length;
-  const send = async () => { setBusy(true); const result = await rpc<DrawerDay>("drawer_answer", { p_day: day, p_body: body }); setBusy(false); if (result.error || !result.data) { setMessage(result.error || "남기지 못했어요."); return; } setData(result.data); setBody(""); setEditing(false); setMessage("이름 없이 남겼어요."); };
-  const remove = async (id: string) => { const result = await rpc("drawer_delete_answer", { p_id: id }); if (result.error) { setMessage(result.error); return; } setMessage("답을 지웠어요."); await load(); };
-  const signedIn = !!session;
+  const send = async () => { setBusy(true); const result = await rpc<DrawerDay>("drawer_answer", { p_day: day, p_body: body }); setBusy(false); if (result.error || !result.data) { setMessage(result.error || "남기지 못했어요."); return; } onSaved(result.data); setBody(""); setEditing(false); setMessage("이름 없이 남겼어요."); };
   const mine = data.mine;
-  return <section aria-label={`${dateText(day)} 질문에 남긴 답`} className="space-y-5">
-    <div className="flex items-baseline justify-between gap-3 border-b border-border pb-3"><h3 className="text-sm font-semibold">{day === kstDate() ? "오늘의 답" : `${dateText(day)}의 답`} <span className="font-normal text-muted-foreground">· 이름 없이</span></h3></div>
-    {data.open && (!signedIn ? <div className="rounded-2xl bg-mist p-5 text-sm leading-7"><p>로그인하면 이 질문에 이름 없이 답을 남길 수 있어요.</p><Button asChild variant="outline" className="mt-3 h-10 rounded-full border-border bg-card px-4 text-xs"><Link to="/login">로그인하기</Link></Button></div>
-      : mine?.hidden ? <p className="rounded-2xl bg-muted p-4 text-xs leading-6 text-muted-foreground">남긴 답이 신고로 가려졌어요. 운영진이 확인하고 있어요.</p>
-      : mine && !editing ? <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-mist px-5 py-4 text-xs"><span className="text-muted-foreground">이 질문에 답을 남겼어요 · 다음 날 정오 전까지 고칠 수 있어요</span><span className="flex gap-3"><button type="button" onClick={() => { setBody(mine.body); setEditing(true); }} className="text-xs font-semibold text-primary">고치기</button><button type="button" onClick={() => void remove(mine.id)} className="text-xs text-muted-foreground hover:text-foreground">지우기</button></span></div>
-      : <div className="space-y-2">
-        <Textarea aria-label="오늘의 질문에 답하기" value={body} maxLength={ANSWER_MAX} onChange={event => setBody(event.target.value)} placeholder="짧게 한두 줄이면 충분해요." className="min-h-24 rounded-2xl bg-card text-[15px] leading-7" />
-        <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-[11px] tabular-nums text-muted-foreground">{length} / {ANSWER_MAX}</span><span className="flex gap-2">{editing && <Button variant="ghost" onClick={() => { setEditing(false); setBody(""); }} className="h-10 rounded-full px-4 text-xs text-muted-foreground">그만 고치기</Button>}<Button disabled={busy || length < 2} onClick={() => void send()} className="h-10 rounded-full px-5 text-xs">{busy ? "남기는 중…" : "이름 없이 남기기"}</Button></span></div>
-      </div>)}
-    {message && <p role="status" className="text-xs text-primary">{message}</p>}
-    {data.answers.length ? <ul className="space-y-3">{data.answers.map(answer => <AnswerItem key={answer.id} answer={answer} signedIn={signedIn} canComment={day >= kstDate(new Date(kstNow().getTime() - 86400000))} onChanged={load} />)}</ul>
-      : <p className="rounded-2xl border border-dashed border-border p-5 text-xs leading-6 text-muted-foreground">아직 남긴 답이 없어요. {data.open ? "첫 답을 남겨 보세요." : ""}</p>}
-    <p className="text-[11px] leading-5 text-muted-foreground">{RULES}</p>
-  </section>;
+  const composing = data.open && signedIn && !mine?.hidden && (!mine || editing);
+  const slip = "mb-4 break-inside-avoid rounded-[22px]";
+  return <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">
+    {data.open && !signedIn && <div className={`${slip} border border-dashed border-primary/30 bg-primary/[0.03] p-6`}><p className="text-[11px] font-semibold text-primary">나의 한 줄</p><p className="mt-3 text-sm leading-7">로그인하면 이 질문에 이름 없이 답할 수 있어요. 읽는 건 누구나 할 수 있어요.</p><Button asChild variant="outline" className="mt-4 h-10 rounded-full border-border bg-card px-4 text-xs"><Link to="/login">로그인하기</Link></Button></div>}
+    {data.open && signedIn && mine?.hidden && <p className={`${slip} bg-muted p-5 text-xs leading-6 text-muted-foreground`}>남긴 답이 신고로 가려졌어요. 운영진이 확인하고 있어요.</p>}
+    {composing && <div className={`${slip} border border-primary/25 bg-card p-5 shadow-[0_18px_40px_-32px_rgba(40,24,100,0.5)]`}>
+      <label htmlFor="drawer-compose" className="text-[11px] font-semibold text-primary">{editing ? "나의 한 줄 고치기" : "나의 한 줄"}</label>
+      <Textarea id="drawer-compose" value={body} maxLength={ANSWER_MAX} onChange={event => setBody(event.target.value)} placeholder="짧게 한두 줄이면 충분해요." className="mt-2 min-h-24 resize-none rounded-xl border-0 bg-mist px-3.5 text-[15px] leading-7 shadow-none focus-visible:ring-2" />
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2"><span className="text-[11px] tabular-nums text-muted-foreground">{length} / {ANSWER_MAX}</span><span className="flex gap-2">{editing && <Button variant="ghost" onClick={() => { setEditing(false); setBody(""); }} className="h-9 rounded-full px-3 text-xs text-muted-foreground">그만 고치기</Button>}<Button disabled={busy || length < 2} onClick={() => void send()} className="h-9 rounded-full px-4 text-xs">{busy ? "남기는 중…" : "이름 없이 남기기"}</Button></span></div>
+      {message && <p role="status" className="mt-2 text-xs text-primary">{message}</p>}
+    </div>}
+    {!composing && message && <p role="status" className={`${slip} px-1 text-xs text-primary`}>{message}</p>}
+    {[...data.answers].sort((a, b) => Number(b.mine) - Number(a.mine)).map(answer => <AnswerSlip key={answer.id} answer={answer} signedIn={signedIn} canComment={day >= dayBefore(kstDate())} canEdit={answer.mine && data.open} onEdit={() => { setBody(answer.body); setEditing(true); window.setTimeout(() => document.getElementById("drawer-compose")?.focus(), 50); }} onChanged={onReload} />)}
+    {!data.answers.length && <p className={`${slip} border border-dashed border-border p-6 text-xs leading-6 text-muted-foreground`}>아직 남긴 답이 없어요.{data.open ? " 첫 줄을 남겨 보세요." : ""}</p>}
+  </div>;
 }
 
-function Report({ kind, id }: { kind: "answer" | "comment"; id: string }) {
-  const [asking, setAsking] = useState(false);
-  const [done, setDone] = useState("");
-  if (done) return <span className="text-[11px] text-muted-foreground">{done}</span>;
-  if (!asking) return <button type="button" onClick={() => setAsking(true)} className={`text-[11px] text-muted-foreground hover:text-foreground ${interaction}`}>신고</button>;
-  return <span className="inline-flex items-center gap-2 text-[11px]"><span className="text-muted-foreground">신고할까요?</span><button type="button" onClick={async () => { const result = await rpc<string>("drawer_report", { p_kind: kind, p_id: id }); setDone(result.error || result.data || "신고를 받았어요."); }} className="font-semibold text-destructive">신고하기</button><button type="button" onClick={() => setAsking(false)} className="text-muted-foreground">취소</button></span>;
+function Thanks({ kind, id, thanked, signedIn, compact = false }: { kind: "answer" | "comment"; id: string; thanked?: boolean; signedIn: boolean; compact?: boolean }) {
+  const [on, setOn] = useState(!!thanked);
+  const [hint, setHint] = useState("");
+  if (!signedIn) return <Link to="/login" title="로그인하면 고마워요를 남길 수 있어요" className={`inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground ${interaction}`}><HandHeart size={13} aria-hidden="true" />{!compact && "고마워요"}{compact && <span className="sr-only">고마워요</span>}</Link>;
+  const toggle = async () => { const next = !on; setOn(next); const result = await rpc<boolean>("drawer_thank", { p_kind: kind, p_id: id, p_on: next }); if (result.error) { setOn(!next); setHint(result.error); } };
+  return <span className="inline-flex items-center gap-2"><button type="button" aria-pressed={on} onClick={() => void toggle()} className={`inline-flex items-center gap-1 text-xs ${interaction} ${on ? "font-semibold text-primary" : "text-muted-foreground hover:text-foreground"}`}><HandHeart size={13} aria-hidden="true" className={on ? "fill-primary/15" : ""} />{compact ? <span className="sr-only">고마워요</span> : "고마워요"}</button>{hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}</span>;
 }
+// 내 글에만 보이는 조용한 반응(숫자는 쓴 분에게만)
+const thanksText = (count?: number | null) => !count ? "" : count === 1 ? "누군가 고마워했어요" : `${count}분이 고마워했어요`;
 
-function AnswerItem({ answer, signedIn, canComment, onChanged }: { answer: DrawerAnswer; signedIn: boolean; canComment: boolean; onChanged: () => Promise<void> }) {
+function AnswerSlip({ answer, signedIn, canComment, canEdit, onEdit, onChanged }: { answer: DrawerAnswer; signedIn: boolean; canComment: boolean; canEdit: boolean; onEdit: () => void; onChanged: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [comments, setComments] = useState<DrawerComment[] | null>(null);
   const [count, setCount] = useState(answer.comments);
@@ -261,17 +309,92 @@ function AnswerItem({ answer, signedIn, canComment, onChanged }: { answer: Drawe
   const send = async () => { setBusy(true); const result = await rpc<DrawerComment[]>("drawer_comment", { p_answer: answer.id, p_body: body }); setBusy(false); if (result.error || !result.data) { setMessage(result.error || "남기지 못했어요."); return; } setComments(result.data); setCount(result.data.length); setBody(""); };
   const removeComment = async (id: string) => { const result = await rpc("drawer_delete_comment", { p_id: id }); if (result.error) { setMessage(result.error); return; } await loadComments(); };
   const removeAnswer = async () => { const result = await rpc("drawer_delete_answer", { p_id: answer.id }); if (result.error) { setMessage(result.error); return; } await onChanged(); };
-  return <li className={`rounded-2xl border p-5 ${answer.mine ? "border-primary/25 bg-primary/[0.03]" : "border-border bg-card"}`}>
-    <p className="flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground"><span className="font-semibold text-foreground/80">{answer.alias}</span>{answer.mine && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">내 글</span>}<span>{clock(answer.at)}</span></p>
-    <p className="mt-2 whitespace-pre-wrap text-[15px] leading-7">{answer.body}</p>
-    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1"><button type="button" aria-expanded={open} onClick={toggle} className={`inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground ${interaction}`}><MessageCircle size={13} aria-hidden="true" />{count ? `댓글 ${count}` : "댓글"}</button>{answer.mine ? <button type="button" onClick={() => void removeAnswer()} className="text-[11px] text-muted-foreground hover:text-foreground">지우기</button> : signedIn && <Report kind="answer" id={answer.id} />}</div>
-    {open && <div className="mt-4 space-y-3 border-t border-border/70 pt-4">
-      {comments === null ? <p className="text-xs text-muted-foreground">댓글을 불러오고 있어요.</p> : comments.length ? <ul className="space-y-2.5">{comments.map(comment => <li key={comment.id} className="text-sm leading-6"><span className={`mr-2 text-[11px] font-semibold ${comment.alias === "글쓴이" ? "text-primary" : "text-foreground/70"}`}>{comment.alias}</span>{comment.body}<span className="ml-2 text-[11px] text-muted-foreground">{clock(comment.at)}</span>{comment.mine ? <button type="button" onClick={() => void removeComment(comment.id)} className="ml-2 text-[11px] text-muted-foreground hover:text-foreground">지우기</button> : signedIn && <span className="ml-2"><Report kind="comment" id={comment.id} /></span>}</li>)}</ul> : <p className="text-xs text-muted-foreground">아직 댓글이 없어요.</p>}
-      {canComment && (signedIn ? <div className="flex gap-2"><input aria-label="댓글 쓰기" value={body} maxLength={COMMENT_LIMIT} onChange={event => setBody(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing && body.trim()) void send(); }} placeholder="따뜻한 한마디" className="h-10 min-w-0 flex-1 rounded-full border border-border bg-card px-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm" /><Button disabled={busy || !body.trim()} onClick={() => void send()} className="h-10 shrink-0 rounded-full px-4 text-xs">남기기</Button></div>
+  const report = (kind: "answer" | "comment", id: string) => async () => { const result = await rpc<string>("drawer_report", { p_kind: kind, p_id: id }); return result.error || result.data || "신고를 받았어요."; };
+  return <article className={`mb-4 break-inside-avoid rounded-[22px] border p-5 shadow-[0_18px_40px_-34px_rgba(40,24,100,0.45)] ${answer.mine ? "border-primary/25 bg-primary/[0.035]" : "border-border bg-card"}`}>
+    <header className="flex items-center gap-2.5"><AliasSeal alias={answer.alias} /><div className="min-w-0 flex-1"><p className="truncate text-[13px] font-semibold">{answer.alias}{answer.mine && <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">내 글</span>}</p><p className="text-[11px] text-muted-foreground">{ago(answer.at)}</p></div></header>
+    <p className="mt-3.5 whitespace-pre-wrap text-[15px] leading-7">{answer.body}</p>
+    {answer.mine && !!answer.thanks && <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary/[0.07] px-2.5 py-1 text-[11px] font-semibold text-primary"><HandHeart size={12} aria-hidden="true" />{thanksText(answer.thanks)}</p>}
+    <footer className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/70 pt-3">
+      <button type="button" aria-expanded={open} onClick={toggle} className={`inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground ${interaction}`}><MessageCircle size={13} aria-hidden="true" />{count ? `댓글 ${count}` : "댓글"}</button>
+      {!answer.mine && <Thanks kind="answer" id={answer.id} thanked={answer.thanked} signedIn={signedIn} />}
+      <span className="ml-auto flex items-center gap-3">{answer.mine ? <>{canEdit && <button type="button" onClick={onEdit} className="text-[11px] font-semibold text-primary">고치기</button>}<button type="button" onClick={() => void removeAnswer()} className="text-[11px] text-muted-foreground hover:text-foreground">지우기</button></> : signedIn && <ReportButton onReport={report("answer", answer.id)} />}</span>
+    </footer>
+    {open && <div className="mt-3 space-y-3">
+      {comments === null ? <p className="text-xs text-muted-foreground">댓글을 불러오고 있어요.</p> : comments.length ? <ul className="space-y-3">{comments.map(comment => <li key={comment.id} className="flex gap-2.5"><AliasSeal alias={comment.alias === "글쓴이" ? answer.alias : comment.alias} size="sm" /><div className="min-w-0 flex-1 text-sm leading-6"><p className="text-[11px]"><span className={`font-semibold ${comment.alias === "글쓴이" ? "text-primary" : "text-foreground/80"}`}>{comment.alias}</span><span className="ml-1.5 text-muted-foreground">{ago(comment.at)}</span></p><p className="whitespace-pre-wrap">{comment.body}</p><p className="mt-1 flex flex-wrap items-center gap-3">{comment.mine ? <>{!!comment.thanks && <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary"><HandHeart size={11} aria-hidden="true" />{thanksText(comment.thanks)}</span>}<button type="button" onClick={() => void removeComment(comment.id)} className="text-[11px] text-muted-foreground hover:text-foreground">지우기</button></> : <><Thanks kind="comment" id={comment.id} thanked={comment.thanked} signedIn={signedIn} compact />{signedIn && <ReportButton onReport={report("comment", comment.id)} />}</>}</p></div></li>)}</ul> : <p className="text-xs text-muted-foreground">아직 댓글이 없어요.</p>}
+      {canComment && (signedIn ? <div className="flex gap-2"><input aria-label="댓글 쓰기" value={body} maxLength={COMMENT_LIMIT} onChange={event => setBody(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing && body.trim()) void send(); }} placeholder="따뜻한 한마디" className="h-10 min-w-0 flex-1 rounded-full border border-border bg-background px-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm" /><Button disabled={busy || !body.trim()} onClick={() => void send()} className="h-10 shrink-0 rounded-full px-4 text-xs">남기기</Button></div>
         : <p className="text-xs text-muted-foreground"><Link to="/login" className="font-semibold text-primary underline-offset-4 hover:underline">로그인</Link>하면 이름 없이 댓글을 남길 수 있어요.</p>)}
       {message && <p role="status" className="text-xs text-primary">{message}</p>}
     </div>}
-  </li>;
+  </article>;
+}
+
+// ── 02 고민 편지함 미리 보기: 최근 고민 세 편(진짜 글만). 편지는 통 수만.
+function MailboxTeaser() {
+  const [posts, setPosts] = useState<WorryPost[] | null>(LIVE ? null : []);
+  useEffect(() => { if (LIVE) void rpc<{ posts: WorryPost[] }>("worry_board", {}).then(result => setPosts(result.data?.posts.filter(post => post.open).slice(0, 3) ?? [])); }, []);
+  const steps = [{ icon: PenLine, label: "고민은 글로" }, { icon: Mail, label: "답장은 편지로" }, { icon: Clock, label: "정오에 도착" }];
+  return <section className="bleed bg-mist py-20 sm:py-24" aria-labelledby="mailbox-teaser-title">
+    <div className="grid gap-12 lg:grid-cols-[5fr_7fr] lg:gap-16">
+      <div>
+        <SectionLabel number="02" ko="고민 편지함">LETTERS AT NOON</SectionLabel>
+        <h2 id="mailbox-teaser-title" className="text-ink text-3xl font-semibold leading-[1.45] sm:text-[34px]">댓글 대신,<br />편지로 답해요.</h2>
+        <ol className="mt-9 flex items-center gap-2" aria-label="고민 편지함의 흐름">{steps.map(({ icon: Icon, label }, index) => <li key={label} className="flex items-center gap-2"><span className="flex flex-col items-center gap-2 text-center"><span className="grid size-11 place-items-center rounded-full bg-card text-primary ring-1 ring-primary/10 shadow-[0_12px_28px_-20px_rgba(40,24,100,0.6)]"><Icon size={17} aria-hidden="true" /></span><span className="text-[11px] font-semibold">{label}</span></span>{index < steps.length - 1 && <span aria-hidden="true" className="mb-6 h-px w-6 bg-primary/25 sm:w-10" />}</li>)}</ol>
+        <Button asChild className={`mt-10 h-12 rounded-full px-6 ${interaction}`}><Link to="/mailbox">고민 편지함 열기 <ArrowUpRight size={16} /></Link></Button>
+      </div>
+      <div className="grid content-start gap-3">
+        {posts === null ? <div className="h-40 animate-pulse rounded-[22px] bg-card" />
+          : posts.length ? posts.map(post => <Link key={post.id} to={`/mailbox#post-${post.id}`} className={`group block rounded-[22px] border border-border bg-card p-5 shadow-[0_18px_40px_-34px_rgba(40,24,100,0.45)] hover:border-primary/40 ${interaction}`}>
+            <p className="flex items-center gap-2 text-[11px] text-muted-foreground"><span className="rounded-full bg-primary/[0.07] px-2 py-0.5 font-semibold text-primary">{TOPICS[post.topic]}</span><span className="font-semibold text-foreground/80">{post.alias}</span><span>{ago(post.at)}</span></p>
+            <p className="mt-3 line-clamp-2 text-[15px] leading-7">{post.body}</p>
+            <p className="mt-3 flex items-center justify-between text-xs"><span className="inline-flex items-center gap-1.5 text-muted-foreground"><Mail size={13} aria-hidden="true" />{post.letters ? `편지 ${post.letters}통` : "아직 편지가 없어요"}</span><span className="font-semibold text-primary opacity-80 group-hover:opacity-100">편지 쓰기 →</span></p>
+          </Link>)
+          : <div className="rounded-[22px] border border-dashed border-border bg-card/60 p-8 text-sm leading-7 text-muted-foreground">아직 올라온 고민이 없어요. 마음에 걸린 일이 있다면 이름 없이 남겨 보세요. 읽은 분들이 편지로 답해 줄 거예요.</div>}
+      </div>
+    </div>
+  </section>;
+}
+
+function Lead({ title, children }: { title: string; children: ReactNode }) {
+  return <div className="max-w-md"><h3 className="text-xl font-semibold leading-[1.5]">{title}</h3><p className="mt-3 text-sm leading-7 text-muted-foreground">{children}</p></div>;
+}
+
+// ── 03-01 오늘의 질문 카드: 오전에는 잎 그림자에 가려 있다가 정오에 선명해진다. 고른 편지지로 이미지 저장.
+function QuestionCard() {
+  const [now, setNow] = useState(kstNow);
+  useEffect(() => { const timer = window.setInterval(() => setNow(kstNow()), 30000); return () => window.clearInterval(timer); }, []);
+  const [yesterday, setYesterday] = useState(false);
+  const [paper, setPaper] = useState<Paper>(savedPaper);
+  const [message, setMessage] = useMessage();
+  const today = kstDate(now);
+  const minutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+  // 정오까지 남은 정도: 9시 전에는 가장 짙고, 9시부터 12시까지 차츰 걷힌다.
+  const shade = minutes >= 720 ? 0 : minutes <= 540 ? 1 : (720 - minutes) / 180;
+  const day = yesterday ? dayBefore(today) : today;
+  const question = DAILY[dailyIndex(day)];
+  const hidden = !yesterday && shade > 0;
+  const left = 720 - minutes;
+  const tone = PAPERS[paper];
+  const save = async () => setMessage(await keep(await drawCard({ paper, eyebrow: `오늘의 질문 · ${dateText(day)}`, title: question, body: "", footer: "누군가와 함께라면, 이 질문으로 시작해 보세요." }), `flavie-question-${day}.png`));
+  return <div className="grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
+    <div className="space-y-6"><Lead title="하루 한 장, 정오에 열리는 질문.">오전에는 잎 그림자에 가려 있다가, 정오가 되면 선명해져요. 누군가와 함께 있다면 오늘은 이 질문으로 이야기를 시작해 보세요.</Lead><div><p className="text-xs font-semibold">카드 색</p><div className="mt-2"><PaperPicker value={paper} onChange={setPaper} label="카드 색" /></div></div></div>
+    <div>
+      <figure className="relative isolate mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-3xl border border-border p-8 shadow-[0_30px_60px_-40px_rgba(30,20,80,0.55)] transition-colors duration-500 motion-reduce:transition-none sm:p-10" style={{ background: tone.fill, color: tone.ink }}>
+        <img src={LEAF} alt="" aria-hidden="true" className="absolute inset-0 -z-10 h-full w-full object-cover mix-blend-multiply transition-opacity duration-1000 motion-reduce:transition-none" style={{ opacity: Math.min(0.85, tone.leaf + 0.5 * (hidden ? shade : 0)) }} />
+        <p className="text-[11px] font-semibold tracking-[0.12em] opacity-60">{yesterday ? "어제의 질문" : "오늘의 질문"} · {dateText(day)}</p>
+        <p className="mt-10 text-2xl font-semibold leading-[1.6] transition-[filter] duration-1000 motion-reduce:transition-none sm:text-[28px]" style={{ filter: hidden ? `blur(${(2 + 6 * shade).toFixed(1)}px)` : "none" }} aria-hidden={hidden}>{question}</p>
+        {hidden && <p className="sr-only">오늘의 질문은 정오에 열려요.</p>}
+        <figcaption className="absolute inset-x-8 bottom-8 flex items-end justify-between gap-3 sm:inset-x-10 sm:bottom-10">
+          <span className="text-xs leading-5 opacity-70">{hidden ? `정오에 선명해져요 · ${Math.floor(left / 60) ? `${Math.floor(left / 60)}시간 ` : ""}${left % 60}분 남았어요` : "누군가와 함께라면, 이 질문으로."}</span>
+          <span aria-hidden="true" className="flex shrink-0 items-center"><span className="size-2.5 rounded-full bg-[#5B4FCF]" /><span className="-ml-1 size-2.5 rounded-full bg-[#3560C0]/85" /></span>
+        </figcaption>
+      </figure>
+      <div className="mx-auto mt-5 flex max-w-md flex-wrap items-center justify-between gap-2">
+        <button type="button" onClick={() => setYesterday(value => !value)} className={`text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline ${interaction}`}>{yesterday ? "오늘의 질문으로" : "어제의 질문 보기"}</button>
+        <Button variant="outline" disabled={hidden} onClick={() => void save()} className="h-10 rounded-full border-border px-4 text-xs"><Download size={14} />카드 이미지로 저장</Button>
+      </div>
+      {message && <p role="status" className="mx-auto mt-2 max-w-md text-right text-xs text-primary">{message}</p>}
+    </div>
+  </div>;
 }
 
 function SceneDrawer() {

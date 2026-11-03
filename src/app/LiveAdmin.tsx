@@ -207,10 +207,32 @@ export function LiveAdminHome() {
     {data.mail?.ok === false && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-destructive"><span className="font-semibold">메일 발송이 실패하고 있어요</span> · {kstDateTime(data.mail.started_at)} · 실패 {data.mail.detail?.failed ?? 0}통{data.mail.detail?.gaveUp ? ` · 3번 실패해 더 보내지 않는 메일 ${data.mail.detail.gaveUp}통` : ""}{data.mail.detail?.reason ? ` · ${data.mail.detail.reason.slice(0, 120)}` : ""}<br /><span className="text-xs">Supabase → Edge Functions → Secrets의 MAIL_FROM·SMTP_USER(메일 주소)·SMTP_PASS(앱 비밀번호)를 확인해 주세요. 사이트 안 알림은 그대로 보여요.</span></p>}
     {urgent > 0 && <Link to="/admin/safety?tab=reports" role="alert" className="mb-5 block rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-semibold text-destructive">긴급 신고 {urgent}건 · 먼저 확인해 주세요 →</Link>}
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{tiles.map(([label, count, to]) => <Link key={label} to={to} className={`${box} p-5 transition-colors hover:border-primary/40`}><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-3xl font-light tabular-nums text-primary">{count}</p></Link>)}</div>
+    <WeeklyNotes />
     <section className={`${box} mt-6 p-5`}><h2 className="flex items-center gap-2 text-sm font-semibold"><Bell size={15} className="text-accent" />예약 작업 기록</h2>{data.jobs.length ? <ul className="mt-3 divide-y divide-border text-xs">{data.jobs.map((job, index) => <li key={index} className="flex flex-wrap justify-between gap-2 py-2"><span><span className="font-semibold">{JOB_LABEL[job.job] ?? job.job}</span> · {job.ok === false ? <span className="font-semibold text-destructive">실패</span> : "완료"} · <span className="text-muted-foreground">{jobDetail(job.detail)}</span></span><span className="text-muted-foreground">{kstDateTime(job.started_at)}</span></li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">아직 실행 기록이 없어요. 정오 작업은 매일 12:00에 돌아요.</p>}</section>
     {data.applications && <section className={`${box} mt-6 p-5`}><h2 className="text-sm font-semibold">유입 경로 · 제출한 신청서 {submitted.length}건</h2>{sources.length ? <ul className="mt-3 grid gap-2 text-xs sm:grid-cols-2">{sources.map(([label, count]) => <li key={label} className="flex items-center gap-3"><span className="w-28 shrink-0 text-muted-foreground">{label}</span><span className="h-2 rounded-full bg-primary/70" style={{ width: `${Math.max(6, Math.round(count / submitted.length * 100))}%` }} /><span className="tabular-nums">{count}</span></li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">아직 제출한 신청서가 없어요. 홍보 링크 끝에 ?from=instagram · ?from=threads 를 붙이면 경로가 자동으로 채워져요.</p>}</section>}
     <section className={`${box} mt-6 p-5`}><h2 className="flex items-center gap-2 text-sm font-semibold"><Bug size={15} className="text-accent" />화면 오류 · 최근 7일 {data.errors.length ? `${data.errors.length}건` : ""}</h2>{data.errors.length ? <ul className="mt-3 divide-y divide-border text-xs">{data.errors.map(item => <li key={item.id} className="py-2 leading-5"><span className="text-muted-foreground">{kstDateTime(item.at)} · {item.path ?? "-"} · {item.context ?? "-"}</span><br />{item.message}</li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">회원 화면에서 난 오류가 없어요. 오류가 나면 이메일·전화번호를 지운 채로 여기에 모여요.</p>}</section>
   </>;
+}
+// 이번 주 노트(5200): 가장 최근 노트 하나가 14일 동안 회원 오늘 화면에 ‘이번 주, 플라비에서’로 보인다(운영진이라고 따로 밝히지 않는다).
+type WeeklyNoteRow = { id: string; body: string; at: string; current: boolean };
+function WeeklyNotes() {
+  const role = useRole();
+  const list = useLoad(() => call<WeeklyNoteRow[]>("admin_notes"), []);
+  const [body, setBody] = useState("");
+  const [message, setMessage] = useState("");
+  const { busy, run } = useBusy();
+  const length = Array.from(body.trim()).length;
+  const write = () => run("write", async () => { const { error } = await rpc("admin_note_write", { p_body: body }); setMessage(error || "남겼어요. 회원 오늘 화면에 바로 보여요."); if (!error) setBody(""); await list.reload(); });
+  const remove = (id: string) => run(id, async () => { const { error } = await rpc("admin_note_delete", { p_id: id }); setMessage(error || "지웠어요."); await list.reload(); });
+  if (list.error) return null;
+  return <section className={`${box} mt-6 p-5`}>
+    <h2 className="text-sm font-semibold">이번 주 노트 · 회원 오늘 화면</h2>
+    <p className="mt-1.5 text-xs leading-6 text-muted-foreground">가장 최근 노트 하나가 14일 동안 회원 오늘 화면에 ‘이번 주, {BEFORE_US.brand.name}에서’로 보여요. 운영진이라고 따로 밝히지 않으니, {BEFORE_US.brand.name}가 건네는 말투로 일주일에 한 번쯤 짧게 남겨 주세요. 숫자나 현황(몇 명이 신청했는지 등)은 적지 않아요.</p>
+    {canOperate(role) && <div className="mt-3 space-y-2"><Textarea aria-label="이번 주 노트" value={body} maxLength={200} onChange={event => setBody(event.target.value)} placeholder="예: 이번 주에는 천천히 걷는 걸 좋아하는 분들의 신청서를 오래 읽었어요." className="min-h-20" /><div className="flex flex-wrap items-center justify-between gap-2"><span className="text-[11px] tabular-nums text-muted-foreground">{length} / 200 · 10자 이상</span><Button size="sm" disabled={!!busy || length < 10} onClick={() => void write()}>{busy === "write" ? "남기는 중" : "노트 남기기"}</Button></div></div>}
+    {message && <div className="mt-3"><Notice text={message} /></div>}
+    {(list.data ?? []).length > 0 && <ul className="mt-3 divide-y divide-border text-xs">{(list.data ?? []).map(note => <li key={note.id} className="flex flex-wrap items-start justify-between gap-2 py-2.5 leading-6"><span className="min-w-0 flex-1"><span className="text-muted-foreground">{kstDateTime(note.at)}{note.current ? <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">지금 보이는 중</span> : null}</span><br />{note.body}</span>{canOperate(role) && <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px] text-muted-foreground" disabled={busy === note.id} onClick={() => void remove(note.id)}>지우기</Button>}</li>)}</ul>}
+    {!list.loading && !(list.data ?? []).length && <p className="mt-3 text-xs text-muted-foreground">아직 남긴 노트가 없어요. 노트가 없으면 회원 화면에는 아무것도 보이지 않아요.</p>}
+  </section>;
 }
 async function table<T>(name: string, build: (query: any) => any) { const db = await supabase(); const { data, error } = await build(db.from(name)); if (error) throw new Error(friendlyError(error)); return (data ?? []) as T[]; }
 
@@ -381,12 +403,23 @@ function ApplicantDetail({ memberId, row, cohorts, canDecide, onChanged }: { mem
       const live = data.status === "approved" && photo?.review === "기준 확인"; return <div key={slot.id} className="space-y-2 text-xs"><p className="font-semibold">{slot.number}. {slot.label}</p>{photo ? <><AdminPhoto path={photo.path} /><p className="text-muted-foreground">{photo.width}×{photo.height} · {photo.review}{photo.reason ? ` · ${photo.reason}` : ""}</p>{photo.changeReason && <p className="rounded-md bg-[#F8E5A6]/60 px-2 py-1 text-[11px] leading-5 text-[#5A4310] dark:bg-[#3B3424] dark:text-[#F3D98A]">교체 요청 중 · {photo.changeReason}{photo.changeRequestedAt && !swap ? Date.parse(photo.changeRequestedAt) + 7 * 86400000 <= Date.now() ? " · 7일 지나 새 소개 멈춤" : ` · ${kstDateTime(new Date(Date.parse(photo.changeRequestedAt) + 7 * 86400000).toISOString())}까지(지나면 새 소개 멈춤)` : ""}</p>}{canDecide && <div className="flex flex-wrap gap-1"><Button size="sm" variant={photo.review === "기준 확인" ? "default" : "outline"} disabled={!!busy || photo.review === "기준 확인"} className="h-7 px-2 text-[11px]" onClick={() => void act(`photo-${slot.id}`, () => call("admin_review_photo", { p_member: memberId, p_slot: slot.id, p_review: "기준 확인" }), `${slot.label} 기준 확인`)}>기준 확인</Button><select aria-label={`${slot.label} ${live ? "교체" : "재등록"} 사유`} value={reasons[slot.id] ?? ""} onChange={event => setReasons(current => ({ ...current, [slot.id]: event.target.value }))} className="h-7 rounded-md border border-border bg-card px-1 text-[11px]"><option value="">{live ? "교체 사유" : "재등록 사유"}</option>{PHOTO_REVIEW_REASONS.map(reason => <option key={reason}>{reason}</option>)}</select>{live ? <Button size="sm" variant="outline" disabled={!reasons[slot.id] || !!busy} className="h-7 px-2 text-[11px]" onClick={() => void act(`photo-${slot.id}`, () => call("admin_request_photo_change", { p_member: memberId, p_slot: slot.id, p_reason: reasons[slot.id] }), `${slot.label} 교체를 요청했어요. 회원에게 알림·메일이 가요.`)}>교체 요청</Button> : <Button size="sm" variant="outline" disabled={!reasons[slot.id] || !!busy} className="h-7 px-2 text-[11px]" onClick={() => void act(`photo-${slot.id}`, () => call("admin_review_photo", { p_member: memberId, p_slot: slot.id, p_review: "재등록 요청", p_reason: reasons[slot.id] }), `${slot.label} 재등록 요청`)}>재등록 요청</Button>}{photo.changeReason && <Button size="sm" variant="ghost" disabled={!!busy} className="h-7 px-2 text-[11px] text-muted-foreground" onClick={() => void act(`photo-${slot.id}`, () => call("admin_request_photo_change", { p_member: memberId, p_slot: slot.id, p_reason: null }), `${slot.label} 교체 요청을 거뒀어요.`)}>요청 거두기</Button>}</div>}{swap && <div className="space-y-1.5 rounded-lg border border-primary/30 bg-primary/5 p-2"><p className="font-semibold text-primary">교체할 새 사진 · {swap.review === "대기" ? "확인 대기" : `다시 요청함${swap.reason ? ` · ${swap.reason}` : ""}`}</p><AdminPhoto path={swap.path} />{canDecide && swap.review === "대기" && <div className="flex flex-wrap gap-1"><Button size="sm" disabled={!!busy} className="h-7 px-2 text-[11px]" onClick={() => void act(`swap-${slot.id}`, () => call("admin_review_replacement", { p_member: memberId, p_slot: slot.id, p_review: "기준 확인" }), `${slot.label} 새 사진으로 바꿨어요. 다음 소개부터 보여요.`)}>교체 승인</Button><select aria-label={`${slot.label} 새 사진 재등록 사유`} value={reasons[`swap-${slot.id}`] ?? ""} onChange={event => setReasons(current => ({ ...current, [`swap-${slot.id}`]: event.target.value }))} className="h-7 rounded-md border border-border bg-card px-1 text-[11px]"><option value="">재등록 사유</option>{PHOTO_REVIEW_REASONS.map(reason => <option key={reason}>{reason}</option>)}</select><Button size="sm" variant="outline" disabled={!reasons[`swap-${slot.id}`] || !!busy} className="h-7 px-2 text-[11px]" onClick={() => void act(`swap-${slot.id}`, () => call("admin_review_replacement", { p_member: memberId, p_slot: slot.id, p_review: "재등록 요청", p_reason: reasons[`swap-${slot.id}`] }), `${slot.label} 새 사진을 다시 요청했어요. 지금 사진은 그대로예요.`)}>다시 요청</Button></div>}</div>}</> : <p className="text-muted-foreground">{slot.required ? "미등록 · 필수" : "미등록"}</p>}</div>; })}</div>{data.status === "approved" && <p className="mt-3 text-[11px] leading-5 text-muted-foreground">이미 소개를 받고 있는 회원의 확인된 사진은 내리지 않아요. ‘교체 요청’을 남기면 회원에게 알림·메일이 가고, 회원이 올린 새 사진을 ‘교체 승인’하면 그때 바뀌어요. 요청 뒤 7일 안에 새 사진이 오지 않으면 새 소개만 멈추고(따로 다시 알리지 않음), 새 사진이 오면 바로 풀려요.</p>}</div>
     {(data.reflections?.length ?? 0) > 0 && <Reflections items={data.reflections ?? []} />}
     {(data.windowAnswers?.length ?? 0) > 0 && <WindowAnswers items={data.windowAnswers ?? []} />}
+    <MemberVouches memberId={memberId} />
     <div><h3 className="text-sm font-semibold">신청 내용</h3><div className="mt-3"><ProfileSheet detail={data} full /></div></div>
     {canDecide && cohorts.length > 0 && <div className="flex flex-wrap items-center gap-2 border-t border-border pt-5 text-xs"><span className="font-semibold">기수 옮기기</span><select aria-label="옮길 기수" value={moveTo} onChange={event => setMoveTo(event.target.value)} className="h-8 rounded-md border border-border bg-card px-2"><option value="">기수 고르기</option>{cohorts.filter(item => item.number !== row?.cohort).map(item => <option key={item.number} value={item.number}>{cohortName(item.number)} · {kstDay(item.startsOn)} 시작</option>)}</select><Button size="sm" variant="outline" className="h-8" disabled={!moveTo || !!busy} onClick={() => void move()}>옮기기</Button></div>}
     {canDecide && <div className="space-y-3 border-t border-border pt-5"><h3 className="text-sm font-semibold">결정</h3>{actions.length ? <><Textarea aria-label="회원에게 보낼 안내" value={note} maxLength={500} onChange={event => setNote(event.target.value)} placeholder="보완·보류·소개 어려움·승인 취소일 때 회원에게 보일 안내를 적어 주세요. 평가하는 말은 쓰지 않아요." className="min-h-20" /><div className="flex flex-wrap gap-2">{actions.map(action => <Button key={action.status} size="sm" variant={action.tone === "primary" ? "default" : action.tone === "ghost" ? "ghost" : "outline"} disabled={!!busy || (action.note && !note.trim())} title={action.note && !note.trim() ? "회원에게 보낼 안내를 먼저 적어 주세요" : undefined} onClick={() => void decide(action)}>{busy === `decide-${action.status}` ? "기록하고 있어요" : action.label}</Button>)}</div>{actions.some(action => action.note) && !note.trim() && <p className="text-[11px] text-muted-foreground">보완 요청·보류·소개 어려움은 안내를 적어야 눌러져요.</p>}</> : data.status === "withdrawn" ? <div className="flex flex-wrap items-center gap-3"><p className="text-xs text-muted-foreground">회원이 철회한 신청서예요.</p><Button size="sm" variant="outline" disabled={!!busy} onClick={() => void reopen()}>{busy === "reopen" ? "여는 중이에요" : "신청서 다시 열기…"}</Button></div> : <p className="text-xs text-muted-foreground">회원이 다시 제출하면 결정할 수 있어요.</p>}</div>}
     <Notice text={message} />
     {dialog}
   </section>;
+}
+
+// 친구 추천사(5200): 친구가 링크로 남긴 한 줄. 운영진과 회원 본인만 읽고, 소개할 분을 고를 때 참고한다(상대에게는 보이지 않는다).
+function MemberVouches({ memberId }: { memberId: string }) {
+  const list = useLoad(() => call<{ id: string; relation: string; body: string; at: string }[]>("admin_member_vouches", { p_member: memberId }), [memberId]);
+  if (!list.data?.length) return null;
+  return <div className="rounded-xl border border-lilac bg-mist p-3 text-xs leading-6">
+    <p className="font-semibold">친구 추천사 · 회원 본인과 운영진만 봐요</p>
+    <ul className="mt-1.5 space-y-1.5">{list.data.map(item => <li key={item.id}><span className="text-muted-foreground">{kstDay(item.at)} · {item.relation}</span><br />“{item.body}”</li>)}</ul>
+  </div>;
 }
 
 // ─────────────────────────────────────────────
@@ -462,21 +495,41 @@ function ReportExchangeView({ data, onClose }: { data: ReportExchange; onClose: 
   </div>;
 }
 const REQUEST_STATUS: Record<string, string> = { requested: "접수", protection: "보호 조치", checking: "확인 중", decided: "처리 완료", reconsidering: "재검토" };
-type SafetyTab = "reports" | "inquiries" | "requests" | "greetings" | "drawer";
+type SafetyTab = "reports" | "inquiries" | "requests" | "greetings" | "drawer" | "worry";
 
 export function LiveSafety() {
   const role = useRole();
   const asked = new URLSearchParams(useLocation().search).get("tab") as SafetyTab | null;
-  const tabs = (role === "finance" ? [["requests", "회원 요청"]] : [["reports", "신고"], ["inquiries", "고객 문의"], ["requests", "회원 요청"], ["greetings", "첫 마디 · 홈"], ["drawer", "서랍 글"]]) as [SafetyTab, string][];
+  const tabs = (role === "finance" ? [["requests", "회원 요청"]] : [["reports", "신고"], ["inquiries", "고객 문의"], ["requests", "회원 요청"], ["greetings", "첫 마디 · 홈"], ["drawer", "서랍 글"], ["worry", "고민 편지함"]]) as [SafetyTab, string][];
   const [tab, setTab] = useState<SafetyTab>(() => tabs.some(([key]) => key === asked) ? asked! : tabs[0][0]);
   return <>
     <Title lead="안전 신고를 가장 먼저 봐요. 문의 본문과 이메일은 감사 기록에 남기지 않아요. 문의 답변을 기록하면 문의한 분의 이메일로 답변이 가고, 접수 번호로도 확인할 수 있어요.">신고·문의</Title>
     <Tabs value={tab} onChange={setTab} options={tabs} />
-    {tab === "reports" ? <ReportsPanel role={role} /> : tab === "inquiries" ? <InquiriesPanel /> : tab === "requests" ? <RequestsPanel /> : tab === "drawer" ? <DrawerPanel role={role} /> : <GreetingsPanel role={role} />}
+    {tab === "reports" ? <ReportsPanel role={role} /> : tab === "inquiries" ? <InquiriesPanel /> : tab === "requests" ? <RequestsPanel /> : tab === "drawer" ? <DrawerPanel role={role} /> : tab === "worry" ? <WorryPanel role={role} /> : <GreetingsPanel role={role} />}
   </>;
 }
 // 정오의 서랍: 이름 없이 남긴 답·댓글 중 신고된 글과 가려진 글(서로 다른 세 분이 신고하면 바로 가려진다). 누가 썼는지는 보이지 않는다.
 type DrawerRow = { kind: "answer" | "comment"; id: string; day: string; body: string; createdAt: string; hidden: boolean; hiddenBy: "reports" | "operator" | null; reports: number; reasons: string[] };
+// 고민 편지함: 신고된 고민 글·편지와 가려진 고민 글. 편지는 받은 분이 신고한 것만 보인다(그 편지는 이미 가려지고 주고받기가 멈춘 상태).
+type WorryRow = { kind: "post" | "letter"; id: string; topic: string; body: string; createdAt: string; hidden: boolean; hiddenBy: string | null; reports: number; reasons: string[] };
+const WORRY_TOPIC: Record<string, string> = { love: "연애", people: "관계", work: "일·공부", mind: "마음" };
+function WorryPanel({ role }: { role: Role }) {
+  const list = useLoad(() => call<WorryRow[]>("admin_worry_reports"), []);
+  const [message, setMessage] = useState("");
+  const { busy, run } = useBusy();
+  const moderate = (row: WorryRow, action: "hide" | "restore" | "dismiss") => run(`${row.kind}-${row.id}`, async () => { const { error } = await rpc("admin_worry_moderate", { p_kind: row.kind, p_id: row.id, p_action: action }); setMessage(error || (action === "hide" ? "가렸어요." : action === "restore" ? "다시 보이게 했어요." : "신고를 닫았어요.")); await list.reload(); });
+  return <div className="space-y-3">
+    <p className="text-xs leading-6 text-muted-foreground">고민 편지함에서 신고된 고민 글·편지와 가려진 고민 글이에요. 고민 글은 서로 다른 세 분이 신고하면 바로 가려지고, 편지는 받은 분이 신고하면 그 편지를 가리고 주고받기를 멈춰요. 편지 내용은 신고된 것만 보여요. 마음이 많이 힘들어 보이는 글이면 상담 안내(109)를 함께 전해 주세요.</p>
+    <Notice text={message || list.error || ""} />
+    {(list.data ?? []).map(row => <article key={`${row.kind}-${row.id}`} className={`${box} p-4 text-sm`}>
+      <p className="text-[11px] text-muted-foreground">{row.kind === "post" ? "고민 글" : "편지"} · {WORRY_TOPIC[row.topic] ?? row.topic} · {kstDateTime(row.createdAt)} · 열린 신고 {row.reports}건{row.hidden ? ` · 가려짐(${row.hiddenBy === "operator" ? "운영진" : row.kind === "post" ? "신고 3건" : "받은 분 신고"})` : ""}</p>
+      <p className="mt-2 whitespace-pre-wrap leading-7">{row.body}</p>
+      {row.reasons.length > 0 && <p className="mt-1 text-xs text-muted-foreground">사유 · {row.reasons.join(" / ")}</p>}
+      {canOperate(role) && <div className="mt-3 flex flex-wrap gap-2">{row.hidden ? <Button size="sm" variant="outline" disabled={busy === `${row.kind}-${row.id}`} onClick={() => void moderate(row, "restore")}>되돌리기</Button> : <Button size="sm" variant="outline" disabled={busy === `${row.kind}-${row.id}`} onClick={() => void moderate(row, "hide")}>가리기</Button>}{row.reports > 0 && <Button size="sm" variant="ghost" disabled={busy === `${row.kind}-${row.id}`} onClick={() => void moderate(row, "dismiss")}>신고 닫기</Button>}</div>}
+    </article>)}
+    {!list.loading && !list.data?.length && <p className="text-sm text-muted-foreground">확인할 고민 편지함 글이 없어요.</p>}
+  </div>;
+}
 function DrawerPanel({ role }: { role: Role }) {
   const list = useLoad(() => call<DrawerRow[]>("admin_drawer_reports"), []);
   const [message, setMessage] = useState("");
