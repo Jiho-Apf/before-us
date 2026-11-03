@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router";
-import { ArrowRight, CalendarPlus, Check, ChevronDown, ImagePlus, Loader2, LockOpen, PenLine, X } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarPlus, Check, ChevronDown, Highlighter, ImagePlus, Loader2, LockOpen, PenLine, Printer, X } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
@@ -9,7 +10,7 @@ import { Member, Waiting } from "./LiveMember";
 import { kstDateTime, kstDay } from "./dates";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
 import { APPOINTMENT_ACTIVITIES, QUICK_TIMES } from "./appointment-details";
-import { COMMENT_MAX, CUSTOM, END_REASON, PIECE_MAX, PIECE_MIN, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_ACTIVITY_ROWS, SCENE_CUSTOM_MAX, SCENE_PROMPTS, SCENE_REASON_MAX, SCENE_STAY, SCENE_TOPIC_EXAMPLES, SCENE_TOPIC_MAX, AVAIL_BANDS, acceptAppointment, availLabel, bookSlot, chooseFirstScene, quickStart, setAvailability, chooseMeeting, choosePlan, confirmProgram, contactProblem, customOk, isCustom, leaveComment, letterPrompt, loadMyProgram, loadReadablePrograms, proposeAppointment, proposeStart, sceneAppointment, sceneLabel, sceneNote, setContactConsent, stayFor, submitEntry, tidyChoice, writeScenePiece, type EntryContent, type Program, type ProgramEntry, type ReadableProgram, type ScenePick, type Slot } from "./backend/program";
+import { COMMENT_MAX, CUSTOM, END_REASON, PIECE_MAX, PIECE_MIN, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_ACTIVITY_ROWS, SCENE_CUSTOM_MAX, SCENE_PROMPTS, SCENE_REASON_MAX, SCENE_STAY, SCENE_TOPIC_EXAMPLES, SCENE_TOPIC_MAX, AVAIL_BANDS, ASK_IDEAS, ASK_MAX, ASK_MIN, POSTCARD_MAX, POSTCARD_MIN, acceptAppointment, setBookConsent, setBookmark, setDay3Question, availLabel, bookSlot, chooseFirstScene, quickStart, setAvailability, chooseMeeting, choosePlan, confirmProgram, contactProblem, customOk, isCustom, leaveComment, letterPrompt, loadMyProgram, loadReadablePrograms, proposeAppointment, proposeStart, sceneAppointment, sceneLabel, sceneNote, setContactConsent, stayFor, submitEntry, tidyChoice, writeScenePiece, type EntryContent, type Program, type ProgramEntry, type ReadableProgram, type ScenePick, type Slot } from "./backend/program";
 import { letterPhotoUrl, removeLetterPhoto, uploadLetterPhoto } from "./backend/letterPhotos";
 
 // 실제 서버 모드의 교류(/exchange)와 약속·연락처(/meeting). 데모 화면과 같은 편집 톤을 쓴다.
@@ -109,6 +110,7 @@ function ExchangeView() {
     <section className="space-y-8" aria-labelledby="exchange-title">
       <PageHeader mark="교류" label={header.label} en="THREE DAYS · FLAVIE" titleId="exchange-title" title={header.title} lead={data.partnerName ? `${data.partnerName} 님과의 교류예요. 신고·차단은 두 사람 화면에서 언제든 할 수 있어요.` : undefined} aside={<Button asChild variant="outline" className="h-10 rounded-xl border-border text-xs"><Link to="/us">두 사람 화면</Link></Button>} />
       <Notice text={message} />
+      {(data.status === "choosing" || data.status === "scheduled") && <PreludeLetters program={data} />}
       {data.status === "choosing" && <Agreement program={data} act={act} />}
       {data.status === "scheduled" && <Moment eyebrow="SEE YOU AT 09:00" title={<>{data.startOn && dayLabel(data.startOn)} 09:00,<br />첫날이 열려요.</>}>{data.ownPlan && PLAN_COPY[data.ownPlan].name} · 3일 동안 이어지고, 넷째 날 09:00에 만남을 정해요. 시작하면 알림으로 알려 드릴게요.</Moment>}
       {(data.status === "started" || data.status === "deciding") && <OurDays program={data} />}
@@ -118,6 +120,8 @@ function ExchangeView() {
       {reread && <QuietNote>두 분이 주고받은 글이에요. {data.readableUntil ? `${kstDateTime(data.readableUntil)}까지` : "보관 기간 동안"} 다시 읽을 수 있고, 그 뒤에는 이 화면에서 사라져요.</QuietNote>}
       {data.ownPlan === "B" && (data.status === "started" || data.status === "deciding" || data.status === "arranging" || reread) && <FirstScene program={data} act={act} />}
       {(data.status === "started" || data.status === "deciding" || data.status === "arranging" || reread) && <Days program={data} act={act} />}
+      {data.status !== "choosing" && data.status !== "scheduled" && <PreludeLetters program={data} />}
+      {(data.status === "arranging" || reread) && <BookCard key={data.id} program={data} />}
       <PastExchanges items={past.filter(item => item.id !== data.id)} />
       <QuietNote>{SAFETY_COMPOSE_NOTE}</QuietNote>
     </section>
@@ -263,7 +267,7 @@ function OurDays({ program }: { program: Program }) {
   const agreed = !!final?.own?.payload && !!final.partner?.payload && sceneKey(final.own.payload) === sceneKey(final.partner.payload);
   const strong = (text: string) => <b className="font-semibold text-foreground">{text}</b>;
   return <Sheet className="p-6 sm:p-8">
-    <Eyebrow label={recap ? "두 사람의 사흘" : "우리의 사흘"} en={recap ? "LOOKING BACK" : "OUR THREE DAYS"} />
+    <div className="flex flex-wrap items-center justify-between gap-3"><Eyebrow label={recap ? "두 사람의 사흘" : "우리의 사흘"} en={recap ? "LOOKING BACK" : "OUR THREE DAYS"} /><DotsTrack step={opened} /></div>
     {recap && <p className="mt-3 text-sm leading-7 text-muted-foreground">만남을 고르기 전에, 사흘 동안 나눈 것을 한눈에 돌아봐요.</p>}
     <ol className="relative mt-6 grid grid-cols-4" aria-label="사흘 동안 함께 열린 날과 만남 선택">
       <span aria-hidden="true" className="absolute left-[12.5%] right-[12.5%] top-5 h-px bg-border" />
@@ -278,8 +282,8 @@ function OurDays({ program }: { program: Program }) {
         <span className={`text-[11px] leading-4 ${recap ? "font-semibold text-accent" : "text-muted-foreground"}`}>{recap ? "만남 선택" : <>{monthDay(meetDate)}<br />만남 선택</>}</span>
       </li>
     </ol>
-    {plan === "A" && <p className="mt-6 border-t border-border pt-4 text-xs leading-6 text-muted-foreground">{opened ? <>함께 연 편지 {strong(`${opened}통`)}{replies > 0 && <> · 주고받은 답장 {strong(`${replies}번`)}</>}{photos > 0 && <> · 나눈 사진 {strong(`${photos}장`)}</>}</> : program.status === "started" ? "두 분 모두 보내면 그날의 도장이 채워져요." : "사흘 동안 함께 열린 편지는 없었어요."}</p>}
-    {plan === "A" && recap && opened > 0 && <div className="mt-4"><p className="text-xs font-semibold">상대가 들려준 사흘</p><ul className="mt-3 space-y-2.5">{[1, 2, 3].map(day => { const item = entry(day); if (!isOpen(item) || !item?.partner?.body) return null; return <li key={day} className="flex gap-3 text-sm leading-6"><span className="w-14 shrink-0 pt-0.5 text-[11px] font-semibold text-accent">DAY 0{day}</span><span className="min-w-0 text-foreground/85"><span className="block text-[11px] text-muted-foreground">{letterPrompt(day, day === 1 || isOpen(entry(day - 1)), program.letterSet).title}</span>“{firstLine(item.partner.body)}”{item.partner.payload?.photo && <span className="ml-1.5 whitespace-nowrap text-[11px] text-muted-foreground">· 사진 한 장</span>}</span></li>; })}</ul></div>}
+    {plan === "A" && <p className="mt-6 border-t border-border pt-4 text-xs leading-6 text-muted-foreground">{opened ? <>함께 연 편지 {strong(`${opened}통`)}{replies > 0 && <> · 주고받은 답장 {strong(`${replies}번`)}</>}{photos > 0 && <> · 나눈 사진 {strong(`${photos}장`)}</>}</> : program.status === "started" ? "두 분 모두 보내면 그날의 도장이 채워지고, 두 점이 한 걸음 가까워져요." : "사흘 동안 함께 열린 편지는 없었어요."}</p>}
+    {plan === "A" && recap && opened > 0 && <div className="mt-4"><p className="text-xs font-semibold">상대가 들려준 사흘</p><ul className="mt-3 space-y-2.5">{[1, 2, 3].map(day => { const item = entry(day); if (!isOpen(item) || !item?.partner?.body) return null; return <li key={day} className="flex gap-3 text-sm leading-6"><span className="w-14 shrink-0 pt-0.5 text-[11px] font-semibold text-accent">DAY 0{day}</span><span className="min-w-0 text-foreground/85"><span className="block text-[11px] text-muted-foreground">{day === 3 && program.ownAsk ? `내가 낸 질문 · “${program.ownAsk}”` : letterPrompt(day, day === 1 || isOpen(entry(day - 1)), program.letterSet).title}</span>“{firstLine(item.partner.body)}”{item.partner.payload?.photo && <span className="ml-1.5 whitespace-nowrap text-[11px] text-muted-foreground">· 사진 한 장</span>}</span></li>; })}</ul></div>}
     {plan === "B" && (isOpen(entry(3))
       ? <p className="mt-6 border-t border-border pt-4 text-xs leading-6 text-muted-foreground">{agreed ? <>{strong("함께 맞춘 첫 장면")} · {sceneSummary(final!.own!.payload)}{isOpen(program.entries.find(item => item.kind === "piece")) && " · 첫 장면 이야기도 함께 열렸어요"}</> : "사흘 동안 고른 것이 모두 모였어요. 아래에서 두 분이 고른 것 중에서 첫 장면을 함께 맞춰요."}</p>
       : <div className="mt-6 border-t border-border pt-5">
@@ -315,11 +319,18 @@ function Days({ program, act }: { program: Program; act: Act }) {
   const find = (day: number, kind: string = plan === "A" ? "letter" : "scene") => program.entries.find(entry => entry.day === day && entry.kind === kind);
   const isOpen = (entry?: ProgramEntry) => !!entry?.own && !!entry?.partner;
   const live = ["started", "deciding", "arranging"].includes(program.status);
+  const partner = program.partnerName ?? "상대";
+  // 한 줄 엽서는 사흘 중 한 번(서버와 같은 기준) · 밑줄은 사흘 동안 함께 열린 상대 글에 한 문장
+  const postcardUsed = program.entries.some(entry => entry.kind === "letter" && entry.own?.payload?.postcard === "1");
+  const mark: MarkControl = { current: program.ownMark ?? null, editable: program.status === "started", partner, onPick: text => act(() => setBookmark(program.id, text), text ? `밑줄을 그었어요. 넷째 날 아침 ${partner} 님에게 보여요.` : "밑줄을 지웠어요.") };
   return <div className="space-y-6">{[1, 2, 3].map(day => {
     const date = shift(program.startOn!, day - 1);
     const previous = day > 1 ? find(day - 1) : undefined;
     const previousOpened = day === 1 || isOpen(previous);
-    const letter = letterPrompt(day, previousOpened, program.letterSet), scene = SCENE_PROMPTS[day - 1];
+    // 셋째 날: 상대가 낸 질문이 있으면 그 질문에 답한다(셋째 날 09:00부터 보인다).
+    const asked = plan === "A" && day === 3 ? program.partnerAsk ?? null : null;
+    const letter = asked ? { title: `${partner} 님이 낸 질문`, question: asked, examples: [] as readonly string[] } : letterPrompt(day, previousOpened, program.letterSet), scene = SCENE_PROMPTS[day - 1];
+    const askOpen = plan === "A" && day === 2 && program.status === "started" && Date.now() >= kstAt(date, "09:00") && Date.now() < kstAt(shift(date, 1), "09:00");
     const main = find(day), reply = find(day, "reply");
     const isToday = program.status === "started" && program.day === day;
     const early = isToday && kstHour() < 9;
@@ -336,17 +347,18 @@ function Days({ program, act }: { program: Program; act: Act }) {
       <div className="flex flex-wrap items-baseline justify-between gap-2"><Eyebrow mark={`0${day}`} label={plan === "A" ? letter.title : scene.title} en={DAY_NAME[day - 1]} /><span className="text-xs text-muted-foreground">{dayLabel(date)} 09:00~23:59</span></div>
       {future ? <p className="mt-4 text-sm text-muted-foreground">{dayLabel(date)} 오전 9시에 열려요. 그때 알림으로 알려 드릴게요.</p> : <>
         <p className="mt-4 text-sm font-semibold leading-7">{plan === "A" ? letter.question : scene.question}</p>
+        {plan === "A" && day === 3 && program.ownAsk && <p className="mt-1.5 text-xs leading-6 text-muted-foreground">{partner} 님에게는 내가 낸 질문이 갔어요 · “{program.ownAsk}”</p>}
         {opened && <p className={`mt-4 inline-flex items-center gap-2 ${isFresh ? "letter-drop" : ""} ${butter}`}><LockOpen size={13} />{isFresh ? `새로 열렸어요 · ${match || "두 분의 글이 모두 도착했어요"}` : match || "두 분의 글이 모두 도착해 함께 열렸어요"}</p>}
         {today && !!main?.own && !opened && <p className={`mt-4 inline-flex items-center gap-2 letter-drop ${butter}`}><Check size={13} />오늘 할 일 끝 · {plan === "A" ? "오늘의 편지를 보냈어요" : "오늘의 답을 보냈어요"}</p>}
-        <EntryPair entry={main} plan={plan} day={day} past={!today} />
+        <EntryPair entry={main} plan={plan} day={day} past={!today} mark={mark} />
         {today && !main?.own && main?.partnerSent && <p className={`mt-4 inline-flex items-center gap-2 ${butter}`}><Check size={13} />상대는 이미 보냈어요. 내 글을 보내면 바로 함께 열려요.</p>}
         {today && !main?.own && (plan === "A"
-          ? <LetterComposer draftKey={`${program.id}:${day}:letter`} examples={letter.examples} photo={{ programId: program.id, day }} onSend={(body, photo) => act(() => submitEntry(program.id, day, "letter", body, photo ? { photo } : undefined), main?.partnerSent ? "보냈어요. 두 분의 편지가 함께 열렸어요." : "보냈어요. 상대도 보내면 함께 열려요.")} />
+          ? <LetterComposer draftKey={`${program.id}:${day}:letter`} examples={letter.examples} photo={{ programId: program.id, day }} postcard={!postcardUsed} onSend={(body, photo, postcard) => act(() => submitEntry(program.id, day, "letter", body, postcard ? { postcard: "1" } : photo ? { photo } : undefined), postcard ? (main?.partnerSent ? "엽서를 보냈어요. 두 분의 글이 함께 열렸어요." : "엽서를 보냈어요. 상대도 보내면 함께 열려요.") : main?.partnerSent ? "보냈어요. 두 분의 편지가 함께 열렸어요." : "보냈어요. 상대도 보내면 함께 열려요.")} />
           : <SceneComposer draftKey={`${program.id}:${day}:scene`} day={day} previous={previousOpened ? previous : undefined} first={find(1)} comment={day > 1 ? find(day - 1, "comment")?.own : undefined} onSend={(body, payload) => act(() => submitEntry(program.id, day, "scene", body, payload), main?.partnerSent ? "보냈어요. 두 분의 답이 함께 열렸어요." : "보냈어요. 상대도 보내면 함께 열려요.")} />)}
         {today && !main?.own && <p className="mt-3 text-[11px] text-muted-foreground">오늘 23:59까지 {untilMidnight()} 남았어요. 두 분 모두 보내야 함께 열려요.</p>}
         {plan === "A" && opened && <div className="mt-6 border-t border-border pt-5">
           <p className="text-xs font-semibold text-accent">답장 · 한 번 · {replyUntil}까지</p>
-          <EntryPair entry={reply} plan="A" reply until={replyUntil} past={!replyOpen} />
+          <EntryPair entry={reply} plan="A" reply until={replyUntil} past={!replyOpen} mark={mark} />
           {replyOpen && !reply?.own && (reply?.partnerSent
             ? <p className={`mt-4 inline-flex items-center gap-2 ${butter}`}><Check size={13} />상대는 답장을 보냈어요. 내 답장도 보내면 함께 열려요.</p>
             : <p className="mt-3 text-xs leading-6 text-muted-foreground">열린 편지에 답장을 한 번 보낼 수 있어요. 두 분 모두 보내면 답장도 함께 열려요.</p>)}
@@ -354,6 +366,7 @@ function Days({ program, act }: { program: Program; act: Act }) {
           {!replyOpen && !reply?.own && <p className="mt-3 text-xs text-muted-foreground">{reply?.partnerSent ? "두 분이 모두 답장을 보내지 않아 답장은 열리지 않았어요." : "이날은 답장을 나누지 않았어요."}</p>}
         </div>}
         {plan === "B" && opened && <Comments program={program} act={act} on="scene" day={day} until={replyUntil} open={live && beforeNextNine} />}
+        {plan === "A" && day === 2 && (askOpen || program.ownAsk) && <AskBox program={program} act={act} open={askOpen} />}
         {!today && !main?.own && <p className="mt-4 text-xs text-muted-foreground">{main?.partnerSent ? "상대는 보냈지만 내가 보내지 않아, 이날 글은 열리지 않았어요." : "이날은 글을 보내지 않았어요."}</p>}
       </>}
     </Sheet>;
@@ -361,23 +374,50 @@ function Days({ program, act }: { program: Program; act: Act }) {
 }
 
 // 글 한 장: A는 편지(사진이 있으면 폴라로이드 틀로), B는 고른 것·이유·전날 선택에 남긴 한마디·나를 소개하는 답을 함께 보여 준다(상대에게도 똑같이 보인다).
-function EntryCard({ who, content, plan, day, tone }: { who: string; content: EntryContent; plan: "A" | "B"; day: number; tone: string }) {
+// 밑줄(책갈피): 상대 글의 문장 하나. 사흘 동안 긋고 바꿀 수 있고, 넷째 날 아침 상대에게 보인다.
+type MarkControl = { current: string | null; editable: boolean; partner: string; onPick: (text: string | null) => Promise<boolean> };
+// 한 줄 엽서: 버터 노랑 종이 위에 한 줄
+const POSTCARD_TONE = { own: "bg-[#FFF6DA] dark:bg-[#2D2819]", partner: "border border-[#EBD9A0] bg-[#FFFBEF] dark:border-[#5A4C2A] dark:bg-[#26221A]" };
+function EntryCard({ who, content, plan, day, tone, own = false, mark }: { who: string; content: EntryContent; plan: "A" | "B"; day: number; tone: string; own?: boolean; mark?: MarkControl }) {
   const payload = content.payload ?? {};
-  return <article className={`rounded-2xl p-5 ${tone}`}>
-    <p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{who}{content.at && ` · ${kstDateTime(content.at)}`}</p>
+  const [picking, setPicking] = useState(false);
+  const postcard = plan === "A" && payload.postcard === "1";
+  // 밑줄을 그을 수 있는 글: A 편지·답장 본문, B 고른 이유·나를 소개하는 답
+  const markable = !own && !!mark && (!!content.body || (plan === "B" && !!payload.about));
+  const inThis = !!mark?.current && (!!content.body?.includes(mark.current) || (plan === "B" && !!payload.about?.includes(mark.current)));
+  const pick = async (text: string) => { if (mark && await mark.onPick(text)) setPicking(false); };
+  const text = (value: string, className: string) => markable ? <MarkableText text={value} mark={mark!.current} picking={picking} onPick={text => void pick(text)} className={className} /> : <p className={className}>{value}</p>;
+  return <article className={`rounded-2xl p-5 ${postcard ? POSTCARD_TONE[own ? "own" : "partner"] : tone}`}>
+    <p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{who}{postcard && " · 한 줄 엽서"}{content.at && ` · ${kstDateTime(content.at)}`}</p>
     {plan === "B" && payload.place && <p className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">떠올린 곳 ·{isCustom(payload.place) && <PenLine size={11} aria-hidden="true" />}{sceneLabel(payload.place)}</p>}
     {plan === "B" && <SceneLine payload={payload} className={`${payload.place ? "mt-1" : "mt-2"} text-sm font-semibold`} />}
-    {content.body && (plan === "B" ? <p className="mt-2 text-sm leading-7"><span className="text-xs text-muted-foreground">고른 이유 · </span>{content.body}</p> : <p className="mt-2 whitespace-pre-wrap text-sm leading-7">{content.body}</p>)}
+    {content.body && (plan === "B" ? <div className="mt-2 flex gap-1 text-sm leading-7"><span className="shrink-0 text-xs leading-7 text-muted-foreground">고른 이유 · </span>{text(content.body, "min-w-0")}</div> : text(content.body, postcard ? "mt-2 whitespace-pre-wrap text-base font-semibold leading-8" : "mt-2 whitespace-pre-wrap text-sm leading-7"))}
     {plan === "A" && payload.photo && <LetterPhoto path={payload.photo} caption={`DAY 0${day}`} className="mt-5" />}
     {plan === "B" && payload.reaction && <p className="mt-2 text-sm leading-7"><span className="text-xs text-muted-foreground">어제 선택에 · </span>{payload.reaction}</p>}
-    {plan === "B" && payload.about && <p className="mt-3 border-t border-border/70 pt-3 text-sm leading-7"><span className="block text-[11px] font-semibold text-muted-foreground">{SCENE_PROMPTS[day - 1].about}</span>{payload.about}</p>}
+    {plan === "B" && payload.about && <div className="mt-3 border-t border-border/70 pt-3 text-sm leading-7"><span className="block text-[11px] font-semibold text-muted-foreground">{SCENE_PROMPTS[day - 1].about}</span>{text(payload.about, "")}</div>}
+    {markable && mark!.editable && <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/60 pt-3 text-[11px] leading-5 text-muted-foreground">
+      {picking ? <><span>마음에 남은 문장 하나를 눌러 주세요. 넷째 날 아침 {mark!.partner} 님에게 보여요.</span><button type="button" onClick={() => setPicking(false)} className="text-[11px] font-semibold text-primary">그만</button></>
+        : <button type="button" onClick={() => setPicking(true)} className={`inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline ${interaction}`}><Highlighter size={12} aria-hidden="true" />{inThis ? "밑줄 바꾸기" : mark!.current ? "이 글로 밑줄 옮기기" : "밑줄 긋기"}</button>}
+      {inThis && !picking && <><span>밑줄 그은 문장 · 넷째 날 아침 {mark!.partner} 님에게 보여요</span><button type="button" onClick={() => void mark!.onPick(null)} className="text-[11px] hover:text-foreground">지우기</button></>}
+    </div>}
   </article>;
 }
-function EntryPair({ entry, plan, day = 1, reply = false, past = false, until = "오늘 23:59" }: { entry?: ProgramEntry; plan: "A" | "B"; day?: number; reply?: boolean; past?: boolean; until?: string }) {
+// 문장마다 누를 수 있게 나눈 글(밑줄 고르기). 고르지 않을 때는 밑줄 그은 문장만 표시한다.
+const SENTENCE = /[^.!?。\n]+[.!?。…~]*["'”’)]*\s*|\n+/g;
+function MarkableText({ text, mark, picking, onPick, className }: { text: string; mark: string | null; picking: boolean; onPick: (text: string) => void; className: string }) {
+  if (picking) {
+    const parts = text.match(SENTENCE) ?? [text];
+    return <p className={`whitespace-pre-wrap ${className}`}>{parts.map((part, index) => !part.trim() ? <span key={index}>{part}</span> : <span key={index} role="button" tabIndex={0} onClick={() => onPick(part.trim())} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPick(part.trim()); } }} className={`cursor-pointer rounded-sm ${interaction} ${part.trim() === mark ? "soft-underline is-on" : "hover:bg-primary/10 focus-visible:bg-primary/10 focus-visible:outline-none"}`}>{part}</span>)}</p>;
+  }
+  const at = mark ? text.indexOf(mark) : -1;
+  if (!mark || at < 0) return <p className={className}>{text}</p>;
+  return <p className={className}>{text.slice(0, at)}<span className="soft-underline is-on">{mark}</span>{text.slice(at + mark.length)}</p>;
+}
+function EntryPair({ entry, plan, day = 1, reply = false, past = false, until = "오늘 23:59", mark }: { entry?: ProgramEntry; plan: "A" | "B"; day?: number; reply?: boolean; past?: boolean; until?: string; mark?: MarkControl }) {
   if (!entry || (!entry.own && !entry.partner)) return null;
   return <div className="mt-5 grid gap-3 lg:grid-cols-2">
-    {entry.own && <EntryCard who={reply ? "내 답장" : "내가 보낸 글"} content={entry.own} plan={plan} day={day} tone="bg-mist" />}
-    {entry.partner ? <EntryCard who={reply ? "상대의 답장" : "상대의 글"} content={entry.partner} plan={plan} day={day} tone="border border-lilac bg-card" /> : entry.own && <p className="rounded-2xl border border-dashed border-border p-5 text-xs leading-6 text-muted-foreground">{entry.partnerSent ? "상대도 보냈어요. 곧 함께 열려요." : past ? (reply ? "상대가 답장을 보내지 않아 열리지 않았어요." : "상대가 이날 글을 보내지 않아 열리지 않았어요.") : `상대가 보내면 함께 열려요. ${until}까지 기다려요.`}</p>}
+    {entry.own && <EntryCard who={reply ? "내 답장" : "내가 보낸 글"} content={entry.own} plan={plan} day={day} tone="bg-mist" own />}
+    {entry.partner ? <EntryCard who={reply ? "상대의 답장" : "상대의 글"} content={entry.partner} plan={plan} day={day} tone="border border-lilac bg-card" mark={mark} /> : entry.own && <p className="rounded-2xl border border-dashed border-border p-5 text-xs leading-6 text-muted-foreground">{entry.partnerSent ? "상대도 보냈어요. 곧 함께 열려요." : past ? (reply ? "상대가 답장을 보내지 않아 열리지 않았어요." : "상대가 이날 글을 보내지 않아 열리지 않았어요.") : `상대가 보내면 함께 열려요. ${until}까지 기다려요.`}</p>}
   </div>;
 }
 
@@ -430,8 +470,12 @@ export function LetterExamples({ examples, className = "" }: { examples: readonl
     {open && <ul aria-label="이 질문의 예시 답" className="mt-2 space-y-1.5 rounded-xl bg-mist px-4 py-3 text-xs leading-6 text-foreground/75">{examples.map(example => <li key={example}>“{example}”</li>)}</ul>}
   </div>;
 }
-function LetterComposer({ onSend, reply = false, draftKey, examples = [], photo }: { onSend: (body: string, photo: string | null) => Promise<boolean>; reply?: boolean; draftKey: string; examples?: readonly string[]; photo?: { programId: string; day: number } }) {
+function LetterComposer({ onSend, reply = false, draftKey, examples = [], photo, postcard = false }: { onSend: (body: string, photo: string | null, postcard?: boolean) => Promise<boolean>; reply?: boolean; draftKey: string; examples?: readonly string[]; photo?: { programId: string; day: number }; postcard?: boolean }) {
   const [body, setBody] = useState(() => readDraft(draftKey));
+  // 한 줄 엽서(사흘 중 한 번): 편지 대신 5~80자 한 줄. 쓰던 편지는 그대로 남는다.
+  const [card, setCard] = useState(false);
+  const [line, setLine] = useState(() => readDraft(`${draftKey}:card`));
+  useEffect(() => { const timer = window.setTimeout(() => writeDraft(`${draftKey}:card`, line), 400); return () => window.clearTimeout(timer); }, [line, draftKey]);
   const [sending, setSending] = useState(false);
   const [warning, setWarning] = useState("");
   // 사진 한 장(선택): 고르면 바로 올려 두고 이 기기에 경로를 기억한다. 보내기 전에는 바꾸거나 뺄 수 있다.
@@ -465,6 +509,26 @@ function LetterComposer({ onSend, reply = false, draftKey, examples = [], photo 
     if (await onSend(body, photo && photoPath ? photoPath : null)) { writeDraft(draftKey, ""); writeDraft(photoKey, ""); }
     setSending(false);
   };
+  const lineLength = Array.from(line.trim()).length;
+  const sendCard = async () => {
+    const problem = contactProblem(line);
+    if (problem) { setWarning(problem); return; }
+    setSending(true);
+    if (await onSend(line, null, true)) { writeDraft(`${draftKey}:card`, ""); setLine(""); }
+    setSending(false);
+  };
+  if (card) return <div className="mt-5 space-y-3">
+    <div className={`rounded-2xl p-5 ${POSTCARD_TONE.partner}`}>
+      <p className="text-xs font-semibold text-[#5A4310] dark:text-[#F3D98A]">한 줄 엽서 · 사흘 중 한 번</p>
+      <p className="mt-1 text-[11px] leading-5 text-muted-foreground">바쁜 날에는 편지 대신 한 줄만 보내요. 엽서도 두 분 모두 보내면 편지처럼 함께 열려요.</p>
+      <Input autoFocus aria-label="한 줄 엽서 쓰기" value={line} maxLength={POSTCARD_MAX} onChange={event => { setLine(event.target.value); setWarning(""); }} placeholder="예: 오늘은 바빴지만, 어제 편지 덕분에 웃었어요." className="mt-4 h-12 rounded-full border-[#EBD9A0] bg-card px-5 text-base font-normal md:text-sm dark:border-[#5A4C2A]" />
+    </div>
+    {warning && <p role="alert" className="text-xs leading-6 text-destructive">{warning}</p>}
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <span className="text-xs text-muted-foreground">{lineLength} / {POSTCARD_MAX}자{lineLength < POSTCARD_MIN ? ` · ${POSTCARD_MIN}자부터 보낼 수 있어요` : ""}</span>
+      <div className="flex flex-wrap gap-2"><Button variant="ghost" disabled={sending} onClick={() => { setCard(false); setWarning(""); }} className="h-11 rounded-full px-4 text-xs text-muted-foreground">편지로 돌아가기</Button><Button disabled={sending || lineLength < POSTCARD_MIN} onClick={() => void sendCard()} className="h-11 rounded-full px-6">{sending ? "보내는 중…" : "엽서 보내기"}</Button></div>
+    </div>
+  </div>;
   return <div className="mt-5 space-y-3">
     {!reply && <LetterExamples examples={examples} />}
     <Textarea aria-label={reply ? "열린 편지에 답장 쓰기" : "오늘의 편지 쓰기"} value={body} onChange={event => { setBody(event.target.value); setWarning(""); }} maxLength={max} rows={reply ? 3 : 7} placeholder={reply ? "열린 편지에 한 번 답해요." : "나를 소개하듯 편하게 적어 주세요. 보낸 뒤에는 고칠 수 없어요."} className="rounded-xl border-border bg-card text-base leading-7 md:text-sm" />
@@ -485,6 +549,7 @@ function LetterComposer({ onSend, reply = false, draftKey, examples = [], photo 
       <span className="text-xs text-muted-foreground">{length} / {max}자{!reply && (length < 20 ? " · 20자부터 보낼 수 있어요" : sweet ? " · 읽기 좋은 길이예요" : length < 300 ? " · 300~600자를 권해요" : "")}{body && " · 이 기기에 저장 중"}</span>
       <Button disabled={sending || photoBusy || length < min} onClick={() => void send()} className="h-11 rounded-full px-6">{sending ? "보내는 중…" : reply ? "답장 보내기" : "편지 보내기"}</Button>
     </div>
+    {postcard && !reply && <button type="button" onClick={() => { setCard(true); setWarning(""); }} className={`text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline ${interaction}`}>오늘은 여유가 없나요? 한 줄 엽서로 보내기</button>}
   </div>;
 }
 
@@ -627,6 +692,7 @@ function MeetingDecision({ program, act }: { program: Program; act: Act }) {
   const nothingOpened = !program.entries.some(entry => (entry.kind === "letter" || entry.kind === "scene") && !!entry.own && !!entry.partner);
   return <Sheet className="p-6 sm:p-8">
     <Eyebrow mark="04" label="만남 선택" en="넷째 날" />
+    {program.partnerMark && <BookmarkReveal text={program.partnerMark} partner={program.partnerName ?? "상대"} />}
     {program.ownMeeting ? <p className="mt-4 text-sm leading-7">{program.ownMeeting === "positive" ? "만나고 싶다고 답했어요." : "이번에는 여기까지라고 답했어요."} {program.ownMeeting === "positive" ? `두 분 모두 만나고 싶으면 그 순간 약속 정하기가 열려요. 아니면 ${program.meetingBy ? kstDateTime(program.meetingBy) : "만남 선택 마감"}에 마무리 소식을 알려 드려요.` : `이번 교류는 ${program.meetingBy ? kstDateTime(program.meetingBy) : "만남 선택 마감"}에 마무리돼요.`} 상대가 이미 골랐는지는 알려 드리지 않아요.</p> : <>
       {nothingOpened && <p className="mt-4 rounded-2xl bg-mist p-4 text-sm leading-7">사흘 동안 함께 열린 글은 없었어요. 바쁜 날이 겹쳤을 수도 있어요. 그래도 한 번 만나 보고 싶은 마음이 있다면, 그 마음대로 골라 주세요.</p>}
       <p className="mt-4 text-sm leading-7 text-muted-foreground">{program.meetingBy && `${kstDateTime(program.meetingBy)}까지`} 골라 주세요. 상대가 먼저 골랐는지는 서로 알 수 없고, 두 분 모두 ‘만나고 싶어요’일 때만 약속을 정해요. 답은 바꿀 수 없어요.</p>
@@ -660,8 +726,172 @@ function PastExchanges({ items }: { items: ReadableProgram[] }) {
     {opened && <div className="space-y-6" aria-label={`${opened.partnerName ?? "상대"} 님과 주고받은 글`}>
       {opened.ownPlan === "B" && <FirstScene key={`scene:${opened.id}`} program={pastProgram(opened)} act={readOnly} />}
       <Days key={`days:${opened.id}`} program={pastProgram(opened)} act={readOnly} />
+      <PreludeLetters program={pastProgram(opened)} />
+      <BookCard key={`book:${opened.id}`} program={pastProgram(opened)} />
     </div>}
   </>;
+}
+
+// 두 점: 두 분 모두 쓴 날마다 한 걸음씩 가까워진다(로고의 두 점). 넷째 날 두 분 모두 만나고 싶으면 약속 화면에서 겹친다.
+function DotsTrack({ step }: { step: number }) {
+  const [shown, setShown] = useState(Math.max(0, step - 1));
+  useEffect(() => { const timer = window.setTimeout(() => setShown(step), 300); return () => window.clearTimeout(timer); }, [step]);
+  const offset = [28, 20, 13, 7][Math.min(shown, 3)];
+  return <span role="img" aria-label={step ? `함께 연 날 ${step}일 · 두 점이 ${step}걸음 가까워졌어요` : "두 점이 아직 떨어져 있어요"} className="relative inline-flex h-4 w-20 items-center justify-center">
+    {[-offset, offset].map((x, index) => <span key={index} className={`absolute size-2.5 rounded-full ${index ? "bg-accent" : "bg-primary"} transition-transform duration-[1400ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none`} style={{ transform: `translateX(${x}px)` }} />)}
+  </span>;
+}
+
+// 셋째 날 질문(A · 선택): 둘째 날 09:00~셋째 날 09:00에 상대에게 물을 질문을 낸다. 내지 않으면 원래 질문 그대로.
+function AskBox({ program, act, open }: { program: Program; act: Act; open: boolean }) {
+  const partner = program.partnerName ?? "상대";
+  const own = program.ownAsk ?? null;
+  const [writing, setWriting] = useState(false);
+  const [text, setText] = useState(own ?? "");
+  if (!open) return own ? <p className="mt-6 border-t border-border pt-4 text-xs leading-6 text-muted-foreground">셋째 날 {partner} 님에게 낸 질문 · “{own}”</p> : null;
+  const length = Array.from(text.trim()).length;
+  const save = async (value: string) => { if (await act(() => setDay3Question(program.id, value), value.trim() ? `내일 09:00, ${partner} 님의 셋째 날 질문이 이 질문으로 바뀌어요.` : "셋째 날은 원래 질문으로 이어져요.")) setWriting(false); };
+  const ideaClass = (active: boolean) => `rounded-full border px-3 py-1.5 text-xs ${interaction} ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"}`;
+  return <div className="mt-6 border-t border-border pt-5">
+    <p className="text-xs font-semibold text-accent">셋째 날 질문 · 선택 · {program.startOn && dayLabel(shift(program.startOn, 2))} 09:00 전까지</p>
+    {own && !writing ? <>
+      <p className="mt-3 text-sm leading-7">내일 아침, {partner} 님은 이 질문에 답해요.</p>
+      <p className="mt-2 rounded-2xl bg-mist px-4 py-3 text-sm font-semibold leading-7">“{own}”</p>
+      <div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" onClick={() => { setText(own); setWriting(true); }} className="h-10 rounded-full border-border px-4 text-xs">고치기</Button><Button variant="ghost" onClick={() => void save("")} className="h-10 rounded-full px-4 text-xs text-muted-foreground">원래 질문으로</Button></div>
+    </> : !writing ? <>
+      <p className="mt-2 text-xs leading-6 text-muted-foreground">셋째 날 질문을 {partner} 님에게 직접 낼 수 있어요. 내면 {partner} 님의 셋째 날 질문이 내가 낸 질문으로 바뀌고, 내지 않으면 원래 질문 그대로예요.</p>
+      <Button variant="outline" onClick={() => setWriting(true)} className="mt-3 h-10 rounded-full border-border px-4 text-xs"><PenLine size={13} />질문 직접 내기</Button>
+    </> : <>
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="질문 고르기">{ASK_IDEAS.map(idea => <button key={idea} type="button" aria-pressed={text === idea} onClick={() => setText(idea)} className={ideaClass(text === idea)}>{idea}</button>)}</div>
+      <div className="mt-3 flex gap-2"><Input aria-label="셋째 날 질문 직접 쓰기" value={text} maxLength={ASK_MAX} onChange={event => setText(event.target.value)} placeholder="직접 써도 돼요" className="h-11 min-w-0 flex-1 rounded-full border-border bg-card px-4 font-normal" /><Button disabled={length < ASK_MIN} onClick={() => void save(text)} className="h-11 shrink-0 rounded-full px-5">질문 내기</Button></div>
+      <p className="mt-2 text-[11px] leading-5 text-muted-foreground">{length} / {ASK_MAX}자 · 지난 연애·수입·외모·집안·종교·정치는 묻지 않아요. 내일 09:00 전까지 고치거나 뺄 수 있어요.</p>
+      <button type="button" onClick={() => { setWriting(false); setText(own ?? ""); }} className="mt-1 text-xs text-muted-foreground hover:text-foreground">닫기</button>
+    </>}
+  </div>;
+}
+
+// 넷째 날 아침의 책갈피: 상대가 사흘 동안 읽으며 밑줄 그은 내 문장(만남을 고르기 전에 먼저 보인다).
+function BookmarkReveal({ text, partner }: { text: string; partner: string }) {
+  const [on, setOn] = useState(false);
+  useEffect(() => { const timer = window.setTimeout(() => setOn(true), 350); return () => window.clearTimeout(timer); }, []);
+  return <div className="mt-5 rounded-2xl border border-lilac bg-card p-5">
+    <p className="flex items-center gap-2 text-xs font-semibold text-accent"><Highlighter size={13} aria-hidden="true" />넷째 날 아침의 책갈피</p>
+    <p className="mt-1 text-xs leading-6 text-muted-foreground">{partner} 님이 사흘 동안 읽으며 밑줄 그은 내 문장이에요.</p>
+    <p className="mt-3 text-[15px] leading-8"><span className={`soft-underline ${on ? "is-on" : ""}`}>{text}</span></p>
+  </div>;
+}
+
+// 아직 모르는 당신에게: 소개 전에 써 둔 편지. 두 분이 서로를 고른 순간 전해졌다.
+function PreludeLetters({ program }: { program: Program }) {
+  const [showOwn, setShowOwn] = useState(false);
+  const prelude = program.prelude;
+  if (!prelude?.partner && !prelude?.own) return null;
+  const partner = program.partnerName ?? "상대";
+  return <Sheet className="p-6 sm:p-8">
+    <Eyebrow label="아직 모르는 당신에게" en="BEFORE WE MET" />
+    {prelude.partner ? <>
+      <p className="mt-3 text-sm leading-7 text-muted-foreground">{partner} 님이 누구를 만날지 모를 때 써 둔 편지예요. 두 분이 서로를 고른 순간 전해졌어요.</p>
+      <article className="mt-5 rounded-2xl border border-lilac bg-card p-5"><p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{partner} 님이 써 둔 편지</p><p className="mt-2 whitespace-pre-wrap text-sm leading-7">{prelude.partner}</p></article>
+    </> : <p className="mt-3 text-sm leading-7 text-muted-foreground">소개 전에 써 둔 내 편지가 {partner} 님께 전해졌어요.</p>}
+    {prelude.own && (showOwn ? <article className="mt-3 rounded-2xl bg-mist p-5"><p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">내가 써 둔 편지</p><p className="mt-2 whitespace-pre-wrap text-sm leading-7">{prelude.own}</p></article>
+      : <button type="button" onClick={() => setShowOwn(true)} className={`mt-4 text-xs font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>내가 써 둔 편지 보기</button>)}
+  </Sheet>;
+}
+
+// 우리의 사흘, 한 권: 넷째 날 두 분 모두 만나고 싶다고 한 교류에서, 두 분 모두 동의하면 펼칠 수 있다(인쇄·PDF 저장).
+function BookCard({ program }: { program: Program }) {
+  const [state, setState] = useState({ ownBook: !!program.ownBook, bookOpen: !!program.bookOpen });
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const toggle = async (on: boolean) => {
+    setBusy(true);
+    const result = await setBookConsent(program.id, on);
+    setBusy(false);
+    if (result.error || !result.data) { setMessage(result.error || "저장하지 못했어요."); return; }
+    setState(result.data);
+    setMessage(result.data.bookOpen ? "두 분 모두 동의해서 한 권이 열렸어요." : on ? "동의했어요. 상대도 동의하면 열려요." : "동의를 거두었어요.");
+  };
+  return <Sheet tone="soft" className="p-6 sm:p-8">
+    <Eyebrow label="우리의 사흘, 한 권" en="KEEPSAKE" />
+    <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">두 분 모두 동의하면 사흘 동안 나눈 글을 표지 있는 한 권으로 펼쳐 볼 수 있어요. 인쇄하거나 PDF로 저장할 수 있고, 사진과 연락처는 넣지 않아요.</p>
+    <div className="mt-5 flex flex-wrap items-center gap-2">
+      {state.bookOpen ? <Button onClick={() => setOpen(true)} className="h-11 rounded-full px-6"><BookOpen size={15} />한 권 펼치기</Button>
+        : state.ownBook ? <span className={butter}>동의했어요 · 상대도 동의하면 열려요</span>
+        : <Button disabled={busy} onClick={() => void toggle(true)} className="h-11 rounded-full px-6">한 권으로 남기기에 동의</Button>}
+      {state.ownBook && <Button variant="ghost" disabled={busy} onClick={() => void toggle(false)} className="h-10 rounded-full px-4 text-xs text-muted-foreground">동의 거두기</Button>}
+    </div>
+    {message && <p role="status" className="mt-3 text-xs text-primary">{message}</p>}
+    {open && <BookView program={program} onClose={() => setOpen(false)} />}
+  </Sheet>;
+}
+
+function BookView({ program, onClose }: { program: Program; onClose: () => void }) {
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    document.body.classList.add("printing-book");
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (event: globalThis.KeyboardEvent) => { if (event.key === "Escape") close.current(); };
+    window.addEventListener("keydown", onKey);
+    return () => { document.body.classList.remove("printing-book"); document.body.style.overflow = overflow; window.removeEventListener("keydown", onKey); };
+  }, []);
+  const me = program.ownName ?? "나", you = program.partnerName ?? "상대";
+  const plan = program.ownPlan ?? "A";
+  const find = (day: number, kind: string) => program.entries.find(entry => entry.day === day && entry.kind === kind);
+  const isOpen = (entry?: ProgramEntry) => !!entry?.own && !!entry?.partner;
+  const page = "book-page px-8 py-14 sm:px-14";
+  const quiet = "text-[#6B6480]";
+  const heading = (en: string, title: string) => <header><p className={`text-[10px] font-semibold tracking-[0.3em] ${quiet}`}>{en}</p><h2 className="mt-3 text-xl font-semibold leading-[1.5]">{title}</h2></header>;
+  const block = (who: string, content: EntryContent | null | undefined, extra = "") => content && (content.body || content.payload) ? <div className="mt-7"><p className={`text-[11px] font-semibold tracking-[0.12em] ${quiet}`}>{who}{content.payload?.postcard === "1" ? " · 한 줄 엽서" : ""}{extra}</p>
+    {plan === "B" && content.payload && sceneSummary(content.payload) && <p className="mt-2 text-sm font-semibold leading-7">{sceneSummary(content.payload)}</p>}
+    {content.body && <p className="mt-2 whitespace-pre-wrap text-[15px] leading-8">{content.body}</p>}
+    {plan === "B" && content.payload?.about && <p className="mt-2 text-[15px] leading-8">{content.payload.about}</p>}
+  </div> : null;
+  const final = program.entries.find(entry => entry.kind === "final");
+  const piece = program.entries.find(entry => entry.kind === "piece");
+  return createPortal(<div role="dialog" aria-modal="true" aria-label="우리의 사흘, 한 권" className="book-print-root fixed inset-0 z-[70] overflow-y-auto bg-[#F1EEF7] text-[#1F1B33]">
+    <div className="book-toolbar sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-black/5 bg-[#F1EEF7]/90 px-4 py-3 backdrop-blur sm:px-8">
+      <p className="text-xs font-semibold">우리의 사흘, 한 권</p>
+      <div className="flex gap-2"><Button onClick={() => window.print()} className="h-10 rounded-full px-4 text-xs"><Printer size={14} />인쇄·PDF로 저장</Button><Button variant="outline" onClick={() => close.current()} className="h-10 rounded-full border-black/10 bg-white px-4 text-xs text-[#1F1B33] hover:bg-white/80 hover:text-[#1F1B33]"><X size={14} />닫기</Button></div>
+    </div>
+    <article className="book-paper mx-auto my-8 max-w-2xl bg-[#FFFEFA] shadow-[0_30px_60px_-40px_rgba(30,20,80,0.45)]">
+      <section className={`${page} flex min-h-[78vh] flex-col items-center justify-center text-center`}>
+        <span aria-hidden="true" className="relative flex h-10 w-20 items-center justify-center"><span className="absolute size-8 -translate-x-2.5 rounded-full bg-primary/85" /><span className="absolute size-8 translate-x-2.5 rounded-full bg-accent/70" /></span>
+        <p className={`mt-10 text-[10px] font-semibold tracking-[0.3em] ${quiet}`}>OUR THREE DAYS</p>
+        <h1 className="mt-4 text-3xl font-semibold">우리의 사흘</h1>
+        <p className="mt-4 text-base">{me} · {you}</p>
+        {program.startOn && <p className={`mt-2 text-xs ${quiet}`}>{dayLabel(program.startOn)} – {dayLabel(shift(program.startOn, 2))}</p>}
+        {program.echo && <div className="mt-10 space-y-2 text-sm leading-7"><p>“{program.echo.partner}”</p><p>“{program.echo.own}”</p><p className={`text-[11px] ${quiet}`}>닮은 두 문장</p></div>}
+        <p className={`mt-16 text-[10px] font-semibold tracking-[0.3em] ${quiet}`}>FLAVIE</p>
+      </section>
+      {(program.prelude?.own || program.prelude?.partner) && <section className={page}>{heading("BEFORE WE MET", "아직 모르는 당신에게")}{block(`${you} · 소개 전에 써 둔 편지`, program.prelude?.partner ? { body: program.prelude.partner, payload: null, at: "" } : null)}{block(`${me} · 소개 전에 써 둔 편지`, program.prelude?.own ? { body: program.prelude.own, payload: null, at: "" } : null)}</section>}
+      {[1, 2, 3].map(day => {
+        const kind = plan === "A" ? "letter" : "scene";
+        const main = find(day, kind), reply = find(day, "reply");
+        const prompt = plan === "A" ? letterPrompt(day, day === 1 || isOpen(find(day - 1, kind)), program.letterSet) : SCENE_PROMPTS[day - 1];
+        return <section key={day} className={page}>
+          {heading(`DAY 0${day}`, prompt.title)}
+          <p className={`mt-3 text-sm leading-7 ${quiet}`}>{prompt.question}</p>
+          {plan === "A" && day === 3 && (program.ownAsk || program.partnerAsk) && <ul className={`mt-3 space-y-1 text-xs leading-6 ${quiet}`}>{program.partnerAsk && <li>{you}의 질문 · “{program.partnerAsk}”</li>}{program.ownAsk && <li>{me}의 질문 · “{program.ownAsk}”</li>}</ul>}
+          {isOpen(main) ? <>{block(me, main!.own)}{block(you, main!.partner)}</> : <p className={`mt-7 text-sm ${quiet}`}>이날은 두 분의 글이 함께 열리지 않았어요.</p>}
+          {plan === "A" && isOpen(reply) && <>{block(me, reply!.own, " · 답장")}{block(you, reply!.partner, " · 답장")}</>}
+        </section>;
+      })}
+      {plan === "B" && (final?.own?.payload || isOpen(piece)) && <section className={page}>{heading("FIRST SCENE", "함께 맞춘 첫 장면")}{final?.own?.payload && <p className="mt-5 text-[15px] font-semibold leading-8">{sceneSummary(final.own.payload)}</p>}{isOpen(piece) && <>{block(me, piece!.own)}{block(you, piece!.partner)}</>}</section>}
+      {(program.ownMark || program.partnerMark) && <section className={page}>{heading("BOOKMARKS", "서로 밑줄 그은 문장")}
+        {program.ownMark && <div className="mt-7"><p className={`text-[11px] font-semibold tracking-[0.12em] ${quiet}`}>{me}의 책갈피 · {you}의 글에서</p><p className="mt-2 text-[15px] leading-8"><span className="soft-underline is-on">{program.ownMark}</span></p></div>}
+        {program.partnerMark && <div className="mt-7"><p className={`text-[11px] font-semibold tracking-[0.12em] ${quiet}`}>{you}의 책갈피 · {me}의 글에서</p><p className="mt-2 text-[15px] leading-8"><span className="soft-underline is-on">{program.partnerMark}</span></p></div>}
+      </section>}
+      <section className={`${page} text-center`}>
+        <span aria-hidden="true" className="relative mx-auto flex h-6 w-12 items-center justify-center"><span className="absolute size-4 -translate-x-1 rounded-full bg-primary/85" /><span className="absolute size-4 translate-x-1 rounded-full bg-accent/70" /></span>
+        <p className="mt-6 text-base font-semibold leading-8">넷째 날, 두 분 모두 만나고 싶다고 했어요.</p>
+        {program.meetingOn && <p className={`mt-2 text-sm ${quiet}`}>{dayLabel(program.meetingOn)}에 만나기로 했어요.</p>}
+        <p className={`mt-10 text-[11px] leading-5 ${quiet}`}>두 분이 모두 동의해서 만든 한 권이에요. 사진과 연락처는 넣지 않았어요.</p>
+      </section>
+    </article>
+  </div>, document.body);
 }
 
 // ─────────────────────────────────────────────

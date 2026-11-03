@@ -30,6 +30,9 @@ export type LiveIntroduction =
       closedAt: string | null
       // 교류 뒤 내가 남긴 한 줄을 운영진이 반영해 고른 소개인지
       reflected?: boolean
+      // 창가 질문에 남긴 답을 참고해 고른 소개인지 · 닮은 두 문장(운영진이 두 분의 소개에서 한 문장씩)
+      windowed?: boolean
+      echo?: { own: string; partner: string } | null
     }
 export type LiveNotification = { id: string; kind: string; title: string; body: string | null; link: string | null; created_at: string; read_at: string | null }
 export type MemberSnapshot = {
@@ -157,6 +160,17 @@ export async function loadReflection(programId: string): Promise<Reflection | nu
   }
 }
 export const saveReflection = (programId: string, body: string) => rpc<{ programId: string; body: string; usedAt: string | null }>("save_reflection", { p_program: programId, p_body: body })
+// 아직 모르는 당신에게: 다음 사람에게 미리 써 두는 편지(20~600자). 두 분 모두 서로를 고른 순간에만 전해진다.
+export type Prelude = { body: string | null; updatedAt: string | null; locked: boolean; delivered: number }
+export const loadPrelude = () => rpc<Prelude>("my_prelude")
+export const savePrelude = (body: string) => rpc<Prelude>("save_prelude", { p_body: body })
+export const deletePrelude = () => rpc<Prelude>("delete_prelude")
+export const PRELUDE_MIN = 20, PRELUDE_MAX = 600
+// 창가 질문: 2주마다 바뀌는 질문 하나. 답은 운영진만 보고 다음 소개를 고를 때 참고한다.
+export type WindowQuestion = { period: number; question: string; until: string; nextOn: string; answer: string | null; usedAt: string | null }
+export const loadWindow = () => rpc<WindowQuestion>("my_window")
+export const saveWindowAnswer = (body: string) => rpc<WindowQuestion>("save_window_answer", { p_body: body })
+export const deleteWindowAnswer = () => rpc<WindowQuestion>("delete_window_answer")
 export const deleteReflection = (programId: string) => rpc<null>("delete_reflection", { p_program: programId })
 
 // 로그인한 회원의 화면 자료를 불러오고, 다시 불러오는 함수를 함께 준다.

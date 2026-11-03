@@ -21,7 +21,7 @@ import { PHOTO_ORDER, loadMyApplication, partnerPhotoUrl, photoUrl, type PhotoRo
 import LivePhotoStep from "./LivePhotoStep";
 import { HomeScreenTip } from "./HomeScreenTip";
 import { publicApplicationProfile } from "./application-review";
-import { addAvoidContacts, deleteAvoidContact, loadAvoidContacts, type AvoidContact, blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, NOTIFICATION_FIRST, editBlockReason, loadReflection, photoHoldAt, recordIntroductionView, saveReflection, deleteReflection, type Reflection, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type IntroMatch, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
+import { addAvoidContacts, deleteAvoidContact, loadAvoidContacts, type AvoidContact, blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, NOTIFICATION_FIRST, editBlockReason, loadReflection, loadPrelude, savePrelude, deletePrelude, type Prelude, PRELUDE_MIN, PRELUDE_MAX, loadWindow, saveWindowAnswer, deleteWindowAnswer, type WindowQuestion, photoHoldAt, recordIntroductionView, saveReflection, deleteReflection, type Reflection, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type IntroMatch, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
 
 // 실제 서버 모드의 회원 화면(오늘 · 두 사람 · 내 정보 · 문의·요청). 데모 화면과 같은 편집 톤을 쓴다.
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -174,6 +174,7 @@ function LiveTodayView() {
       {data.application?.status === "approved" && data.photos && <PhotoChangeNotice photos={data.photos} />}
       {reflectable(data) && <ReflectionCard key={data.program!.id} programId={data.program!.id} met={data.program!.endReason === "completed"} />}
       {data.application && data.application.status !== "draft" && data.introduction.status === "waiting" && <div className="mt-10"><FirstWordCard /></div>}
+      {data.application?.status === "approved" && data.introduction.status !== "published" && data.introduction.status !== "mutual" && <div className="mt-6 grid gap-6 lg:grid-cols-2"><PreludeCard /><WindowCard /></div>}
       <section className="mt-14 border-t border-border pt-8" aria-labelledby="status-title">
         <h2 id="status-title" className="mb-5 text-sm font-semibold">지금 알아두면 좋은 것</h2>
         <HomeScreenTip className="mb-6" />
@@ -258,6 +259,80 @@ function PhotosPanel({ photos }: { photos: MemberSnapshot["photos"] }) {
     </button>
     {open && <div id="photos-panel" className="border-t border-border p-6 sm:p-8">{rows === null ? <p role="status" className="text-xs text-muted-foreground">사진을 불러오고 있어요.</p> : rows === "error" ? <p role="status" className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">사진을 불러오지 못했어요.<button type="button" onClick={() => { setRows(null); void load(); }} className="font-semibold text-primary underline-offset-4 hover:underline">다시 불러오기</button></p> : <LivePhotoStep rows={rows.rows} replacements={rows.replacements} approved editable onChanged={load} />}</div>}
   </section>;
+}
+
+// ─────────────────────────────────────────────
+// 아직 모르는 당신에게: 다음에 만날 분께 미리 써 두는 편지. 두 분 모두 서로를 고른 순간에만 전해지고, 넘긴 소개에는 가지 않는다.
+// 정오에 받은 소개에 답하는 동안에는 고칠 수 없다(아직 모르는 사람에게 쓴 편지로 남게). 운영진은 읽지 않는다.
+export function PreludeCard() {
+  const [saved, setSaved] = useState<Prelude | null | undefined>(undefined);
+  const [body, setBody] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  useEffect(() => { void loadPrelude().then(result => { setSaved(result.data ?? null); setBody(result.data?.body ?? ""); }); }, []);
+  if (!saved) return null;
+  const length = Array.from(body.trim()).length;
+  const save = async () => { setSending(true); const result = await savePrelude(body); setSending(false); if (result.error || !result.data) { setMessage(result.error || "저장하지 못했어요."); return; } setSaved(result.data); setBody(result.data.body ?? ""); setEditing(false); setMessage("써 두었어요. 두 분 모두 서로를 고르면 그 순간 전해져요."); };
+  const remove = async () => { const result = await deletePrelude(); if (result.error || !result.data) { setMessage(result.error || "지우지 못했어요."); return; } setSaved(result.data); setBody(""); setEditing(false); setMessage("편지를 지웠어요."); };
+  const form = !saved.body || editing;
+  return <Sheet className="flex flex-col p-6 sm:p-8">
+    <p className="text-xs font-semibold text-accent">아직 모르는 당신에게</p>
+    <h2 className="mt-3 text-xl font-semibold leading-[1.5]">다음에 만날 분께, 미리 편지 한 장.</h2>
+    <p className="mt-3 text-sm leading-7 text-muted-foreground">두 분 모두 ‘알아가고 싶어요’를 고른 순간에만 전해지고, 넘긴 소개에는 아무것도 가지 않아요. 운영진은 읽지 않아요.</p>
+    {saved.locked ? <p className="mt-5 rounded-xl bg-mist p-4 text-xs leading-6 text-muted-foreground">정오에 받은 소개에 답하는 동안에는 고칠 수 없어요. {saved.body ? "써 둔 편지는 두 분 모두 서로를 고르면 그 순간 전해져요." : "다음 소개를 기다리는 동안 다시 쓸 수 있어요."}</p>
+      : form ? <>
+        <Textarea aria-label="아직 모르는 당신에게 쓰는 편지" value={body} maxLength={PRELUDE_MAX} onChange={event => { setBody(event.target.value); setMessage(""); }} placeholder="예: 아직 누군지 모르는 당신에게. 요즘 저는 퇴근길에 한 정거장 먼저 내려 걸어요. 그 길에서 이 편지를 써요." className="mt-5 min-h-32 rounded-xl bg-card text-[15px] leading-7" />
+        <div className="mt-2 flex items-start justify-between gap-3 text-[11px] leading-5 text-muted-foreground"><p>{PRELUDE_MIN}~{PRELUDE_MAX}자 · 연락처·SNS 아이디·링크는 적을 수 없어요</p><span className="shrink-0 tabular-nums">{length} / {PRELUDE_MAX}</span></div>
+        <div className="mt-5 flex flex-wrap items-center gap-2"><Button disabled={length < PRELUDE_MIN || sending || body.trim() === (saved.body ?? "")} onClick={() => void save()} className={`h-11 rounded-xl px-5 ${interaction}`}>{sending ? "써 두는 중…" : "써 두기"}</Button>{editing && <Button variant="ghost" onClick={() => { setEditing(false); setBody(saved.body ?? ""); }} className={`h-11 rounded-xl text-xs text-muted-foreground ${interaction}`}>그만 고치기</Button>}</div>
+      </> : <>
+        <blockquote className="mt-5 whitespace-pre-wrap rounded-2xl bg-mist px-5 py-4 text-[15px] leading-7">{saved.body}</blockquote>
+        <div className="mt-4 flex flex-wrap gap-2"><Button variant="outline" onClick={() => { setEditing(true); setMessage(""); }} className={`h-10 rounded-xl border-border text-xs ${interaction}`}>고치기</Button><Button variant="ghost" onClick={() => void remove()} className={`h-10 rounded-xl text-xs text-muted-foreground ${interaction}`}>지우기</Button></div>
+      </>}
+    {!saved.body && saved.delivered > 0 && !message && <p className="mt-4 text-xs leading-6 text-muted-foreground">지난번에 써 둔 편지는 서로를 고른 분께 전해졌어요.</p>}
+    {message && <p role="status" className="mt-3 text-xs text-primary">{message}</p>}
+  </Sheet>;
+}
+
+// 창가 질문: 2주마다 바뀌는 질문 하나. 답은 운영진만 보고, 다음 분을 고를 때 참고하면 소개 화면에 함께 알려 준다.
+export function WindowCard() {
+  const [item, setItem] = useState<WindowQuestion | null | undefined>(undefined);
+  const [body, setBody] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [message, setMessage] = useState("");
+  useEffect(() => { void loadWindow().then(result => { setItem(result.data ?? null); setBody(result.data?.answer ?? ""); }); }, []);
+  if (!item) return null;
+  const length = Array.from(body.trim()).length;
+  const save = async () => { const result = await saveWindowAnswer(body); if (result.error || !result.data) { setMessage(result.error || "저장하지 못했어요."); return; } setItem(result.data); setBody(result.data.answer ?? ""); setEditing(false); setMessage("남겨 주셨어요. 다음 분을 고를 때 참고할게요."); };
+  const remove = async () => { const result = await deleteWindowAnswer(); if (result.error || !result.data) { setMessage(result.error || "지우지 못했어요."); return; } setItem(result.data); setBody(""); setEditing(false); setMessage("답을 지웠어요."); };
+  const form = !item.answer || editing;
+  const on = (date: string) => kstDay(`${date}T12:00:00+09:00`);
+  return <Sheet tone="soft" className="flex flex-col p-6 sm:p-8">
+    <div className="flex flex-wrap items-start justify-between gap-3"><p className="text-xs font-semibold text-accent">창가 질문 · {on(item.until)}까지</p>{item.answer && <span className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${item.usedAt ? "bg-primary/10 text-primary" : "bg-card text-muted-foreground"}`}>{item.usedAt ? "소개를 고를 때 참고했어요" : "운영진만 봐요"}</span>}</div>
+    <h2 className="mt-3 text-xl font-semibold leading-[1.5]">{item.question}</h2>
+    <p className="mt-3 text-sm leading-7 text-muted-foreground">2주마다 질문이 하나씩 바뀌어요. 답은 운영진만 보고, 다음 분을 고를 때 참고해요.</p>
+    {form ? <>
+      <Textarea aria-label={`창가 질문 · ${item.question}`} value={body} maxLength={200} onChange={event => { setBody(event.target.value); setMessage(""); }} placeholder="짧게 한두 줄이면 충분해요." className="mt-5 min-h-20 rounded-xl bg-card text-[15px] leading-7" />
+      <div className="mt-2 flex items-start justify-between gap-3 text-[11px] leading-5 text-muted-foreground"><p>2~200자 · 연락처·SNS 아이디·링크는 적을 수 없어요</p><span className="shrink-0 tabular-nums">{length} / 200</span></div>
+      <div className="mt-5 flex flex-wrap items-center gap-2"><Button disabled={length < 2 || body.trim() === (item.answer ?? "")} onClick={() => void save()} className={`h-11 rounded-xl px-5 ${interaction}`}>답 남기기</Button>{editing && <Button variant="ghost" onClick={() => { setEditing(false); setBody(item.answer ?? ""); }} className={`h-11 rounded-xl text-xs text-muted-foreground ${interaction}`}>그만 고치기</Button>}</div>
+    </> : <>
+      <blockquote className="mt-5 border-l-2 border-primary pl-4 text-[15px] leading-7">{item.answer}</blockquote>
+      {!item.usedAt && <div className="mt-4 flex flex-wrap gap-2"><Button variant="outline" onClick={() => { setEditing(true); setMessage(""); }} className={`h-10 rounded-xl border-border bg-card text-xs ${interaction}`}>고치기</Button><Button variant="ghost" onClick={() => void remove()} className={`h-10 rounded-xl text-xs text-muted-foreground ${interaction}`}>지우기</Button></div>}
+    </>}
+    <p className="mt-auto pt-5 text-[11px] text-muted-foreground">다음 질문은 {on(item.nextOn)}에 열려요.</p>
+    {message && <p role="status" className="mt-2 text-xs text-primary">{message}</p>}
+  </Sheet>;
+}
+
+// 닮은 두 문장: 운영진이 두 분의 소개에서 한 문장씩 골라 나란히 놓는다(각자 직접 쓴 문장 그대로).
+export function EchoPair({ echo, partner, me = "나" }: { echo: { own: string; partner: string }; partner: string; me?: string }) {
+  return <figure aria-label="닮은 두 문장" className="rounded-3xl border border-lilac bg-card p-6">
+    <p className="flex items-center gap-2.5 text-xs font-semibold text-accent"><TwoDots />닮은 두 문장</p>
+    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      {[[`${partner} 님`, echo.partner], [me, echo.own]].map(([who, line]) => <blockquote key={who} className="border-l-2 border-primary/50 pl-4"><p className="text-[15px] font-semibold leading-7">“{line}”</p><footer className="mt-1 text-[11px] text-muted-foreground">{who}의 소개에서</footer></blockquote>)}
+    </div>
+    <figcaption className="mt-4 text-[11px] leading-5 text-muted-foreground">운영진이 두 분의 소개에서 한 문장씩 골라 나란히 놓았어요.</figcaption>
+  </figure>;
 }
 
 // ─────────────────────────────────────────────
@@ -508,7 +583,8 @@ function LiveIntroductionView() {
         <div className="space-y-8">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{intro.profile.photos.map(photo => <PartnerPhoto key={photo.path} path={photo.path} label={PHOTO_SLOTS.find(slot => slot.id === photo.slot)?.label ?? "사진"} />)}</div>
           {intro.profile.greeting && <figure className="border-l-2 border-primary pl-5"><blockquote className="text-lg font-semibold leading-[1.6]">“{intro.profile.greeting}”</blockquote><figcaption className="mt-2 text-xs text-muted-foreground">{name ? `${valueOf(name.value)} 님의 첫 마디` : "첫 마디"}</figcaption></figure>}
-          {intro.note && <Sheet tone="soft" className="p-6"><p className="text-xs font-semibold text-accent">운영진이 두 분을 소개한 이유</p><p className="mt-3 text-sm leading-7">{intro.note}</p>{intro.reflected && <p className="mt-3 border-t border-border/70 pt-3 text-xs leading-6 text-muted-foreground">지난 교류 뒤 남겨 주신 한 줄을 참고해 골랐어요.</p>}</Sheet>}
+          {intro.echo && <EchoPair echo={intro.echo} partner={name ? valueOf(name.value) : "상대"} />}
+          {intro.note && <Sheet tone="soft" className="p-6"><p className="text-xs font-semibold text-accent">운영진이 두 분을 소개한 이유</p><p className="mt-3 text-sm leading-7">{intro.note}</p>{(intro.reflected || intro.windowed) && <p className="mt-3 border-t border-border/70 pt-3 text-xs leading-6 text-muted-foreground">{intro.reflected && intro.windowed ? "지난 교류 뒤 남겨 주신 한 줄과 창가 질문에 남긴 답을 참고해 골랐어요." : intro.reflected ? "지난 교류 뒤 남겨 주신 한 줄을 참고해 골랐어요." : "창가 질문에 남긴 답을 참고해 골랐어요."}</p>}</Sheet>}
           {intro.match && <MatchSheet match={intro.match} />}
           <dl className="divide-y divide-border border-y border-border">{intro.profile.items.filter(item => item.id !== "self.name").map(item => <div key={item.id} className="grid gap-1 py-4 sm:grid-cols-[140px_1fr]"><dt className="text-xs text-muted-foreground">{labelOf(item.id)}</dt><dd className="whitespace-pre-wrap break-words text-sm leading-7">{valueOf(item.value)}</dd></div>)}</dl>
           <p className="text-xs leading-6 text-muted-foreground">{intro.status === "mutual" ? "서로 선택했으니 프로필과 사진은 교류와 약속이 끝날 때까지 볼 수 있어요." : "프로필과 사진은 응답 기한까지만 볼 수 있어요."} 캡처하거나 다른 곳에 옮기지 말아 주세요.</p>

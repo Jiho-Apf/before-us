@@ -62,7 +62,7 @@ function ConfirmDialog({ title, body, confirm, danger, reason, onClose }: Ask & 
 
 // ─────────────────────────────────────────────
 // 소개서(신청서) 보기: 운영진 열람은 admin_get_application이 하루 한 번 감사 기록을 남긴다.
-export type ApplicationDetail = { memberId: string; status: string; profileVersion: number; submittedAt: string | null; decisionNote: string | null; draft: { values: Record<string, unknown>; sharing: Record<string, boolean>; preferences?: Preferences }; photos: { slot: string; path: string; review: string; reason: string | null; width: number; height: number; changeReason?: string | null; changeRequestedAt?: string | null }[]; replacements?: { slot: string; path: string; review: string; reason: string | null; width: number; height: number }[]; reflections?: { body: string; createdAt: string; usedAt: string | null; met: boolean | null }[]; photoHoldAt?: string | null };
+export type ApplicationDetail = { memberId: string; status: string; profileVersion: number; submittedAt: string | null; decisionNote: string | null; draft: { values: Record<string, unknown>; sharing: Record<string, boolean>; preferences?: Preferences }; photos: { slot: string; path: string; review: string; reason: string | null; width: number; height: number; changeReason?: string | null; changeRequestedAt?: string | null }[]; replacements?: { slot: string; path: string; review: string; reason: string | null; width: number; height: number }[]; reflections?: { body: string; createdAt: string; usedAt: string | null; met: boolean | null }[]; windowAnswers?: { question: string; body: string; createdAt: string; usedAt: string | null }[]; photoHoldAt?: string | null };
 export const show = (value: unknown) => Array.isArray(value) ? value.join(" · ") : typeof value === "boolean" ? value ? "예" : "아니요" : String(value ?? "");
 const filled = (value: unknown) => value !== undefined && value !== null && value !== "" && !(Array.isArray(value) && value.length === 0);
 const KEY_ITEMS: [string, string][] = [["self.purpose", "관계 목적"], ["self.height", "키"], ["self.body", "체형"], ["self.style", "스타일"], ["self.smoking", "흡연"], ["self.drinking", "음주"], ["self.schedule", "생활"], ["self.available", "편한 시간"], ["self.interests", "관심사"], ["self.work", "직업·분야"], ["self.mbti", "MBTI"]];
@@ -128,6 +128,7 @@ function Side({ member, side, date, detail, onClear }: { member: ReadyMember; si
       <div className="flex gap-1"><Link to={`/admin/applicants?member=${member.member_id}`} className="rounded-full border border-border px-3 py-1 text-[11px] hover:bg-secondary">신청서</Link><Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]" onClick={onClear}><X size={13} />바꾸기</Button></div>
     </div>
     {detail.data?.memberId === member.member_id && <Reflections items={detail.data.reflections ?? []} />}
+    {detail.data?.memberId === member.member_id && <WindowAnswers items={detail.data.windowAnswers ?? []} />}
     {detail.error ? <Notice text={detail.error} /> : detail.data?.memberId === member.member_id ? <ProfileSheet detail={detail.data} member={member} /> : <p className="text-xs text-muted-foreground">소개서를 불러오고 있어요.</p>}
   </section>;
 }
@@ -138,6 +139,41 @@ export function Reflections({ items }: { items: NonNullable<ApplicationDetail["r
   return <div className="rounded-xl bg-[#F8E5A6]/45 p-3 text-xs leading-6 text-[#2B2540] dark:bg-[#3B3424] dark:text-white">
     <p className="font-semibold">지난 교류 뒤 남긴 한 줄</p>
     <ul className="mt-1.5 space-y-1.5">{items.map(item => <li key={item.createdAt}><span className="text-[#2B2540]/60 dark:text-white/60">{kstDay(item.createdAt)}{item.met ? " · 만남까지" : ""}{item.usedAt ? " · 반영함" : " · 아직 반영 전"}</span><br />“{item.body}”</li>)}</ul>
+  </div>;
+}
+
+// 창가 질문(2주마다 하나): 회원이 남긴 답(운영진만 봄). 소개를 고를 때 참고하면 예약에서 표시한다.
+export function WindowAnswers({ items }: { items: NonNullable<ApplicationDetail["windowAnswers"]> }) {
+  if (!items.length) return null;
+  return <div className="rounded-xl border border-lilac bg-mist p-3 text-xs leading-6">
+    <p className="font-semibold">창가 질문에 남긴 답</p>
+    <ul className="mt-1.5 space-y-1.5">{items.map(item => <li key={item.createdAt}><span className="text-muted-foreground">{kstDay(item.createdAt)} · {item.question}{item.usedAt ? " · 참고함" : ""}</span><br />“{item.body}”</li>)}</ul>
+  </div>;
+}
+
+// 닮은 두 문장: 두 분이 상대에게 보이는 소개에 직접 쓴 문장 중에서 한 문장씩 고른다(서버도 그대로인지 확인한다).
+type PublicProfile = { items: { id: string; value: string | string[] }[]; greeting?: string | null };
+const ECHO_SKIP = ["self.name", "self.age", "self.province", "self.area", "self.height", "self.smoking", "self.drinking", "self.mbti"];
+const echoSentences = (profile: PublicProfile | null) => {
+  if (!profile) return [];
+  const texts = [...profile.items.filter(item => !ECHO_SKIP.includes(item.id)).flatMap(item => Array.isArray(item.value) ? item.value : [item.value]), profile.greeting ?? ""];
+  const parts = texts.flatMap(text => String(text).match(/[^.!?。\n]+[.!?。…~]*["'”’)]*/g) ?? []).map(part => part.trim());
+  return [...new Set(parts.filter(part => Array.from(part).length >= 4 && Array.from(part).length <= 120))];
+};
+function EchoPicker({ leftId, rightId, leftName, rightName, value, onChange }: { leftId: string; rightId: string; leftName: string; rightName: string; value: { a: string; b: string }; onChange: (next: { a: string; b: string }) => void }) {
+  const left = useLoad(() => call<PublicProfile>("admin_public_profile", { p_member: leftId }), [leftId]);
+  const right = useLoad(() => call<PublicProfile>("admin_public_profile", { p_member: rightId }), [rightId]);
+  const column = (name: string, profile: { data: PublicProfile | null; error: string | null; loading: boolean }, key: "a" | "b") => {
+    const options = echoSentences(profile.data);
+    return <div className="min-w-0"><p className="text-[11px] font-semibold text-accent">{name}님의 문장</p>
+      {profile.error ? <p className="mt-1 text-[11px] text-destructive">{profile.error}</p> : !options.length ? <p className="mt-1 text-[11px] text-muted-foreground">{profile.loading ? "불러오고 있어요." : "고를 만한 문장이 없어요."}</p>
+        : <div className="mt-1.5 flex flex-wrap gap-1.5">{options.map(option => <button key={option} type="button" aria-pressed={value[key] === option} onClick={() => onChange({ ...value, [key]: value[key] === option ? "" : option })} className={`rounded-lg border px-2.5 py-1.5 text-left text-[11px] leading-5 ${value[key] === option ? "border-primary bg-primary/10 text-primary" : "border-border bg-card hover:border-primary/40"}`}>{option}</button>)}</div>}
+    </div>;
+  };
+  return <div className="space-y-3 rounded-xl border border-border p-3 text-xs" aria-label="닮은 두 문장">
+    <p className="font-semibold">닮은 두 문장 <span className="font-normal text-muted-foreground">· 선택 · 두 분 모두 한 문장씩</span></p>
+    <div className="grid gap-4 md:grid-cols-2">{column(leftName, left, "a")}{column(rightName, right, "b")}</div>
+    {value.a && value.b ? <p className="rounded-lg bg-mist p-3 leading-6">회원 화면 미리 보기 · “{value.a}” / “{value.b}”</p> : <p className="text-[11px] leading-5 text-muted-foreground">두 분이 상대에게 보이는 소개에 직접 쓴 문장 그대로만 보여요. 한쪽만 고르면 보내지 않아요.</p>}
   </div>;
 }
 
@@ -210,6 +246,9 @@ export function MatchBoard({ focus, onReserved }: { focus: string | null; onRese
   const [sendCompat, setSendCompat] = useState(true);
   // 한 줄을 반영해 골랐다고 표시하지 않을 회원(기본은 반영함 · 반영 전 한 줄이 있는 분만 해당)
   const [skipReflect, setSkipReflect] = useState<string[]>([]);
+  // 창가 질문 답을 참고했다고 표시하지 않을 회원(기본은 참고함 · 참고 전 답이 있는 분만) · 닮은 두 문장
+  const [skipWindow, setSkipWindow] = useState<string[]>([]);
+  const [echo, setEcho] = useState({ a: "", b: "" });
   const { busy, run } = useBusy();
   const members = ready.data ?? [];
   const left = members.find(member => member.member_id === leftId) ?? null;
@@ -232,16 +271,19 @@ export function MatchBoard({ focus, onReserved }: { focus: string | null; onRese
   const compat = useMemo(() => leftDraft && rightDraft ? memberMatch(leftDraft, rightDraft) : null, [leftDraft, rightDraft]);
   const sharedNote = useMemo(() => leftDraft && rightDraft ? draftNote(leftDraft, rightDraft) : null, [leftDraft, rightDraft]);
   const pickLeft = (id: string) => { setLeftId(id); setRightId(null); setMessage(""); revealOnNarrow("match-right"); };
-  const pickRight = (id: string) => { setRightId(id); setSendCompat(true); setSkipReflect([]); setMessage(""); revealOnNarrow("match-right"); };
+  const pickRight = (id: string) => { setRightId(id); setSendCompat(true); setSkipReflect([]); setSkipWindow([]); setEcho({ a: "", b: "" }); setMessage(""); revealOnNarrow("match-right"); };
   const unusedOf = (detail: { data: ApplicationDetail | null }, id: string | null) => detail.data?.memberId === id ? (detail.data?.reflections ?? []).filter(item => !item.usedAt) : [];
   const reflectRows = [{ id: leftId, name: left?.name, items: unusedOf(leftDetail, leftId) }, { id: rightId, name: right?.name, items: unusedOf(rightDetail, rightId) }].filter(row => row.id && row.items.length) as { id: string; name: string | null | undefined; items: NonNullable<ApplicationDetail["reflections"]> }[];
   const reflected = reflectRows.filter(row => !skipReflect.includes(row.id)).map(row => row.id);
-  const swap = () => { setLeftId(rightId); setRightId(leftId); };
+  const windowOf = (detail: { data: ApplicationDetail | null }, id: string | null) => detail.data?.memberId === id ? (detail.data?.windowAnswers ?? []).filter(item => !item.usedAt) : [];
+  const windowRows = [{ id: leftId, name: left?.name, items: windowOf(leftDetail, leftId) }, { id: rightId, name: right?.name, items: windowOf(rightDetail, rightId) }].filter(row => row.id && row.items.length) as { id: string; name: string | null | undefined; items: NonNullable<ApplicationDetail["windowAnswers"]> }[];
+  const windowed = windowRows.filter(row => !skipWindow.includes(row.id)).map(row => row.id);
+  const swap = () => { setLeftId(rightId); setRightId(leftId); setEcho(current => ({ a: current.b, b: current.a })); };
   const reserve = () => run("reserve", async () => {
     const match = sendCompat && compat ? compat : null;
-    const { error } = await rpc("admin_reserve_introduction", { p_a: leftId, p_b: rightId, p_date: date, p_note: note, p_match: match, p_reflected: reflected });
+    const { error } = await rpc("admin_reserve_introduction", { p_a: leftId, p_b: rightId, p_date: date, p_note: note, p_match: match, p_reflected: reflected, p_window: windowed, p_echo: echo.a && echo.b ? echo : null });
     setMessage(error || `${left?.name} · ${right?.name} · ${kstDay(`${date}T12:00:00+09:00`)} 정오 공개로 예약했어요. ${match ? `회원에게 보일 궁합도 함께 보냈어요(${match.score >= MATCH_SCORE_SHOWN ? `${match.score}점` : "숫자 없이 이유만"} · ${match.headline})` : "궁합은 보내지 않았어요."}`);
-    if (!error) { setLeftId(null); setRightId(null); setNote(""); setSendCompat(true); setSkipReflect([]); await ready.reload(); await onReserved(); }
+    if (!error) { setLeftId(null); setRightId(null); setNote(""); setSendCompat(true); setSkipReflect([]); setSkipWindow([]); setEcho({ a: "", b: "" }); await ready.reload(); await onReserved(); }
   });
   const filtered = members.filter(member => (!gender || member.gender === gender) && (!search.trim() || (member.name ?? "").includes(search.trim())));
   const focusMissing = focus && ready.data && !members.some(member => member.member_id === focus);
@@ -280,6 +322,8 @@ export function MatchBoard({ focus, onReserved }: { focus: string | null; onRese
         <p className="text-[11px] leading-5 text-muted-foreground">공개 동의한 항목만 상대에게 보여요. 외모 평가나 점수, 비공개 항목은 소개 이유에 쓰지 않아요. {note.trim().length}/300자 · 10자 이상</p>
         <MemberMatchPreview match={compat} waiting={leftDetail.loading || rightDetail.loading} error={leftDetail.error || rightDetail.error} send={sendCompat} onSend={setSendCompat} />
         {reflectRows.length > 0 && <div className="space-y-2 rounded-xl border border-border p-3 text-xs"><p className="font-semibold">지난 교류 뒤 남긴 한 줄</p>{reflectRows.map(row => <label key={row.id} className="flex cursor-pointer items-start gap-2 leading-6"><input type="checkbox" className="mt-1.5" checked={!skipReflect.includes(row.id)} onChange={event => setSkipReflect(current => event.target.checked ? current.filter(id => id !== row.id) : [...current, row.id])} /><span><span className="font-semibold">{row.name}님의 한 줄을 반영해 골랐어요</span><span className="block text-muted-foreground">“{row.items[0].body}”</span><span className="block text-[11px] text-muted-foreground">켜 두면 {row.name}님 소개 화면에 ‘남겨 주신 한 줄을 참고해 골랐어요’가 보여요. 실제로 반영했을 때만 켜 주세요.</span></span></label>)}</div>}
+        {windowRows.length > 0 && <div className="space-y-2 rounded-xl border border-border p-3 text-xs"><p className="font-semibold">창가 질문에 남긴 답</p>{windowRows.map(row => <label key={row.id} className="flex cursor-pointer items-start gap-2 leading-6"><input type="checkbox" className="mt-1.5" checked={!skipWindow.includes(row.id)} onChange={event => setSkipWindow(current => event.target.checked ? current.filter(id => id !== row.id) : [...current, row.id])} /><span><span className="font-semibold">{row.name}님의 창가 질문 답을 참고해 골랐어요</span><span className="block text-muted-foreground">{row.items[0].question} · “{row.items[0].body}”</span><span className="block text-[11px] text-muted-foreground">켜 두면 {row.name}님 소개 화면에 ‘창가 질문에 남긴 답을 참고해 골랐어요’가 보여요. 실제로 참고했을 때만 켜 주세요.</span></span></label>)}</div>}
+        <EchoPicker key={`${left.member_id}-${right.member_id}`} leftId={left.member_id} rightId={right.member_id} leftName={left.name ?? "왼쪽 분"} rightName={right.name ?? "오른쪽 분"} value={echo} onChange={setEcho} />
         <Button disabled={blocking || note.trim().length < 10 || busy === "reserve"} onClick={() => void reserve()}>{busy === "reserve" ? "예약하고 있어요" : "예약하기"}</Button>
       </section>
     </>}

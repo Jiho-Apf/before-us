@@ -374,3 +374,14 @@ body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-ins
 .member-wash { background-image: radial-gradient(90% 360px at 60% 0%, var(--member-wash), transparent); }
 :root { --member-wash: color-mix(in oklch, var(--primary) 7%, transparent); }
 .dark { --member-wash: color-mix(in oklch, var(--primary) 12%, transparent); }
+
+/* 우리의 사흘, 한 권: 인쇄할 때는 한 권만 남기고, 장마다 새 쪽에서 시작한다. */
+@media print {
+  body.printing-book > *:not(.book-print-root) { display: none !important; }
+  body.printing-book .book-print-root { position: static !important; overflow: visible !important; background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .book-print-root .book-toolbar { display: none !important; }
+  .book-print-root .book-paper { margin: 0 !important; box-shadow: none !important; max-width: none !important; }
+  .book-print-root .book-page { break-after: page; min-height: auto !important; }
+  .book-print-root .book-page:last-child { break-after: auto; }
+  @page { margin: 18mm 16mm; }
+}

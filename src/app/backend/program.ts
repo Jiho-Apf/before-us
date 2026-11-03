@@ -49,12 +49,23 @@ export type Program = {
   readableUntil?: string | null
   // A 편지 질문 묶음 번호(LETTER_SETS). 서버가 A 일정이 정해질 때 정한다. 없으면(지난 교류·정하기 전) 처음 묶음.
   letterSet?: number | null
+  // 플라비만의 재미(4800): 내 이름(한 권 표지) · 소개 전 편지(서로 선택한 순간 전해짐) · 셋째 날 질문(상대 것은 셋째 날 09:00부터)
+  // · 책갈피(상대가 그은 밑줄은 넷째 날부터) · 한 권(두 분 모두 동의하면 열림) · 닮은 두 문장
+  ownName?: string | null
+  prelude?: { own: string | null; partner: string | null }
+  ownAsk?: string | null
+  partnerAsk?: string | null
+  ownMark?: string | null
+  partnerMark?: string | null
+  ownBook?: boolean
+  bookOpen?: boolean
+  echo?: { own: string; partner: string } | null
   notice?: string
 }
 
 export const loadMyProgram = () => rpc<Program | null>("my_program")
 // 마무리 뒤 다시 읽을 수 있는 지난 교류(넷째 날 두 분 모두 만나고 싶다고 했고, 마무리 후 30일 안·차단 없음). 새 교류가 시작돼도 남는다.
-export type ReadableProgram = { id: string; introductionId: string; status: "closed"; endReason: string | null; closedAt: string; partnerName: string | null; ownPlan: "A" | "B" | null; partnerPlan: "A" | "B" | null; startOn: string | null; meetingOn: string | null; today: string; readableUntil: string; letterSet?: number | null; entries: ProgramEntry[] }
+export type ReadableProgram = { id: string; introductionId: string; status: "closed"; endReason: string | null; closedAt: string; partnerName: string | null; ownPlan: "A" | "B" | null; partnerPlan: "A" | "B" | null; startOn: string | null; meetingOn: string | null; today: string; readableUntil: string; letterSet?: number | null; entries: ProgramEntry[] } & Pick<Program, "ownName" | "prelude" | "ownAsk" | "partnerAsk" | "ownMark" | "partnerMark" | "ownBook" | "bookOpen" | "echo">
 export const loadReadablePrograms = () => rpc<ReadableProgram[]>("my_readable_programs")
 export const choosePlan = (id: string, plan: "A" | "B") => rpc<Program>("choose_program_plan", { p_program: id, p_plan: plan })
 export const proposeStart = (id: string, date: string) => rpc<Program>("propose_program_start", { p_program: id, p_date: date })
@@ -66,6 +77,14 @@ export const writeScenePiece = (id: string, body: string) => rpc<Program>("write
 export const leaveComment = (id: string, on: "scene" | "piece", day: number | null, body: string) => rpc<Program>("leave_scene_comment", { p_program: id, p_on: on, p_day: day, p_body: body })
 export const PIECE_MIN = 10, PIECE_MAX = 300, COMMENT_MAX = 100
 export const chooseMeeting = (id: string, choice: "positive" | "negative", avail: string[] | null = null, region = "") => rpc<Program>("choose_meeting", { p_program: id, p_choice: choice, p_avail: choice === "positive" ? avail : null, p_region: choice === "positive" ? region.trim() || null : null })
+// 셋째 날 질문(A · 선택): 둘째 날 09:00~셋째 날 09:00에 낸다. 비우면 원래 질문으로. · 책갈피: 함께 열린 상대 글의 문장 하나(비우면 지움)
+// · 한 권: 넷째 날 두 분 모두 만나고 싶다고 한 교류에서 각자 동의(둘 다면 펼칠 수 있음)
+export const setDay3Question = (id: string, question: string) => rpc<Program>("set_day3_question", { p_program: id, p_question: question.trim() || null })
+export const setBookmark = (id: string, text: string | null) => rpc<Program>("set_bookmark", { p_program: id, p_text: text })
+export const setBookConsent = (id: string, on: boolean) => rpc<{ ownBook: boolean; bookOpen: boolean }>("set_book_consent", { p_program: id, p_on: on })
+export const POSTCARD_MIN = 5, POSTCARD_MAX = 80, ASK_MIN = 5, ASK_MAX = 80
+// 셋째 날 질문 틀: 지난 연애·수입·외모·집안·종교·정치는 묻지 않는다(편지 질문과 같은 기준).
+export const ASK_IDEAS = ["요즘 가장 자주 듣는 노래는 뭐예요?", "어릴 때 좋아했던 장소가 있어요?", "올해 꼭 해 보고 싶은 작은 일은요?", "기분이 가라앉을 때 하는 일이 있어요?", "처음 만나면 함께 먹고 싶은 음식은요?"] as const
 export const quickStart = (id: string, plan: "A" | "B") => rpc<Program>("quick_start_program", { p_program: id, p_plan: plan })
 export const setAvailability = (id: string, avail: string[], region = "") => rpc<Program>("set_meeting_availability", { p_program: id, p_avail: avail, p_region: region.trim() || null })
 export const bookSlot = (id: string, slot: string, activity: string, region: string, place = "") => rpc<Program>("book_meeting_slot", { p_program: id, p_slot: slot, p_activity: activity, p_region: region, p_place: place || null })
@@ -81,7 +100,7 @@ export type ScenePick = { activity: string; flow: string; rest: string; topic: s
 export const chooseFirstScene = (id: string, pick: ScenePick) => rpc<Program>("choose_first_scene", { p_program: id, p_pick: pick })
 
 export const PLAN_COPY = {
-  A: { name: "A. 편지 나누기", description: "각자 하루 한 통씩, 3일 동안 그날의 질문에 답하며 나누는 이야기(질문은 교류마다 달라져요). 사진 한 장을 함께 넣을 수도 있어요. 두 분이 모두 보내면 함께 열리고, 열린 편지에는 다음 날 09:00까지 답장을 한 번 보낼 수 있어요.", days: ["나의 일상 들려주기", "요즘의 마음 나누기", "함께 보낼 시간 그려 보기"], example: "예: “쉬는 날엔 동네 도서관 창가 자리에서 해 질 때까지 책을 읽어요.”", fit: "글로 천천히 마음을 전하고 싶은 분께" },
+  A: { name: "A. 편지 나누기", description: "각자 하루 한 통씩, 3일 동안 그날의 질문에 답하며 나누는 이야기(질문은 교류마다 달라져요). 사진 한 장을 함께 넣을 수도 있고, 바쁜 날 한 번은 한 줄 엽서로 대신해도 돼요. 두 분이 모두 보내면 함께 열리고, 열린 편지에는 다음 날 09:00까지 답장을 한 번 보낼 수 있어요. 원하면 셋째 날 질문을 서로에게 직접 낼 수도 있어요.", days: ["나의 일상 들려주기", "요즘의 마음 나누기", "함께 보낼 시간 그려 보기"], example: "예: “쉬는 날엔 동네 도서관 창가 자리에서 해 질 때까지 책을 읽어요.”", fit: "글로 천천히 마음을 전하고 싶은 분께" },
   B: { name: "B. 첫 장면 만들기", description: "하루에 하나씩 장소·머무는 방식·나눌 이야기를 고르고(목록에 없으면 직접 써도 돼요), 짧은 질문에 답하며 서로를 알아가요. 열린 답에는 한마디를 남기고, 셋째 날 답이 열리면 첫 장면을 함께 맞춘 뒤 그 장면에 대해 짧게 나눠요.", days: ["끌리는 장소 고르기", "그곳에서 머무는 방식 정하기", "함께 나눌 이야기 정하기"], example: "예: 서점 · 각자 한 권씩 골라 보기 · “요즘 읽는 책 이야기”", fit: "가볍게 고르며 취향을 맞춰 보고 싶은 분께" },
 } as const
 // 편지 질문: 상대가 ‘이 사람은 어떤 사람인지’ 알아볼 수 있게, 이야기 하나로 쉽게 답할 수 있는 것을 묻는다.

@@ -2302,4 +2302,150 @@ await db.exec("reset role")
   eq("교류가 끝나면 고른 시간·지역을 지운다", { ...(await one("select avail_a, avail_b, region_a, region_b from public.programs where id = $1", [mp])) }, { avail_a: null, avail_b: null, region_a: null, region_b: null })
 }
 
+// ── 플라비만의 재미(4800): 아직 모르는 당신에게 · 창가 질문 · 닮은 두 문장 · 한 줄 엽서 · 셋째 날 질문 · 책갈피 · 한 권
+{
+  await as("postgres")
+  await clock(null)
+  const reason = "두 분 모두 쉬는 날 천천히 걷는 걸 좋아하셨어요."
+  const member = async (email, name, gender, desired, base, phone) => {
+    await as("postgres")
+    const id = await signup(email)
+    await as(id)
+    const d = draft(name, gender, desired, "1994-04-04")
+    await q("select public.save_application_draft($1)", [{ ...d, values: { ...d.values, "self.phone": phone } }])
+    await photos(id, base)
+    await q("select public.submit_application()")
+    await as(O, "aal2")
+    for (const slot of ["photo.face", "photo.upper", "photo.style"]) await q("select public.admin_review_photo($1, $2, '기준 확인')", [id, slot])
+    await q("select public.admin_decide_application($1, 'approved')", [id])
+    await q("select public.admin_move_member_cohort($1, 1)", [id])
+    return id
+  }
+  const at = async (date, time) => clock((await one("select public.kst_at($1::date, $2::time)::text t", [date, time])).t)
+  const plus = async (date, days) => (await one("select ($1::date + $2::int)::text d", [date, days])).d
+  const mine = async () => (await one("select public.my_program() v")).v
+  const R1 = await member("r1-4800@example.test", "하윤", "여성", "남성", 48010, "010-4800-0001")
+  const R2 = await member("r2-4800@example.test", "서진", "남성", "여성", 48020, "010-4800-0002")
+  const first = "아직 누군지 모르는 당신에게, 오늘은 날씨가 좋아서 이 편지를 써 둬요."
+  const prelude = "아직 누군지 모르는 당신에게, 오늘 산책길에서 이 편지를 써 둬요. 천천히 알아가요."
+
+  // 아직 모르는 당신에게
+  await as(R1)
+  await fails("소개 전 편지: 20자 이상", "select public.save_prelude('짧은 편지예요')", [], /20~600자/)
+  await fails("소개 전 편지: 연락처는 넣을 수 없다", "select public.save_prelude('제 번호는 010-1234-5678 이에요. 편하게 연락 주세요!')", [], /연락처/)
+  await q("select public.save_prelude($1)", [first])
+  eq("소개 전 편지: 다시 쓰면 고쳐진다(쓰는 중인 편지는 하나)", (await one("select public.save_prelude($1) v", [prelude])).v.body, prelude)
+  await fails("소개 전 편지: 표는 직접 읽을 수 없다", "select body from public.prelude_letters", [], /permission denied/)
+
+  // 창가 질문
+  const win = (await one("select public.my_window() v")).v
+  ok("창가 질문: 지금 2주의 질문과 다음 질문 날짜가 온다", !!win.question && win.answer === null && win.nextOn > win.until)
+  await fails("창가 질문: 연락처는 적을 수 없다", "select public.save_window_answer('인스타 아이디 sky_walk 에 있어요')", [], /연락처/)
+  eq("창가 질문: 답을 남긴다", (await one("select public.save_window_answer('합정 근처 작은 서점이요.') v")).v.answer, "합정 근처 작은 서점이요.")
+  await fails("창가 질문: 표는 직접 읽을 수 없다", "select body from public.window_answers", [], /permission denied/)
+
+  // 닮은 두 문장 · 창가 질문을 참고해 예약
+  await as(O, "aal2")
+  ok("창가 질문: 운영진 신청서 화면에 최근 답이 보인다", (await one("select public.admin_get_application($1) d", [R1])).d.windowAnswers[0].body === "합정 근처 작은 서점이요.")
+  ok("닮은 두 문장: 운영진은 상대에게 보이는 소개 글만 받는다(사진 없이)", await (async () => { const p = (await one("select public.admin_public_profile($1) p", [R1])).p; return !p.photos && p.items.some((x) => x.id === "self.bio") && !p.items.some((x) => x.id === "self.height") })())
+  const day = "(public.kst_today() + 5)"
+  await fails("닮은 두 문장: 한쪽만 고를 수는 없다", `select public.admin_reserve_introduction($1, $2, ${day}, $3, null, '{}', '{}', $4::jsonb)`, [R1, R2, reason, JSON.stringify({ a: "산책과 음악을 좋아해요." })], /두 분 모두/)
+  await fails("닮은 두 문장: 직접 쓴 문장 그대로만", `select public.admin_reserve_introduction($1, $2, ${day}, $3, null, '{}', '{}', $4::jsonb)`, [R1, R2, reason, JSON.stringify({ a: "산책과 음악을 좋아해요.", b: "저는 등산을 좋아해요." })], /직접 쓴 문장/)
+  await fails("닮은 두 문장: 상대에게 보이지 않는 칸에서는 고를 수 없다", `select public.admin_reserve_introduction($1, $2, ${day}, $3, null, '{}', '{}', $4::jsonb)`, [R1, R2, reason, JSON.stringify({ a: "산책과 음악을 좋아해요.", b: "170" })], /4~120자|직접 쓴 문장/)
+  const intro = (await one(`select public.admin_reserve_introduction($1, $2, ${day}, $3, null, '{}', $4::uuid[], $5::jsonb) id`, [R1, R2, reason, [R1, R2], JSON.stringify({ a: "산책과 음악을 좋아해요.", b: "천천히 알아가고 싶어요." })])).id
+  await as("postgres")
+  eq("창가 질문: 답이 있는 분만 참고 표시(답이 없는 분은 표시하지 않음)", { ...(await one("select window_a a, window_b b from public.introductions where id = $1", [intro])) }, { a: true, b: false })
+  await q("update public.introductions set reveal_at = now() - interval '1 minute', respond_by = now() + interval '20 hours', view_until = now() + interval '20 hours' where id = $1", [intro])
+  await one("select public.run_noon()")
+  await as(R1)
+  const seen = (await one("select public.my_introduction() v")).v
+  eq("닮은 두 문장: 소개를 받으면 두 분의 문장이 나란히 보인다", seen.echo, { own: "산책과 음악을 좋아해요.", partner: "천천히 알아가고 싶어요." })
+  eq("창가 질문: 참고한 소개에 표시가 온다", seen.windowed, true)
+  await fails("창가 질문: 참고한 답은 고칠 수 없다", "select public.save_window_answer('강가 산책길이에요.')", [], /참고한/)
+  await fails("소개 전 편지: 소개에 답하는 동안에는 고칠 수 없다", "select public.save_prelude($1)", [first], /답하는 동안/)
+  await as(R2)
+  eq("창가 질문: 참고하지 않은 쪽은 표시가 없다", (await one("select public.my_introduction() v")).v.windowed, false)
+
+  // 서로 선택한 순간 소개 전 편지가 전해진다
+  for (const m of [R1, R2]) { await as(m); await q("select public.record_introduction_view($1)", [intro]); await q("select public.respond_introduction($1, 'positive')", [intro]) }
+  eq("소개 전 편지: 서로 선택하면 상대에게 전해진다(나는 쓰지 않았으면 비어 있다)", (await mine()).prelude, { own: null, partner: prelude })
+  eq("닮은 두 문장: 교류 화면에도 함께 온다", (await mine()).echo, { own: "천천히 알아가고 싶어요.", partner: "산책과 음악을 좋아해요." })
+  await as(R1)
+  eq("소개 전 편지: 내 화면에는 내가 쓴 편지가 보인다", (await mine()).prelude.own, prelude)
+  const after = (await one("select public.my_prelude() v")).v
+  eq("소개 전 편지: 전한 뒤에는 쓰는 중인 편지가 비고, 다음 분께 새로 쓸 수 있다", [after.body, after.delivered, after.locked], [null, 1, false])
+
+  // 교류 시작
+  const pid = (await mine()).id
+  await q("select public.quick_start_program($1, 'A')", [pid])
+  await as(R2); await q("select public.quick_start_program($1, 'A')", [pid])
+  const start = (await mine()).startOn
+  await as("postgres")
+  await at(start, "09:30"); await one("select public.run_programs()")
+  await at(start, "10:00")
+  await as(R1)
+  await fails("셋째 날 질문: 첫날에는 아직 낼 수 없다", "select public.set_day3_question($1, '요즘 가장 자주 듣는 노래는 뭐예요?')", [pid], /둘째 날 09:00/)
+  await q("select public.submit_program_entry($1, 1, 'letter', '요즘은 퇴근하고 동네를 천천히 걷는 시간이 제일 좋아요. 오늘도 걸었어요.')", [pid])
+  await as(R2)
+  await fails("한 줄 엽서: 5~80자", "select public.submit_program_entry($1, 1, 'letter', '짧음', '{\"postcard\":\"1\"}')", [pid], /5~80자/)
+  await q("select public.submit_program_entry($1, 1, 'letter', '쉬는 날엔 서점에 오래 있어요. 창가 자리에서 책을 읽다 보면 해가 져요.')", [pid])
+  await as(R1)
+  await fails("책갈피: 상대가 쓴 글에서만", "select public.set_bookmark($1, '저는 등산을 좋아해요.')", [pid], /상대가 쓴 글/)
+  await fails("책갈피: 내 글에는 그을 수 없다", "select public.set_bookmark($1, '오늘도 걸었어요.')", [pid], /상대가 쓴 글/)
+  eq("책갈피: 함께 열린 상대 글의 문장 하나에 밑줄", (await one("select public.set_bookmark($1, '쉬는 날엔 서점에 오래 있어요.') v", [pid])).v.ownMark, "쉬는 날엔 서점에 오래 있어요.")
+  await as(R2)
+  eq("책갈피: 사흘 동안은 상대가 그은 밑줄이 보이지 않는다", (await mine()).partnerMark, null)
+
+  await as("postgres")
+  await at(await plus(start, 1), "10:00")
+  await as(R1)
+  eq("셋째 날 질문: 둘째 날에 상대에게 물을 질문을 낸다", (await one("select public.set_day3_question($1, '요즘 가장 자주 듣는 노래는 뭐예요?') v", [pid])).v.ownAsk, "요즘 가장 자주 듣는 노래는 뭐예요?")
+  await fails("셋째 날 질문: 연락처는 넣을 수 없다", "select public.set_day3_question($1, '카톡 아이디 haeyun12 로 알려 줄래요?')", [pid], /연락처/)
+  await q("select public.submit_program_entry($1, 2, 'letter', '요즘은 아침 산책 30분을 아껴요. 그 시간에 하루를 미리 정리해요.')", [pid])
+  await as(R2)
+  eq("셋째 날 질문: 셋째 날 09:00 전에는 상대가 낸 질문이 보이지 않는다", (await mine()).partnerAsk, null)
+  const card = (await one("select public.submit_program_entry($1, 2, 'letter', '오늘은 바빴지만, 어제 편지 덕분에 웃었어요.', '{\"postcard\":\"1\"}') v", [pid])).v
+  eq("한 줄 엽서: 편지 대신 엽서 한 줄로도 그날이 함께 열린다", [!!card.entries.find((e) => e.day === 2 && e.kind === "letter").partner, card.entries.find((e) => e.day === 2 && e.kind === "letter").own.payload], [true, { postcard: "1" }])
+  await as("postgres")
+  await at(await plus(start, 2), "09:30")
+  await as(R2)
+  eq("셋째 날 질문: 셋째 날 09:00부터 상대가 낸 질문이 보인다", (await mine()).partnerAsk, "요즘 가장 자주 듣는 노래는 뭐예요?")
+  await fails("한 줄 엽서: 사흘 중 한 번만", "select public.submit_program_entry($1, 3, 'letter', '오늘도 한 줄만 보낼게요. 미안해요.', '{\"postcard\":\"1\"}')", [pid], /한 번만/)
+  await as(R1)
+  await fails("셋째 날 질문: 셋째 날이 열린 뒤에는 고칠 수 없다", "select public.set_day3_question($1, '어릴 때 좋아했던 장소가 있어요?')", [pid], /셋째 날 09:00 전/)
+
+  // 넷째 날: 상대가 그은 밑줄 · 한 권
+  await as("postgres")
+  await at(await plus(start, 3), "09:30"); await one("select public.run_programs()")
+  await as(R2)
+  const decide = await mine()
+  eq("책갈피: 넷째 날에는 상대가 밑줄 그은 내 문장이 보인다", [decide.status, decide.partnerMark], ["deciding", "쉬는 날엔 서점에 오래 있어요."])
+  await as(R1)
+  eq("책갈피: 상대가 밑줄을 긋지 않았으면 비어 있다", (await mine()).partnerMark, null)
+  await fails("한 권: 두 분 모두 만나고 싶다고 하기 전에는 정할 수 없다", "select public.set_book_consent($1, true)", [pid], /두 분 모두 만나고 싶다고/)
+  await q("select public.choose_meeting($1, 'positive')", [pid])
+  await as(R2); await q("select public.choose_meeting($1, 'positive')", [pid])
+  eq("한 권: 한 분만 동의하면 아직 열리지 않는다", (await one("select public.set_book_consent($1, true) v", [pid])).v, { ownBook: true, bookOpen: false })
+  await as(R1)
+  eq("한 권: 두 분 모두 동의하면 펼칠 수 있다", (await one("select public.set_book_consent($1, true) v", [pid])).v.bookOpen, true)
+  eq("한 권: 교류 화면에 내 이름(표지)과 함께 온다", [(await mine()).bookOpen, (await mine()).ownName], [true, "하윤"])
+  eq("한 권: 동의를 거두면 다시 닫힌다", (await one("select public.set_book_consent($1, false) v", [pid])).v, { ownBook: false, bookOpen: false })
+  await q("select public.set_book_consent($1, true)", [pid])
+
+  // 마무리 뒤 다시 읽기 · 보존 정리
+  await as("postgres")
+  await q("select public.close_program($1, 'completed')", [pid])
+  await clock(null)
+  await as(R1)
+  const past = (await one("select public.my_readable_programs() v")).v.find((x) => x.id === pid)
+  eq("다시 읽기: 소개 전 편지·밑줄·셋째 날 질문·한 권이 함께 남는다", [past.prelude.own, past.ownMark, past.ownAsk, past.bookOpen], [prelude, "쉬는 날엔 서점에 오래 있어요.", "요즘 가장 자주 듣는 노래는 뭐예요?", true])
+  await as("postgres")
+  await q("update public.introductions set closed_at = now() - interval '31 days' where id = $1", [intro])
+  await q("update public.window_answers set created_at = now() - interval '13 months' where member_id = $1", [R1])
+  await one("select public.run_retention()")
+  eq("보존 정리: 소개가 마무리되고 30일이 지나면 전한 소개 전 편지를 지운다", (await one("select count(*)::int n from public.prelude_letters where introduction_id = $1", [intro])).n, 0)
+  eq("보존 정리: 소개 사본을 지울 때 닮은 두 문장도 지운다", { ...(await one("select echo_a, echo_b from public.introductions where id = $1", [intro])) }, { echo_a: null, echo_b: null })
+  eq("보존 정리: 창가 질문 답은 1년이 지나면 지운다", (await one("select count(*)::int n from public.window_answers where member_id = $1", [R1])).n, 0)
+}
+
 console.log(`서버 데이터베이스 점검 통과: ${passed}개`)
