@@ -1062,6 +1062,7 @@ await db.exec("reset role")
   const doneA = await mine()
   ok("A 여정: 마무리된 교류를 다시 읽을 수 있다(글·상대 이름·보관 기한)", doneA.status === "closed" && doneA.partnerName === "태오" && !!doneA.readableUntil && doneA.entries.filter((e) => e.partner).length >= 4)
   eq("A 여정: 마무리 뒤 번호는 더 보이지 않는다", [doneA.contactReleased, "partnerPhone" in doneA], [false, false])
+  ok("A 여정: 마무리된 교류에도 시작한 시각이 온다(오늘 화면의 ‘만남 뒤, 남기는 한 줄’이 이 값으로 열린다)", !!doneA.startedAt)
   let listA = (await one("select public.my_readable_programs() v")).v
   eq("A 여정: 지난 교류 목록에 다시 읽을 수 있는 교류가 있다", listA.map((p) => [p.id, p.partnerName, p.ownPlan]), [[pa.id, "태오", "A"]])
   ok("A 여정: 지난 교류 목록에도 주고받은 글이 함께 온다", listA[0].entries.some((e) => e.kind === "reply" && e.partner) && !!listA[0].readableUntil)

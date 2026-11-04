@@ -159,7 +159,7 @@ function LiveTodayView() {
         </div>
         <NoonClock tone="plain" target={state.clock} />
       </header>
-      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
         <Sheet className="flex flex-col p-6 sm:p-10">
           <p className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#F8E5A6] px-3 py-1 text-xs font-semibold text-[#5A4310] dark:bg-[#3B3424] dark:text-[#F3D98A]"><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />지금 할 일</p>
           <h2 className="mt-4 text-2xl font-semibold leading-[1.45] sm:text-[28px]">{state.action}</h2>
