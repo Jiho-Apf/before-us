@@ -12,7 +12,11 @@ export const EDIT_ALLOWED: ApplicationStatus[] = ["draft", "needs_changes", "sub
 export type PhotoRow = { slot: PhotoSlotId; path: string; mime: string; bytes: number; width: number; height: number; sha256: string; review: PhotoReview; reason: string | null; created_at: string; change_reason?: string | null; change_requested_at?: string | null }
 // 이미 소개를 받고 있는(승인된) 회원이 바꾸려고 올린 새 사진. 운영진이 확인하면 그 칸의 사진과 바뀌고, 그동안 지금 사진이 그대로 보인다.
 export type ReplacementRow = { slot: PhotoSlotId; path: string; width: number; height: number; bytes: number; review: "대기" | "재등록 요청"; reason: string | null; created_at: string }
-export type MyApplication = { draft: ApplicationDraft; status: ApplicationStatus; decisionNote: string | null; submittedAt: string | null; photoRows: PhotoRow[]; replacements: ReplacementRow[] }
+export type MyApplication = { draft: ApplicationDraft; status: ApplicationStatus; decisionNote: string | null; submittedAt: string | null; photoRows: PhotoRow[]; replacements: ReplacementRow[]; revision: number | null }
+// 신청서 저장 판 번호(검수 C9): 서버가 저장할 때마다 올리고, 보낸 판이 다르면(다른 화면에서 먼저 저장) 거부한다(P0409).
+// 판 번호를 못 읽으면 null로 두고 확인 없이 저장한다(예전 서버와도 이어지게).
+const DRAFT_REVISION_COLUMN = "draft_rev"
+export const DRAFT_CONFLICT = "P0409"
 
 // 서버 사진 기록을 신청서 화면의 사진 모양으로 바꾼다(검사 함수를 그대로 쓰기 위해).
 export function photosFromRows(rows: PhotoRow[]): ApplicationPhotos {
@@ -35,11 +39,12 @@ export async function loadMyApplication(): Promise<{ data: MyApplication | null;
     const db = await supabase()
     const { data: auth } = await db.auth.getUser()
     if (!auth.user) return { data: null, error: "로그인이 필요해요." }
-    const [{ data: row, error }, { data: rows, error: photoError }, swaps] = await Promise.all([
+    const [{ data: row, error }, { data: rows, error: photoError }, swaps, revisionRow] = await Promise.all([
       db.from("applications").select("draft, status, decision_note, submitted_at").eq("member_id", auth.user.id).maybeSingle(),
       db.from("application_photos").select("slot, path, mime, bytes, width, height, sha256, review, reason, created_at, change_reason, change_requested_at").eq("member_id", auth.user.id),
       // 교체 사진은 못 읽어도 신청서는 그대로 보여 준다(교체 대기 표시만 빠진다).
       db.from("photo_replacements").select("slot, path, width, height, bytes, review, reason, created_at").eq("member_id", auth.user.id),
+      db.from("applications").select(DRAFT_REVISION_COLUMN).eq("member_id", auth.user.id).maybeSingle(),
     ])
     if (error || photoError) return { data: null, error: friendlyError(error || photoError) }
     const base = emptyApplication()
@@ -62,15 +67,23 @@ export async function loadMyApplication(): Promise<{ data: MyApplication | null;
       savedAt: null,
       completedDemo: false,
     }
-    return { data: { draft, status, decisionNote: row?.decision_note ?? null, submittedAt: row?.submitted_at ?? null, photoRows, replacements: swaps.error ? [] : ((swaps.data ?? []) as ReplacementRow[]) }, error: null }
+    return { data: { draft, status, decisionNote: row?.decision_note ?? null, submittedAt: row?.submitted_at ?? null, photoRows, replacements: swaps.error ? [] : ((swaps.data ?? []) as ReplacementRow[]), revision: revisionRow.error ? null : (((revisionRow.data as Record<string, unknown> | null)?.[DRAFT_REVISION_COLUMN] as number | null | undefined) ?? null) }, error: null }
   } catch (error) {
     return { data: null, error: friendlyError(error as Error) }
   }
 }
 
-export function saveMyDraft(draft: ApplicationDraft) {
+export async function saveMyDraft(draft: ApplicationDraft, revision: number | null = null): Promise<{ data: { savedAt: string; revision: number | null } | null; error: string | null; conflict?: boolean }> {
   const { values, sharing, preferences, step, visited } = draft
-  return rpc<{ savedAt: string }>("save_application_draft", { p_draft: { values, sharing, preferences, step, visited } })
+  try {
+    const db = await supabase()
+    const { data, error } = await db.rpc("save_application_draft", { p_draft: { values, sharing, preferences, step, visited }, ...(revision === null ? {} : { p_revision: revision }) })
+    if (error) return { data: null, error: friendlyError(error), conflict: error.code === DRAFT_CONFLICT }
+    const saved = (data ?? {}) as { savedAt?: string; revision?: number | null }
+    return { data: { savedAt: saved.savedAt ?? new Date().toISOString(), revision: typeof saved.revision === "number" ? saved.revision : null }, error: null }
+  } catch (error) {
+    return { data: null, error: friendlyError(error as Error) }
+  }
 }
 export const submitMyApplication = () => rpc<{ status: string; submittedAt: string; edited?: boolean }>("submit_application")
 export const withdrawMyApplication = () => rpc<null>("withdraw_application")
@@ -173,29 +186,62 @@ export async function removePhoto(slot: PhotoSlotId, path: string) {
 
 // 사진 주소는 5분 동안만 쓸 수 있게 만든다(외부로 퍼져도 곧 열리지 않는다).
 const urlCache = new Map<string, { url: string; until: number }>()
-export async function photoUrl(path: string) {
+// 사진 주소 결과(검수 C12): 잠깐 못 불러온 것(temporary-error)과 볼 수 없는 것(forbidden)·지워진 것(deleted)을 나눈다.
+// 화면은 잠깐의 실패를 ‘사진 없음’으로 바꾸지 않고, 다시 불러오기를 보여 준다.
+export type PhotoResult = { status: "ok"; url: string } | { status: "temporary-error"; message: string } | { status: "forbidden" } | { status: "deleted" }
+const TEMPORARY = "사진을 잠시 불러오지 못했어요."
+export function storageFailure(error: { message?: string; status?: number; statusCode?: string | number } | null | undefined): PhotoResult {
+  const message = String(error?.message ?? "")
+  const code = Number(error?.statusCode ?? error?.status ?? 0)
+  if (code === 404 || /not.?found|does not exist/i.test(message)) return { status: "deleted" }
+  if (code === 401 || code === 403 || /not authorized|unauthorized|forbidden|row-level security|permission/i.test(message)) return { status: "forbidden" }
+  return { status: "temporary-error", message: TEMPORARY }
+}
+// 서버 함수(partner-photo · letter-photo)의 답: 400 = 없는 사진, 401·403 = 볼 수 없음, 그 밖은 잠깐의 실패
+export async function functionFailure(error: unknown): Promise<PhotoResult> {
+  const response = (error as { context?: unknown } | null)?.context
+  const status = response instanceof Response ? response.status : 0
+  if (status === 400 || status === 404) return { status: "deleted" }
+  if (status === 401 || status === 403) return { status: "forbidden" }
+  return { status: "temporary-error", message: TEMPORARY }
+}
+export async function photoResult(path: string): Promise<PhotoResult> {
   const cached = urlCache.get(path)
-  if (cached && cached.until > Date.now()) return cached.url
-  const db = await supabase()
-  const { data } = await db.storage.from(PHOTO_BUCKET).createSignedUrl(path, 300)
-  if (!data?.signedUrl) return null
-  urlCache.set(path, { url: data.signedUrl, until: Date.now() + 240000 })
-  return data.signedUrl
+  if (cached && cached.until > Date.now()) return { status: "ok", url: cached.url }
+  try {
+    const db = await supabase()
+    const { data, error } = await db.storage.from(PHOTO_BUCKET).createSignedUrl(path, 300)
+    if (error || !data?.signedUrl) return error ? storageFailure(error as never) : { status: "temporary-error", message: TEMPORARY }
+    urlCache.set(path, { url: data.signedUrl, until: Date.now() + 240000 })
+    return { status: "ok", url: data.signedUrl }
+  } catch {
+    return { status: "temporary-error", message: TEMPORARY }
+  }
+}
+// 예전 모양(주소 또는 null)을 쓰는 화면용
+export async function photoUrl(path: string) {
+  const result = await photoResult(path)
+  return result.status === "ok" ? result.url : null
 }
 
 // 상대 사진: 서버 함수가 열람 기간인지 확인한 뒤 5분짜리 주소를 만들어 준다.
-export async function partnerPhotoUrl(path: string) {
+export async function partnerPhotoResult(path: string): Promise<PhotoResult> {
   const cached = urlCache.get(path)
-  if (cached && cached.until > Date.now()) return cached.url
+  if (cached && cached.until > Date.now()) return { status: "ok", url: cached.url }
   try {
     const db = await supabase()
     const { data, error } = await db.functions.invoke<{ url?: string }>("partner-photo", { body: { path } })
-    if (error || !data?.url) return null
+    if (error) return functionFailure(error)
+    if (!data?.url) return { status: "temporary-error", message: TEMPORARY }
     urlCache.set(path, { url: data.url, until: Date.now() + 240000 })
-    return data.url
+    return { status: "ok", url: data.url }
   } catch {
-    return null
+    return { status: "temporary-error", message: TEMPORARY }
   }
+}
+export async function partnerPhotoUrl(path: string) {
+  const result = await partnerPhotoResult(path)
+  return result.status === "ok" ? result.url : null
 }
 
 export const PHOTO_ORDER = PHOTO_SLOTS.map((slot) => slot.id)

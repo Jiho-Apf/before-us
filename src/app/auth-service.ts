@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react"
 import { BEFORE_US } from "./config"
-import { submitMemberRequest } from "./member-operations-model"
-import { LANDING, LIVE, friendlyError, rpc, supabase } from "./backend/client"
+import { LANDING, LIVE, endSession, friendlyError, rpc, supabase } from "./backend/client"
+import { clearDrafts, setDraftOwner } from "./backend/drafts"
 
 // 계정(회원가입·로그인·비밀번호 재설정·탈퇴).
 //  - 데모: 탭 메모리에서만 동작한다. 비밀번호는 원문 대신 SHA-256 해시만 남긴다.
@@ -18,7 +18,8 @@ const attempts = new Map<string, { failed: number; lockedUntil: number | null }>
 let session: AuthUser | null = null
 let ready = !LIVE
 const listeners = new Set<() => void>()
-const emit = () => listeners.forEach((listener) => listener())
+// 초안은 로그인한 회원 것만 읽고 쓴다(검수 C10).
+const emit = () => { setDraftOwner(session?.id ?? null); listeners.forEach((listener) => listener()) }
 
 export const PASSWORD_RULE = "8자 이상, 영문과 숫자를 함께 써 주세요."
 export const LEGAL_VERSION = LIVE && BEFORE_US.beta.active ? BEFORE_US.beta.legalVersion : "draft-2026-10-15"
@@ -60,8 +61,9 @@ if (LIVE) {
       // 탈퇴를 요청한 계정이면 안내를 남기고 바로 로그아웃한다(이 기기의 로그인만).
       if (data?.status === "withdrawal_requested") {
         withdrawnNotice = { deletionDueAt: data.deletion_due_at ?? null }
+        clearDrafts({ ownerId: current.user.id })
         session = null; ready = true; emit()
-        void db.auth.signOut({ scope: "local" })
+        void endSession("local")
         return
       }
       withdrawnNotice = null
@@ -117,7 +119,7 @@ export async function signIn(emailInput: string, password: string, now = Date.no
     attempts.delete(email)
     const { data: profile } = await db.from("profiles").select("status, deletion_due_at").eq("id", data.user.id).maybeSingle()
     if (profile?.status === "withdrawal_requested") {
-      await db.auth.signOut({ scope: "local" })
+      await endSession("local")
       const due = profile.deletion_due_at ? new Date(profile.deletion_due_at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric" }) : null
       return { error: due ? `탈퇴를 요청한 계정이에요. ${due}에 계정과 자료를 지워요. 그 전에 다시 이용하려면 문의하기로 남겨 주세요. 운영진이 확인한 뒤 탈퇴 요청을 취소해 드려요.` : WITHDRAWN }
     }
@@ -139,10 +141,18 @@ export async function signIn(emailInput: string, password: string, now = Date.no
   return { error: null }
 }
 
-export function signOut() {
+// 로그아웃(검수 C3): 이 기기의 세션·자동 갱신·보관 쿠키·초안을 실제로 지운 뒤에 끝났다고 알린다.
+// 서버가 답하지 않아도 이 기기에서는 반드시 지우고, 다른 기기의 로그인까지 끊었는지 확인하지 못했으면 그 사실을 부드럽게 알린다.
+export async function signOut(): Promise<{ error: string | null; notice: string | null }> {
+  const id = session?.id ?? null
+  if (id) clearDrafts({ ownerId: id })
+  if (!LIVE) { session = null; emit(); return { error: null, notice: null } }
+  const result = await endSession("global")
+  // 이 기기에서 지워지지 않았으면 로그인 상태를 그대로 두고 다시 누르게 한다(성공처럼 보이지 않게).
+  if (!result.localOk) return { error: "이 기기의 로그아웃을 마치지 못했어요. 인터넷 연결을 확인한 뒤 한 번 더 눌러 주세요.", notice: null }
   session = null
   emit()
-  if (LIVE) void supabase().then((db) => db.auth.signOut())
+  return { error: null, notice: result.serverOk ? null : "이 기기에서는 로그아웃했어요. 연결이 불안정해 다른 기기의 로그인까지 끊었는지는 확인하지 못했어요. 걱정되면 비밀번호를 바꿔 주세요." }
 }
 
 // 가입 여부와 관계없이 같은 안내를 보여 준다. 데모에서는 메일 대신 화면에 재설정 링크를 돌려준다(devLink).
@@ -173,8 +183,8 @@ export async function resetPassword(token: string, password: string, now = Date.
     if (!data.session) return expired
     const { error } = await db.auth.updateUser({ password })
     if (error) return { error: /different|same/i.test(error.message) ? "이전과 다른 비밀번호를 정해 주세요." : friendlyError(error) }
-    // 다른 기기의 로그인도 함께 끊는다.
-    await db.auth.signOut({ scope: "global" })
+    // 다른 기기의 로그인도 함께 끊는다(서버가 답하지 않아도 이 기기에서는 지운다).
+    await endSession("global")
     return { error: null }
   }
   const record = resetTokens.get(token)
@@ -206,16 +216,18 @@ export async function withdraw(password: string, now = new Date(), feedback: Wit
     if (error || !data) return { error: error || "탈퇴 요청을 저장하지 못했어요. 다시 시도해 주세요." }
     // 바로 로그아웃한다. 회원 화면은 로그아웃한 뒤에도 탈퇴 안내(삭제 예정일 · 취소는 문의하기)를 보여 준다.
     withdrawnNotice = { deletionDueAt: data.deletionDueAt }
+    clearDrafts({ ownerId: session.id })
     session = null
     emit()
-    void db.auth.signOut({ scope: "local" })
+    await endSession("local")
     return { error: null, deletionDueAt: data.deletionDueAt }
   }
   const user = users.get(session.email)
   if (!user || user.passwordHash !== (await hash(password))) return { error: "비밀번호가 맞지 않아요." }
   user.status = "withdrawal-requested"
   user.deletionDueAt = new Date(now.getTime() + BEFORE_US.privacy.activeDeleteDays * 86400000).toISOString()
-  submitMemberRequest({ memberId: "current-member", surface: "account" }, "withdrawal", { confirmed: true, description: "계정 화면에서 탈퇴 요청" }, now)
+  // 데모 운영 기록은 데모에서만 쓰므로 필요할 때 불러온다(실서비스 첫 화면에 데모 모델이 실리지 않게 · GPT 검수 C14).
+  void import("./member-operations-model").then(model => model.submitMemberRequest({ memberId: "current-member", surface: "account" }, "withdrawal", { confirmed: true, description: "계정 화면에서 탈퇴 요청" }, now))
   session = null
   emit()
   return { error: null, deletionDueAt: user.deletionDueAt }

@@ -32,8 +32,12 @@ const readBody = (req) => {
   try { return JSON.parse(String(req.body || "{}")) } catch { return {} }
 }
 
+// 정식 운영 전 과제(검수 C3): 지금은 보관한 새로 고침 토큰을 같은 사이트 화면에 그대로 돌려준다(GET).
+// HttpOnly라 다른 사이트는 못 읽지만, 같은 사이트의 악성 스크립트까지 막는 경계는 아니다 → 서버가 갱신·회전을 맡는 구조로 바꿀 것.
 export default function handler(req, res) {
   res.setHeader("Cache-Control", "no-store")
+  // 지우기는 언제든 두 쿠키를 모두 지운다(로그아웃이 어떤 이유로도 막히지 않게 · 지우는 것만으로는 아무것도 꺼낼 수 없다).
+  if (req.method === "DELETE") { res.setHeader("Set-Cookie", cookies("", 0)); res.status(204).end(); return }
   if (req.headers[HEADER] !== "1" || !sameSite(req)) { res.status(403).json({ error: "forbidden" }); return }
   if (req.method === "GET") { res.status(200).json({ refreshToken: readToken(req) }); return }
   if (req.method === "POST") {
@@ -43,7 +47,6 @@ export default function handler(req, res) {
     res.status(204).end()
     return
   }
-  if (req.method === "DELETE") { res.setHeader("Set-Cookie", cookies("", 0)); res.status(204).end(); return }
   res.setHeader("Allow", "GET, POST, DELETE")
   res.status(405).json({ error: "method" })
 }

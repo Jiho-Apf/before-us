@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useAuth } from "../auth-service"
 import { friendlyError, rpc, supabase } from "./client"
 import type { ApplicationStatus } from "./applications"
@@ -105,7 +105,8 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
       db.from("application_photos").select("slot, review, reason, change_reason, change_requested_at").eq("member_id", auth.user.id),
       db.from("photo_replacements").select("slot, review, reason").eq("member_id", auth.user.id),
     ])
-    const failed = application.error || introduction.error || notifications.error || profile.error
+    // 교류를 못 읽은 것을 ‘교류 없음’으로 바꾸지 않는다(검수 C12) — 오늘 화면이 다시 불러오기를 보여 준다.
+    const failed = application.error || introduction.error || notifications.error || profile.error || program.error
     if (failed) return { data: null, error: friendlyError(failed) }
     return {
       data: {
@@ -114,7 +115,7 @@ export async function loadMemberSnapshot(): Promise<{ data: MemberSnapshot | nul
         notifications: (notifications.data ?? []) as LiveNotification[],
         notices: profile.data ?? null,
         cohort: (cohort.data as MemberSnapshot["cohort"]) ?? null,
-        program: program.error ? null : ((program.data as Program | null) ?? null),
+        program: (program.data as Program | null) ?? null,
         perk: !perk.error && (perk.data as { perk?: string | null } | null)?.perk === "unlimited" ? "unlimited" : null,
         photos: photoRows.error || swaps.error ? null : photoState((photoRows.data ?? []) as PhotoStateRow[], (swaps.data ?? []) as MemberPhotoState["replacements"]),
       },
@@ -174,20 +175,25 @@ export const deleteWindowAnswer = () => rpc<WindowQuestion>("delete_window_answe
 export const deleteReflection = (programId: string) => rpc<null>("delete_reflection", { p_program: programId })
 
 // 로그인한 회원의 화면 자료를 불러오고, 다시 불러오는 함수를 함께 준다.
-// 다음 상태 변경 시각까지 남은 시간(서버 작업이 10분 주기라 1분 여유를 둔다)
+// 다음 상태 변경 시각까지 남은 시간(검수 C8): 정오 소개는 12:00:00 정각에 바로 다시 읽고, 서버 작업이 늦을 때를 위해 15초·45초 뒤와 12:06에 한 번 더.
+// 09:00 교류·만남 마감, 11:00 응답 마감은 서버 작업이 10분 주기라 11분 뒤에 읽는다.
 function untilNextBoundary(now = Date.now()) {
   const kst = new Date(now + 9 * 3600000)
   const base = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()) - 9 * 3600000
-  const marks = [[9, 11], [11, 11], [12, 1], [12, 6]].map(([h, m]) => base + (h * 60 + m) * 60000)
-  const next = marks.find(at => at > now + 1000) ?? marks[0] + 86400000
+  const marks = [[9, 11, 0], [11, 11, 0], [12, 0, 0], [12, 0, 15], [12, 0, 45], [12, 6, 0]].map(([h, m, sec]) => base + ((h * 60 + m) * 60 + sec) * 1000)
+  const next = marks.find(at => at > now + 500) ?? marks[0] + 86400000
   return Math.min(next - now, 6 * 3600000)
 }
 
 export function useMemberSnapshot() {
   const user = useAuth()
   const [state, setState] = useState<{ data: MemberSnapshot | null; error: string | null; loading: boolean }>({ data: null, error: null, loading: true })
+  // 늦게 끝난 이전 요청이 새 결과를 덮지 않게 차례 번호를 붙인다.
+  const sequence = useRef(0)
   const reload = async () => {
+    const mine = ++sequence.current
     const result = await loadMemberSnapshot()
+    if (mine !== sequence.current) return
     setState({ ...result, loading: false })
   }
   useEffect(() => { if (user) void reload(); else setState({ data: null, error: null, loading: false }) }, [user?.id])
@@ -207,24 +213,6 @@ export function useMemberSnapshot() {
 // 화면에 보여 준 알림만 읽음으로 바꾼다(보여 주지 않은 지난 알림은 그대로).
 export const markNotificationsRead = (ids: string[]) => rpc<number>("mark_shown_notifications_read", { p_ids: ids })
 
-// 읽지 않은 알림 수(회원 메뉴 '오늘'의 점 표시). 화면을 옮길 때마다 다시 센다. key가 null이면 세지 않는다(데모).
-export function useUnreadCount(key: string | null) {
-  const user = useAuth()
-  const [count, setCount] = useState(0)
-  useEffect(() => {
-    if (!user || key === null) { setCount(0); return }
-    let alive = true
-    void (async () => {
-      try {
-        const db = await supabase()
-        const { count: n } = await db.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null)
-        if (alive) setCount(n ?? 0)
-      } catch { /* 표시만 생략 */ }
-    })()
-    return () => { alive = false }
-  }, [user?.id, key])
-  return count
-}
 export const recordIntroductionView = (id: string) => rpc<null>("record_introduction_view", { p_id: id })
 export const respondIntroduction = (id: string, choice: "positive" | "negative", reason?: string | null) =>
   rpc<LiveIntroduction>("respond_introduction", { p_id: id, p_choice: choice, p_reason: reason ?? null })

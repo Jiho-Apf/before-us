@@ -1,5 +1,4 @@
 import { Suspense, lazy, useState, useEffect, type ComponentType } from "react";
-import { motion, useReducedMotion } from "motion/react";
 import { createBrowserRouter, RouterProvider, NavLink, Link, Navigate, Outlet, useLocation } from "react-router";
 import { Button } from "./components/ui/button";
 import { BEFORE_US } from "./config";
@@ -7,7 +6,7 @@ import { Calendar, User, Home, ArrowRight, X, Sun, Moon, Users, MessageCircle, M
 import PublicHome, { PublicInformation } from "./PublicHome";
 import RouteError from "./RouteError";
 import { LIVE } from "./backend/client";
-import { useUnreadCount } from "./backend/member";
+import { useUnreadCount } from "./backend/unread";
 
 // 공개 홈만 바로 불러오고, 회원·데모·관리자 화면은 그 화면을 열 때 따로 불러온다.
 const later = <T, K extends keyof T>(load: () => Promise<T>, name: K) =>
@@ -114,10 +113,10 @@ function ShellThemeToggle({ isDark, toggle }: { isDark: boolean; toggle: () => v
 
 function PageTransition() {
   const location = useLocation();
-  const reduceMotion = useReducedMotion();
   // 다른 페이지로 옮기면 맨 위에서 시작한다. 해시(#faq-…)로 가는 경우는 그 화면이 직접 스크롤한다.
   useEffect(() => { if (!location.hash) window.scrollTo(0, 0); }, [location.pathname]);
-  return <motion.div key={location.pathname} initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: reduceMotion ? 0 : 0.24 }} className="flex flex-1 flex-col"><Suspense fallback={<RouteFallback />}><Outlet /></Suspense></motion.div>;
+  // 화면이 바뀔 때 0.24초 동안 살며시 나타난다(CSS · 움직임 줄이기 설정이면 바로 보인다). 큰 애니메이션 라이브러리를 첫 화면에 싣지 않으려고 바꿨다(GPT 검수 C14).
+  return <div key={location.pathname} className="page-fade flex flex-1 flex-col"><Suspense fallback={<RouteFallback />}><Outlet /></Suspense></div>;
 }
 
 // 공개 화면 머리에서 로그인 여부를 안다(계정 모듈은 나중에 불러와 첫 화면을 가볍게 둔다).
@@ -217,7 +216,8 @@ const MEMBER_EXTRA = [{ to: "/support", label: "문의·요청" }, { to: "/payme
 function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }) {
   const location = useLocation();
   const current = MEMBER_NAV.find(item => item.to === location.pathname || (item.to === "/meeting" && location.pathname === "/meeting/contact")) ?? MEMBER_EXTRA.find(item => item.to === location.pathname);
-  const unread = useUnreadCount(LIVE ? location.pathname : null);
+  const signedIn = useSignedIn();
+  const unread = useUnreadCount(LIVE ? location.pathname : null, signedIn);
   const dot = (to: string) => to === "/today" && unread > 0 ? <span className="ml-auto size-2 rounded-full bg-[#F2B705]" aria-label={`새 알림 ${unread}개`} /> : null;
   const memberPath = (to: string) => new URLSearchParams(location.search).get("demo") === "agreement" && ["/today", "/us", "/exchange", "/meeting", "/profile", "/payments", "/support"].includes(to) ? `${to}?demo=agreement` : to;
   return (

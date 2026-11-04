@@ -404,12 +404,35 @@ function ApplicantDetail({ memberId, row, cohorts, canDecide, onChanged }: { mem
     {(data.reflections?.length ?? 0) > 0 && <Reflections items={data.reflections ?? []} />}
     {(data.windowAnswers?.length ?? 0) > 0 && <WindowAnswers items={data.windowAnswers ?? []} />}
     <MemberVouches memberId={memberId} />
+    <ReadingNoteEditor memberId={memberId} canWrite={canDecide} />
     <div><h3 className="text-sm font-semibold">신청 내용</h3><div className="mt-3"><ProfileSheet detail={data} full /></div></div>
     {canDecide && cohorts.length > 0 && <div className="flex flex-wrap items-center gap-2 border-t border-border pt-5 text-xs"><span className="font-semibold">기수 옮기기</span><select aria-label="옮길 기수" value={moveTo} onChange={event => setMoveTo(event.target.value)} className="h-8 rounded-md border border-border bg-card px-2"><option value="">기수 고르기</option>{cohorts.filter(item => item.number !== row?.cohort).map(item => <option key={item.number} value={item.number}>{cohortName(item.number)} · {kstDay(item.startsOn)} 시작</option>)}</select><Button size="sm" variant="outline" className="h-8" disabled={!moveTo || !!busy} onClick={() => void move()}>옮기기</Button></div>}
     {canDecide && <div className="space-y-3 border-t border-border pt-5"><h3 className="text-sm font-semibold">결정</h3>{actions.length ? <><Textarea aria-label="회원에게 보낼 안내" value={note} maxLength={500} onChange={event => setNote(event.target.value)} placeholder="보완·보류·소개 어려움·승인 취소일 때 회원에게 보일 안내를 적어 주세요. 평가하는 말은 쓰지 않아요." className="min-h-20" /><div className="flex flex-wrap gap-2">{actions.map(action => <Button key={action.status} size="sm" variant={action.tone === "primary" ? "default" : action.tone === "ghost" ? "ghost" : "outline"} disabled={!!busy || (action.note && !note.trim())} title={action.note && !note.trim() ? "회원에게 보낼 안내를 먼저 적어 주세요" : undefined} onClick={() => void decide(action)}>{busy === `decide-${action.status}` ? "기록하고 있어요" : action.label}</Button>)}</div>{actions.some(action => action.note) && !note.trim() && <p className="text-[11px] text-muted-foreground">보완 요청·보류·소개 어려움은 안내를 적어야 눌러져요.</p>}</> : data.status === "withdrawn" ? <div className="flex flex-wrap items-center gap-3"><p className="text-xs text-muted-foreground">회원이 철회한 신청서예요.</p><Button size="sm" variant="outline" disabled={!!busy} onClick={() => void reopen()}>{busy === "reopen" ? "여는 중이에요" : "신청서 다시 열기…"}</Button></div> : <p className="text-xs text-muted-foreground">회원이 다시 제출하면 결정할 수 있어요.</p>}</div>}
     <Notice text={message} />
     {dialog}
   </section>;
+}
+
+// 신청서를 읽고(GPT 검수 F1): 운영진이 이 신청서에서 실제로 살펴본 부분을 한 문장(20~80자)으로 남기면 회원 오늘 화면의
+// ‘플라비에서 온 소식’에 보인다. 자동 문장·틀에 박힌 칭찬은 쓰지 않고, 소개 전 편지(운영진이 읽지 않는 글)는 근거로 쓰지 않는다.
+function ReadingNoteEditor({ memberId, canWrite }: { memberId: string; canWrite: boolean }) {
+  const note = useLoad(() => call<{ body: string; at: string } | null>("admin_reading_note", { p_member: memberId }), [memberId]);
+  const [body, setBody] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const { busy, run } = useBusy();
+  const value = body ?? note.data?.body ?? "";
+  const length = Array.from(value.trim()).length;
+  const save = (text: string) => run("reading", async () => { const { error } = await rpc("admin_set_reading_note", { p_member: memberId, p_body: text.trim() || null }); setMessage(error || (text.trim() ? "남겼어요. 회원 오늘 화면에 보여요." : "지웠어요.")); if (!error) { setBody(null); await note.reload(); } });
+  if (!canWrite && !note.data) return null;
+  return <div className="rounded-xl border border-border p-3 text-xs leading-6">
+    <p className="font-semibold">신청서를 읽고 · 회원 오늘 화면에 보여요</p>
+    <p className="text-muted-foreground">이 신청서에서 실제로 살펴본 부분 하나를 한 문장으로(20~80자). 예: 주말을 보내는 방식과 편하게 대화할 수 있는 속도를 함께 살펴보고 있어요. 소개 전 편지 내용은 쓰지 않아요.</p>
+    {canWrite ? <>
+      <Textarea aria-label="신청서를 읽고 남기는 한 문장" value={value} maxLength={80} onChange={event => setBody(event.target.value)} className="mt-2 min-h-16 text-sm" />
+      <div className="mt-2 flex flex-wrap items-center gap-2"><span className="tabular-nums text-muted-foreground">{length} / 80</span><Button size="sm" disabled={busy === "reading" || (length > 0 && length < 20) || value.trim() === (note.data?.body ?? "")} onClick={() => void save(value)}>남기기</Button>{note.data && <Button size="sm" variant="ghost" disabled={busy === "reading"} onClick={() => void save("")}>지우기</Button>}{note.data && <span className="text-muted-foreground">{kstDay(note.data.at)} 남김</span>}</div>
+    </> : note.data && <p className="mt-1">“{note.data.body}”</p>}
+    <Notice text={message || note.error || ""} />
+  </div>;
 }
 
 // 친구 추천사(5200): 친구가 링크로 남긴 한 줄. 운영진과 회원 본인만 읽고, 소개할 분을 고를 때 참고한다(상대에게는 보이지 않는다).

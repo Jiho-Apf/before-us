@@ -16,17 +16,42 @@ export const LANDING = typeof window === "undefined" ? { path: "", search: "", h
 // 새로 고침 토큰을 우리 사이트 쿠키(/api/session · HttpOnly)에도 보관해 두고, 저장값이 비었으면 그걸로 로그인을 이어 준다.
 // 보관한 게 있다는 표시(flv_has)가 있을 때만 물어보고, 실패하면 지금처럼 로그인 화면으로 간다(개발 서버에는 /api가 없다).
 const SESSION_API = "/api/session"
-const sessionBackup = (method: "GET" | "POST" | "DELETE", body?: { refreshToken: string }) => window.fetch(SESSION_API, { method, credentials: "same-origin", headers: { "x-flavie-session": "1", ...(body ? { "content-type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined })
+const sessionBackup = (method: "GET" | "POST" | "DELETE", body?: { refreshToken: string }) => {
+  // 응답이 오지 않는 요청이 뒤 요청(로그아웃의 지우기)을 막지 않게 8초에서 끊는다.
+  const abort = new AbortController()
+  const timer = window.setTimeout(() => abort.abort(), 8000)
+  return window.fetch(SESSION_API, { method, credentials: "same-origin", signal: abort.signal, headers: { "x-flavie-session": "1", ...(body ? { "content-type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined }).finally(() => window.clearTimeout(timer))
+}
 const hasBackup = () => typeof document !== "undefined" && /(?:^|;\s*)flv_has=1(?:;|$)/.test(document.cookie)
+// 보관(POST)과 지우기(DELETE)는 한 줄로 세워 차례대로만 보낸다(검수 C3). 로그아웃하면 세대가 바뀌어,
+// 그 전에 줄 선 보관 요청은 보내지 않는다. 이미 보내고 있던 보관은 끝난 뒤에 지우기가 나가 쿠키를 지운다.
+let backupChain: Promise<unknown> = Promise.resolve()
+let backupGeneration = 0
+const queueBackup = (task: () => Promise<unknown>) => { const next = backupChain.then(task, task); backupChain = next.catch(() => undefined); return next }
+function saveSessionBackup(refreshToken: string) {
+  const generation = backupGeneration
+  void queueBackup(async () => { if (generation !== backupGeneration) return; await sessionBackup("POST", { refreshToken }) }).catch(() => undefined)
+}
+// 로그아웃·탈퇴: 앞서 줄 선 보관은 버리고, 쿠키를 반드시 지운다. 실패하면 false.
+export async function clearSessionBackup(): Promise<boolean> {
+  backupGeneration += 1
+  if (typeof window === "undefined") return true
+  // 보관 표시(flv_has)는 화면에서도 지울 수 있다. 서버 쿠키 지우기가 실패해도 다음 방문에 보관을 묻지 않게 된다.
+  const dropMarker = () => { try { document.cookie = "flv_has=; Path=/; Max-Age=0; Secure; SameSite=Strict" } catch { /* 무시 */ } }
+  dropMarker()
+  try { const response = await queueBackup(() => sessionBackup("DELETE")) as Response; dropMarker(); return response.ok || response.status === 404 || !hasBackup() } catch { dropMarker(); return !hasBackup() }
+}
 async function keepSession(db: SupabaseClient) {
   try {
     const { data } = await db.auth.getSession()
     if (!data.session && hasBackup()) {
+      const generation = backupGeneration
       const response = await sessionBackup("GET")
       const saved = response.ok && response.headers.get("content-type")?.includes("json") ? ((await response.json()) as { refreshToken?: string | null }).refreshToken : null
-      if (saved) {
+      // 읽는 사이에 로그아웃했다면 되살리지 않는다.
+      if (saved && generation === backupGeneration) {
         const { error } = await db.auth.refreshSession({ refresh_token: saved })
-        if (error) void sessionBackup("DELETE").catch(() => undefined)
+        if (error) void clearSessionBackup()
       }
     }
   } catch {
@@ -34,9 +59,33 @@ async function keepSession(db: SupabaseClient) {
   }
   let last = ""
   db.auth.onAuthStateChange((event, session) => {
-    if (event === "SIGNED_OUT") { last = ""; void sessionBackup("DELETE").catch(() => undefined); return }
-    if (session?.refresh_token && session.refresh_token !== last) { last = session.refresh_token; void sessionBackup("POST", { refreshToken: session.refresh_token }).catch(() => undefined) }
+    if (event === "SIGNED_OUT") { last = ""; void clearSessionBackup(); return }
+    if (session?.refresh_token && session.refresh_token !== last) { last = session.refresh_token; saveSessionBackup(session.refresh_token) }
   })
+}
+
+// 이 기기의 로그인을 끝낸다(검수 C3). 서버에 로그아웃을 알리고, 서버가 답하지 않아도 이 기기의 저장 세션·자동 갱신·보관 쿠키는 반드시 지운다.
+//  - serverOk: 서버가 로그아웃을 받았는지(다른 기기까지 끊는 global일 때 의미가 있다) · localOk: 이 기기에서 정말 지워졌는지
+export async function endSession(scope: "global" | "local" = "global"): Promise<{ serverOk: boolean; localOk: boolean }> {
+  backupGeneration += 1
+  let serverOk = true
+  try {
+    const db = await supabase()
+    try { const { error } = await db.auth.signOut({ scope }); if (error) serverOk = false } catch { serverOk = false }
+    if (!serverOk) {
+      // 서버가 답하지 않으면 SDK는 저장 세션을 남겨 둔다. 직접 지운다.
+      const auth = db.auth as unknown as { _removeSession?: () => Promise<void>; stopAutoRefresh?: () => Promise<void> }
+      try { await auth.stopAutoRefresh?.() } catch { /* 계속 */ }
+      try { await auth._removeSession?.() } catch { /* 아래에서 저장값을 직접 지운다 */ }
+    }
+    try { Object.keys(window.localStorage).filter(key => /^sb-.*-auth-token/.test(key)).forEach(key => window.localStorage.removeItem(key)) } catch { /* 무시 */ }
+    const cookieCleared = await clearSessionBackup()
+    const { data } = await db.auth.getSession()
+    return { serverOk, localOk: !data.session && cookieCleared }
+  } catch {
+    const cookieCleared = await clearSessionBackup()
+    return { serverOk: false, localOk: cookieCleared }
+  }
 }
 
 let client: Promise<SupabaseClient> | null = null

@@ -9,7 +9,9 @@
     "preview": "vite preview --config vite.figma.config.ts",
     "format": "oxfmt",
     "test:db": "node supabase/tests/db.test.mjs",
-    "backup": "node scripts/backup.mjs"
+    "backup": "node scripts/backup.mjs",
+    "backup:open": "node scripts/backup-open.mjs",
+    "backup:rehearsal": "node scripts/backup-rehearsal.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

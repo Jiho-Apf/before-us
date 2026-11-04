@@ -40,6 +40,10 @@ export type Program = {
   partnerRegion?: string | null
   partnerAvailabilitySet?: boolean
   overlap?: string[]
+  // 약속 판 번호(검수 C1): 날짜·시간·장소·제안이 바뀔 때마다 서버가 올린다. 연락처 동의는 내가 본 판에만 묶인다.
+  meetingRev?: number
+  // 시작 작업이 멈춰 정해 둔 날 교류가 열리지 못했을 때(검수 C13): 서버가 다시 ‘함께 정하기’로 돌리고 새 시작일 확인을 받는다.
+  startMissedAt?: string | null
   ownContact: boolean
   contactReleaseAt: string | null
   contactUntil: string | null
@@ -69,7 +73,8 @@ export type ReadableProgram = { id: string; introductionId: string; status: "clo
 export const loadReadablePrograms = () => rpc<ReadableProgram[]>("my_readable_programs")
 export const choosePlan = (id: string, plan: "A" | "B") => rpc<Program>("choose_program_plan", { p_program: id, p_plan: plan })
 export const proposeStart = (id: string, date: string) => rpc<Program>("propose_program_start", { p_program: id, p_date: date })
-export const confirmProgram = (id: string) => rpc<Program>("confirm_program", { p_program: id })
+// 시작일 확인(검수 C1): 내가 본 시작일을 함께 보내, 그 사이 바뀌었으면 서버가 거부한다.
+export const confirmProgram = (id: string, startOn: string | null) => rpc<Program>("confirm_program", { p_program: id, p_start_on: startOn })
 export const submitEntry = (id: string, day: number, kind: EntryKind, body: string | null, payload?: Record<string, string>) =>
   rpc<Program>("submit_program_entry", { p_program: id, p_day: day, p_kind: kind, p_body: body, p_payload: payload ?? null })
 // B 내가 고른 첫 장면에 대해(10~300자, 만남 선택 마감까지) · 한마디(100자 안, 그날 답은 다음 날 09:00까지 · 첫 장면 이야기는 만남 선택 마감까지)
@@ -94,7 +99,8 @@ export const availLabel = (slot: string, dayLabel: (date: string) => string) => 
 export const proposeAppointment = (id: string, slots: Slot[], activity: string, region: string, place: string, note: string) =>
   rpc<Program>("propose_appointment", { p_program: id, p_slots: slots, p_activity: activity, p_region: region, p_place: place || null, p_note: note || null })
 export const acceptAppointment = (proposal: string, slot: number) => rpc<Program>("accept_appointment", { p_proposal: proposal, p_slot: slot })
-export const setContactConsent = (id: string, allowed: boolean) => rpc<Program>("set_contact_consent", { p_program: id, p_allowed: allowed })
+// 연락처 공개 동의(검수 C1): 내가 본 약속 판 번호를 함께 보낸다. 약속이 바뀌었으면 서버가 거부한다.
+export const setContactConsent = (id: string, allowed: boolean, meetingRev: number | null) => rpc<Program>("set_contact_consent", { p_program: id, p_allowed: allowed, p_meeting_rev: meetingRev })
 // B 마지막 맞추기: 두 분이 고른 것 중에서 장소·흐름·쉬어 갈 곳·이야기를 하나씩 고른다.
 export type ScenePick = { activity: string; flow: string; rest: string; topic: string }
 export const chooseFirstScene = (id: string, pick: ScenePick) => rpc<Program>("choose_first_scene", { p_program: id, p_pick: pick })
@@ -229,7 +235,7 @@ const CONTACT = [
 export function contactProblem(...texts: (string | null | undefined)[]) {
   // 직접 쓴 말의 표시('custom:')는 빼고 살핀다(서버와 같은 기준).
   const text = stripDates(texts.filter(Boolean).join(" ").split(CUSTOM).join(" ").normalize("NFKC"))
-  return CONTACT.some(pattern => pattern.test(text)) ? "연락처·SNS 아이디·링크·계좌번호가 들어 있는 것 같아요. 그 부분을 빼고 보내 주세요. 연락처는 두 분이 동의하면 만나는 날 플라비에서 열려요." : null
+  return CONTACT.some(pattern => pattern.test(text)) ? "연락처·SNS 아이디·링크·계좌번호가 들어 있는 것 같아요. 그 부분을 빼고 보내 주세요. 연락처는 두 분이 동의하면 만나는 날 0시부터 다음 날 밤 11시 59분까지 플라비에서 보여요." : null
 }
 
 export const END_REASON: Record<string, string> = {

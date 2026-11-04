@@ -30,6 +30,7 @@ await db.exec(`
 `)
 for (const file of readdirSync(migrations).sort()) {
   if (file.includes("schedules")) continue // pg_cron·pg_net은 실제 Supabase에서만
+  if (process.env.UNTIL && file >= process.env.UNTIL) continue // 고치기 전 상태로 재현할 때만
   try { await db.exec(readFileSync(join(migrations, file), "utf8")) }
   catch (error) { console.error(`마이그레이션 실패: ${file}\n${error.message}`); process.exit(1) }
 }
@@ -324,16 +325,16 @@ await as(A)
 await q("select public.choose_program_plan($1, 'A')", [prog.id])
 await as(C)
 await q("select public.choose_program_plan($1, 'B')", [prog.id])
-await fails("방식이 다르면 확인할 수 없다", "select public.confirm_program($1)", [prog.id], /같은 방식/)
+await fails("방식이 다르면 확인할 수 없다", "select public.confirm_program($1, (public.my_program() ->> 'startOn')::date)", [prog.id], /같은 방식/)
 prog = (await one("select public.choose_program_plan($1, 'A') v", [prog.id])).v
 eq("상대의 방식이 보인다", prog.partnerPlan, "A")
 const startOn = prog.startOn
 eq("같은 방식이면 기본 시작일은 내일", startOn, (await one("select (public.kst_today() + 1)::text d")).d)
 await fails("시작일은 14일 안", "select public.propose_program_start($1, public.kst_today() + 20)", [prog.id], /14일/)
-await q("select public.confirm_program($1)", [prog.id])
+await q("select public.confirm_program($1, (public.my_program() ->> 'startOn')::date)", [prog.id])
 await as(A)
 await fails("다른 사람의 교류는 바꿀 수 없다(교류 번호만으로는 안 된다)", "select public.choose_program_plan(gen_random_uuid(), 'A')", [], /찾을 수 없/)
-eq("두 사람 모두 확인하면 일정이 정해진다", (await one("select public.confirm_program($1) v", [prog.id])).v.status, "scheduled")
+eq("두 사람 모두 확인하면 일정이 정해진다", (await one("select public.confirm_program($1, (public.my_program() ->> 'startOn')::date) v", [prog.id])).v.status, "scheduled")
 await as("postgres")
 ok("서로 선택한 소개는 교류가 끝날 때까지 열려 있다", (await one("select view_until = 'infinity' f from public.introductions where id = $1", [intro2])).f)
 await clock(await kst(0, "08:59"))
@@ -378,15 +379,15 @@ const proposal = (await one("select public.propose_appointment($1, $2, '산책·
 ok("후보 시간에는 날짜·시각만 저장된다(다른 값으로 연락처를 넘길 수 없다)", !("memo" in proposal.slots[0]))
 await fails("내 제안은 내가 고를 수 없다", "select public.accept_appointment($1, 0)", [proposal.id], /상대가/)
 await as(A)
-await fails("약속 전에는 연락처를 고르지 않는다", "select public.set_contact_consent($1, true)", [prog.id], /약속이 정해진 뒤/)
+await fails("약속 전에는 연락처를 고르지 않는다", "select public.set_contact_consent($1, true, (public.my_program() ->> 'meetingRev')::int)", [prog.id], /약속이 정해진 뒤/)
 eq("상대가 시간을 고르면 약속이 정해진다", (await one("select public.accept_appointment($1, 0) v", [proposal.id])).v.meetingOn, meetDay)
-await q("select public.set_contact_consent($1, true)", [prog.id])
+await q("select public.set_contact_consent($1, true, (public.my_program() ->> 'meetingRev')::int)", [prog.id])
 await as(C)
-await q("select public.set_contact_consent($1, true)", [prog.id])
+await q("select public.set_contact_consent($1, true, (public.my_program() ->> 'meetingRev')::int)", [prog.id])
 eq("만나는 날 전에는 번호가 보이지 않는다", (await mine()).partnerPhone, null)
 await clock(await kst(6, "08:00"))
 eq("만나는 날에는 두 분이 동의한 번호가 보인다", (await mine()).partnerPhone, "010-1234-5678")
-await fails("열린 연락처는 거둘 수 없다", "select public.set_contact_consent($1, false)", [prog.id], /거둘 수 없/)
+await fails("열린 연락처는 거둘 수 없다", "select public.set_contact_consent($1, false, (public.my_program() ->> 'meetingRev')::int)", [prog.id], /거둘 수 없/)
 await clock(await kst(8, "00:01"))
 eq("다음 날 23:59가 지나면 번호가 사라진다", (await mine()).partnerPhone, null)
 await clock(await kst(6, "08:00"))
@@ -714,7 +715,7 @@ const P1 = await signup("p1@example.test"), P2 = await signup("p2@example.test")
 const exIntro = (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at, mutual_at) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'mutual', now() - interval '1 day', now() + interval '1 hour', 'infinity', $3, $3, now() - interval '1 day', now()) returning id", [P1, P2, snap])).id
 const exProgram = (await one("insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by) values ($1, $2, $3, 'choosing', 'B', 'B', public.kst_today(), now() + interval '1 day') returning id", [exIntro, P1, P2])).id
 await as(P1)
-const rolled = (await one("select public.confirm_program($1) r", [exProgram])).r
+const rolled = (await one("select public.confirm_program($1, (public.my_program() ->> 'startOn')::date) r", [exProgram])).r
 ok("날짜가 지나 하루 미뤄졌다고 안내한다", (rolled.notice ?? "").includes("상대의 확인만 남았어요"))
 await as("postgres")
 const exRow = await one("select start_on::text s, confirm_a is not null a, confirm_b is not null b from public.programs where id = $1", [exProgram])
@@ -846,7 +847,7 @@ await db.exec("reset role")
   const proposed = (await one("select public.propose_program_start($1, public.kst_today() + 3) v", [choosing])).v
   eq("시작일을 제안한 사람은 그 날짜로 확인한 것이 된다", [proposed.ownConfirmed, proposed.partnerConfirmed], [true, false])
   await as(V1)
-  eq("상대가 확인하면 바로 일정이 정해진다", (await one("select public.confirm_program($1) v", [choosing])).v.status, "scheduled")
+  eq("상대가 확인하면 바로 일정이 정해진다", (await one("select public.confirm_program($1, (public.my_program() ->> 'startOn')::date) v", [choosing])).v.status, "scheduled")
 
   // A: 날짜가 든 편지는 보낼 수 있다 · 답장은 다음 날 09:00까지 · 편지가 열린 알림은 메일로도 · 18:00 답장 알림
   await as("postgres")
@@ -992,7 +993,7 @@ await db.exec("reset role")
   eq("A 여정: 시작일을 제안한 사람은 그 날짜로 확인한 것이 된다", [proposedA.startOn, proposedA.ownConfirmed, proposedA.partnerConfirmed], [startA, true, false])
   eq("A 여정: 상대에게 시작일 제안을 알린다", await notes(`date:${pa.id}:${JB}:%`), 1)
   await as(JA)
-  eq("A 여정: 상대가 확인하면 일정이 정해진다", (await one("select public.confirm_program($1) v", [pa.id])).v.status, "scheduled")
+  eq("A 여정: 상대가 확인하면 일정이 정해진다", (await one("select public.confirm_program($1, (public.my_program() ->> 'startOn')::date) v", [pa.id])).v.status, "scheduled")
   eq("A 여정: 일정이 정해졌다고 두 분에게 알린다", await notes(`scheduled:${pa.id}:%`), 2)
   await at(startA, "08:50"); await run()
   eq("A 여정: 시작일 09:00 전에는 열리지 않는다", await statusOf(pa.id), "scheduled")
@@ -1044,7 +1045,7 @@ await db.exec("reset role")
   const acceptedA = (await one("select public.accept_appointment($1, 0) v", [proposalA.id])).v
   eq("A 여정: 상대가 시간을 고르면 약속이 정해진다", [acceptedA.meetingOn, acceptedA.meetingTime], [meetA, "14:00~17:00"])
   eq("A 여정: 약속이 정해졌다고 두 분에게 알린다", await notes(`final:${proposalA.id}:%`), 2)
-  for (const m of [JA, JB]) { await as(m); await q("select public.set_contact_consent($1, true)", [pa.id]) }
+  for (const m of [JA, JB]) { await as(m); await q("select public.set_contact_consent($1, true, (public.my_program() ->> 'meetingRev')::int)", [pa.id]) }
   await as(JB)
   eq("A 여정: 만나는 날 전에는 번호가 보이지 않는다", (await mine()).partnerPhone, null)
   await at(meetA, "08:00")
@@ -1091,10 +1092,10 @@ await db.exec("reset role")
   pb = (await one("select public.choose_program_plan($1, 'B') v", [pb.id])).v
   const startB = pb.startOn
   eq("B 여정: 같은 방식이면 기본 시작일은 내일", startB, (await one("select (public.kst_today() + 1)::text d")).d)
-  await q("select public.confirm_program($1)", [pb.id])
+  await q("select public.confirm_program($1, (public.my_program() ->> 'startOn')::date)", [pb.id])
   eq("B 여정: 상대가 확인했다고 알린다", await notes(`confirm:${pb.id}:${KB2}:%`), 1)
   await as(KB1)
-  eq("B 여정: 두 분이 모두 확인하면 일정이 정해진다", (await one("select public.confirm_program($1) v", [pb.id])).v.status, "scheduled")
+  eq("B 여정: 두 분이 모두 확인하면 일정이 정해진다", (await one("select public.confirm_program($1, (public.my_program() ->> 'startOn')::date) v", [pb.id])).v.status, "scheduled")
   await at(startB, "09:30"); await run()
   eq("B 여정: 시작일 09:00에 첫날이 열린다", await statusOf(pb.id), "started")
   const scene = async (who, day, body, payload) => { await as(who); return (await one("select public.submit_program_entry($1, $2, 'scene', $3, $4) v", [pb.id, day, body, JSON.stringify(payload)])).v }
@@ -1907,10 +1908,13 @@ await db.exec("reset role")
 
   // 상대를 지키는 자동 쉬기는 그대로: 두 번 이어서 답하지 않으면 무제한 회원도 쉰다
   const V = await signup("perk-v@example.test"), W2 = await signup("perk-w@example.test")
+  // 두 번 이어서 답하지 않은 상황을 바로 만들기 위해 두 소개를 함께 넣는다(실제로는 한 번에 하나뿐이라 DB 트리거를 잠시 끈다).
+  await q("set session_replication_role = replica")
   for (const [k, other] of [[1, V], [2, W2]]) {
     await q(`insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at)
       values ($1, $2, '두 분 모두 조용한 산책을 좋아하셨어요.', 'published', $3::timestamptz + ($4 || ' days')::interval, $3::timestamptz + ($4 || ' days')::interval + interval '23 hours', $3::timestamptz + ($4 || ' days')::interval + interval '23 hours', '{}', '{}', now())`, [U, other, reveal, k])
   }
+  await q("set session_replication_role = origin")
   await q("update public.introductions set reveal_at = now() - interval '1 day', respond_by = now() - interval '1 minute', view_until = now() - interval '1 minute' where member_a = $1 and status = 'published'", [U])
   await q("select public.run_introduction_deadlines()")
   eq("혜택: 두 번 이어서 답하지 않으면 무제한 회원도 자동으로 쉰다", (await one("select paused_by from public.profiles where id = $1", [U])).paused_by, "auto")
@@ -1930,7 +1934,12 @@ await db.exec("reset role")
   await clock(null)
   const sets = (await one("select public.letter_set_count() n")).n
   eq("편지 질문 묶음: 서버 묶음 수 = 화면 LETTER_SETS 수", sets, readFileSync(join(here, "..", "..", "src", "app", "backend", "program.ts"), "utf8").split("{ days: [").length - 1)
-  const pairIntro = async (a, b) => (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at, mutual_at) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'mutual', now() - interval '1 day', now() + interval '1 hour', 'infinity', $3, $3, now() - interval '1 day', now()) returning id", [a, b, snap])).id
+  // 한 회원에게 여러 교류를 한꺼번에 만들어 묶음 고르기만 본다(실제로는 한 번에 하나라 ‘한 번에 한 사람’ 트리거를 이 준비에서만 끈다).
+  const pairIntro = async (a, b) => {
+    await q("alter table public.introductions disable trigger introductions_one_at_a_time")
+    try { return (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at, mutual_at) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'mutual', now() - interval '1 day', now() + interval '1 hour', 'infinity', $3, $3, now() - interval '1 day', now()) returning id", [a, b, snap])).id }
+    finally { await q("alter table public.introductions enable trigger introductions_one_at_a_time") }
+  }
   // 교류 하나 만들기: ago일 전에 시작(시작 전 상태면 started_at 없음), set을 주면 그 묶음으로
   const program = async (a, b, plan, status = "started", ago = 0, set = null) => {
     await as("postgres")
@@ -2258,7 +2267,7 @@ await db.exec("reset role")
   const qp2 = await pair(Q3, Q4, choosingSql)
   await as(Q3); await q("select public.quick_start_program($1, 'B')", [qp2])
   await as(Q4); await q("select public.choose_program_plan($1, 'B')", [qp2])
-  eq("이대로 시작: 상대가 같은 방식을 고르면 확인 한 번으로 정해진다", (await one("select public.confirm_program($1) v", [qp2])).v.status, "scheduled")
+  eq("이대로 시작: 상대가 같은 방식을 고르면 확인 한 번으로 정해진다", (await one("select public.confirm_program($1, (public.my_program() ->> 'startOn')::date) v", [qp2])).v.status, "scheduled")
 
   // 다른 날짜를 제안하면 상대의 ‘이대로’는 지워진다 · 방식을 바꾸면 내 ‘이대로’도 지워진다
   await as("postgres")
@@ -2453,76 +2462,6 @@ await db.exec("reset role")
   eq("보존 정리: 창가 질문 답은 1년이 지나면 지운다", (await one("select count(*)::int n from public.window_answers where member_id = $1", [R1])).n, 0)
 }
 
-// ── 정오의 서랍: 오늘의 질문에 이름 없이 답하고 댓글 나누기(5000)
-{
-  await as("postgres")
-  await clock(null)
-  const at = async (date, time) => clock((await one("select public.kst_at($1::date, $2::time)::text t", [date, time])).t)
-  const plus = async (date, days) => (await one("select ($1::date + $2::int)::text d", [date, days])).d
-  const today = (await one("select public.kst_today()::text d")).d
-  const day = async (d) => (await one("select public.drawer_day($1::date) v", [d])).v
-  const D1 = await signup("d1-5000@example.test"), D2 = await signup("d2-5000@example.test"), D3 = await signup("d3-5000@example.test"), D4 = await signup("d4-5000@example.test")
-  await at(today, "13:00")
-  await as("anon")
-  const first = await day(today)
-  eq("서랍: 로그인 없이도 그날 질문과 답을 본다", [first.opened, first.signedIn, first.answers.length, first.question.length > 5], [true, false, 0, true])
-  eq("서랍: 질문은 화면과 같은 목록(날 수 % 31)", first.question, (await one("select public.drawer_question($1::date) q", [today])).q)
-  await fails("서랍: 로그인하지 않으면 남길 수 없다", "select public.drawer_answer($1::date, '창밖에 은행나무가 보여요.')", [today], /permission denied|로그인/)
-  await as(D1)
-  await fails("서랍: 연락처·SNS는 막는다", "select public.drawer_answer($1::date, '카톡 아이디 sky_walk 로 연락 주세요')", [today], /연락처/)
-  const mine = (await one("select public.drawer_answer($1::date, '창밖에 은행나무가 보여요.') v", [today])).v
-  eq("서랍: 답을 남기면 내 답과 목록에 보인다", [mine.mine.body, mine.answers.length, mine.answers[0].mine], ["창밖에 은행나무가 보여요.", 1, true])
-  ok("서랍: 이름·계정 대신 별명만 보인다", !JSON.stringify(mine).includes(D1) && mine.answers[0].alias.includes(" "))
-  eq("서랍: 다시 쓰면 고쳐진다(한 질문에 하나)", (await one("select public.drawer_answer($1::date, '창밖에 노란 은행나무가 보여요.') v", [today])).v.answers.map((a) => a.body), ["창밖에 노란 은행나무가 보여요."])
-  await fails("서랍: 표는 직접 읽을 수 없다", "select body from public.drawer_answers", [], /permission denied/)
-  const answerId = mine.answers[0].id
-  await as(D2)
-  await q("select public.drawer_answer($1::date, '빨래가 바람에 흔들려요.')", [today])
-  const thread = (await one("select public.drawer_comment($1, '은행나무 좋아요. 사진 찍고 싶네요.') v", [answerId])).v
-  await as(D1)
-  const reply = (await one("select public.drawer_comment($1, '오늘 정말 노랗더라고요.') v", [answerId])).v
-  eq("서랍 댓글: 글쓴이는 ‘글쓴이’, 다른 분은 같은 별명으로 이어진다", [reply.length, reply[1].alias, reply[0].alias === thread[0].alias, reply[1].mine], [2, "글쓴이", true, true])
-  await fails("서랍 댓글: 연락처는 막는다", "select public.drawer_comment($1, '인스타 @sky.walk 팔로우해요')", [answerId], /연락처/)
-  await as("anon")
-  eq("서랍 댓글: 로그인 없이도 댓글을 읽는다", (await one("select public.drawer_comments_of($1) v", [answerId])).v.length, 2)
-  eq("서랍: 목록에 댓글 수가 함께 온다", (await day(today)).answers.find((a) => a.id === answerId).comments, 2)
-  // 신고: 내 글은 안 되고, 서로 다른 세 분이 신고하면 바로 가린다
-  await as(D2)
-  await fails("서랍 신고: 내 글은 신고할 수 없다", "select public.drawer_report('answer', $1)", [(await day(today)).answers.find((a) => a.mine).id], /내 글/)
-  for (const m of [D2, D3, D4]) { await as(m); await q("select public.drawer_report('answer', $1, '광고 같아요')", [answerId]) }
-  await as(D2)
-  await q("select public.drawer_report('answer', $1, '광고 같아요')", [answerId])
-  await as("anon")
-  eq("서랍 신고: 서로 다른 세 분이 신고하면 바로 가려진다", (await day(today)).answers.some((a) => a.id === answerId), false)
-  await as(D1)
-  eq("서랍 신고: 글쓴이에게는 가려졌다고 보인다", (await day(today)).mine.hidden, true)
-  await fails("서랍 신고: 가려진 뒤에는 그 질문에 다시 남길 수 없다", "select public.drawer_answer($1::date, '다시 써 볼게요.')", [today], /가려진/)
-  await as(O, "aal2")
-  const reports = (await one("select public.admin_drawer_reports() v")).v
-  eq("서랍 운영: 신고된 글이 신고 수와 함께 보인다(같은 분의 신고는 한 번)", [reports[0].reports, reports[0].hidden, reports[0].hiddenBy, reports[0].body], [3, true, "reports", "창밖에 노란 은행나무가 보여요."])
-  await q("select public.admin_drawer_moderate('answer', $1, 'restore')", [answerId])
-  await as("anon")
-  ok("서랍 운영: 되돌리면 다시 보인다", (await day(today)).answers.some((a) => a.id === answerId))
-  await as(D3)
-  await fails("서랍: 회원은 운영진 목록을 볼 수 없다", "select public.admin_drawer_reports()", [], /권한/)
-  // 시간: 그날 정오부터 다음 날 정오 전까지 · 정오 전에는 그날 답을 보여 주지 않는다
-  const tomorrow = await plus(today, 1)
-  await at(tomorrow, "10:00")
-  await as("anon")
-  eq("서랍: 정오 전에는 그날 질문과 답을 보여 주지 않는다", [(await day(tomorrow)).opened, (await day(tomorrow)).question ?? null], [false, null])
-  await as(D3)
-  ok("서랍: 다음 날 정오 전까지는 어제 질문에 답할 수 있다", (await one("select public.drawer_answer($1::date, '어제 질문에 늦게 답해요.') v", [today])).v.mine.body === "어제 질문에 늦게 답해요.")
-  await at(tomorrow, "12:30")
-  await fails("서랍: 다음 날 정오가 지나면 그날 질문에는 답할 수 없다", "select public.drawer_answer($1::date, '너무 늦었네요.')", [today], /정오/)
-  await fails("서랍: 지난 일주일보다 오래된 날은 볼 수 없다", "select public.drawer_day(public.kst_today() - 10)", [], /볼 수 없는/)
-  // 보존 정리: 30일이 지난 답은 댓글과 함께 지운다
-  await as("postgres")
-  await clock(null)
-  await q("update public.drawer_answers set day = day - 31 where id = $1", [answerId])
-  await one("select public.run_retention()")
-  eq("보존 정리: 30일이 지난 서랍 답은 댓글과 함께 지운다", [(await one("select count(*)::int n from public.drawer_answers where id = $1", [answerId])).n, (await one("select count(*)::int n from public.drawer_comments where answer_id = $1", [answerId])).n], [0, 0])
-}
-
 // ── 친구 추천사 · 이번 주 노트(5200)
 {
   await as("postgres")
@@ -2611,137 +2550,325 @@ await db.exec("reset role")
   eq("노트: 지우면 목록에서 사라진다", (await one("select public.admin_note_delete($1) v", [notes[0].id])).v, [])
 }
 
-// ── 고마워요 · 고민 편지함(5100)
+// ── GPT 1차 검수 대응(5400~, 2026-11-04): 서랍·고민 편지함 닫기 · 약속 판·시작일 확인 · 약속 마감 · 시작 장애 복구 · 탈퇴한 참가자 ·
+//    한 번에 한 사람 · 교체 사진 정리 · 개인정보 파기 · 메일 선점·호출 확인 · 신청서 판 · 읽은 한 문장
+// AUDIT_SOFT=1 이면 항목마다 ‘재현됨/고쳐짐’만 적고 멈추지 않는다(고치기 전 재현 확인용 · UNTIL=20261104005400 과 함께).
 {
   await as("postgres")
   await clock(null)
-  const at = async (date, time) => clock((await one("select public.kst_at($1::date, $2::time)::text t", [date, time])).t)
-  const plus = async (date, days) => (await one("select ($1::date + $2::int)::text d", [date, days])).d
-  const today = (await one("select public.kst_today()::text d")).d
-  const T1 = await signup("t1-5100@example.test"), T2 = await signup("t2-5100@example.test"), T3 = await signup("t3-5100@example.test"), T4 = await signup("t4-5100@example.test")
-  await at(today, "13:00")
-  // 고마워요
-  await as(T1)
-  const answer = (await one("select public.drawer_answer($1::date, '오늘은 창가 자리가 제일 좋았어요.') v", [today])).v.mine.id
-  await fails("고마워요: 내 글에는 누를 수 없다", "select public.drawer_thank('answer', $1)", [answer], /내 글/)
-  await as("anon")
-  await fails("고마워요: 로그인하지 않으면 누를 수 없다", "select public.drawer_thank('answer', $1)", [answer], /permission denied|로그인/)
-  const anonDay = (await one("select public.drawer_day($1::date) v", [today])).v
-  eq("고마워요: 남에게는 숫자가 보이지 않는다", [anonDay.answers[0].thanked, anonDay.answers[0].thanks ?? null], [false, null])
-  await as(T2)
-  eq("고마워요: 누르면 눌렀다고 보인다", (await one("select public.drawer_thank('answer', $1) v", [answer])).v, true)
-  await q("select public.drawer_thank('answer', $1)", [answer])
-  const seen = (await one("select public.drawer_day($1::date) v", [today])).v.answers.find((a) => a.id === answer)
-  eq("고마워요: 누른 분에게도 숫자는 가지 않는다", [seen.thanked, seen.thanks ?? null], [true, null])
-  await as(T3)
-  await q("select public.drawer_thank('answer', $1)", [answer])
-  await as(T1)
-  eq("고마워요: 쓴 분에게만 받은 수가 간다", (await one("select public.drawer_day($1::date) v", [today])).v.answers.find((a) => a.id === answer).thanks, 2)
-  await as("postgres")
-  eq("고마워요: 쓴 분에게 글마다 한 번만 알린다", (await one("select count(*)::int n from public.notifications where member_id = $1 and kind = 'drawer-thanks'", [T1])).n, 1)
-  eq("고마워요 알림은 사이트에서 보여 주고 메일은 ‘모두 받기’만", (await one("select public.email_class('drawer-thanks') c")).c, "site")
-  await as(T2)
-  eq("고마워요: 다시 누르면 거둔다", (await one("select public.drawer_thank('answer', $1, false) v", [answer])).v, false)
-  const comment = (await one("select public.drawer_comment($1, '저도 창가 자리 좋아해요.') v", [answer])).v[0].id
-  await as(T1)
-  await q("select public.drawer_thank('comment', $1)", [comment])
-  await as(T2)
-  eq("고마워요: 댓글도 쓴 분에게만 수가 간다", (await one("select public.drawer_comments_of($1) v", [answer])).v[0].thanks, 1)
-  // 고민 편지함: 글은 누구나 읽고, 편지는 고민을 쓴 분만 읽는다
-  await as("anon")
-  eq("고민 편지함: 로그인 없이 목록을 본다", (await one("select public.worry_board() v")).v.signedIn, false)
-  await fails("고민 편지함: 로그인하지 않으면 올릴 수 없다", "select public.worry_post('mind', '요즘 잠들기 전에 생각이 너무 많아요.')", [], /permission denied|로그인/)
-  await as(T1)
-  await fails("고민 편지함: 연락처는 막는다", "select public.worry_post('love', '카톡 아이디 sky_walk 로 이야기해요. 고민이 많아요.')", [], /연락처/)
-  await fails("고민 편지함: 주제를 골라야 한다", "select public.worry_post('etc', '요즘 잠들기 전에 생각이 너무 많아요.')", [], /주제/)
-  const post = (await one("select public.worry_post('mind', '요즘 잠들기 전에 생각이 너무 많아요. 다들 어떻게 하세요?') v")).v
-  await fails("고민 편지함: 고민은 하루에 하나", "select public.worry_post('work', '회사에서 말 걸기가 어려워요. 어떻게 하죠?')", [], /하루에 하나/)
-  await fails("고민 편지함: 내 고민에는 편지를 보낼 수 없다", "select public.worry_send_letter($1, '저도 그래요. 같이 힘내요.')", [post], /내 고민/)
-  await as(T2)
-  const sent = (await one("select public.worry_send_letter($1, '저는 잠들기 전에 따뜻한 물을 한 잔 마셔요. 생각이 조금 느려져요.') v", [post])).v
-  eq("편지: 보낸 분에게는 보낸 편지가 ‘정오에 도착’으로 보인다", [sent.role, sent.letters.length, sent.letters[0].delivered, sent.partner], ["writer", 1, false, "고민을 쓴 분"])
-  await fails("편지: 한 고민에 첫 편지는 한 번", "select public.worry_send_letter($1, '하나 더 보내고 싶어요.')", [post], /이미 편지를/)
-  await as(T3)
-  await q("select public.worry_send_letter($1, '산책을 짧게 하고 오면 잠이 잘 와요.')", [post])
-  await as("anon")
-  const board = (await one("select public.worry_board() v")).v.posts.find((p) => p.id === post)
-  eq("고민 편지함: 글마다 편지 수만 보이고 내용은 없다", [board.letters, board.open, JSON.stringify(board).includes("따뜻한 물")], [2, true, false])
-  await as(T1)
-  let box = (await one("select public.worry_mailbox() v")).v
-  eq("편지: 정오 전에는 고민을 쓴 분에게 내용이 보이지 않고 ‘도착 예정’만", [box.posts[0].threads.length, box.posts[0].threads[0].last ?? null, box.posts[0].threads[0].waiting], [2, null, 1])
-  const threadId = box.posts[0].threads.find((t) => t.waiting).id
-  eq("편지: 도착 전에는 묶음을 열어도 내용이 없다", (await one("select public.worry_thread($1) v", [threadId])).v.letters.length, 0)
-  await as(T4)
-  await fails("편지: 남의 편지 묶음은 열 수 없다", "select public.worry_thread($1)", [threadId], /찾을 수 없어요/)
-  // 정오 배달
-  const tomorrow = await plus(today, 1)
-  await at(tomorrow, "12:01")
-  await as("postgres")
-  eq("정오 배달: 받는 분마다 묶어서 알린다", (await one("select public.run_letter_delivery() n")).n, 1)
-  eq("정오 배달 알림: 편지 2통", (await one("select body from public.notifications where member_id = $1 and kind = 'worry-letter'", [T1])).body, "고민 편지함에 편지 2통이 와 있어요.")
-  eq("정오 배달: 두 번 알리지 않는다", (await one("select public.run_letter_delivery() n")).n, 0)
-  await as(T1)
-  box = (await one("select public.worry_mailbox() v")).v
-  eq("편지: 정오가 지나면 읽지 않은 편지로 보인다", box.posts[0].threads.map((t) => t.unread).sort(), [1, 1])
-  const opened = (await one("select public.worry_thread($1) v", [threadId])).v
-  eq("편지: 열면 내용이 보이고 상대는 별명으로", [opened.role, opened.letters.length, opened.partner.includes(" ")], ["author", 1, true])
-  eq("편지: 연 뒤에는 읽음", (await one("select public.worry_mailbox() v")).v.posts[0].threads.find((t) => t.id === threadId).unread, 0)
-  ok("편지: 계정은 드러나지 않는다", !JSON.stringify(opened).includes(T2) && !JSON.stringify(opened).includes(T3))
-  // 답장은 횟수 제한 없이
-  for (const line of ["고마워요. 오늘 밤에 해 볼게요.", "따뜻한 물은 어떤 걸로 마셔요?", "하나 더 궁금한 게 있어요."]) await q("select public.worry_reply($1, $2)", [threadId, line])
-  const writerThread = threadId
-  await as(T2)
-  eq("답장: 정오 전에는 받는 분에게 보이지 않는다", (await one("select public.worry_thread($1) v", [writerThread])).v.letters.length, 1)
-  const myReplyCheck = (await one("select public.worry_mailbox() v")).v.sent[0]
-  eq("편지: 보낸 편지함에 고민 앞부분이 보인다", myReplyCheck.post.startsWith("요즘 잠들기 전에"), true)
-  await at(await plus(today, 2), "12:00")
-  eq("답장: 다음 정오에 세 통이 함께 도착한다", (await one("select public.worry_thread($1) v", [writerThread])).v.letters.length, 4)
-  await q("select public.worry_reply($1, '보리차요. 따뜻하게요.')", [writerThread])
-  const pending = (await one("select public.worry_thread($1) v", [writerThread])).v.letters.at(-1)
-  await q("select public.worry_cancel_letter($1)", [pending.id])
-  eq("편지: 도착 전이면 거둘 수 있다", (await one("select public.worry_thread($1) v", [writerThread])).v.letters.length, 4)
-  const delivered = (await one("select public.worry_thread($1) v", [writerThread])).v.letters[0]
-  await fails("편지: 도착한 편지는 거둘 수 없다", "select public.worry_cancel_letter($1)", [delivered.id], /도착한 편지/)
-  // 신고: 받은 편지만, 신고하면 가리고 멈춘다
-  const fromAuthor = (await one("select public.worry_thread($1) v", [writerThread])).v.letters.find((l) => !l.mine)
-  await fails("신고: 내가 보낸 편지는 신고할 수 없다", "select public.worry_report('letter', $1)", [delivered.id], /받은 편지만/)
-  await as(T4)
-  await fails("신고: 남의 편지는 신고할 수 없다", "select public.worry_report('letter', $1)", [fromAuthor.id], /받은 편지만/)
-  await as(T2)
-  await q("select public.worry_report('letter', $1, '불편한 말이 있어요')", [fromAuthor.id])
-  const afterReport = (await one("select public.worry_thread($1) v", [writerThread])).v
-  eq("신고: 신고한 편지는 가려지고 주고받기가 멈춘다", [afterReport.closed, afterReport.letters.some((l) => l.id === fromAuthor.id)], [true, false])
-  await fails("신고 뒤에는 이어 쓸 수 없다", "select public.worry_reply($1, '다시 써 볼게요.')", [writerThread], /주고받지 않기로/)
-  // 그만 주고받기
-  await as(T1)
-  const other = (await one("select public.worry_mailbox() v")).v.posts[0].threads.find((t) => t.id !== threadId).id
-  await q("select public.worry_close_thread($1)", [other])
-  await as(T3)
-  await fails("그만 주고받기: 상대도 더 보낼 수 없다", "select public.worry_reply($1, '그래도 한마디만요.')", [other], /주고받지 않기로/)
-  // 글 신고 세 번이면 가린다 · 운영진 처리
-  for (const m of [T2, T3, T4]) { await as(m); await q("select public.worry_report('post', $1, '특정인 이야기 같아요')", [post]) }
-  await as("anon")
-  ok("신고: 고민 글은 서로 다른 세 분이 신고하면 바로 가려진다", !(await one("select public.worry_board() v")).v.posts.some((p) => p.id === post))
-  await as(O, "aal2")
-  const reports = (await one("select public.admin_worry_reports() v")).v
-  eq("운영: 신고된 고민과 편지가 함께 보인다", reports.map((r) => r.kind).sort(), ["letter", "post"])
-  await q("select public.admin_worry_moderate('post', $1, 'restore')", [post])
-  await as("anon")
-  ok("운영: 되돌리면 다시 보인다", (await one("select public.worry_board() v")).v.posts.some((p) => p.id === post))
-  await as(T2)
-  await fails("운영 목록은 회원이 볼 수 없다", "select public.admin_worry_reports()", [], /권한/)
-  // 7일이 지나면 새 편지를 받지 않는다
-  await at(await plus(today, 8), "13:00")
-  await as(T4)
-  await fails("편지를 받는 기간(7일)이 지나면 첫 편지를 보낼 수 없다", "select public.worry_send_letter($1, '늦었지만 응원해요.')", [post], /기간이 끝난/)
-  // 보존 정리
-  await as("postgres")
-  await clock(null)
-  await q("update public.worry_letters set created_at = created_at - interval '120 days'")
-  await q("update public.worry_threads set created_at = created_at - interval '120 days'")
-  await q("update public.worry_posts set created_at = created_at - interval '120 days' where id = $1", [post])
-  await one("select public.run_retention()")
-  eq("보존 정리: 오래된 편지 묶음과 고민 글을 지운다", [(await one("select count(*)::int n from public.worry_threads where post_id = $1", [post])).n, (await one("select count(*)::int n from public.worry_posts where id = $1", [post])).n], [0, 0])
+  const SOFT = !!process.env.AUDIT_SOFT
+  const has = async (name, args = null) => (await one("select count(*)::int n from pg_proc p join pg_namespace s on s.oid = p.pronamespace where s.nspname = 'public' and p.proname = $1 and ($2::int is null or p.pronargs = $2)", [name, args])).n > 0
+  const mine = async () => (await one("select public.my_program() v")).v
+  const snap = { version: 1, items: [{ id: "self.name", value: "하윤" }], photos: [] }
+  const pair = async (a, b, sql) => {
+    const intro = (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at, mutual_at) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'mutual', now() - interval '1 day', now() + interval '1 hour', 'infinity', $3, $3, now() - interval '1 day', now()) returning id", [a, b, snap])).id
+    return (await one(sql, [intro, a, b])).id
+  }
+  let n = 0
+  const people = async () => { await as("postgres"); n++; return [await signup(`au${n}a-5400@example.test`), await signup(`au${n}b-5400@example.test`)] }
+  const day = async (offset) => (await one("select (public.kst_today() + $1::int)::text d", [offset])).d
+  // 고치기 전(옛 함수 모양)과 고친 뒤를 같은 시험으로 부른다.
+  const consent = async (prog, allowed, rev) => (await has("set_contact_consent", 3))
+    ? q("select public.set_contact_consent($1, $2, $3)", [prog, allowed, rev]) : q("select public.set_contact_consent($1, $2)", [prog, allowed])
+  const confirm = async (prog, startOn) => (await has("confirm_program", 2))
+    ? one("select public.confirm_program($1, $2::date) v", [prog, startOn]) : one("select public.confirm_program($1) v", [prog])
+  const rejects = async (label, run, pattern) => {
+    try { await run() } catch (error) { if (pattern && !pattern.test(error.message)) throw new Error(`${label}: 다른 오류 → ${error.message}`); passed++; return }
+    throw new Error(`${label}: 거부해야 하는데 받아들였어요`)
+  }
+  const scenarios = []
+  const scenario = (name, fn) => scenarios.push([name, fn])
+
+  scenario("C6 내린 서랍·고민 편지함은 서버에서도 닫힌다", async () => {
+    for (const fn of ["drawer_day", "drawer_answer", "drawer_thank", "worry_board", "worry_post", "worry_send_letter", "run_letter_delivery", "admin_drawer_reports", "admin_worry_reports"]) ok(`C6: ${fn} 없음`, !(await has(fn)))
+    eq("C6: 서랍·고민 편지함 표가 없다", (await one("select count(*)::int n from information_schema.tables where table_schema = 'public' and (table_name like 'drawer_%' or table_name like 'worry_%')")).n, 0)
+  })
+
+  scenario("C1 약속이 바뀐 뒤 예전 화면의 연락처 동의는 거부한다", async () => {
+    const [A, B] = await people()
+    const d1 = await day(3), d2 = await day(4)
+    const prog = await pair(A, B, "insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at, meeting_a, meeting_b, arrange_by) values ($1, $2, $3, 'arranging', 'A', 'A', public.kst_today() - 4, now() - interval '5 days', now() - interval '4 days', 'positive', 'positive', now() + interval '6 days') returning id")
+    await q("update public.programs set avail_a = $2::jsonb, avail_b = $2::jsonb where id = $1", [prog, JSON.stringify([`${d1}|noon`, `${d2}|evening`])])
+    await as(B); await q("select public.book_meeting_slot($1, $2, '카페·디저트', '합정역')", [prog, `${d1}|noon`])
+    await as(A); const seen = await mine()
+    await as(B); await q("select public.book_meeting_slot($1, $2, '산책', '망원역')", [prog, `${d2}|evening`])
+    await as(A)
+    await rejects("C1: 바뀌기 전 화면에서 누른 동의", () => consent(prog, true, seen.meetingRev), /약속이 바뀌었어요/)
+    const now = await mine()
+    ok("C1: 화면에 약속 판이 함께 온다", Number.isInteger(now.meetingRev) && now.meetingRev !== seen.meetingRev)
+    await consent(prog, true, now.meetingRev)
+    eq("C1: 새 약속을 보고 누른 동의는 받는다", (await mine()).ownContact, true)
+    await as("postgres")
+    eq("C1: 동의가 어느 약속 판에 대한 것인지 남는다", (await one("select contact_a_rev = meeting_rev ok from public.programs where id = $1", [prog])).ok, true)
+    await as(A)
+    await rejects("C1: 판 없이 부르면 다시 보라고 한다", () => q("select public.set_contact_consent($1, true, null)", [prog]), /새로 고친 뒤/)
+  })
+
+  scenario("C1 시작일이 바뀐 뒤 예전 화면의 확인은 거부한다", async () => {
+    const [A, B] = await people()
+    const prog = await pair(A, B, "insert into public.programs (introduction_id, member_a, member_b, agree_by) values ($1, $2, $3, now() + interval '20 hours') returning id")
+    await as(A); await q("select public.choose_program_plan($1, 'A')", [prog])
+    await as(B); await q("select public.choose_program_plan($1, 'A')", [prog])
+    const shown = (await mine()).startOn
+    await as(A); await q("select public.propose_program_start($1, public.kst_today() + 5)", [prog])
+    await as(B)
+    await rejects("C1: 바뀌기 전 시작일로 누른 확인", () => confirm(prog, shown), /시작 날짜가 바뀌었어요/)
+    const fresh = await mine()
+    eq("C1: 새 시작일을 보고 누르면 정해진다", (await confirm(prog, fresh.startOn)).v.status, "scheduled")
+  })
+
+  scenario("C13 약속 정하기 기한이 지나면 cron이 닫기 전이라도 수락을 거부한다", async () => {
+    const [A, B] = await people()
+    const prog = await pair(A, B, "insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at, meeting_a, meeting_b, arrange_by) values ($1, $2, $3, 'arranging', 'A', 'A', public.kst_today() - 4, now() - interval '5 days', now() - interval '4 days', 'positive', 'positive', now() + interval '1 hour') returning id")
+    await as(A); await q("select public.propose_appointment($1, $2::jsonb, '산책', '망원역')", [prog, JSON.stringify([{ date: await day(3), start: "14:00", end: "16:00" }])])
+    const proposal = (await mine()).proposals[0].id
+    await as("postgres"); await clock((await one("select (now() + interval '61 minutes')::text t")).t)
+    await as(B)
+    await rejects("C13: 기한이 1분 지난 수락", () => q("select public.accept_appointment($1, 0)", [proposal]), /기한/)
+    await as("postgres"); await clock(null)
+  })
+
+  scenario("C13 시작 작업이 며칠 멈췄다 돌아와도 무응답으로 끝내지 않는다", async () => {
+    const [A, B] = await people()
+    const prog = await pair(A, B, "insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, confirm_a, confirm_b, agree_by) values ($1, $2, $3, 'scheduled', 'A', 'A', public.kst_today() - 4, now() - interval '5 days', now() - interval '5 days', now() - interval '5 days') returning id")
+    await as("postgres"); await one("select public.run_programs()")
+    const row = await one("select status, end_reason, start_missed_at is not null missed, agree_by > now() fresh, confirm_a, confirm_b from public.programs where id = $1", [prog])
+    eq("C13: 열리지 못한 교류는 끝내지 않고 새 시작일을 다시 확인받는다", [row.status, row.end_reason, row.missed, row.fresh, row.confirm_a, row.confirm_b], ["choosing", null, true, true, null, null])
+    ok("C13: 두 분과 운영진에게 알린다", (await one("select count(*)::int n from public.notifications where dedupe_key like $1", [`missed:${prog}:%`])).n >= 3)
+    await as(A)
+    const p = await mine()
+    eq("C13: 화면에 시작이 밀렸다는 표시와 새 시작일이 온다", [p.status, !!p.startMissedAt, p.startOn > (await day(0))], ["choosing", true, true])
+  })
+
+  scenario("C13 만남 선택이 늦게 열려도 지금부터 24시간을 준다", async () => {
+    const [A, B] = await people()
+    const prog = await pair(A, B, "insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at) values ($1, $2, $3, 'started', 'A', 'A', public.kst_today() - 5, now() - interval '6 days', now() - interval '5 days') returning id")
+    await as("postgres"); await one("select public.run_programs()")
+    const row = await one("select status, meeting_by > now() + interval '23 hours' fresh from public.programs where id = $1", [prog])
+    eq("C13: 늦게 열린 만남 선택은 바로 닫지 않는다", [row.status, row.fresh], ["deciding", true])
+  })
+
+  scenario("C11 한 분이 탈퇴한 교류를 다른 회원이 건드릴 수 없다", async () => {
+    const [A, B] = await people()
+    const [C] = await people()
+    const prog = await pair(A, B, "insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at, meeting_a, meeting_b, closed_at, end_reason) values ($1, $2, $3, 'closed', 'A', 'A', public.kst_today() - 20, now() - interval '21 days', now() - interval '20 days', 'positive', 'positive', now() - interval '10 days', 'completed') returning id")
+    await as("postgres"); await q("delete from auth.users where id = $1", [B])
+    eq("C11: 탈퇴한 쪽은 비어 있다", (await one("select member_b from public.programs where id = $1", [prog])).member_b, null)
+    await as(C)
+    await rejects("C11: 남의 교류에 한 권 동의", () => q("select public.set_book_consent($1, true)", [prog]), /찾을 수 없어요/)
+    await rejects("C11: 남의 교류에 회고", () => q("select public.save_reflection($1, '좋은 시간이었어요. 고마워요.')", [prog]), /찾을 수 없어요/)
+    await as("postgres")
+    eq("C11: 동의·회고가 남지 않았다", (await one("select (book_a is null and book_b is null) clean, (select count(*)::int from public.reflections where program_id = $1) n from public.programs where id = $1", [prog])).clean, true)
+    eq("C11: 서버 함수에 ‘not in (참가자)’ 비교가 남아 있지 않다", (await one("select count(*)::int n from pg_proc p join pg_namespace s on s.oid = p.pronamespace where s.nspname = 'public' and p.prosrc ~* 'not in \\(\\s*\\w+\\.member_a\\s*,\\s*\\w+\\.member_b\\s*\\)'")).n, 0)
+  })
+
+  scenario("C4 한 회원에게 진행 중 소개가 둘 생기지 않는다(DB에서 막음)", async () => {
+    const [A, B] = await people()
+    const [C] = await people()
+    await pair(A, B, "select $1::uuid id, $2::uuid a, $3::uuid b")
+    await as("postgres")
+    await rejects("C4: 진행 중 소개가 있는 회원에게 다른 소개를 바로 넣음", () => q("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b) values ($1, $2, '다른 소개를 바로 넣어 봐요.', 'reserved', now() + interval '1 day', now() + interval '2 days', now() + interval '2 days', '{}', '{}')", [A, C]), /이미 진행 중/)
+  })
+
+  scenario("C2 심사 중인 교체 사진은 정리 대상이 아니다", async () => {
+    const [X] = await people()
+    const path = `${X}/photo.face-new.jpg`
+    await as("postgres")
+    await q("insert into public.photo_replacements (member_id, slot, path, mime, bytes, width, height, sha256, recent_confirmed, rights_confirmed, created_at) values ($1, 'photo.face', $2, 'image/jpeg', 1000, 800, 1000, repeat('a', 64), true, true, now() - interval '3 days')", [X, path])
+    await q("insert into storage.objects (bucket_id, name, owner, created_at) values ('application-photos', $1, $2, now() - interval '3 days')", [path, X])
+    await one("select public.run_program_retention()")
+    eq("C2: 3일 기다린 교체 사진을 지울 목록에 넣지 않는다", (await one("select count(*)::int n from public.storage_cleanup where path = $1", [path])).n, 0)
+    const approved = `${X}/photo.upper-approved.jpg`
+    await q("insert into public.storage_cleanup (bucket, path) values ('application-photos', $1)", [approved])
+    await q("insert into public.application_photos (member_id, slot, path, mime, bytes, width, height, sha256, recent_confirmed, rights_confirmed, review) values ($1, 'photo.upper', $2, 'image/jpeg', 1000, 800, 1000, repeat('b', 64), true, true, '기준 확인')", [X, approved])
+    ok("C2: 목록에 들어간 뒤 쓰이게 된 사진은 지우지 않는다", !(await q("select path from public.storage_cleanup_batch(5000)")).some((r) => r.path === approved))
+    await q("insert into public.storage_cleanup (bucket, path) values ('application-photos', $1)", [path])
+    ok("C2: 심사 중인 교체 사진도 지우지 않는다", !(await q("select path from public.storage_cleanup_batch(5000)")).some((r) => r.path === path))
+  })
+
+  scenario("C5 교류 글의 복사본까지 30일 뒤 지운다", async () => {
+    const [A, B] = await people()
+    const prog = await pair(A, B, "insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at, ask_a, ask_b, mark_a, mark_b, book_a, closed_at, end_reason) values ($1, $2, $3, 'closed', 'A', 'A', public.kst_today() - 40, now() - interval '41 days', now() - interval '40 days', '가장 좋아하는 계절은?', '요즘 듣는 노래는?', '말이 끊겨도 어색하지 않은', '천천히 걷는 걸 좋아해요', now() - interval '35 days', now() - interval '31 days', 'meeting-declined') returning id")
+    await as("postgres"); await one("select public.run_program_retention()"); await one("select public.run_retention()")
+    eq("C5: 셋째 날 질문·책갈피·한 권 동의도 지운다", { ...(await one("select ask_a, ask_b, mark_a, mark_b, book_a from public.programs where id = $1", [prog])) }, { ask_a: null, ask_b: null, mark_a: null, mark_b: null, book_a: null })
+  })
+
+  scenario("C5 약속 날짜·시간·장소를 90일 뒤 함께 지운다", async () => {
+    const [A, B] = await people()
+    const prog = await pair(A, B, "insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at, meeting_a, meeting_b, meeting_on, meeting_time, closed_at, end_reason) values ($1, $2, $3, 'closed', 'A', 'A', public.kst_today() - 100, now() - interval '101 days', now() - interval '100 days', 'positive', 'positive', public.kst_today() - 92, '14:00~16:00', now() - interval '90 days', 'completed') returning id")
+    await q("insert into public.appointment_proposals (program_id, author, slots, activity, region, place, status) values ($1, $2, '[]', '산책', '망원역', '동네 서점', 'accepted')", [prog, A])
+    await as("postgres"); await one("select public.run_program_retention()")
+    eq("C5: 약속 날짜도 시간과 함께 지운다", { ...(await one("select meeting_on, meeting_time from public.programs where id = $1", [prog])) }, { meeting_on: null, meeting_time: null })
+    eq("C5: 약속 제안(활동·지역·장소)도 지운다", (await one("select count(*)::int n from public.appointment_proposals where program_id = $1", [prog])).n, 0)
+  })
+
+  scenario("C5 소개·교류 진행 기록과 종결 신고를 3년 뒤 지운다", async () => {
+    const [A, B] = await people()
+    const prog = await pair(A, B, "insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, closed_at, end_reason) values ($1, $2, $3, 'closed', 'A', 'A', public.kst_today() - 1200, now() - interval '1201 days', now() - interval '1150 days', 'agreement-expired') returning introduction_id id")
+    await q("update public.introductions set status = 'closed', closed_at = now() - interval '1150 days' where id = $1", [prog])
+    const report = (await one("insert into public.reports (source, reporter_id, target_id, introduction_id, type, description, status, handled_at, created_at) values ('member', $1, $2, $3, '기타', '오래된 신고예요.', 'closed', now() - interval '1100 days', now() - interval '1101 days') returning id", [A, B, prog])).id
+    const recentReport = (await one("insert into public.reports (source, reporter_id, target_id, type, description, status, handled_at) values ('member', $1, $2, '기타', '최근에 종결한 신고예요.', 'closed', now() - interval '10 days') returning id", [A, B])).id
+    await as("postgres"); await one("select public.run_retention()")
+    eq("C5: 종결 뒤 3년이 지난 신고를 지운다", (await one("select count(*)::int n from public.reports where id = $1", [report])).n, 0)
+    eq("C5: 최근 종결 신고는 남긴다", (await one("select count(*)::int n from public.reports where id = $1", [recentReport])).n, 1)
+    eq("C5: 끝난 지 3년이 지난 소개·교류 기록을 지운다", (await one("select count(*)::int n from public.introductions where id = $1", [prog])).n, 0)
+  })
+
+  scenario("C5 차단으로 끝나도 고른 시간·지역·이대로 시작을 지운다", async () => {
+    const [A, B] = await people()
+    const prog = await pair(A, B, "insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at, meeting_a, meeting_b, arrange_by, avail_a, avail_b, region_a, region_b, ready_a, ready_b) values ($1, $2, $3, 'arranging', 'A', 'A', public.kst_today() - 4, now() - interval '5 days', now() - interval '4 days', 'positive', 'positive', now() + interval '6 days', '[\"2099-01-01|noon\"]', '[\"2099-01-01|noon\"]', '망원역', '합정역', 'A', 'A') returning id")
+    const intro = (await one("select introduction_id id from public.programs where id = $1", [prog])).id
+    await as(A); await q("select public.block_partner($1)", [intro])
+    await as("postgres")
+    eq("C5: 차단으로 닫혀도 같은 정리를 거친다", { ...(await one("select status, avail_a, avail_b, region_a, region_b, ready_a, ready_b from public.programs where id = $1", [prog])) }, { status: "closed", avail_a: null, avail_b: null, region_a: null, region_b: null, ready_a: null, ready_b: null })
+  })
+
+  scenario("C5 탈퇴 삭제는 매시간 돌아 7일을 넘기지 않는다", async () => {
+    const [A] = await people()
+    await as("postgres")
+    await q("update public.profiles set status = 'withdrawal_requested', withdrawal_requested_at = now() - interval '7 days', deletion_due_at = now() + interval '20 minutes' where id = $1", [A])
+    await one("select public.run_withdrawal_deletion()")
+    eq("C5: 한 시간 안에 기한이 오는 탈퇴 계정을 지운다", (await one("select count(*)::int n from auth.users where id = $1", [A])).n, 0)
+  })
+
+  scenario("O2 지운 계정 번호를 남겨 백업을 되살린 뒤 다시 지운다", async () => {
+    const [A, B] = await people()
+    await as("postgres")
+    await q("update public.profiles set status = 'withdrawal_requested', withdrawal_requested_at = now() - interval '8 days', deletion_due_at = now() - interval '1 hour' where id = $1", [A])
+    await one("select public.run_retention()")
+    eq("O2: 탈퇴로 지운 계정 번호가 남는다", (await one("select count(*)::int n from public.deletion_log where member_id = $1", [A])).n, 1)
+    await q("insert into auth.users (id, email, raw_user_meta_data) values ($1, 'restored-5400@example.test', $2)", [A, { adult: true, terms_version: "draft-1", privacy_version: "draft-1" }])
+    ok("O2: 백업에서 되살아난 계정을 다시 지운다", (await one("select public.apply_deletion_log() n")).n >= 1)
+    eq("O2: 되살아난 계정이 남지 않는다", (await one("select count(*)::int n from auth.users where id = $1", [A])).n, 0)
+    await as(B)
+    await rejects("O2: 회원은 부를 수 없다", () => q("select public.apply_deletion_log()"), /permission denied/)
+    await as("postgres")
+    await q("update public.deletion_log set deleted_at = now() - interval '36 days' where member_id = $1", [A])
+    await one("select public.run_retention()")
+    eq("O2: 35일이 지나면 기록도 지운다(백업은 30일까지)", (await one("select count(*)::int n from public.deletion_log where member_id = $1", [A])).n, 0)
+  })
+
+  scenario("C7 두 작업이 동시에 돌아도 같은 메일을 두 번 잡지 않는다", async () => {
+    await as("postgres")
+    await clock((await one("select public.kst_at(public.kst_today(), '13:00')::text t")).t)
+    const [A] = await people()
+    await as("postgres")
+    await q("update public.profiles set notify_email = true where id = $1", [A])
+    for (const k of [1, 2, 3]) await q("select public.notify($1, 'new-introduction', '오늘의 인연이 도착했어요', '확인해 주세요.', '/us', $2)", [A, `audit-mail:${A}:${k}`])
+    const mailIds = (await q("select id from public.notifications where member_id = $1", [A])).map((r) => r.id)
+    let first, second
+    if (await has("claim_email_notifications")) {
+      first = await q("select id from public.claim_email_notifications(500)")
+      second = await q("select id from public.claim_email_notifications(500)")
+    } else {
+      first = await q("select id from public.pending_email_notifications(500)")
+      second = await q("select id from public.pending_email_notifications(500)")
+    }
+    ok("C7: 첫 작업이 잡았다", mailIds.every((id) => first.some((r) => r.id === id)))
+    ok("C7: 두 번째 작업은 같은 메일을 잡지 않는다", !mailIds.some((id) => second.some((r) => r.id === id)))
+    await q("select public.record_email_result('notification', $1, 'unknown', 'smtp ok, record failed')", [mailIds[0]])
+    await q("select public.record_email_result('notification', $1, 'failed', 'smtp 550')", [mailIds[1]])
+    await q("select public.record_email_result('notification', $1, 'sent', null)", [mailIds[2]])
+    await q("update public.notifications set email_lease_until = now() - interval '1 minute' where member_id = $1", [A])
+    const again = (await q("select id from public.claim_email_notifications(500)")).map((r) => r.id)
+    eq("C7: 보냈는지 불확실한 메일과 보낸 메일은 다시 잡지 않고, 실패한 메일만 다시 잡는다", mailIds.map((id) => again.includes(id)), [false, true, false])
+    eq("C7: 불확실은 따로 남는다", (await one("select email_status from public.notifications where id = $1", [mailIds[0]])).email_status, "unknown")
+    await as(A)
+    await rejects("C7: 회원은 메일을 잡을 수 없다", () => q("select * from public.claim_email_notifications(5)"), /permission denied/)
+    await as("postgres")
+    await q("set role service_role")
+    eq("C7: 예약 작업 열쇠가 맞을 때만 통과", [(await one("select public.cron_token_ok('wrong') v")).v, (await one("select public.cron_token_ok((select value from public.private_values where name = 'cron_token')) v")).v], [false, true])
+    await db.exec("reset role")
+    await clock(null)
+  })
+
+  scenario("C9 늦게 도착한 예전 저장이 새 답을 덮지 못한다", async () => {
+    const [A] = await people()
+    await as(A)
+    if (!(await has("save_application_draft", 2))) {
+      await q("select public.save_application_draft($1)", [draft("새답", "여성", "남성", "1995-03-01")])
+      await q("select public.save_application_draft($1)", [draft("옛답", "여성", "남성", "1995-03-01")])
+      throw new Error("판 번호가 없어 늦게 온 예전 저장이 그대로 덮어써요")
+    }
+    const r1 = (await one("select public.save_application_draft($1, null) v", [draft("처음", "여성", "남성", "1995-03-01")])).v
+    const r2 = (await one("select public.save_application_draft($1, $2) v", [draft("새답", "여성", "남성", "1995-03-01"), r1.revision])).v
+    ok("C9: 저장하면 판이 올라간다", r2.revision === r1.revision + 1)
+    await rejects("C9: 예전 판으로 늦게 온 저장", () => q("select public.save_application_draft($1, $2)", [draft("옛답", "여성", "남성", "1995-03-01"), r1.revision]), /먼저 저장된 내용/)
+    eq("C9: 최신 답이 남는다", (await one("select draft -> 'values' ->> 'self.name' v, draft_rev from public.applications where member_id = $1", [A])).v, "새답")
+  })
+
+  scenario("F1 운영진이 신청서에서 실제로 읽은 한 문장", async () => {
+    const [A, B] = await people()
+    await as(O, "aal2")
+    await rejects("F1: 너무 짧은 문장", () => q("select public.admin_set_reading_note($1, '좋아요')", [A]), /20~80자/)
+    const note = (await one("select public.admin_set_reading_note($1, '주말을 보내는 방식과 편하게 대화할 수 있는 속도를 함께 살펴보고 있어요.') v", [A])).v
+    ok("F1: 운영진이 남긴다", note && note.body.startsWith("주말을"))
+    eq("F1: 운영진이 다시 본다", (await one("select public.admin_reading_note($1) v", [A])).v.body, note.body)
+    await as(A)
+    eq("F1: 회원은 내 것만 본다", (await one("select public.my_reading_note() v")).v.body, note.body)
+    await rejects("F1: 회원은 쓸 수 없다", () => q("select public.admin_set_reading_note($1, '제가 직접 써 보는 문장이에요. 스무 자는 넘어요.')", [A]), /권한/)
+    await as(B)
+    eq("F1: 다른 회원에게는 없다", (await one("select public.my_reading_note() v")).v, null)
+    await as(O, "aal2")
+    eq("F1: 비우면 지운다", (await one("select public.admin_set_reading_note($1, '') v", [A])).v, null)
+    await as("postgres")
+    ok("F1: 감사 기록이 남는다", (await one("select count(*)::int n from public.audit_log where target = $1 and action like '읽은 한 문장%'", [A])).n >= 2)
+  })
+
+  scenario("C5·C15 보존 규칙 목록에 없는 개인정보 칸이 생기면 점검이 실패한다", async () => {
+    // 표마다 모든 칸과 보존 규칙(개인정보처리방침 3번 기준). 새 칸을 만들면 여기에 규칙을 함께 적어야 한다.
+    const REGISTRY = {
+      admin_roles: [["user_id", "role", "created_at", "created_by"], "운영진 권한: 권한을 거두거나 계정을 지우면 삭제"],
+      application_photos: [null, "신청 사진: 탈퇴 요청 뒤 7일(계정 삭제와 함께) · 파일은 정리 작업"],
+      applications: [null, "신청서: 탈퇴 요청 뒤 7일(계정 삭제와 함께)"],
+      appointment_proposals: [null, "약속 제안(활동·지역·장소): 만난 날(없으면 교류 종료)부터 90일"],
+      audit_log: [null, "운영진 열람·처리 기록: 1년"],
+      avoid_contacts: [null, "아는 사람 피하기: 회원이 지우거나 탈퇴하면 삭제"],
+      blocks: [null, "차단: 계정 삭제와 함께(안전 이력은 따로 3년)"],
+      client_errors: [null, "화면 오류: 30일"],
+      cohorts: [null, "기수 설정: 개인정보 아님"],
+      email_queue: [null, "메일 대기열(문의 답변 등): 보낸 뒤 대기열 정리 · 3일 뒤 더 보내지 않음"],
+      greetings: [null, "첫 마디: 회원이 지우거나 탈퇴하면 삭제"],
+      inquiries: [null, "문의: 답변 뒤 3년"],
+      introductions: [null, "소개 사본·궁합·닮은 두 문장·소개 이유: 끝난 뒤 30일 · 진행 기록: 끝난 뒤 3년(탈퇴하면 연결 끊김)"],
+      job_runs: [null, "작업 기록: 90일 · 개인정보 아님"],
+      member_requests: [null, "회원 요청: 처리 뒤 3년(신고·분쟁 대응과 같은 기간)"],
+      notifications: [null, "알림: 읽은 뒤 90일 · 계정 삭제와 함께"],
+      payment_customers: [null, "결제 구매자 식별값: 계정 삭제와 함께"],
+      payments: [null, "결제: 테스트 90일 · 실제 결제는 법정 기간"],
+      photo_replacements: [null, "교체 사진: 심사 뒤 바꾸거나 지움 · 계정 삭제와 함께"],
+      prelude_letters: [null, "소개 전 편지: 전해진 소개가 끝난 뒤 30일"],
+      private_values: [null, "서버 비밀 값: 개인정보 아님"],
+      profiles: [null, "계정: 탈퇴 요청 뒤 7일"],
+      program_entries: [null, "교류 글(편지·첫 장면·엽서·댓글): 교류 종료 30일(신고된 교류는 종결 뒤 3년)"],
+      programs: [null, "교류: 글 복사본(질문·책갈피)·한 권 30일 · 약속 날짜·시간 90일 · 고른 시간·지역은 끝날 때 · 진행 기록 3년"],
+      reading_notes: [null, "읽은 한 문장: 계정 삭제와 함께"],
+      reflections: [null, "교류 뒤 한 줄: 1년"],
+      reports: [null, "신고: 종결 뒤 3년"],
+      safety_holds: [null, "안전 이력 암호화 값: 탈퇴일부터 3년"],
+      deletion_log: [null, "지운 계정 번호(백업 복구 뒤 다시 지우기용): 35일"],
+      storage_cleanup: [null, "파일 정리 대기열: 지우면 삭제"],
+      vouch_links: [null, "추천사 링크: 14일 뒤 닫힘 · 30일 지나면 삭제"],
+      vouches: [null, "친구 추천사: 회원이 지우거나 탈퇴하면 삭제"],
+      weekly_notes: [null, "이번 주 노트: 1년 · 개인정보 아님"],
+      window_answers: [null, "창가 질문 답: 1년"],
+      withdrawal_feedback: [null, "탈퇴 이유: 1년(남긴 말은 계정 삭제와 함께)"],
+    }
+    const tables = (await q("select table_name t from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE' order by 1")).map((r) => r.t)
+    const missing = tables.filter((t) => !REGISTRY[t])
+    eq("C15: 모든 표에 보존 규칙이 있다", missing, [])
+    const columns = await q("select table_name t, string_agg(column_name, ',' order by column_name) c from information_schema.columns where table_schema = 'public' and table_name = any($1) group by 1", [tables])
+    const known = (await import("node:fs")).readFileSync(new URL("./retention-columns.json", import.meta.url), "utf8")
+    const registered = JSON.parse(known)
+    const changed = columns.filter((r) => registered[r.t] !== r.c).map((r) => `${r.t}: ${r.c}`)
+    eq("C15: 표의 칸이 바뀌면 보존 규칙을 함께 확인한다(retention-columns.json 갱신)", changed, [])
+  })
+
+  for (const [name, fn] of scenarios) {
+    if (!SOFT) { await fn(); await as("postgres"); await clock(null); continue }
+    try { await fn(); console.log("  고쳐짐 ·", name) } catch (error) { console.log("  재현됨 ·", name, "→", String(error.message).split("\n")[0].slice(0, 160)) }
+    await as("postgres"); await clock(null)
+  }
 }
 
 console.log(`서버 데이터베이스 점검 통과: ${passed}개`)

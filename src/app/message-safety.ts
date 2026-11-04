@@ -14,7 +14,7 @@ const PATTERNS: { kind: "phone" | "email" | "link" | "messenger" | "account"; re
 ]
 const MONEY = /송금|입금|이체|계좌|돈\s*(?:좀|을|빌려|보내)|빌려\s*(?:줄|주실|줘)|투자|코인|비트코인|리딩방|대출|상품권|기프티콘\s*(?:보내|사)|급하게\s*돈/
 
-export const SAFETY_BLOCK_MESSAGE = "연락처·SNS 아이디·링크·계좌번호는 보낼 수 없어요. 연락처는 두 분이 동의하면 만나는 날 플라비에서 열려요."
+export const SAFETY_BLOCK_MESSAGE = "연락처·SNS 아이디·링크·계좌번호는 보낼 수 없어요. 연락처는 두 분이 동의하면 만나는 날 0시부터 다음 날 밤 11시 59분까지 플라비에서 보여요."
 export const SAFETY_COMPOSE_NOTE = "돈이나 외부 연락처를 요구받으면 바로 신고해 주세요. 운영진은 편지를 읽지 않고, 신고가 들어온 교류만 확인해요."
 
 export function checkMessage(text: string) {

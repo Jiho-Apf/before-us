@@ -1,4 +1,4 @@
-import { decodePhoto, encodePhoto } from "./applications"
+import { decodePhoto, encodePhoto, functionFailure, storageFailure, type PhotoResult } from "./applications"
 import { friendlyError, supabase } from "./client"
 
 // A 편지 사진 한 장(선택). 신청서 사진과 같은 길: HEIC는 JPG로 바꾸고, 이 기기에서 다시 그려 촬영 위치 같은 정보를 지운 뒤 올린다.
@@ -50,22 +50,31 @@ export async function removeLetterPhoto(path: string) {
 
 const urlCache = new Map<string, { url: string; until: number }>()
 // 내 사진은 바로 5분짜리 주소를 만들고, 상대 사진은 서버 함수(letter-photo)로 연다.
-export async function letterPhotoUrl(path: string) {
+// 결과는 성공·잠깐의 실패·볼 수 없음·지워짐으로 나눈다(검수 C12). 잠깐의 실패를 ‘지워짐’으로 다루면 초안의 사진이 빠진다.
+export async function letterPhotoResult(path: string): Promise<PhotoResult> {
   const cached = urlCache.get(path)
-  if (cached && cached.until > Date.now()) return cached.url
+  if (cached && cached.until > Date.now()) return { status: "ok", url: cached.url }
   try {
     const db = await supabase()
     const { data: session } = await db.auth.getSession()
     const mine = !!session.session && path.split("/")[1] === session.session.user.id
-    const url = mine
-      ? (await db.storage.from(LETTER_PHOTO_BUCKET).createSignedUrl(path, 300)).data?.signedUrl
-      : await viaFunction(db, path)
-    if (!url) return null
-    urlCache.set(path, { url, until: Date.now() + 240000 })
-    return url
+    let result: PhotoResult
+    if (mine) {
+      const { data, error } = await db.storage.from(LETTER_PHOTO_BUCKET).createSignedUrl(path, 300)
+      result = error ? storageFailure(error as never) : data?.signedUrl ? { status: "ok", url: data.signedUrl } : { status: "temporary-error", message: "사진을 잠시 불러오지 못했어요." }
+    } else {
+      const { data, error } = await db.functions.invoke<{ url?: string }>("letter-photo", { body: { path } })
+      result = error ? await functionFailure(error) : data?.url ? { status: "ok", url: data.url } : { status: "temporary-error", message: "사진을 잠시 불러오지 못했어요." }
+    }
+    if (result.status === "ok") urlCache.set(path, { url: result.url, until: Date.now() + 240000 })
+    return result
   } catch {
-    return null
+    return { status: "temporary-error", message: "사진을 잠시 불러오지 못했어요." }
   }
+}
+export async function letterPhotoUrl(path: string) {
+  const result = await letterPhotoResult(path)
+  return result.status === "ok" ? result.url : null
 }
 
 async function viaFunction(db: Awaited<ReturnType<typeof supabase>>, path: string, reason?: string) {

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react"
-import { Link, useNavigate, useSearchParams } from "react-router"
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router"
 import { ArrowRight, LoaderCircle } from "lucide-react"
 import { Button } from "./components/ui/button"
 import { Input } from "./components/ui/input"
@@ -42,6 +42,8 @@ const ErrorText = ({ text }: { text: string }) => (text ? <p role="alert" classN
 
 export function LoginPage() {
   const navigate = useNavigate()
+  // 로그아웃했지만 다른 기기까지 끊었는지 확인하지 못했을 때의 안내(검수 C3)
+  const signedOutNotice = (useLocation().state as { notice?: string } | null)?.notice ?? ""
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -60,6 +62,7 @@ export function LoginPage() {
   const resend = async () => { const result = await resendConfirmation(email); setResent(result.error || "확인 메일을 다시 보냈어요. 이 브라우저에서 링크를 열면 바로 이어져요.") }
   return (
     <Frame title="로그인" foot={<><p>처음이신가요? <Link to="/signup" className="text-foreground underline underline-offset-4 hover:text-primary">회원가입</Link></p><p><Link to="/reset-password" className="underline underline-offset-4 hover:text-primary">비밀번호를 잊으셨나요?</Link></p></>}>
+      {signedOutNotice && <p role="status" className="mb-5 rounded-xl bg-mist p-4 text-xs leading-6">{signedOutNotice}</p>}
       <form className="space-y-5" onSubmit={submit} noValidate>
         <Field id="login-email" label="이메일" type="email" autoComplete="email" value={email} onChange={(value) => { setEmail(value); setError("") }} />
         <Field id="login-password" label="비밀번호" type="password" autoComplete="current-password" value={password} onChange={(value) => { setPassword(value); setError("") }} />
@@ -232,6 +235,17 @@ export function AccountPanel() {
   const [error, setError] = useState("")
   const [result, setResult] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  // 로그아웃은 이 기기에서 실제로 지워진 뒤에만 홈으로 간다(검수 C3).
+  const [leaving, setLeaving] = useState(false)
+  const [logoutError, setLogoutError] = useState("")
+  const logout = async () => {
+    if (leaving) return
+    setLeaving(true); setLogoutError("")
+    const out = await signOut()
+    setLeaving(false)
+    if (out.error) { setLogoutError(out.error); return }
+    navigate(out.notice ? "/login" : "/", out.notice ? { state: { notice: out.notice } } : undefined)
+  }
   // 떠나는 이유(선택). 서비스를 고치는 데만 쓰고, 운영진만 봐요.
   const [reasons, setReasons] = useState<string[]>([])
   const [note, setNote] = useState("")
@@ -259,10 +273,11 @@ export function AccountPanel() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p><span className="text-muted-foreground">로그인 계정</span> <span className="ml-2 font-medium">{user.email}</span></p>
         <div className="flex gap-2">
-          <Button variant="outline" className="rounded-xl" onClick={() => { signOut(); navigate("/") }}>로그아웃</Button>
+          <Button variant="outline" disabled={leaving} className="rounded-xl" onClick={() => void logout()}>{leaving ? "로그아웃하는 중…" : "로그아웃"}</Button>
           <Button variant="ghost" className="rounded-xl text-muted-foreground" aria-expanded={open} onClick={() => setOpen((value) => !value)}>회원 탈퇴</Button>
         </div>
       </div>
+      {logoutError && <p role="alert" className="text-xs leading-6 text-destructive">{logoutError}</p>}
       {open && (
         <form onSubmit={submit} className="space-y-4 rounded-xl border border-border p-5" noValidate>
           <p className="leading-7">탈퇴하면 상대 노출과 알림이 바로 멈추고, 진행 중인 소개·교류는 종료돼요. 일반 자료는 {BEFORE_US.privacy.activeDeleteDays}일 안에, 백업은 최대 {BEFORE_US.privacy.backupMaxDays}일 안에 지워요.{LIVE && BEFORE_US.beta.active ? "" : " 결제 환불은 환불 기준에 따라 따로 안내해요."}</p>

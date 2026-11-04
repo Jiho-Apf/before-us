@@ -11,7 +11,8 @@ import { kstDateTime, kstDay } from "./dates";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
 import { APPOINTMENT_ACTIVITIES, QUICK_TIMES } from "./appointment-details";
 import { COMMENT_MAX, CUSTOM, END_REASON, PIECE_MAX, PIECE_MIN, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_ACTIVITY_ROWS, SCENE_CUSTOM_MAX, SCENE_PROMPTS, SCENE_REASON_MAX, SCENE_STAY, SCENE_TOPIC_EXAMPLES, SCENE_TOPIC_MAX, AVAIL_BANDS, ASK_IDEAS, ASK_MAX, ASK_MIN, POSTCARD_MAX, POSTCARD_MIN, acceptAppointment, setBookConsent, setBookmark, setDay3Question, availLabel, bookSlot, chooseFirstScene, quickStart, setAvailability, chooseMeeting, choosePlan, confirmProgram, contactProblem, customOk, isCustom, leaveComment, letterPrompt, loadMyProgram, loadReadablePrograms, proposeAppointment, proposeStart, sceneAppointment, sceneLabel, sceneNote, setContactConsent, stayFor, submitEntry, tidyChoice, writeScenePiece, type EntryContent, type Program, type ProgramEntry, type ReadableProgram, type ScenePick, type Slot } from "./backend/program";
-import { letterPhotoUrl, removeLetterPhoto, uploadLetterPhoto } from "./backend/letterPhotos";
+import { letterPhotoResult, removeLetterPhoto, uploadLetterPhoto } from "./backend/letterPhotos";
+import { clearDrafts, readDraft, writeDraft } from "./backend/drafts";
 
 // 실제 서버 모드의 교류(/exchange)와 약속·연락처(/meeting). 데모 화면과 같은 편집 톤을 쓴다.
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -34,19 +35,50 @@ function untilProgramBoundary(now = Date.now()) {
   const next = marks.find(at => at > now + 1000) ?? marks[0] + 86400000;
   return next - now;
 }
+// 상대의 움직임을 짧게 알려 준다(내용은 보여 주지 않고 무엇이 바뀌었는지만).
+function arrivalNote(before: Program, after: Program): string {
+  if (before.id !== after.id) return "";
+  if (before.status !== after.status) return "교류 상태가 바뀌었어요. 화면을 새로 맞췄어요.";
+  for (const entry of after.entries) {
+    const old = before.entries.find(item => item.day === entry.day && item.kind === entry.kind);
+    if (entry.partner && !old?.partner) return entry.kind === "reply" ? "상대의 답장이 도착해 함께 열렸어요." : "상대의 글이 도착해 함께 열렸어요.";
+    if (entry.partnerSent && !old?.partnerSent) return "상대가 오늘의 글을 보냈어요. 내 글을 보내면 함께 열려요.";
+  }
+  if ((after.meetingRev ?? 0) !== (before.meetingRev ?? 0)) return "약속이 바뀌었어요. 새 날짜와 장소를 확인해 주세요.";
+  if (after.proposals.length !== before.proposals.length || after.proposals.some(item => before.proposals.find(old => old.id === item.id)?.status !== item.status)) return "약속 제안이 새로 도착했어요.";
+  if (!!after.bookOpen !== !!before.bookOpen) return after.bookOpen ? "두 분 모두 동의해서 한 권이 열렸어요." : "한 권 동의가 거둬져 닫혔어요.";
+  if (after.partnerConfirmed !== before.partnerConfirmed || after.partnerPlan !== before.partnerPlan || after.partnerReady !== before.partnerReady) return "상대가 시작 방식을 정했어요.";
+  return "";
+}
+// 서버가 ‘바뀌었어요’로 거부하면(약속·시작일이 그 사이 바뀜) 바로 새로 불러온다.
+const CHANGED = /바뀌었어요|새로 고친 뒤/;
+const LIVE_REFRESH_MS = 20000;
 function useProgram() {
   const [state, setState] = useState<{ data: Program | null; error: string | null; loading: boolean }>({ data: null, error: null, loading: true });
-  const reload = async () => { const result = await loadMyProgram(); setState({ data: result.data, error: result.error, loading: false }); };
+  const [arrival, setArrival] = useState("");
+  // 늦게 끝난 이전 요청이 새 결과를 덮지 않게 차례 번호를 붙인다(검수 C8).
+  const sequence = useRef(0);
+  const latest = useRef<Program | null>(null);
+  const apply = (data: Program | null, error: string | null, quiet = false) => {
+    const before = latest.current;
+    if (quiet && error) return; // 조용한 새로 고침이 실패하면 지금 화면을 그대로 둔다
+    if (quiet && before && data) { const note = arrivalNote(before, data); if (note) setArrival(note); }
+    latest.current = data;
+    setState({ data, error, loading: false });
+  };
+  const reload = async (quiet = false) => { const mine = ++sequence.current; const result = await loadMyProgram(); if (mine !== sequence.current) return; apply(result.data, result.error, quiet); };
   useEffect(() => { void reload(); }, []);
-  // 시각이 바뀌는 때(00:00 그날 글 마감 · 09:00 새 날·만남 선택 열림)와, 1분 넘게 다른 창에 있다가 돌아왔을 때 다시 불러온다.
+  // 시각이 바뀌는 때(00:00 그날 글 마감 · 09:00 새 날·만남 선택 열림), 1분 넘게 다른 창에 있다가 돌아왔을 때,
+  // 그리고 화면이 보이는 동안 20초마다 조용히 다시 불러온다(상대가 보낸 글·동의·약속 변경이 먼저 기다리던 화면에도 도착하게).
   // 쓰던 글은 입력 칸과 임시 저장에 그대로 남는다.
   useEffect(() => {
     let hiddenAt = 0, timer = 0;
-    const onVisible = () => { if (document.visibilityState === "hidden") hiddenAt = Date.now(); else if (hiddenAt && Date.now() - hiddenAt > 60000) { hiddenAt = 0; void reload(); } };
+    const onVisible = () => { if (document.visibilityState === "hidden") hiddenAt = Date.now(); else if (hiddenAt && Date.now() - hiddenAt > 60000) { hiddenAt = 0; void reload(true); } };
     document.addEventListener("visibilitychange", onVisible);
-    const schedule = () => { timer = window.setTimeout(() => { void reload(); schedule(); }, untilProgramBoundary()); };
+    const schedule = () => { timer = window.setTimeout(() => { void reload(true); schedule(); }, untilProgramBoundary()); };
     schedule();
-    return () => { document.removeEventListener("visibilitychange", onVisible); window.clearTimeout(timer); };
+    const poll = window.setInterval(() => { if (document.visibilityState === "visible" && !sending.current) void reload(true); }, LIVE_REFRESH_MS);
+    return () => { document.removeEventListener("visibilitychange", onVisible); window.clearTimeout(timer); window.clearInterval(poll); };
   }, []);
   // 서버 함수는 고친 뒤의 교류를 그대로 돌려준다. 실패하면 안내만 바꾼다.
   // 보내는 중에 다시 누르면 무시한다(두 번 눌러도 한 번만 보내지게). 성공 여부도 함께 돌려준다.
@@ -56,14 +88,15 @@ function useProgram() {
     sending.current = true;
     try {
       const result = await action();
-      if (result.error) return { text: result.error, ok: false };
-      if (result.data) setState({ data: result.data, error: null, loading: false });
+      if (result.error) { if (CHANGED.test(result.error)) await reload(); return { text: result.error, ok: false }; }
+      if (result.data) { sequence.current += 1; apply(result.data, null); }
+      setArrival("");
       return { text: result.data?.notice || done, ok: true };
     } finally {
       sending.current = false;
     }
   };
-  return { ...state, reload, run };
+  return { ...state, reload, run, arrival };
 }
 
 function Notice({ text }: { text: string }) {
@@ -87,8 +120,10 @@ export function LiveExchangePage() {
   return <Member><ExchangeView /></Member>;
 }
 function ExchangeView() {
-  const { data, error, loading, reload, run } = useProgram();
+  const { data, error, loading, reload, run, arrival } = useProgram();
   const [message, setMessage] = useState("");
+  // 마무리된 교류의 쓰다 만 글은 이 기기에서 지운다(검수 C10).
+  useEffect(() => { if (data?.status === "closed") clearDrafts({ programId: data.id }); }, [data?.id, data?.status]);
   // 지난 교류: 새 교류가 시작돼도, 다시 읽을 수 있는 마무리된 교류는 따로 불러 둔다(실패하면 조용히 숨긴다).
   const [past, setPast] = useState<ReadableProgram[]>([]);
   useEffect(() => { void loadReadablePrograms().then(result => setPast(result.data ?? [])); }, []);
@@ -110,7 +145,9 @@ function ExchangeView() {
     <section className="space-y-8" aria-labelledby="exchange-title">
       <PageHeader mark="교류" label={header.label} en="THREE DAYS · FLAVIE" titleId="exchange-title" title={header.title} lead={data.partnerName ? `${data.partnerName} 님과의 교류예요. 신고·차단은 두 사람 화면에서 언제든 할 수 있어요.` : undefined} aside={<Button asChild variant="outline" className="h-10 rounded-xl border-border text-xs"><Link to="/us">두 사람 화면</Link></Button>} />
       <Notice text={message} />
+      {arrival && arrival !== message && <p role="status" aria-live="polite" className={`inline-flex items-center gap-2 letter-drop ${butter}`}><LockOpen size={13} />{arrival}</p>}
       {(data.status === "choosing" || data.status === "scheduled") && <PreludeLetters program={data} />}
+      {data.status === "choosing" && data.startMissedAt && <p role="status" className="rounded-xl border border-[#EBD9A0] bg-[#FFFBEF] px-4 py-3 text-sm leading-7 dark:border-[#5A4C2A] dark:bg-[#26221A]">저희 쪽 문제로 정해 둔 날 교류가 열리지 못했어요. 죄송해요. 아래에서 새 시작일을 다시 확인해 주세요. 지금까지 나눈 것은 그대로예요.</p>}
       {data.status === "choosing" && <Agreement program={data} act={act} />}
       {data.status === "scheduled" && <Moment eyebrow="SEE YOU AT 09:00" title={<>{data.startOn && dayLabel(data.startOn)} 09:00,<br />첫날이 열려요.</>}>{data.ownPlan && PLAN_COPY[data.ownPlan].name} · 3일 동안 이어지고, 넷째 날 09:00에 만남을 정해요. 시작하면 알림으로 알려 드릴게요.</Moment>}
       {(data.status === "started" || data.status === "deciding") && <OurDays program={data} />}
@@ -187,7 +224,7 @@ function Agreement({ program, act }: { program: Program; act: Act }) {
       </div>
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-mist p-5">
         <p className="text-sm leading-7"><span className="font-semibold">{program.startOn && dayLabel(program.startOn)} 09:00 시작</span><br /><span className="text-xs text-muted-foreground">나 {program.ownConfirmed ? "확인 완료" : "확인 전"} · 상대 {program.partnerConfirmed ? "확인 완료" : "확인 전"}</span></p>
-        <Button disabled={program.ownConfirmed} onClick={() => void act(() => confirmProgram(program.id), "확인했어요.")} className="h-11 rounded-xl px-6">{program.ownConfirmed ? "확인했어요" : "이 일정으로 시작하기"}</Button>
+        <Button disabled={program.ownConfirmed} onClick={() => void act(() => confirmProgram(program.id, program.startOn), "확인했어요.")} className="h-11 rounded-xl px-6">{program.ownConfirmed ? "확인했어요" : "이 일정으로 시작하기"}</Button>
       </div>
     </Sheet>}
     </>}
@@ -227,6 +264,8 @@ function SceneLine({ payload, className = "" }: { payload: Record<string, string
   return <p className={`flex flex-wrap items-center gap-x-1.5 gap-y-0.5 ${className}`}>{parts.map((value, index) => <span key={`${index}:${value}`} className="inline-flex items-center gap-1">{index > 0 && <span aria-hidden="true" className="font-normal text-muted-foreground">·</span>}{isCustom(value) && <><PenLine size={12} aria-hidden="true" className="text-accent" /><span className="sr-only">직접 쓴 </span></>}{sceneLabel(value)}</span>)}</p>;
 }
 
+// 날짜 도장·지금 할 일에서 그날 글 카드로 옮겨 간다(카드에는 scroll-mt-28 = 112px 여백).
+const goToDay = (day: number) => { const card = document.getElementById(`day-${day}`); if (!card) return; card.dispatchEvent(new CustomEvent("flavie:open-day")); card.scrollIntoView({ behavior: "smooth", block: "start" }); };
 // 우리의 사흘: 그날 글이 함께 열리면 도장이 하나씩 채워진다. B는 고른 것이 ‘우리의 첫 장면’으로 모인다.
 // 넷째 날(만남 선택)에는 사흘을 돌아보는 카드가 된다(A: 상대가 들려준 사흘 · B: 함께 맞춘 장면).
 const firstLine = (text: string, max = 48) => {
@@ -266,15 +305,23 @@ function OurDays({ program }: { program: Program }) {
   const final = program.entries.find(item => item.kind === "final");
   const agreed = !!final?.own?.payload && !!final.partner?.payload && sceneKey(final.own.payload) === sceneKey(final.partner.payload);
   const strong = (text: string) => <b className="font-semibold text-foreground">{text}</b>;
+  // 지금 할 일 하나(검수 F3): 오늘 아직 안 썼으면 ‘오늘 … 쓰기’, 오늘 글이 열렸으면 ‘함께 열린 글 읽기’
+  const todayStamp = stamps.find(stamp => stamp.state === "today" || stamp.state === "sent" || (stamp.state === "open" && stamp.date === program.today));
+  const primary = program.status !== "started" || !todayStamp ? null
+    : todayStamp.state === "today" ? { day: todayStamp.day, label: plan === "A" ? "오늘 편지 쓰기" : "오늘의 답 고르기", note: "" }
+    : todayStamp.state === "open" ? { day: todayStamp.day, label: "함께 열린 글 읽기", note: "" }
+    : { day: todayStamp.day, label: "보낸 글 보기", note: "상대가 보내면 함께 열려요." };
   return <Sheet className="p-6 sm:p-8">
     <div className="flex flex-wrap items-center justify-between gap-3"><Eyebrow label={recap ? "두 사람의 사흘" : "우리의 사흘"} en={recap ? "LOOKING BACK" : "OUR THREE DAYS"} /><DotsTrack step={opened} /></div>
     {recap && <p className="mt-3 text-sm leading-7 text-muted-foreground">만남을 고르기 전에, 사흘 동안 나눈 것을 한눈에 돌아봐요.</p>}
     <ol className="relative mt-6 grid grid-cols-4" aria-label="사흘 동안 함께 열린 날과 만남 선택">
       <span aria-hidden="true" className="absolute left-[12.5%] right-[12.5%] top-5 h-px bg-border" />
-      {stamps.map(({ day, date, state }) => <li key={day} className="relative flex flex-col items-center gap-1.5 text-center">
-        <span aria-hidden="true" className={`grid size-10 place-items-center rounded-full text-xs font-semibold ring-4 ring-card ${STAMP[state].ring} ${state === "open" && fresh(day, kind) ? "letter-drop" : ""}`}>{state === "open" ? <LockOpen size={15} /> : state === "sent" ? <Check size={15} /> : `0${day}`}</span>
-        <span className="mt-0.5 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground">DAY 0{day}</span>
-        <span className={`text-[11px] leading-4 ${STAMP[state].text}`}>{STAMP[state].label || monthDay(date)}</span>
+      {stamps.map(({ day, date, state }) => <li key={day} className="relative flex flex-col items-center text-center">
+        <button type="button" onClick={() => goToDay(day)} aria-label={`DAY 0${day} ${STAMP[state].label || monthDay(date)} · 그날 글로 이동`} className={`flex min-h-11 min-w-11 flex-col items-center gap-1.5 rounded-xl px-1 pb-1 outline-none focus-visible:ring-2 focus-visible:ring-ring ${interaction} hover:bg-muted/60`}>
+          <span aria-hidden="true" className={`grid size-10 place-items-center rounded-full text-xs font-semibold ring-4 ring-card ${STAMP[state].ring} ${state === "open" && fresh(day, kind) ? "letter-drop" : ""}`}>{state === "open" ? <LockOpen size={15} /> : state === "sent" ? <Check size={15} /> : `0${day}`}</span>
+          <span aria-hidden="true" className="mt-0.5 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground">DAY 0{day}</span>
+          <span aria-hidden="true" className={`text-[11px] leading-4 ${STAMP[state].text}`}>{STAMP[state].label || monthDay(date)}</span>
+        </button>
       </li>)}
       <li className="relative flex flex-col items-center gap-1.5 text-center">
         <span aria-hidden="true" className={`grid size-10 place-items-center rounded-full text-xs font-semibold ring-4 ring-card ${recap ? "border-2 border-accent bg-card text-accent" : "border border-dashed border-border bg-card text-muted-foreground"}`}>04</span>
@@ -282,6 +329,7 @@ function OurDays({ program }: { program: Program }) {
         <span className={`text-[11px] leading-4 ${recap ? "font-semibold text-accent" : "text-muted-foreground"}`}>{recap ? "만남 선택" : <>{monthDay(meetDate)}<br />만남 선택</>}</span>
       </li>
     </ol>
+    {primary && <div className="mt-6 flex flex-wrap items-center gap-3"><Button onClick={() => goToDay(primary.day)} className="h-11 rounded-full px-6">{primary.label} <ArrowRight size={14} /></Button>{primary.note && <span className="text-xs text-muted-foreground">{primary.note}</span>}</div>}
     {plan === "A" && <p className="mt-6 border-t border-border pt-4 text-xs leading-6 text-muted-foreground">{opened ? <>함께 연 편지 {strong(`${opened}통`)}{replies > 0 && <> · 주고받은 답장 {strong(`${replies}번`)}</>}{photos > 0 && <> · 나눈 사진 {strong(`${photos}장`)}</>}</> : program.status === "started" ? "두 분 모두 보내면 그날의 도장이 채워지고, 두 점이 한 걸음 가까워져요." : "사흘 동안 함께 열린 편지는 없었어요."}</p>}
     {plan === "A" && recap && opened > 0 && <div className="mt-4"><p className="text-xs font-semibold">상대가 들려준 사흘</p><ul className="mt-3 space-y-2.5">{[1, 2, 3].map(day => { const item = entry(day); if (!isOpen(item) || !item?.partner?.body) return null; return <li key={day} className="flex gap-3 text-sm leading-6"><span className="w-14 shrink-0 pt-0.5 text-[11px] font-semibold text-accent">DAY 0{day}</span><span className="min-w-0 text-foreground/85"><span className="block text-[11px] text-muted-foreground">{day === 3 && program.ownAsk ? `내가 낸 질문 · “${program.ownAsk}”` : letterPrompt(day, day === 1 || isOpen(entry(day - 1)), program.letterSet).title}</span>“{firstLine(item.partner.body)}”{item.partner.payload?.photo && <span className="ml-1.5 whitespace-nowrap text-[11px] text-muted-foreground">· 사진 한 장</span>}</span></li>; })}</ul></div>}
     {plan === "B" && (isOpen(entry(3))
@@ -343,7 +391,12 @@ function Days({ program, act }: { program: Program; act: Act }) {
     const beforeNextNine = Date.now() < kstAt(shift(date, 1), "09:00");
     const replyOpen = plan === "A" && program.status === "started" && opened && beforeNextNine;
     const match = plan === "B" && opened && main ? sameMoment(day, main) : "";
-    return <Sheet key={day} className={`p-6 sm:p-8 ${today || (replyOpen && !reply?.own) ? "border-primary/40" : ""}`}>
+    // 지난 날(할 일이 남지 않은 날)은 두 문장 미리 보기로 접고, 오늘은 펼친다(검수 F3).
+    const commentOpen = plan === "B" && opened && live && beforeNextNine;
+    const foldable = !today && !future && (!!main?.own || !!main?.partner) && !(replyOpen && !reply?.own) && !commentOpen;
+    const previewSource = main?.partner ?? main?.own;
+    const preview = plan === "A" ? twoSentences(previewSource?.body ?? "") : sceneSummary(previewSource?.payload) || twoSentences(previewSource?.body ?? "");
+    return <DayCard key={day} day={day} foldable={foldable} highlight={today || (replyOpen && !reply?.own)} title={plan === "A" ? letter.title : scene.title} date={dayLabel(date)} preview={preview}>
       <div className="flex flex-wrap items-baseline justify-between gap-2"><Eyebrow mark={`0${day}`} label={plan === "A" ? letter.title : scene.title} en={DAY_NAME[day - 1]} /><span className="text-xs text-muted-foreground">{dayLabel(date)} 09:00~23:59</span></div>
       {future ? <p className="mt-4 text-sm text-muted-foreground">{dayLabel(date)} 오전 9시에 열려요. 그때 알림으로 알려 드릴게요.</p> : <>
         <p className="mt-4 text-sm font-semibold leading-7">{plan === "A" ? letter.question : scene.question}</p>
@@ -369,8 +422,30 @@ function Days({ program, act }: { program: Program; act: Act }) {
         {plan === "A" && day === 2 && (askOpen || program.ownAsk) && <AskBox program={program} act={act} open={askOpen} />}
         {!today && !main?.own && <p className="mt-4 text-xs text-muted-foreground">{main?.partnerSent ? "상대는 보냈지만 내가 보내지 않아, 이날 글은 열리지 않았어요." : "이날은 글을 보내지 않았어요."}</p>}
       </>}
-    </Sheet>;
+    </DayCard>;
   })}</div>;
+}
+
+// 두 문장 미리 보기(접힌 지난 날)
+const twoSentences = (text: string) => { const parts = (text.trim().match(/[^.!?。\n]+[.!?。…~]*/g) ?? []).map(part => part.trim()).filter(Boolean); const joined = parts.slice(0, 2).join(" "); const chars = Array.from(joined); return chars.length > 120 ? `${chars.slice(0, 120).join("")}…` : joined; };
+function DayCard({ day, foldable, highlight, title, date, preview, children }: { day: number; foldable: boolean; highlight: boolean; title: string; date: string; preview: string; children: ReactNode }) {
+  const [unfolded, setUnfolded] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  // 날짜 도장을 누르면 접힌 날도 펼친다.
+  useEffect(() => { const card = ref.current; if (!card) return; const open = () => setUnfolded(true); card.addEventListener("flavie:open-day", open); return () => card.removeEventListener("flavie:open-day", open); }, []);
+  const folded = foldable && !unfolded;
+  return <div ref={ref} id={`day-${day}`} className="scroll-mt-28">
+    <Sheet className={`p-6 sm:p-8 ${highlight ? "border-primary/40" : ""}`}>
+      {folded ? <>
+        <div className="flex flex-wrap items-baseline justify-between gap-2"><Eyebrow mark={`0${day}`} label={title} en={DAY_NAME[day - 1]} /><span className="text-xs text-muted-foreground">{date}</span></div>
+        {preview && <p className="mt-4 line-clamp-2 text-sm leading-7 text-foreground/80">{preview}</p>}
+        <button type="button" aria-expanded={false} onClick={() => setUnfolded(true)} className={`mt-3 inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>다시 읽기 <ChevronDown size={13} /></button>
+      </> : <>
+        {children}
+        {foldable && <button type="button" aria-expanded={true} onClick={() => setUnfolded(false)} className={`mt-5 inline-flex min-h-11 items-center gap-1 text-xs text-muted-foreground hover:text-foreground ${interaction}`}>접기 <ChevronDown size={13} className="rotate-180" /></button>}
+      </>}
+    </Sheet>
+  </div>;
 }
 
 // 글 한 장: A는 편지(사진이 있으면 폴라로이드 틀로), B는 고른 것·이유·전날 선택에 남긴 한마디·나를 소개하는 답을 함께 보여 준다(상대에게도 똑같이 보인다).
@@ -424,14 +499,17 @@ function EntryPair({ entry, plan, day = 1, reply = false, past = false, until = 
 // 편지 사진: 조용한 폴라로이드 틀(살짝 기울어 있다가 손이 가면 바로 선다). 누르면 크게 본다. 주소는 5분짜리로만 만든다.
 function LetterPhoto({ path, caption, className = "" }: { path: string; caption: string; className?: string }) {
   const [url, setUrl] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
+  // 잠깐의 실패(temporary)는 다시 불러오기를, 볼 수 없거나 지워진 사진(gone)은 조용한 안내를 보여 준다(검수 C12).
+  const [failed, setFailed] = useState<"" | "temporary" | "gone">("");
+  const [attempt, setAttempt] = useState(0);
   const [open, setOpen] = useState(false);
-  useEffect(() => { let alive = true; setUrl(null); setFailed(false); void letterPhotoUrl(path).then(next => { if (!alive) return; if (next) setUrl(next); else setFailed(true); }); return () => { alive = false; }; }, [path]);
+  useEffect(() => { let alive = true; setUrl(null); setFailed(""); void letterPhotoResult(path).then(result => { if (!alive) return; if (result.status === "ok") setUrl(result.url); else setFailed(result.status === "temporary-error" ? "temporary" : "gone"); }); return () => { alive = false; }; }, [path, attempt]);
   return <>
     <button type="button" disabled={!url} onClick={() => setOpen(true)} aria-label={`${caption} 사진 크게 보기`} className={`block w-40 -rotate-[1.5deg] bg-[#FFFEFA] p-2 pb-1.5 shadow-[0_18px_36px_-22px_rgba(30,20,80,0.6)] ring-1 ring-black/5 transition-transform duration-300 hover:rotate-0 focus-visible:rotate-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default motion-reduce:transition-none sm:w-44 ${className}`}>
-      <span className="block aspect-[4/5] overflow-hidden bg-lilac">{url ? <img src={url} alt="" draggable={false} onContextMenu={event => event.preventDefault()} onError={() => { setUrl(null); setFailed(true); }} className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center px-3 text-center text-[11px] leading-5 text-[#1F1B33]/55">{failed ? "지금은 사진을 볼 수 없어요" : "사진을 불러오는 중…"}</span>}</span>
+      <span className="block aspect-[4/5] overflow-hidden bg-lilac">{url ? <img src={url} alt="" draggable={false} onContextMenu={event => event.preventDefault()} onError={() => { setUrl(null); setFailed("temporary"); }} className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center px-3 text-center text-[11px] leading-5 text-[#1F1B33]/55">{failed === "gone" ? "지금은 사진을 볼 수 없어요" : failed ? "사진을 불러오지 못했어요" : "사진을 불러오는 중…"}</span>}</span>
       <span className="mt-1.5 block text-center text-[10px] font-semibold tracking-[0.12em] text-[#1F1B33]/55">{caption}</span>
     </button>
+    {failed === "temporary" && <button type="button" onClick={() => setAttempt(value => value + 1)} className={`mt-2 inline-flex min-h-9 items-center text-[11px] font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>다시 불러오기</button>}
     {open && url && <Lightbox url={url} caption={caption} onClose={() => setOpen(false)} />}
   </>;
 }
@@ -457,10 +535,7 @@ function Lightbox({ url, caption, onClose }: { url: string; caption: string; onC
   </div>;
 }
 
-// 쓰다 만 편지·첫 장면 답은 이 기기에 저장해 두고, 보내기에 성공했을 때만 지운다(새로고침하거나 보내기가 실패해도 사라지지 않게).
-const DRAFT_PREFIX = "before-us:letter-draft:";
-const readDraft = (key: string) => { try { return localStorage.getItem(DRAFT_PREFIX + key) ?? ""; } catch { return ""; } };
-const writeDraft = (key: string, value: string) => { try { if (value.trim()) localStorage.setItem(DRAFT_PREFIX + key, value); else localStorage.removeItem(DRAFT_PREFIX + key); } catch { /* 저장 공간이 막혀 있으면 이 화면에서만 유지 */ } };
+// 쓰다 만 편지·첫 장면 답은 이 기기에 회원별로 저장해 두고(backend/drafts · 14일 기한), 보내기에 성공했을 때만 지운다.
 // 예시 보기: 그날 질문에 맞는 예시 답 몇 개를 읽기만 하게 보여 준다(편지에 넣거나 복사하는 버튼은 두지 않는다).
 export function LetterExamples({ examples, className = "" }: { examples: readonly string[]; className?: string }) {
   const [open, setOpen] = useState(false);
@@ -486,8 +561,10 @@ function LetterComposer({ onSend, reply = false, draftKey, examples = [], photo,
   const [photoError, setPhotoError] = useState("");
   const picker = useRef<HTMLInputElement>(null);
   useEffect(() => { const timer = window.setTimeout(() => writeDraft(draftKey, body), 400); return () => window.clearTimeout(timer); }, [body, draftKey]);
-  // 새로고침 전에 올려 둔 사진을 다시 보여 준다. 이미 정리된 사진이면 조용히 뺀다.
-  useEffect(() => { if (!photoPath || preview) return; let alive = true; void letterPhotoUrl(photoPath).then(url => { if (!alive) return; if (url) setPreview(url); else { setPhotoPath(""); writeDraft(photoKey, ""); } }); return () => { alive = false; }; }, [photoPath]);
+  // 새로고침 전에 올려 둔 사진을 다시 보여 준다. 정말 지워진 사진만 빼고, 잠깐 못 불러온 것은 경로를 그대로 두고 다시 불러오기를 보여 준다(검수 C12).
+  const [photoRetry, setPhotoRetry] = useState(0);
+  const [photoLoadFailed, setPhotoLoadFailed] = useState(false);
+  useEffect(() => { if (!photoPath || preview) return; let alive = true; setPhotoLoadFailed(false); void letterPhotoResult(photoPath).then(result => { if (!alive) return; if (result.status === "ok") setPreview(result.url); else if (result.status === "deleted") { setPhotoPath(""); writeDraft(photoKey, ""); } else setPhotoLoadFailed(true); }); return () => { alive = false; }; }, [photoPath, photoRetry]);
   useEffect(() => () => { if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview); }, [preview]);
   const pickPhoto = async (file?: File) => {
     if (!file || !photo) return;
@@ -536,6 +613,9 @@ function LetterComposer({ onSend, reply = false, draftKey, examples = [], photo,
       {preview ? <div className="flex flex-wrap items-end gap-4">
         <span className="block w-28 shrink-0 -rotate-[1.5deg] bg-[#FFFEFA] p-1.5 pb-4 shadow-[0_14px_28px_-18px_rgba(30,20,80,0.6)] ring-1 ring-black/5"><img src={preview} alt="편지에 넣을 사진" className="aspect-[4/5] w-full object-cover" /></span>
         <span className="min-w-0 flex-1 space-y-2"><span className="block text-xs font-semibold">사진 한 장을 함께 보내요</span><span className="block text-[11px] leading-5 text-muted-foreground">보내기 전에는 바꾸거나 뺄 수 있어요.</span><span className="flex flex-wrap gap-2"><Button variant="outline" disabled={photoBusy || sending} onClick={() => picker.current?.click()} className="h-9 rounded-full border-border px-4 text-xs">{photoBusy ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}바꾸기</Button><Button variant="ghost" disabled={photoBusy || sending} onClick={dropPhoto} className="h-9 rounded-full px-3 text-xs text-muted-foreground"><X size={13} />빼기</Button></span></span>
+      </div> : photoPath ? <div className="flex flex-wrap items-center justify-between gap-3">
+        <p role="status" className="text-xs leading-6"><span className="font-semibold">넣어 둔 사진이 있어요</span><br /><span className="text-muted-foreground">{photoLoadFailed ? "사진을 불러오지 못했어요. 사진은 그대로 함께 보내져요." : "사진을 불러오는 중…"}</span></p>
+        <span className="flex flex-wrap gap-2">{photoLoadFailed && <Button variant="outline" onClick={() => setPhotoRetry(value => value + 1)} className="h-9 rounded-full border-border px-4 text-xs">다시 불러오기</Button>}<Button variant="ghost" disabled={sending} onClick={dropPhoto} className="h-9 rounded-full px-3 text-xs text-muted-foreground">사진 빼기</Button></span>
       </div> : <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs leading-6"><span className="font-semibold">사진 한 장 · 선택</span><br /><span className="text-muted-foreground">편지와 어울리는 풍경·물건·요즘 좋아하는 장면이면 좋아요.</span></p>
         <Button variant="outline" disabled={photoBusy || sending} onClick={() => picker.current?.click()} className="h-10 rounded-full border-border px-4 text-xs">{photoBusy ? <><Loader2 size={13} className="animate-spin" />올리는 중…</> : <><ImagePlus size={13} />사진 넣기</>}</Button>
@@ -801,7 +881,10 @@ function PreludeLetters({ program }: { program: Program }) {
 // 우리의 사흘, 한 권: 넷째 날 두 분 모두 만나고 싶다고 한 교류에서, 두 분 모두 동의하면 펼칠 수 있다(인쇄·PDF 저장).
 function BookCard({ program }: { program: Program }) {
   const [state, setState] = useState({ ownBook: !!program.ownBook, bookOpen: !!program.bookOpen });
+  // 서버 값이 바뀌면(상대의 동의·철회) 따라간다(검수 C8). 한 권이 닫히면 펼친 창도 닫는다.
+  useEffect(() => setState({ ownBook: !!program.ownBook, bookOpen: !!program.bookOpen }), [program.ownBook, program.bookOpen]);
   const [open, setOpen] = useState(false);
+  useEffect(() => { if (!state.bookOpen) setOpen(false); }, [state.bookOpen]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const toggle = async (on: boolean) => {
@@ -814,7 +897,7 @@ function BookCard({ program }: { program: Program }) {
   };
   return <Sheet tone="soft" className="p-6 sm:p-8">
     <Eyebrow label="우리의 사흘, 한 권" en="KEEPSAKE" />
-    <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">두 분 모두 동의하면 사흘 동안 나눈 글을 표지 있는 한 권으로 펼쳐 볼 수 있어요. 인쇄하거나 PDF로 저장할 수 있고, 사진과 연락처는 넣지 않아요. 교류가 마무리되고 30일이 지나면 다시 읽기와 함께 닫히니, 남기고 싶다면 그 전에 저장해 주세요.</p>
+    <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">두 분 모두 동의하면 사흘 동안 나눈 글을 표지 있는 한 권으로 펼쳐 볼 수 있어요. 인쇄하거나 PDF로 저장할 수 있어요. 두 분이 동의한 사흘의 글만 담기고, 사진·연락처·상대 프로필은 넣지 않아요(상대 프로필과 사진은 저장하지 않아요). 교류가 마무리되고 30일이 지나면 다시 읽기와 함께 닫히니, 남기고 싶다면 그 전에 저장해 주세요.</p>
     <div className="mt-5 flex flex-wrap items-center gap-2">
       {state.bookOpen ? <Button onClick={() => setOpen(true)} className="h-11 rounded-full px-6"><BookOpen size={15} />한 권 펼치기</Button>
         : state.ownBook ? <span className={butter}>동의했어요 · 상대도 동의하면 열려요</span>
@@ -829,13 +912,27 @@ function BookCard({ program }: { program: Program }) {
 function BookView({ program, onClose }: { program: Program; onClose: () => void }) {
   const close = useRef(onClose);
   close.current = onClose;
+  const dialog = useRef<HTMLDivElement>(null);
+  const title = useRef<HTMLParagraphElement>(null);
+  // 열리면 제목으로 초점을 옮기고, Tab은 창 안에서만 돌며, 닫히면 ‘한 권 펼치기’ 버튼으로 돌아간다(검수 D4).
   useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
     document.body.classList.add("printing-book");
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (event: globalThis.KeyboardEvent) => { if (event.key === "Escape") close.current(); };
+    title.current?.focus();
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") { close.current(); return; }
+      if (event.key !== "Tab" || !dialog.current) return;
+      const items = Array.from(dialog.current.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'));
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      const inside = dialog.current.contains(document.activeElement);
+      if (event.shiftKey && (document.activeElement === first || !inside)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !inside)) { event.preventDefault(); first.focus(); }
+    };
     window.addEventListener("keydown", onKey);
-    return () => { document.body.classList.remove("printing-book"); document.body.style.overflow = overflow; window.removeEventListener("keydown", onKey); };
+    return () => { document.body.classList.remove("printing-book"); document.body.style.overflow = overflow; window.removeEventListener("keydown", onKey); opener?.focus?.(); };
   }, []);
   const me = program.ownName ?? "나", you = program.partnerName ?? "상대";
   const plan = program.ownPlan ?? "A";
@@ -851,9 +948,9 @@ function BookView({ program, onClose }: { program: Program; onClose: () => void 
   </div> : null;
   const final = program.entries.find(entry => entry.kind === "final");
   const piece = program.entries.find(entry => entry.kind === "piece");
-  return createPortal(<div role="dialog" aria-modal="true" aria-label="우리의 사흘, 한 권" className="book-print-root fixed inset-0 z-[70] overflow-y-auto bg-[#F1EEF7] text-[#1F1B33]">
+  return createPortal(<div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="book-title" className="book-print-root fixed inset-0 z-[70] overflow-y-auto bg-[#F1EEF7] text-[#1F1B33]">
     <div className="book-toolbar sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-black/5 bg-[#F1EEF7]/90 px-4 py-3 backdrop-blur sm:px-8">
-      <p className="text-xs font-semibold">우리의 사흘, 한 권</p>
+      <p ref={title} id="book-title" tabIndex={-1} className="text-xs font-semibold outline-none">우리의 사흘, 한 권</p>
       <div className="flex gap-2"><Button onClick={() => window.print()} className="h-10 rounded-full px-4 text-xs"><Printer size={14} />인쇄·PDF로 저장</Button><Button variant="outline" onClick={() => close.current()} className="h-10 rounded-full border-black/10 bg-white px-4 text-xs text-[#1F1B33] hover:bg-white/80 hover:text-[#1F1B33]"><X size={14} />닫기</Button></div>
     </div>
     <article className="book-paper mx-auto my-8 max-w-2xl bg-[#FFFEFA] shadow-[0_30px_60px_-40px_rgba(30,20,80,0.45)]">
@@ -896,11 +993,13 @@ function BookView({ program, onClose }: { program: Program; onClose: () => void 
 
 // ─────────────────────────────────────────────
 // 약속 · 연락처
+// 연락처가 보이는 때(서버 규칙 그대로 · 대표 결정 2026-11-04): 모든 안내를 이 문구로 맞춘다(약관·처리방침·자주 묻는 질문과 같게).
+const CONTACT_WINDOW = "만나는 날 0시부터 다음 날 밤 11시 59분까지";
 export function LiveMeetingPage() {
   return <Member><MeetingView /></Member>;
 }
 function MeetingView() {
-  const { data, error, loading, reload, run } = useProgram();
+  const { data, error, loading, reload, run, arrival } = useProgram();
   const [message, setMessage] = useState("");
   if (loading) return <Waiting />;
   if (error) return <section><p role="alert" className="text-sm text-destructive">{error}</p><Button variant="outline" className="mt-5 rounded-xl" onClick={() => void reload()}>다시 불러오기</Button></section>;
@@ -915,12 +1014,13 @@ function MeetingView() {
     <section className="space-y-8" aria-labelledby="meeting-title">
       <PageHeader mark="약속" label={accepted ? "약속 확정" : "약속 정하기"} en="THE NEXT SCENE" titleId="meeting-title" title={accepted ? <>{data.meetingOn && dayLabel(data.meetingOn)} {data.meetingTime?.split("~")[0]},<br />만나기로 했어요.</> : "만날 시간과 장소를 함께 정해요."} lead={accepted ? undefined : data.arrangeBy ? `${kstDateTime(data.arrangeBy)}까지 정하지 않으면 교류는 마무리돼요.` : undefined} />
       <Notice text={message} />
+      {arrival && arrival !== message && <p role="status" aria-live="polite" className={`inline-flex items-center gap-2 letter-drop ${butter}`}><LockOpen size={13} />{arrival}</p>}
       {!accepted && <OverlapPicker program={data} act={act} />}
       {accepted && accepted.selected && <CalendarLinks proposal={accepted} />}
-      {accepted && accepted.selected && <Sheet className="p-6 sm:p-8"><Eyebrow mark="✓" label="정해진 약속" en="IT'S A DATE" /><dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">{[["날짜·시간", `${dayLabel(accepted.selected.date)} ${accepted.selected.start}~${accepted.selected.end}`], ["활동", accepted.activity], ["지역", accepted.region], ["장소", accepted.place || "만나서 정해요"]].map(([label, value]) => <div key={label}><dt className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{label}</dt><dd className="mt-1 font-semibold">{value}</dd></div>)}</dl>{accepted.note && <p className="mt-4 rounded-xl bg-mist p-4 text-sm leading-7">{accepted.note}</p>}</Sheet>}
+      {accepted && accepted.selected && <Sheet className="p-6 sm:p-8"><Eyebrow mark="✓" label="정해진 약속" en="IT'S A DATE" /><dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">{[["날짜·시간", `${dayLabel(accepted.selected.date)} ${accepted.selected.start}~${accepted.selected.end}`], ["활동", accepted.activity], ["지역", accepted.region], ["장소", accepted.place || ""]].map(([label, value]) => <div key={label}><dt className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">{label}</dt><dd className={`mt-1 ${value ? "font-semibold" : "text-muted-foreground"}`}>{value || "만날 지점은 아직 정하지 않았어요"}</dd></div>)}</dl>{!accepted.place && accepted.selected.date <= shift(data.today, 1) && <p className="mt-4 rounded-xl border border-dashed border-primary/30 p-4 text-xs leading-6">만나기 전날인데 만날 지점이 아직 정해지지 않았어요. <a href="#proposal" className="font-semibold text-primary underline-offset-4 hover:underline">아래에서 장소를 넣어 다시 제안</a>해 주세요.</p>}{accepted.note && <p className="mt-4 rounded-xl bg-mist p-4 text-sm leading-7">{accepted.note}</p>}{(data.partnerMark || data.ownMark) && <div className="mt-5 border-t border-border pt-4"><p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">만나서 이어갈 이야기</p><p className="mt-1.5 text-sm leading-7"><span className="soft-underline is-on">{data.partnerMark || data.ownMark}</span></p><p className="mt-1 text-[11px] text-muted-foreground">{data.partnerMark ? `${data.partnerName ?? "상대"} 님이 사흘 동안 밑줄 그은 내 문장이에요.` : `내가 ${data.partnerName ?? "상대"} 님 글에서 밑줄 그은 문장이에요.`}</p></div>}</Sheet>}
       {open && !open.mine && <Sheet className="p-6 sm:p-8"><Eyebrow label="상대의 약속 제안" en="PROPOSAL" /><p className="mt-3 text-sm leading-7">{open.activity} · {open.region}{open.place ? ` · ${open.place}` : ""}</p>{open.note && <p className="mt-2 text-sm leading-7 text-muted-foreground">{open.note}</p>}<p className="mt-5 text-xs font-semibold">좋은 시간 하나를 골라 주세요</p><div className="mt-3 flex flex-wrap gap-2">{open.slots.map((slot, index) => <Button key={index} variant="outline" onClick={() => void act(() => acceptAppointment(open.id, index), "약속이 정해졌어요.")} className="h-auto rounded-xl border-border px-4 py-3 text-sm">{dayLabel(slot.date)} {slot.start}~{slot.end}</Button>)}</div><p className="mt-4 text-xs text-muted-foreground">맞는 시간이 없으면 아래에서 다른 시간을 제안해 주세요.</p></Sheet>}
       {open && open.mine && <QuietNote>보낸 제안: {open.slots.map(slot => `${dayLabel(slot.date)} ${slot.start}`).join(", ")} · 상대가 시간을 고르면 약속이 정해져요.</QuietNote>}
-      <ProposalForm program={data} act={act} again={!!(open || accepted || data.overlap?.length)} />
+      <div id="proposal" className="scroll-mt-28"><ProposalForm program={data} act={act} again={!!(open || accepted || data.overlap?.length)} /></div>
       {accepted && <Contact program={data} act={act} />}
       <NoteList items={[{ title: "처음 만남은", body: "사람이 많은 공개된 장소에서, 돌아가는 길을 각자 정해 두고 만나요." }, { title: "불편한 일이 생기면", body: "두 사람 화면에서 바로 신고·차단할 수 있어요. 만남이 어려워지면 문의로 알려 주세요." }]} />
     </section>
@@ -964,7 +1064,7 @@ function CalendarLinks({ proposal }: { proposal: { id: string; selected: Slot | 
   const { date, start, end } = proposal.selected;
   const utc = (time: string) => new Date(kstAt(date, time)).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
   const title = "플라비 첫 만남";
-  const details = "플라비에서 정한 첫 만남이에요. 연락처는 두 분이 동의하면 만나는 날 0시부터 플라비에서 볼 수 있어요.";
+  const details = `플라비에서 정한 첫 만남이에요. 연락처는 두 분이 동의하면 ${CONTACT_WINDOW} 플라비에서 볼 수 있어요.`;
   const location = [proposal.region, proposal.place].filter(Boolean).join(" · ");
   const esc = (text: string) => text.replace(/[\\,;]/g, match => `\\${match}`).replace(/\n/g, "\\n");
   const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//FLAVIE//KO", "CALSCALE:GREGORIAN", "BEGIN:VEVENT", `UID:${proposal.id}@flavie`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "")}`, `DTSTART:${utc(start)}`, `DTEND:${utc(end)}`, `SUMMARY:${esc(title)}`, `DESCRIPTION:${esc(`${proposal.activity} · ${details}`)}`, ...(location ? [`LOCATION:${esc(location)}`] : []), "END:VEVENT", "END:VCALENDAR"].join("\r\n");
@@ -1143,8 +1243,8 @@ function Contact({ program, act }: { program: Program; act: Act }) {
   return <Sheet className="p-6 sm:p-8" tone="soft">
     <Eyebrow label="만나는 날 연락처" en="CONTACT" />
     {program.contactReleased && program.partnerPhone ? <div className="mt-5"><p className="text-xs text-muted-foreground">{program.partnerName ?? "상대"} 님의 번호 · {kstDateTime(program.contactUntil)}까지 보여요</p><a href={`tel:${program.partnerPhone}`} className="mt-2 block text-3xl font-semibold tracking-wide text-ink">{program.partnerPhone}</a><p className="mt-3 text-xs leading-6 text-muted-foreground">기간이 지나면 이 화면에서 사라져요. 필요하면 직접 저장해 주세요.</p></div> : <>
-      <p className="mt-3 text-sm leading-7 text-muted-foreground">{program.contactReleaseAt && Date.parse(program.contactReleaseAt) <= Date.now() ? "번호는 열리지 않았어요. 두 분 중 한 분이 아직 동의하지 않았어요. 정한 시간과 장소에서 만나고, 문제가 생기면 두 사람 화면에서 신고해 주세요." : `두 분이 각자 동의하면 ${program.contactReleaseAt ? kstDateTime(program.contactReleaseAt) : "만나는 날 00:00"}부터 다음 날 23:59까지만 서로의 휴대폰 번호가 보여요. 상대의 선택은 열리기 전까지 알려 드리지 않아요.`}</p>
-      <div className="mt-5 flex flex-wrap items-center gap-3"><Button variant={program.ownContact ? "outline" : "default"} onClick={() => void act(() => setContactConsent(program.id, !program.ownContact), program.ownContact ? "동의를 거뒀어요." : "동의했어요. 만나는 날 00:00에 열려요.")} className="h-11 rounded-xl border-border px-6">{program.ownContact ? "동의 거두기" : "번호 공개에 동의하기"}</Button>{program.ownContact && <span className="text-xs text-primary">동의했어요</span>}</div>
+      <p className="mt-3 text-sm leading-7 text-muted-foreground">{program.contactReleaseAt && Date.parse(program.contactReleaseAt) <= Date.now() ? "번호는 열리지 않았어요. 두 분 중 한 분이 아직 동의하지 않았어요. 정한 시간과 장소에서 만나고, 문제가 생기면 두 사람 화면에서 신고해 주세요." : `두 분이 각자 동의하면 ${CONTACT_WINDOW}만 서로의 휴대폰 번호가 보여요${program.contactReleaseAt ? `(${kstDateTime(program.contactReleaseAt)}부터)` : ""}. 지금 보이는 약속에 동의하는 거라, 약속이 바뀌면 다시 동의해 주세요. 상대의 선택은 열리기 전까지 알려 드리지 않아요.`}</p>
+      <div className="mt-5 flex flex-wrap items-center gap-3"><Button variant={program.ownContact ? "outline" : "default"} onClick={() => void act(() => setContactConsent(program.id, !program.ownContact, program.meetingRev ?? null), program.ownContact ? "동의를 거뒀어요." : "동의했어요. 만나는 날 0시에 열려요.")} className="h-11 rounded-xl border-border px-6">{program.ownContact ? "동의 거두기" : "번호 공개에 동의하기"}</Button>{program.ownContact && <span className="text-xs text-primary">동의했어요</span>}</div>
     </>}
   </Sheet>;
 }

@@ -7,7 +7,7 @@ import { BEFORE_US } from "./config";
 import { PHOTO_REVIEW_TEXT, PHOTO_SLOTS, type PhotoSlotId } from "./photo-model";
 import { kstDateTime } from "./dates";
 import { Composition } from "./PhotoStep";
-import { cancelReplacement, decodePhoto, photoUrl, removePhoto, uploadPhoto, uploadPreparedPhoto, type PhotoRow, type PreparedPhoto, type ReplacementRow } from "./backend/applications";
+import { cancelReplacement, decodePhoto, photoResult, photoUrl, removePhoto, uploadPhoto, uploadPreparedPhoto, type PhotoRow, type PreparedPhoto, type ReplacementRow } from "./backend/applications";
 import PhotoAdjuster from "./PhotoAdjuster";
 
 // 실제 서버 모드의 사진 단계. 카드 구성은 데모 사진 단계(PhotoStep)와 같고, 실제 파일을 올린다.
@@ -16,10 +16,15 @@ import PhotoAdjuster from "./PhotoAdjuster";
 // 이미 소개를 받고 있는(승인된) 회원이 확인된 사진을 바꾸면 새 사진은 ‘교체 대기’로 올라가고, 운영진이 확인할 때까지 지금 사진이 그대로 보인다.
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
 
+// 올린 사진 미리 보기: 잠깐 못 불러왔을 때 ‘아직 안 올린 사진’ 예시를 보여 주지 않고 다시 불러오기를 보여 준다(검수 C12).
 function Thumbnail({ path, number }: { path: string | null; number: number }) {
   const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => { let alive = true; setUrl(null); if (path) void photoUrl(path).then(next => { if (alive) setUrl(next); }); return () => { alive = false; }; }, [path]);
-  if (path && url) return <img src={url} alt="" className="h-full w-full object-cover" />;
+  const [failed, setFailed] = useState<"" | "temporary" | "gone">("");
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => { let alive = true; setUrl(null); setFailed(""); if (path) void photoResult(path).then(result => { if (!alive) return; if (result.status === "ok") setUrl(result.url); else setFailed(result.status === "temporary-error" ? "temporary" : "gone"); }); return () => { alive = false; }; }, [path, attempt]);
+  if (path && url) return <img src={url} alt="" onError={() => { setUrl(null); setFailed("temporary"); }} className="h-full w-full object-cover" />;
+  if (path && failed) return <div role="status" className="grid h-full w-full place-items-center bg-mist p-3 text-center"><span className="space-y-2"><span className="block text-[11px] leading-5 text-muted-foreground">{failed === "gone" ? "사진을 찾을 수 없어요. 다시 올려 주세요." : "올린 사진을 불러오지 못했어요."}</span>{failed === "temporary" && <button type="button" onClick={event => { event.preventDefault(); event.stopPropagation(); setAttempt(value => value + 1); }} className={`inline-flex min-h-9 items-center text-[11px] font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>다시 불러오기</button>}</span></div>;
+  if (path) return <div role="status" aria-label="사진을 불러오는 중" className="h-full w-full animate-pulse bg-mist" />;
   return <Composition number={number} crop />;
 }
 

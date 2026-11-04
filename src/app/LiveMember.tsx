@@ -17,11 +17,11 @@ import { PHOTO_SLOTS } from "./photo-model";
 import { DECLINE_REASONS } from "./introduction-model";
 import { REQUEST_LABELS } from "./member-operations-model";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
-import { PHOTO_ORDER, loadMyApplication, partnerPhotoUrl, photoUrl, type PhotoRow, type ReplacementRow } from "./backend/applications";
+import { PHOTO_ORDER, loadMyApplication, partnerPhotoResult, photoResult, type PhotoResult, type PhotoRow, type ReplacementRow } from "./backend/applications";
 import LivePhotoStep from "./LivePhotoStep";
 import { HomeScreenTip } from "./HomeScreenTip";
 import { VouchCard } from "./Vouch";
-import { WeeklyNote } from "./WeeklyNote";
+import { FlavieNews } from "./WeeklyNote";
 import { publicApplicationProfile } from "./application-review";
 import { addAvoidContacts, deleteAvoidContact, loadAvoidContacts, type AvoidContact, blockPartner, deleteGreeting, loadGreeting, loadMyRequests, saveGreeting, type Greeting, markNotificationsRead, NOTIFICATION_FIRST, editBlockReason, loadReflection, loadPrelude, savePrelude, deletePrelude, type Prelude, PRELUDE_MIN, PRELUDE_MAX, loadWindow, saveWindowAnswer, deleteWindowAnswer, type WindowQuestion, photoHoldAt, recordIntroductionView, saveReflection, deleteReflection, type Reflection, reportPartner, respondIntroduction, saveNoticeSettings, setNotifyChannels, setPaused, submitMemberRequest, useMemberSnapshot, type IntroMatch, type LiveIntroduction, type MemberSnapshot } from "./backend/member";
 
@@ -173,11 +173,10 @@ function LiveTodayView() {
           {data.notifications.length ? <><ul className="mt-4 divide-y divide-border border-y border-border">{data.notifications.slice(0, allNotes ? undefined : NOTIFICATION_FIRST).map(item => <li key={item.id} className="py-4"><p className={`text-sm ${item.read_at ? "" : "font-semibold"}`}>{item.link ? <Link to={item.link} className="hover:text-primary">{item.title}</Link> : item.title}</p>{item.body && <p className="mt-1 text-xs leading-6 text-muted-foreground">{item.body}</p>}<p className="mt-1 text-[11px] text-muted-foreground">{kstDateTime(item.created_at)}</p></li>)}</ul>{data.notifications.length > NOTIFICATION_FIRST && <Button variant="ghost" onClick={() => setAllNotes(value => !value)} aria-expanded={allNotes} className={`mt-2 h-9 rounded-full px-4 text-xs text-muted-foreground ${interaction}`}>{allNotes ? "접기" : `지난 알림 ${data.notifications.length - NOTIFICATION_FIRST}개 더 보기`}</Button>}</> : <p className="mt-4 border-y border-border py-6 text-xs leading-6 text-muted-foreground">아직 알림이 없어요. 소개가 준비되면 정오에 여기와 오늘 화면에서 알려 드려요.</p>}
         </aside>
       </div>
-      <WeeklyNote />
+      <FlavieNews />
       {data.application?.status === "approved" && data.photos && <PhotoChangeNotice photos={data.photos} />}
       {reflectable(data) && <ReflectionCard key={data.program!.id} programId={data.program!.id} met={data.program!.endReason === "completed"} />}
-      {data.application && data.application.status !== "draft" && data.introduction.status === "waiting" && <div className="mt-10"><FirstWordCard /></div>}
-      {data.application?.status === "approved" && data.introduction.status !== "published" && data.introduction.status !== "mutual" && <div className="mt-6 grid gap-6 lg:grid-cols-2"><PreludeCard /><WindowCard /></div>}
+      <WaitingShelf data={data} />
       <section className="mt-14 border-t border-border pt-8" aria-labelledby="status-title">
         <h2 id="status-title" className="mb-5 text-sm font-semibold">지금 알아두면 좋은 것</h2>
         <HomeScreenTip className="mb-6" />
@@ -227,10 +226,10 @@ function ReflectionCard({ programId, met }: { programId: string; met: boolean })
   const remove = async () => { const { error } = await deleteReflection(programId); if (error) { setMessage(error); return; } setSaved(null); setBody(""); setEditing(false); setMessage("한 줄을 지웠어요."); };
   const form = !saved || editing;
   return <Sheet className="mt-10 p-6 sm:p-8">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold text-accent">다음 소개를 위한 한 줄</p><h2 className="mt-3 text-xl font-semibold leading-[1.5]">{met ? "만나 보니 어땠나요?" : "이번 교류는 어땠나요?"}</h2></div>{saved && <span className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${saved.usedAt ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{saved.usedAt ? "다음 소개에 반영했어요" : "운영진만 봐요"}</span>}</div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold text-accent">{met ? "만남 뒤, 남기는 한 줄" : "다음 소개를 위한 한 줄"}</p><h2 className="mt-3 text-xl font-semibold leading-[1.5]">{met ? "만나 보니 어땠나요?" : "이번 교류는 어땠나요?"}</h2></div>{saved && <span className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${saved.usedAt ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{saved.usedAt ? "다음 소개에 반영했어요" : "운영진만 봐요"}</span>}</div>
     <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">운영진에게만 보이고, 상대에게는 보이지 않아요. 어떤 점이 편했는지, 다음엔 어떤 분이면 좋을지 남겨 주시면 다음 분을 고를 때 반영하고, 소개할 때 함께 알려 드려요.</p>
     {form ? <>
-      <Textarea aria-label="다음 소개를 위한 한 줄" value={body} maxLength={200} onChange={event => { setBody(event.target.value); setMessage(""); }} placeholder="예: 대화가 편안했어요. 다음엔 조금 더 가까이 사는 분이면 좋겠어요." className="mt-5 min-h-20 rounded-xl bg-card text-[15px] leading-7" />
+      <Textarea aria-label={met ? "만남 뒤, 남기는 한 줄" : "다음 소개를 위한 한 줄"} value={body} maxLength={200} onChange={event => { setBody(event.target.value); setMessage(""); }} placeholder="예: 대화가 편안했어요. 다음엔 조금 더 가까이 사는 분이면 좋겠어요." className="mt-5 min-h-20 rounded-xl bg-card text-[15px] leading-7" />
       <div className="mt-2 flex items-start justify-between gap-3 text-[11px] leading-5 text-muted-foreground"><p>5~200자 · 연락처·SNS 아이디·링크는 적을 수 없어요</p><span className="shrink-0 tabular-nums">{length} / 200</span></div>
       {!body.trim() && <div className="mt-3 flex flex-wrap gap-2">{REFLECTION_IDEAS.map(idea => <button key={idea} type="button" onClick={() => setBody(idea)} className={`rounded-full border border-border px-3 py-1.5 text-xs hover:border-primary/50 hover:text-primary ${interaction}`}>{idea}</button>)}</div>}
       <div className="mt-5 flex flex-wrap items-center gap-2"><Button disabled={length < 5 || sending || body.trim() === (saved?.body ?? "")} onClick={() => void save()} className={`h-11 rounded-xl px-5 ${interaction}`}>{sending ? "남기는 중…" : "한 줄 남기기"}</Button>{editing && <Button variant="ghost" onClick={() => { setEditing(false); setBody(saved?.body ?? ""); }} className={`h-11 rounded-xl text-xs text-muted-foreground ${interaction}`}>그만 고치기</Button>}</div>
@@ -267,7 +266,8 @@ function PhotosPanel({ photos }: { photos: MemberSnapshot["photos"] }) {
 // ─────────────────────────────────────────────
 // 아직 모르는 당신에게: 다음에 만날 분께 미리 써 두는 편지. 두 분 모두 서로를 고른 순간에만 전해지고, 넘긴 소개에는 가지 않는다.
 // 정오에 받은 소개에 답하는 동안에는 고칠 수 없다(아직 모르는 사람에게 쓴 편지로 남게). 운영진은 읽지 않는다.
-export function PreludeCard() {
+export function PreludeCard({ folded = false }: { folded?: boolean } = {}) {
+  const [open, setOpen] = useState(!folded);
   const [saved, setSaved] = useState<Prelude | null | undefined>(undefined);
   const [body, setBody] = useState("");
   const [editing, setEditing] = useState(false);
@@ -279,6 +279,7 @@ export function PreludeCard() {
   const save = async () => { setSending(true); const result = await savePrelude(body); setSending(false); if (result.error || !result.data) { setMessage(result.error || "저장하지 못했어요."); return; } setSaved(result.data); setBody(result.data.body ?? ""); setEditing(false); setMessage("써 두었어요. 두 분 모두 서로를 고르면 그 순간 전해져요."); };
   const remove = async () => { const result = await deletePrelude(); if (result.error || !result.data) { setMessage(result.error || "지우지 못했어요."); return; } setSaved(result.data); setBody(""); setEditing(false); setMessage("편지를 지웠어요."); };
   const form = !saved.body || editing;
+  if (!open) return <FoldedSheet eyebrow="아직 모르는 당신에게" title="다음에 만날 분께, 미리 편지 한 장." line={saved.body ? "써 두었어요 · 두 분 모두 서로를 고른 순간에만 전해져요" : "두 분 모두 서로를 고른 순간에만 전해지는 편지예요"} action={saved.body ? "보기" : "쓰기"} onOpen={() => setOpen(true)} />;
   return <Sheet className="flex flex-col p-6 sm:p-8">
     <p className="text-xs font-semibold text-accent">아직 모르는 당신에게</p>
     <h2 className="mt-3 text-xl font-semibold leading-[1.5]">다음에 만날 분께, 미리 편지 한 장.</h2>
@@ -298,7 +299,8 @@ export function PreludeCard() {
 }
 
 // 창가 질문: 2주마다 바뀌는 질문 하나. 답은 운영진만 보고, 다음 분을 고를 때 참고하면 소개 화면에 함께 알려 준다.
-export function WindowCard() {
+export function WindowCard({ folded = false }: { folded?: boolean } = {}) {
+  const [open, setOpen] = useState(!folded);
   const [item, setItem] = useState<WindowQuestion | null | undefined>(undefined);
   const [body, setBody] = useState("");
   const [editing, setEditing] = useState(false);
@@ -310,6 +312,7 @@ export function WindowCard() {
   const remove = async () => { const result = await deleteWindowAnswer(); if (result.error || !result.data) { setMessage(result.error || "지우지 못했어요."); return; } setItem(result.data); setBody(""); setEditing(false); setMessage("답을 지웠어요."); };
   const form = !item.answer || editing;
   const on = (date: string) => kstDay(`${date}T12:00:00+09:00`);
+  if (!open) return <FoldedSheet soft eyebrow={`창가 질문 · ${on(item.until)}까지`} title={item.question} line={item.answer ? `남긴 답 · ${item.answer}` : "2주마다 바뀌는 질문 하나예요. 답은 운영진만 봐요."} action={item.answer ? "보기" : "답하기"} onOpen={() => setOpen(true)} />;
   return <Sheet tone="soft" className="flex flex-col p-6 sm:p-8">
     <div className="flex flex-wrap items-start justify-between gap-3"><p className="text-xs font-semibold text-accent">창가 질문 · {on(item.until)}까지</p>{item.answer && <span className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${item.usedAt ? "bg-primary/10 text-primary" : "bg-card text-muted-foreground"}`}>{item.usedAt ? "소개를 고를 때 참고했어요" : "운영진만 봐요"}</span>}</div>
     <h2 className="mt-3 text-xl font-semibold leading-[1.5]">{item.question}</h2>
@@ -324,6 +327,35 @@ export function WindowCard() {
     </>}
     <p className="mt-auto pt-5 text-[11px] text-muted-foreground">다음 질문은 {on(item.nextOn)}에 열려요.</p>
     {message && <p role="status" className="mt-2 text-xs text-primary">{message}</p>}
+  </Sheet>;
+}
+
+// 기다리는 동안(GPT 검수 F1): 무엇을 또 써야 하는 목록처럼 보이지 않게, 받는 사람별로 나누고 처음에는 하나만 펼친다.
+//   앞으로 만날 한 사람에게: 첫 마디(소개된 분이 가장 먼저 봄) · 아직 모르는 당신에게(서로 고르면 전해지는 편지)
+//   소개할 분을 고르는 플라비에게: 창가 질문(운영진만 봄)
+function WaitingShelf({ data }: { data: MemberSnapshot }) {
+  const first = !!data.application && data.application.status !== "draft" && data.introduction.status === "waiting";
+  const approved = data.application?.status === "approved" && data.introduction.status !== "published" && data.introduction.status !== "mutual";
+  if (!first && !approved) return null;
+  return <section aria-labelledby="waiting-title" className="mt-10">
+    <h2 id="waiting-title" className="text-sm font-semibold">기다리는 동안</h2>
+    <p className="mt-1 text-xs leading-6 text-muted-foreground">모두 써야 하는 건 아니에요. 마음이 가는 것 하나면 충분해요.</p>
+    <div className="mt-5 space-y-3">
+      <p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">앞으로 만날 한 사람에게</p>
+      {first && <FirstWordCard />}
+      {approved && <PreludeCard folded={first} />}
+      {approved && <>
+        <p className="pt-4 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">소개할 분을 고르는 {BEFORE_US.brand.name}에게</p>
+        <WindowCard folded />
+      </>}
+    </div>
+  </section>;
+}
+// 접어 둔 카드: 제목과 한 줄만 보이고, 누르면 펼친다.
+function FoldedSheet({ eyebrow, title, line, action, onOpen, soft = false }: { eyebrow: string; title: string; line: string; action: string; onOpen: () => void; soft?: boolean }) {
+  return <Sheet tone={soft ? "soft" : "plain"} className="flex flex-wrap items-center justify-between gap-4 p-5 sm:px-8 sm:py-6">
+    <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-accent">{eyebrow}</p><p className="mt-1.5 text-[15px] font-semibold leading-7">{title}</p><p className="mt-0.5 line-clamp-1 text-xs leading-6 text-muted-foreground">{line}</p></div>
+    <Button variant="outline" onClick={onOpen} aria-label={`${eyebrow} ${action}`} className={`h-10 shrink-0 rounded-full border-border bg-card px-4 text-xs ${interaction}`}>{action}</Button>
   </Sheet>;
 }
 
@@ -417,9 +449,10 @@ const valueOf = (value: string | string[]) => Array.isArray(value) ? value.join(
 // 내 정보: 상대에게 보이는 내 소개. 신청서에서 ‘상대 공개’로 켠 항목과 운영진이 확인한 사진을, 상대가 정오에 보는 모양 그대로 미리 본다.
 type MyPublic = { name: string | null; items: { id: string; value: string | string[] }[]; photos: PhotoRow[]; waitingPhotos: number; swapping: number };
 function OwnPhoto({ path, label }: { path: string; label: string }) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => { let alive = true; void photoUrl(path).then(next => { if (alive) setUrl(next); }); return () => { alive = false; }; }, [path]);
-  return <figure className="aspect-[4/5] overflow-hidden rounded-2xl bg-lilac">{url ? <img src={url} alt={label} onError={() => setUrl(null)} className="h-full w-full object-cover" /> : <span className="sr-only">{label}</span>}</figure>;
+  const [result, setResult] = useState<PhotoResult | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => { let alive = true; setResult(null); void photoResult(path).then(next => { if (alive) setResult(next); }); return () => { alive = false; }; }, [path, attempt]);
+  return <figure className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-lilac">{result?.status === "ok" ? <img src={result.url} alt={label} onError={() => setResult({ status: "temporary-error", message: "" })} className="h-full w-full object-cover" /> : <span className="sr-only">{label}</span>}{result && result.status !== "ok" && <figcaption className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3 text-center text-[11px] leading-5 text-muted-foreground">{result.status === "temporary-error" ? <>사진을 잠시 불러오지 못했어요<button type="button" onClick={() => setAttempt(value => value + 1)} className="rounded-full border border-border bg-card px-3 py-1.5 text-[11px] text-foreground">다시 불러오기</button></> : "이 사진은 지금 볼 수 없어요"}</figcaption>}</figure>;
 }
 function MyPublicProfileCard() {
   const [state, setState] = useState<MyPublic | "none" | "error" | null>(null);
@@ -499,7 +532,9 @@ function PartnerPhoto({ path, label }: { path: string; label: string }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  useEffect(() => { let alive = true; setFailed(false); void partnerPhotoUrl(path).then(next => { if (!alive) return; if (next) setUrl(next); else setFailed(true); }); return () => { alive = false; }; }, [path, attempt]);
+  const [gone, setGone] = useState<"" | "forbidden" | "deleted">("");
+  useEffect(() => { let alive = true; setFailed(false); setGone(""); void partnerPhotoResult(path).then(next => { if (!alive) return; if (next.status === "ok") setUrl(next.url); else if (next.status === "temporary-error") setFailed(true); else setGone(next.status); }); return () => { alive = false; }; }, [path, attempt]);
+  if (gone) return <figure className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-border bg-muted"><figcaption className="absolute inset-0 flex items-center justify-center p-3 text-center text-[11px] leading-5 text-muted-foreground">{gone === "forbidden" ? "사진을 볼 수 있는 기간이 지났어요" : "상대가 사진을 바꿔 지금은 볼 수 없어요"}</figcaption><span className="sr-only">{label}</span></figure>;
   return <figure className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-border bg-muted">{url && !failed ? <img src={url} alt={label} className="h-full w-full object-cover" draggable={false} onContextMenu={event => event.preventDefault()} onError={() => setFailed(true)} /> : <span className="sr-only">{label}</span>}{failed && <figcaption className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3 text-center text-[11px] leading-5 text-muted-foreground">사진을 불러오지 못했어요<button type="button" onClick={() => { setUrl(null); setAttempt(value => value + 1); }} className="rounded-full border border-border bg-card px-3 py-1.5 text-[11px] text-foreground">다시 보기</button>{attempt > 0 && <Link to="/contact?type=소개·교류" className="font-semibold text-primary underline-offset-4 hover:underline">계속 안 보이면 문의하기</Link>}</figcaption>}</figure>;
 }
 
@@ -515,7 +550,6 @@ function LiveIntroductionView() {
   const [safety, setSafety] = useState<"report" | "block" | null>(null);
   const [reportText, setReportText] = useState("");
   const [sending, setSending] = useState(false);
-  const [urgent, setUrgent] = useState(false);
   const [answerMessage, setAnswerMessage] = useState("");
   const [flash, setFlash] = useState("");
   useEffect(() => { if (data) setIntro(data.introduction); }, [data]);
@@ -526,9 +560,9 @@ function LiveIntroductionView() {
     if (!reportText.trim()) { setMessage("어떤 일이 있었는지 한 줄이라도 적어 주세요."); return; }
     setSending(true);
     try {
-      const result = await reportPartner(intro.id, "회원 신고", reportText, urgent);
-      setMessage(result.error || "신고를 받았어요. 운영진이 가장 먼저 확인해요. 상대에게는 신고 사실을 알리지 않아요.");
-      if (!result.error) { setSafety(null); setReportText(""); setUrgent(false); }
+      const result = await reportPartner(intro.id, "회원 신고", reportText, false);
+      setMessage(result.error || "신고 내용을 받았어요. 운영진이 평일 10~18시에 확인해요. 신고만으로 교류가 멈추지는 않아요. 지금 대화를 끝내고 싶다면 차단할 수 있어요. 상대에게는 신고 사실을 알리지 않아요.");
+      if (!result.error) { setSafety(null); setReportText(""); }
     } finally { setSending(false); }
   };
   if (loading || (!intro && !error)) return <Waiting />;
@@ -545,7 +579,7 @@ function LiveIntroductionView() {
         {intro.status !== "waiting" && <div className="mt-10 max-w-xl space-y-3 border-t border-border pt-5">
           <p className="text-xs leading-6 text-muted-foreground">끝난 소개나 만남에서 불편한 일이 있었다면 지금도 신고할 수 있어요. 상대에게는 신고 사실을 알리지 않아요.</p>
           <Button variant="ghost" onClick={() => setSafety(value => value === "report" ? null : "report")} aria-expanded={safety === "report"} className={`h-10 rounded-full px-4 text-xs text-muted-foreground hover:bg-muted hover:text-foreground ${interaction}`}><Flag size={13} />신고하기</Button>
-          {safety === "report" && <div className="space-y-3 rounded-2xl border border-border p-4"><Textarea aria-label="신고 내용" value={reportText} maxLength={1000} onChange={event => setReportText(event.target.value)} placeholder="어떤 일이 있었는지 적어 주세요. 캡처 등 증빙은 지우지 말고 보관해 주세요." className="min-h-24 rounded-xl text-base md:text-sm" /><label className="flex items-center gap-2 text-xs"><Checkbox checked={urgent} onCheckedChange={value => setUrgent(value === true)} />지금 위험하거나 급한 일이에요</label><Button disabled={sending} onClick={() => void sendClosedReport()} className={`h-11 rounded-full px-5 ${interaction}`}>{sending ? "보내는 중…" : "신고 보내기"}</Button></div>}
+          {safety === "report" && <div className="space-y-3 rounded-2xl border border-border p-4"><Textarea aria-label="신고 내용" value={reportText} maxLength={1000} onChange={event => setReportText(event.target.value)} placeholder="어떤 일이 있었는지 적어 주세요. 캡처 등 증빙은 지우지 말고 보관해 주세요." className="min-h-24 rounded-xl text-base md:text-sm" /><p className="text-[11px] leading-5 text-muted-foreground">지금 위험하다면 112에 먼저 연락해 주세요. 신고는 운영진이 평일 10~18시에 확인해요. 신고만으로 교류가 멈추지는 않아요. 지금 대화를 끝내고 싶다면 차단해 주세요.</p><Button disabled={sending} onClick={() => void sendClosedReport()} className={`h-11 rounded-full px-5 ${interaction}`}>{sending ? "보내는 중…" : "신고 보내기"}</Button></div>}
           {message && <p role="status" className="rounded-xl bg-muted p-3 text-xs leading-6">{message}</p>}
         </div>}
       </section>
@@ -567,8 +601,8 @@ function LiveIntroductionView() {
     setSending(true);
     try {
       if (safety === "block") { const result = await blockPartner(intro.id); if (result.error) { setMessage(result.error); return; } setSafety(null); setFlash("차단했어요. 다시는 서로 소개되지 않고, 상대에게는 차단 사실을 알리지 않아요."); await reload(); return; }
-      const result = await reportPartner(intro.id, "회원 신고", reportText, urgent);
-      setMessage(result.error || "신고를 받았어요. 운영진이 가장 먼저 확인해요. 상대에게는 신고 사실을 알리지 않아요.");
+      const result = await reportPartner(intro.id, "회원 신고", reportText, false);
+      setMessage(result.error || "신고 내용을 받았어요. 운영진이 평일 10~18시에 확인해요. 신고만으로 교류가 멈추지는 않아요. 지금 대화를 끝내고 싶다면 차단할 수 있어요. 상대에게는 신고 사실을 알리지 않아요.");
       if (!result.error) { setSafety(null); setReportText(""); }
     } finally {
       setSending(false);
@@ -584,10 +618,10 @@ function LiveIntroductionView() {
       <PageHeader mark="두 사람" label={intro.status === "mutual" ? "서로 선택" : "오늘의 인연"} en="TWO OF US" titleId="us-title" title={name ? `${valueOf(name.value)} 님을 소개해요.` : "오늘의 인연을 소개해요."} lead={intro.status === "published" ? intro.ownResponse ? `${kstDateTime(intro.dueAt)}에 답이 마감돼요.` : `${kstDateTime(intro.dueAt)}까지 답해 주세요.` : undefined} aside={<TwoDots apart={intro.status !== "mutual"} />} />
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div className="space-y-8">
+          {intro.note && <Sheet tone="soft" className="p-6"><p className="text-xs font-semibold text-accent">운영진이 두 분을 소개한 이유</p><p className="mt-3 text-sm leading-7">{intro.note}</p>{(intro.reflected || intro.windowed) && <p className="mt-3 border-t border-border/70 pt-3 text-xs leading-6 text-muted-foreground">{intro.reflected && intro.windowed ? "지난 교류 뒤 남겨 주신 한 줄과 창가 질문에 남긴 답을 참고해 골랐어요." : intro.reflected ? "지난 교류 뒤 남겨 주신 한 줄을 참고해 골랐어요." : "창가 질문에 남긴 답을 참고해 골랐어요."}</p>}</Sheet>}
+          {intro.echo && <EchoPair echo={intro.echo} partner={name ? valueOf(name.value) : "상대"} />}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{intro.profile.photos.map(photo => <PartnerPhoto key={photo.path} path={photo.path} label={PHOTO_SLOTS.find(slot => slot.id === photo.slot)?.label ?? "사진"} />)}</div>
           {intro.profile.greeting && <figure className="border-l-2 border-primary pl-5"><blockquote className="text-lg font-semibold leading-[1.6]">“{intro.profile.greeting}”</blockquote><figcaption className="mt-2 text-xs text-muted-foreground">{name ? `${valueOf(name.value)} 님의 첫 마디` : "첫 마디"}</figcaption></figure>}
-          {intro.echo && <EchoPair echo={intro.echo} partner={name ? valueOf(name.value) : "상대"} />}
-          {intro.note && <Sheet tone="soft" className="p-6"><p className="text-xs font-semibold text-accent">운영진이 두 분을 소개한 이유</p><p className="mt-3 text-sm leading-7">{intro.note}</p>{(intro.reflected || intro.windowed) && <p className="mt-3 border-t border-border/70 pt-3 text-xs leading-6 text-muted-foreground">{intro.reflected && intro.windowed ? "지난 교류 뒤 남겨 주신 한 줄과 창가 질문에 남긴 답을 참고해 골랐어요." : intro.reflected ? "지난 교류 뒤 남겨 주신 한 줄을 참고해 골랐어요." : "창가 질문에 남긴 답을 참고해 골랐어요."}</p>}</Sheet>}
           {intro.match && <MatchSheet match={intro.match} />}
           <dl className="divide-y divide-border border-y border-border">{intro.profile.items.filter(item => item.id !== "self.name").map(item => <div key={item.id} className="grid gap-1 py-4 sm:grid-cols-[140px_1fr]"><dt className="text-xs text-muted-foreground">{labelOf(item.id)}</dt><dd className="whitespace-pre-wrap break-words text-sm leading-7">{valueOf(item.value)}</dd></div>)}</dl>
           <p className="text-xs leading-6 text-muted-foreground">{intro.status === "mutual" ? "서로 선택했으니 프로필과 사진은 교류와 약속이 끝날 때까지 볼 수 있어요." : "프로필과 사진은 응답 기한까지만 볼 수 있어요."} 캡처하거나 다른 곳에 옮기지 말아 주세요.</p>
@@ -609,7 +643,7 @@ function LiveIntroductionView() {
           <div className="space-y-3 border-t border-border pt-5">
             <p className="text-xs leading-6 text-muted-foreground">{SAFETY_COMPOSE_NOTE}</p>
             <div className="flex flex-wrap gap-2"><Button variant="ghost" onClick={() => setSafety(value => value === "report" ? null : "report")} aria-expanded={safety === "report"} className={`h-9 rounded-xl text-xs text-muted-foreground ${interaction}`}><Flag size={13} />신고하기</Button><Button variant="ghost" onClick={() => setSafety(value => value === "block" ? null : "block")} aria-expanded={safety === "block"} className={`h-9 rounded-xl text-xs text-muted-foreground ${interaction}`}><ShieldOff size={13} />차단하기</Button></div>
-            {safety === "report" && <div className="space-y-3 rounded-xl border border-border p-4"><Textarea aria-label="신고 내용" value={reportText} maxLength={1000} onChange={event => setReportText(event.target.value)} placeholder="어떤 일이 있었는지 적어 주세요. 캡처 등 증빙은 지우지 말고 보관해 주세요." className="min-h-24 rounded-xl" /><label className="flex items-center gap-2 text-xs"><Checkbox checked={urgent} onCheckedChange={value => setUrgent(value === true)} />돈 요구·협박 등 급한 일이에요</label><Button size="sm" disabled={sending} onClick={() => void submitSafety()} className="rounded-xl">신고 보내기</Button><p className="text-[11px] text-muted-foreground">위급하면 112에 먼저 연락해 주세요.</p></div>}
+            {safety === "report" && <div className="space-y-3 rounded-xl border border-border p-4"><Textarea aria-label="신고 내용" value={reportText} maxLength={1000} onChange={event => setReportText(event.target.value)} placeholder="어떤 일이 있었는지 적어 주세요. 캡처 등 증빙은 지우지 말고 보관해 주세요." className="min-h-24 rounded-xl" /><Button size="sm" disabled={sending} onClick={() => void submitSafety()} className="rounded-xl">신고 보내기</Button><p className="text-[11px] leading-5 text-muted-foreground">지금 위험하다면 112에 먼저 연락해 주세요. 신고는 운영진이 평일 10~18시에 확인해요. 신고만으로 교류가 멈추지는 않아요. 지금 대화를 끝내고 싶다면 차단해 주세요.</p></div>}
             {safety === "block" && <div className="space-y-3 rounded-xl border border-border p-4"><p className="text-xs leading-6">차단하면 이 소개가 바로 끝나고, 다시는 서로 소개되지 않아요. 이유는 묻지 않아요.</p><Button size="sm" variant="outline" disabled={sending} onClick={() => void submitSafety()} className="rounded-xl border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive">차단하기</Button></div>}
             {message && <p role="status" className="rounded-xl bg-muted p-3 text-xs leading-6">{message}</p>}
           </div>

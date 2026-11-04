@@ -140,7 +140,7 @@ function HeroPoints() {
 }
 function HeroDeadline() {
   const cohort = useRecruitingCohort();
-  return <p className={`mt-7 inline-flex min-h-7 items-center gap-2 rounded-full bg-[#F8E5A6] px-3.5 py-1.5 text-xs font-semibold text-[#2B2540] shadow-[0_10px_24px_-14px_rgba(40,20,90,0.7)] transition-opacity duration-300 ${cohort ? "opacity-100" : "opacity-0"}`} aria-hidden={!cohort}><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />{cohort ? <>{BETA ? "베타 무료" : `${cohortName(cohort.number)} 모집 중`} · 신청 마감 {kstDay(cohort.applicationDeadline).replace(" (", "(")}</> : "\u00a0"}</p>;
+  return <p className={`mt-7 inline-flex min-h-7 items-center gap-2 rounded-full bg-[#F8E5A6] px-3.5 py-1.5 text-xs font-semibold text-[#2B2540] shadow-[0_10px_24px_-14px_rgba(40,20,90,0.7)] transition-opacity duration-300 ${cohort ? "opacity-100" : "opacity-0"}`} aria-hidden={!cohort}><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />{cohort ? <>{BETA ? "베타 무료" : `${cohortName(cohort.number)} 모집 중`} · 신청 마감 {kstDay(cohort.applicationDeadline).replace(" (", "(")} · 첫 소개 {kstDay(cohort.startsOn).replace(/ \(.\)$/, "")} 정오</> : "\u00a0"}</p>;
 }
 
 function Hero() {
@@ -149,9 +149,9 @@ function Hero() {
     <section className="bleed relative isolate overflow-clip bg-primary text-primary-foreground" aria-labelledby="home-title">
       <HeroBackdrop />
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10" style={{ backgroundImage: part.tint }} />
-      <div className="relative grid gap-12 pt-14 pb-28 sm:pt-20 sm:pb-32 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:pt-20 lg:pb-32">
+      <div className="relative grid gap-12 pt-14 pb-28 sm:pt-16 sm:pb-28 lg:grid-cols-[7fr_5fr] lg:items-center lg:gap-10 lg:pt-16 lg:pb-24">
         <div className="relative z-10">
-          <p className="-mt-3 mb-9 inline-flex items-center rounded-full bg-white/12 px-3 py-1 text-xs font-semibold tracking-[0.04em] text-white/90 ring-1 ring-white/20 sm:-mt-4 sm:mb-10">편지로 시작하는 1:1 소개팅</p>
+          <p className="-mt-3 mb-6 inline-flex items-center rounded-full bg-white/12 px-3 py-1 text-xs font-semibold tracking-[0.04em] text-white/90 ring-1 ring-white/20 sm:-mt-4 sm:mb-6">편지로 시작하는 1:1 소개팅</p>
           <p className="mb-6 flex items-center gap-2.5 text-base font-semibold text-[#F8E5A6] sm:text-lg"><span aria-hidden="true" className="size-1.5 rounded-full bg-[#F8E5A6]" />넘기는 소개팅에 지쳤다면.</p>
           <h1 id="home-title" className="text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>
           <p className="mt-7 max-w-lg text-sm leading-[1.95] text-white/95 dark:text-white sm:text-[15px]">몇 명을 보여 줄지보다, 누구를 보여 줄지를 오래 고민해요.<br />서로 끌림이 확인될 때만 두 분을 이어 드려요.</p>
@@ -161,7 +161,7 @@ function Hero() {
             <Button asChild className={`h-12 rounded-full bg-white px-6 text-primary hover:bg-white/90 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={17} /></Link></Button>
             <Button asChild variant="outline" className={`h-12 rounded-full border-white/35 bg-transparent px-5 text-white hover:bg-white/10 hover:text-white dark:bg-transparent ${interaction}`}><Link to="/two-starts">어떻게 알아가나요? <ArrowRight size={15} /></Link></Button>
           </div>
-          <p className="mt-12 text-sm text-white/95">{part.phrase}</p>
+          <p className="mt-6 text-sm text-white/95">{part.phrase}</p>
           <div className="mt-5"><NoonClock /></div>
           <p className="mt-5 text-[11px] text-white/95 dark:text-white">{LIVE ? "베타 운영 중 · 지금은 결제 없이 진행해요." : "데모 둘러보기 · 실제 신청이나 결제는 진행되지 않아요."}</p>
         </div>
@@ -174,7 +174,7 @@ function Hero() {
 
 function Philosophy() {
   return (
-    <section className="grid gap-8 py-20 sm:py-24 lg:grid-cols-[7fr_5fr] lg:gap-16" aria-labelledby="philosophy-title">
+    <section className="grid gap-8 py-14 sm:py-20 lg:grid-cols-[7fr_5fr] lg:gap-16" aria-labelledby="philosophy-title">
       <div><SectionLabel number="01" ko="관점">OUR POINT OF VIEW</SectionLabel><h2 id="philosophy-title" className="text-ink max-w-xl text-3xl font-semibold leading-[1.5] sm:text-[38px]">마음을 서두르지 않고,<br />취향을 타협하지 않도록.</h2></div>
       <div className="lg:pt-16"><p className="text-[15px] leading-[2] text-muted-foreground">내가 좋아하는 사람인지, 나와 잘 맞는 사람인지. 조건표 한 장으로는 알 수 없어요. 그래서 <Underline>함께 알아가는 시간 속에서 천천히 확인해요.</Underline> 억지로 호감을 만들거나, 다음 만남을 서두를 필요는 없어요.</p></div>
     </section>
@@ -195,7 +195,7 @@ function PairOrbs() {
 
 function Introduction() {
   return (
-    <section id="how-it-works" className="bleed relative isolate overflow-clip bg-mist py-20 sm:py-24" aria-labelledby="introduction-title">
+    <section id="how-it-works" className="bleed relative isolate overflow-clip bg-mist py-14 sm:py-20" aria-labelledby="introduction-title">
       <div className="grid gap-10 lg:grid-cols-[5fr_7fr] lg:gap-16">
         <div className="relative flex min-h-72 flex-col justify-between overflow-hidden bg-[#F5F2FD] p-8 ring-1 ring-primary/[0.06] sm:min-h-80 sm:p-10 dark:bg-lilac">
           <span className="text-[11px] font-semibold tracking-[0.13em] text-muted-foreground">ONE PAIR, AT A TIME</span>
@@ -213,7 +213,7 @@ function Introduction() {
 
 function FounderLetter() {
   return (
-    <section className="grid gap-10 py-20 sm:py-24 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="letter-title">
+    <section className="grid gap-10 py-14 sm:py-20 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="letter-title">
       <div>
         <SectionLabel number="03" ko="운영진의 편지">A LETTER FROM US</SectionLabel>
         <h2 id="letter-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[34px]">왜 한 번에,<br />한 사람일까요?</h2>
@@ -391,7 +391,7 @@ function TwoVoices() {
   );
   const voiceClass = (side: "left" | "right") => `${show(side) ? "flex flex-col" : "hidden md:flex md:flex-col md:opacity-25"} transition-opacity duration-200 motion-reduce:transition-none`;
   return (
-    <section className="bleed bg-mist py-20 sm:py-24" aria-labelledby="story-title">
+    <section className="bleed bg-mist py-14 sm:py-20" aria-labelledby="story-title">
       <div className="mx-auto max-w-2xl text-center">
         <div className="flex justify-center"><SectionLabel number="04" ko="이야기">A STORY IN TWO VOICES</SectionLabel></div>
         <h2 id="story-title" className="text-ink text-[26px] font-semibold leading-[1.5] sm:text-[32px]">한 사람을 알아가는 데 필요한,<br />사흘이라는 시간.</h2>
@@ -441,7 +441,7 @@ function ExchangeExamples() {
 
 function Exchange({ compact = false }: { compact?: boolean }) {
   return (
-    <section id="two-starts" className="py-20 sm:py-24" aria-labelledby="exchange-title">
+    <section id="two-starts" className="py-14 sm:py-20" aria-labelledby="exchange-title">
       <SectionLabel number="05" ko="두 가지 시작">TWO WAYS TO BEGIN</SectionLabel>
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end"><h2 id="exchange-title" className="text-ink text-3xl font-semibold leading-[1.5] sm:text-[38px]">마주하기 전,<br />우리만의 3일.</h2><p className="max-w-sm text-sm leading-7 text-muted-foreground">얼굴을 마주하기 전에, 서로의 생각과 취향을 먼저 만나요. 두 사람이 함께 고른 방식으로.</p></div>
       <div className="mt-10 grid border border-border md:grid-cols-2">
@@ -505,7 +505,7 @@ const FIRST_FAQ = [
   { id: "photos", title: "사진은 언제 보나요?", text: "정오에 소개가 도착하면 상대의 사진과, 상대가 공개하기로 고른 프로필을 함께 봐요. 그걸 보고 다음 날 오전 11시까지 ‘알아가고 싶어요’ 또는 ‘이번엔 넘길게요’를 골라요. 두 분 모두 알아가고 싶다고 하면 그때 3일 교류가 시작돼요." },
   { id: "one-at-a-time", title: "여러 명과 동시에 연락하나요?", text: "아니요. 한 번에 한 분만 소개해요. 소개에 답하는 동안에는 다음 소개가 오지 않고, 서로 선택해 3일 교류를 하는 동안에도 새 소개를 멈춰요. 이번 소개가 마무리되면 잘 맞는 분이 준비된 날 정오에 다음 분을 소개해요." },
   { id: "cost", title: "비용은 언제, 얼마인가요?", text: `${BETA ? "지금은 베타 기간이라 모두 무료예요. 정식 운영 기준으로는 " : ""}신청과 검토는 무료이고, 소개 이용료 ${money(BEFORE_US.pricing.introduction)}으로 최대 5번 소개받아요. 서로 선택해 3일 교류를 시작할 때만 1인 ${money(BEFORE_US.pricing.exchangePerPerson)}의 교류비가 들어요. 월정액이 아니고 자동 결제도 없어요.` },
-  { id: "difference", title: "다른 소개 서비스와 무엇이 다른가요?", text: "넘기며 고르지 않아요. 운영진이 신청서를 직접 읽고 한 분을 골라 정오에 소개해요. 서로 선택해도 바로 연락처를 주고받지 않고, 3일 동안 편지나 ‘첫 장면’으로 먼저 알아가요. 만날지는 넷째 날 각자 정하고, 번호는 만나는 날에만 서로 보여요." },
+  { id: "difference", title: "다른 소개 서비스와 무엇이 다른가요?", text: "넘기며 고르지 않아요. 운영진이 신청서를 직접 읽고 한 분을 골라 정오에 소개해요. 서로 선택해도 바로 연락처를 주고받지 않고, 3일 동안 편지나 ‘첫 장면’으로 먼저 알아가요. 만날지는 넷째 날 각자 정하고, 번호는 두 분이 동의하면 만나는 날 0시부터 다음 날 밤 11시 59분까지만 서로 보여요." },
 ];
 const FAQ = BETA ? [BETA_FAQ, ...FIRST_FAQ, BETA_COHORT_FAQ, ...FAQ_BASE.filter(item => item.id !== "cohort" && item.id !== "bonus")] : [...FIRST_FAQ, ...FAQ_BASE];
 // 07 자주 묻는 질문은 주제 이름 아래 묶어 보여 준다.

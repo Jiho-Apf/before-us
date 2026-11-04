@@ -10,6 +10,8 @@
   --popover-foreground: #151515;
   --primary: #614CC4;
   --primary-foreground: #ffffff;
+  /* 작은 보라 글자(링크·상태·마감 표시)용. 버튼 바탕(--primary)과 따로 둔다(GPT 검수 D2). */
+  --brand-text: #614CC4;
   --secondary: #F5F5FA;
   --secondary-foreground: #151515;
   --muted: #F5F5FA;
@@ -53,6 +55,7 @@
   --popover-foreground: #F0EFF6;
   --primary: #785BED;
   --primary-foreground: #ffffff;
+  --brand-text: #B7A7FF;
   --secondary: #222D42;
   --secondary-foreground: #F0EFF6;
   --muted: #222D42;
@@ -385,3 +388,12 @@ body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-ins
   .book-print-root .book-page:last-child { break-after: auto; }
   @page { margin: 18mm 16mm; }
 }
+
+/* 어두운 화면의 작은 보라 글자 대비(4.5:1 이상): text-primary 글자만 밝은 보라로. 흰 바탕 버튼 위 글자는 그대로 둔다. */
+.dark .text-primary:not([class*="bg-white"]),
+.dark .hover\:text-primary:hover:not([class*="bg-white"]) { color: var(--brand-text); }
+
+/* 화면 전환: 살며시 나타나기(App PageTransition). */
+@keyframes page-fade { from { opacity: 0; } to { opacity: 1; } }
+.page-fade { animation: page-fade 0.24s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .page-fade { animation: none; } }
