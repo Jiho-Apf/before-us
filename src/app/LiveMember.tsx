@@ -343,7 +343,7 @@ function WaitingShelf({ data }: { data: MemberSnapshot }) {
     <div className="mt-5 space-y-3">
       <p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">앞으로 만날 한 사람에게</p>
       {first && <FirstWordCard />}
-      {approved && <PreludeCard folded={first} />}
+      {approved && <PreludeCard folded={first || reflectable(data)} />}
       {approved && <>
         <p className="pt-4 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">소개할 분을 고르는 {BEFORE_US.brand.name}에게</p>
         <WindowCard folded />
