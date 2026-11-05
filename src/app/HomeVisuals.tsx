@@ -99,7 +99,7 @@ export function LetterMoment({ className = "" }: { className?: string }) {
 export function SceneMoment({ className = "" }: { className?: string }) {
   const picks = [
     { who: "나", time: "20:31 고름", place: "서점", why: "책 고르는 걸 옆에서 구경하는 게 좋아서요.", tilt: "-rotate-2" },
-    { who: "상대", time: "22:05 고름", place: "서점", why: "조용히 같이 걸을 수 있을 것 같아서요.", tilt: "ml-auto -mt-2 rotate-2" },
+    { who: "상대", time: "22:05 고름", place: "서점", why: "조용히 같이 걸을 수 있을\u00a0것 같아서요.", tilt: "ml-auto -mt-2 rotate-2" },
   ];
   const scene = [["장소", "서점", false], ["머무는 방식", "각자 한 권씩 골라 보기", false], ["쉬어 갈 곳", "골목 끝 작은 빵집", true]] as const;
   return (
@@ -115,7 +115,7 @@ export function SceneMoment({ className = "" }: { className?: string }) {
       </p>
       <div className="mt-5 rounded-2xl bg-card/90 px-5 py-4 shadow-[0_18px_40px_-30px_rgba(30,20,80,0.5)]">
         <p className="text-[10px] font-semibold tracking-[0.14em] text-accent">DAY 03 · 함께 맞춘 첫 장면</p>
-        <dl className="mt-3 grid grid-cols-3 gap-2 text-[11px]">{scene.map(([label, value, own]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="mt-0.5 font-semibold text-foreground">{own && <><PenLine size={10} aria-hidden="true" className="mr-1 inline-block align-[-1px] text-accent" /><span className="sr-only">직접 쓴 </span></>}{value}</dd></div>)}</dl>
+        <dl className="mt-3 grid grid-cols-3 gap-2 text-[11px]">{scene.map(([label, value, own]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="mt-0.5 text-balance font-semibold text-foreground">{own && <><PenLine size={10} aria-hidden="true" className="mr-1 inline-block align-[-1px] text-accent" /><span className="sr-only">직접 쓴 </span></>}{value}</dd></div>)}</dl>
         <p className="mt-3 border-t border-border pt-3 text-[12px] leading-5 text-foreground">“요즘 읽고 있는 책 이야기”</p>
       </div>
     </figure>
@@ -127,7 +127,7 @@ const NUMBERS = [
   { big: "1명", label: "한 번에 한 사람", note: "여러 명과 동시에 연락하지 않아요" },
   { big: "12:00", label: "같은 순간에 도착", note: "두 분에게 정오에 함께" },
   { big: "3일", label: "얼굴 보기 전 대화", note: "편지 또는 ‘첫 장면’으로" },
-  { big: "D-day", label: "번호는 만나는 날과 다음 날만", note: "두 분이 모두 동의할 때" },
+  { big: "D-day", label: "번호는 만나는 날과 다음\u00a0날만", note: "두 분이 모두 동의할 때" },
 ];
 export function NumberBand() {
   return (
@@ -151,7 +151,7 @@ const FLOW = [
   { n: "04", meta: "두 분 모두일 때만", title: "서로 선택", body: "한 분이라도 넘기면 조용히 마무리돼요. 누가 넘겼는지는 알리지 않아요." },
   { n: "05", meta: "DAY 01—03", title: "3일 교류", body: "편지 또는 ‘첫 장면’ 중 함께 고른 방식으로. 두 분이 모두 보내야 함께 열려요." },
   { n: "06", meta: "DAY 04", title: "만남 선택", body: "만나고 싶은지 각자 골라요. 상대의 답은 알려 주지 않아요." },
-  { n: "07", meta: "만나는 날", title: "약속 · 연락처", body: "날짜와 장소를 함께 정하고, 번호는 만나는 날과 다음 날만 서로 보여요." },
+  { n: "07", meta: "만나는 날", title: "약속 · 연락처", body: "날짜와 장소를 함께 정하고, 번호는 만나는 날과 다음\u00a0날만 서로 보여요." },
 ] as const;
 function JourneyCard({ step, index, align, shown }: { step: (typeof FLOW)[number]; index: number; align: "left" | "right"; shown: boolean }) {
   return (
@@ -197,8 +197,8 @@ const HOW_WE_DO = [
   { row: "누가 고르나요", us: "운영진이 신청서를 읽고, 취향과 성향을 살펴 한 분을 골라요" },
   { row: "한 번에 몇 명과", us: "한 번에 한 분이에요. 서로 선택하면 새 소개를 멈춰요" },
   { row: "첫 대화", us: "만나기 전 사흘 동안 하루 한 통 편지, 또는 함께 만드는 첫 장면" },
-  { row: "연락처는 언제", us: "두 분이 동의하면 만나는 날과 다음 날만 보여요" },
-  { row: "다음 소개는", us: "교류 뒤 남긴 한 줄을 다음 소개를 고를 때 참고해요" },
+  { row: "연락처는 언제", us: "두 분이 동의하면 만나는 날과 다음\u00a0날만 보여요" },
+  { row: "다음 소개는", us: "교류 뒤 남긴 한 줄을 다음 소개를 고를\u00a0때 참고해요" },
   { row: "비용", us: BETA ? "지금은 무료 베타 · 정식 운영은 첫 교류까지 1인 39,000원" : "소개비 10,000원 + 교류비 29,000원(첫 교류까지 1인 39,000원)" },
 ];
 
@@ -212,7 +212,7 @@ export function CompareTable() {
       </div>
       <dl className="mx-auto mt-10 grid max-w-4xl gap-3 sm:grid-cols-2">{HOW_WE_DO.map(item => <div key={item.row} className="rounded-2xl border border-border bg-card p-5 shadow-[0_18px_40px_-34px_color-mix(in_oklch,var(--primary)_50%,transparent)]">
         <dt className="flex items-center gap-2 text-[13px] font-semibold text-primary"><span aria-hidden="true" className="flex gap-0.5"><span className="size-1.5 rounded-full bg-primary" /><span className="size-1.5 rounded-full bg-accent" /></span>{item.row}</dt>
-        <dd className="text-ink mt-2 text-[15px] leading-[1.65]">{item.us}</dd>
+        <dd className="text-ink mt-2 text-balance text-[15px] leading-[1.65]">{item.us}</dd>
       </div>)}</dl>
     </div>
   );
@@ -222,7 +222,7 @@ export function CompareTable() {
 const STANDARDS = [
   { n: "01", icon: UserCheck, title: "운영진이 직접 확인", body: "사진과 신청서를 사람이 읽고 승인해요" },
   { n: "02", icon: ShieldCheck, title: "연락처·링크 자동 차단", body: "편지와 약속에서 번호·SNS·계좌는 막혀요" },
-  { n: "03", icon: Smartphone, title: "번호는 만나는 날과 다음 날만", body: "두 분이 동의할 때, 만나는 날 0시부터 다음 날 밤 11시 59분까지" },
+  { n: "03", icon: Smartphone, title: "번호는 만나는 날과 다음\u00a0날만", body: "두 분이 동의할 때, 만나는 날 0시부터 다음 날 밤 11시 59분까지" },
   { n: "04", icon: Siren, title: "차단은 바로, 신고는 평일 확인", body: "차단하면 교류가 바로 멈춰요. 신고는 평일 10~18시에 확인하고, 위험하면 112에 먼저 연락해 주세요" },
 ];
 // 곡선(viewBox 1000×120): M0 110 Q500 -30 1000 110 → x=12.5%에서 y≈79, x=37.5%에서 y≈44. 아이콘(48px) 중심을 그 높이에 맞춘다.
@@ -255,7 +255,7 @@ export function Standards() {
                   <Icon size={19} strokeWidth={1.5} className="relative" />
                 </span>
                 <p className="mt-5 text-[10px] font-semibold tracking-[0.18em] text-accent">STANDARD {item.n}</p>
-                <p className="text-ink mt-1.5 text-[15px] font-semibold">{item.title}</p>
+                <p className="text-ink mt-1.5 text-balance text-[15px] font-semibold">{item.title}</p>
                 <p className="mx-auto mt-1.5 max-w-[13rem] text-xs leading-5 text-muted-foreground">{item.body}</p>
               </li>
             );
@@ -325,8 +325,8 @@ export function PathToContact() {
 const PAY_STEPS = [
   { step: "신청·검토", note: "신청서를 쓰면 운영진이 직접 읽고 확인해요.", price: 0, label: "" },
   { step: "정오의 소개 · 최대 5번", note: "승인되면 기수 시작 전날 18:00까지 내요. 첫 상대 프로필을 열기 전에는 언제든 전액 돌려드려요.", price: BEFORE_US.pricing.introduction, label: "소개비" },
-  { step: "서로 ‘알아가고 싶어요’ → 3일 교류", note: "두 분 모두 고른 뒤에만, 각자 24시간 안에 내요. 한 분만 내면 낸 금액은 모두 돌려드려요.", price: BEFORE_US.pricing.exchangePerPerson, label: "교류비" },
-  { step: "만남 선택 · 약속", note: "넷째 날 각자 정하고, 번호는 만나는 날과 다음 날만 보여요.", price: 0, label: "" },
+  { step: "서로 ‘알아가고 싶어요’ → 3일\u00a0교류", note: "두 분 모두 고른 뒤에만, 각자 24시간 안에 내요. 한 분만 내면 낸 금액은 모두 돌려드려요.", price: BEFORE_US.pricing.exchangePerPerson, label: "교류비" },
+  { step: "만남 선택 · 약속", note: "넷째 날 각자 정하고, 번호는 만나는 날과 다음\u00a0날만 보여요.", price: 0, label: "" },
 ];
 const won = (amount: number) => `${amount.toLocaleString("ko-KR")}원`;
 export function PaymentSteps() {
@@ -358,7 +358,7 @@ const PLAN_FLOW = [
   { when: "신청·검토", note: "신청서를 적으면 운영진이 직접 확인해요" },
   { when: "정오의 소개", note: "준비된 날 12시에 한 분이 도착해요" },
   { when: "3일 교류", note: "두 분 모두 원할 때만 시작해요" },
-  { when: "약속·만남", note: "넷째 날 각자 정하고, 번호는 만나는 날과 다음 날만 보여요" },
+  { when: "약속·만남", note: "넷째 날 각자 정하고, 번호는 만나는 날과 다음\u00a0날만 보여요" },
 ];
 export function PlanFlow() {
   return (

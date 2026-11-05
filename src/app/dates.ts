@@ -19,8 +19,9 @@ export function kstDay(value: string | Date | null | undefined, fallback = "확�
   const date = valid(value)
   if (!date) return fallback
   const p = parts(date)
-  const year = p.year !== parts(new Date()).year ? `${p.year}년 ` : ""
-  return `${year}${p.month}월 ${p.day}일 (${p.weekday})`
+  const year = p.year !== parts(new Date()).year ? `${p.year}년\u00a0` : ""
+  // 날짜 안 공백은 줄 바꿈 없는 공백(\u00a0): ‘11월 / 16일’처럼 갈라지지 않게. 날짜와 시각 사이는 보통 공백이라 거기서는 줄이 바뀔 수 있다.
+  return `${year}${p.month}월\u00a0${p.day}일\u00a0(${p.weekday})`
 }
 
 export function kstDateTime(value: string | Date | null | undefined, fallback = "확인된 시각 없음") {

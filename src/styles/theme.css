@@ -369,8 +369,17 @@ body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-ins
 
 /* 글줄 정리: 제목은 줄 길이를 고르게, 문단은 마지막 줄에 낱말 하나만 외롭게 남지 않게(지원하는 브라우저에서) */
 @layer base {
-  h1, h2, h3 { text-wrap: balance; }
-  p, li, dd, blockquote, figcaption { text-wrap: pretty; }
+  /* 한국어는 낱말(띄어쓰기) 단위로 줄을 바꾼다. 운영진 화면처럼 따로 지정하지 않은 곳에서 '싶 / 어요'처럼 낱말 가운데가 끊기지 않게. 띄어쓰기 없는 긴 글(주소·메일)만 칸 안에서 끊는다. */
+  body { word-break: keep-all; overflow-wrap: break-word; }
+  /* 줄 모양만 정한다(text-wrap-style). 축약형 text-wrap은 부모의 ‘한 줄 유지(nowrap)’까지 풀어 버려서, 지원하는 브라우저에서는 쓰지 않는다. */
+  @supports (text-wrap-style: balance) {
+    h1, h2, h3, button { text-wrap-style: balance; }
+    p, li, dt, dd, blockquote, figcaption, summary, label { text-wrap-style: pretty; }
+  }
+  @supports not (text-wrap-style: balance) {
+    h1, h2, h3 { text-wrap: balance; }
+    p, li, dd, blockquote, figcaption { text-wrap: pretty; }
+  }
 }
 
 /* 회원 화면 바탕: 옅은 라벤더 위로, 맨 위에만 아주 은은한 보라 기운을 둔다(흰 카드가 자연스럽게 떠 보이게). */

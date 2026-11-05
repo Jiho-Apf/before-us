@@ -13,6 +13,7 @@ import { APPOINTMENT_ACTIVITIES, QUICK_TIMES } from "./appointment-details";
 import { COMMENT_MAX, CUSTOM, END_REASON, PIECE_MAX, PIECE_MIN, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_ACTIVITY_ROWS, SCENE_CUSTOM_MAX, SCENE_PROMPTS, SCENE_REASON_MAX, SCENE_STAY, SCENE_TOPIC_EXAMPLES, SCENE_TOPIC_MAX, AVAIL_BANDS, ASK_IDEAS, ASK_MAX, ASK_MIN, POSTCARD_MAX, POSTCARD_MIN, acceptAppointment, setBookConsent, setBookmark, setDay3Question, availLabel, bookSlot, chooseFirstScene, quickStart, setAvailability, chooseMeeting, choosePlan, confirmProgram, contactProblem, customOk, isCustom, leaveComment, letterPrompt, loadMyProgram, loadReadablePrograms, proposeAppointment, proposeStart, sceneAppointment, sceneLabel, sceneNote, setContactConsent, stayFor, submitEntry, tidyChoice, writeScenePiece, type EntryContent, type Program, type ProgramEntry, type ReadableProgram, type ScenePick, type Slot } from "./backend/program";
 import { forgetLetterPhoto, letterPhotoResult, removeLetterPhoto, uploadLetterPhoto } from "./backend/letterPhotos";
 import { clearDrafts, readDraft, writeDraft } from "./backend/drafts";
+import { Segments } from "./Segments";
 
 // 실제 서버 모드의 교류(/exchange)와 약속·연락처(/meeting). 데모 화면과 같은 편집 톤을 쓴다.
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
@@ -184,7 +185,7 @@ function ExchangeView() {
   }[data.status];
   return (
     <section className="space-y-8" aria-labelledby="exchange-title">
-      <PageHeader mark="교류" label={header.label} en="THREE DAYS · FLAVIE" titleId="exchange-title" title={header.title} lead={data.partnerName ? `${data.partnerName} 님과의 교류예요. 신고·차단은 두 사람 화면에서 언제든 할 수 있어요.` : undefined} aside={<Button asChild variant="outline" className="h-10 rounded-xl border-border text-xs"><Link to="/us">두 사람 화면</Link></Button>} />
+      <PageHeader mark="교류" label={header.label} en="THREE DAYS · FLAVIE" titleId="exchange-title" title={header.title} lead={data.partnerName ? `${data.partnerName} 님과의 교류예요. 신고·차단은 두 사람 화면에서 언제든 할\u00a0수 있어요.` : undefined} aside={<Button asChild variant="outline" className="h-10 rounded-xl border-border text-xs"><Link to="/us">두 사람 화면</Link></Button>} />
       <Notice text={message} />
       {arrival && arrival !== message && <p role="status" aria-live="polite" className={`inline-flex items-center gap-2 letter-drop ${butter}`}><LockOpen size={13} />{arrival}</p>}
       {(data.status === "choosing" || data.status === "scheduled") && <PreludeLetters program={data} />}
@@ -241,7 +242,7 @@ function Agreement({ program, act }: { program: Program; act: Act }) {
         <p className="text-xs font-semibold">방식</p>
         <div>
           <div role="radiogroup" aria-label="교류 방식" className="grid gap-2 sm:grid-cols-2">{(["A", "B"] as const).map(plan => <button key={plan} type="button" role="radio" aria-checked={pick === plan} onClick={() => setPick(plan)} className={`min-h-11 rounded-2xl border px-4 py-3 text-left ${interaction} ${pick === plan ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"}`}>
-            <span className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold">{PLAN_COPY[plan].name}<span className="flex gap-1">{program.ownPlan === plan && <span className="rounded-full bg-mist px-2 py-0.5 text-[10px] font-semibold ring-1 ring-border">내가 고른 방식</span>}{program.partnerPlan === plan && <span className="rounded-full bg-[#F8E5A6] px-2 py-0.5 text-[10px] font-semibold text-[#5A4310]">상대가 고른 방식</span>}</span></span>
+            <span className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold">{PLAN_COPY[plan].name}<span className="flex gap-1">{program.ownPlan === plan && <span className="whitespace-nowrap rounded-full bg-mist px-2 py-0.5 text-[10px] font-semibold ring-1 ring-border">내가 고른 방식</span>}{program.partnerPlan === plan && <span className="whitespace-nowrap rounded-full bg-[#F8E5A6] px-2 py-0.5 text-[10px] font-semibold text-[#5A4310]">상대가 고른 방식</span>}</span></span>
             <span className="mt-1 block text-xs leading-5 text-muted-foreground">{PLAN_COPY[plan].fit}</span>
           </button>)}</div>
           {differ && <div role="status" className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-mist p-4">
@@ -478,7 +479,7 @@ function Days({ program, act }: { program: Program; act: Act }) {
       {future ? <p className="mt-4 text-sm text-muted-foreground">{dayLabel(date)} 오전 9시에 열려요. 그때 알림으로 알려 드릴게요.</p> : <>
         <p className="mt-4 text-sm font-semibold leading-7">{plan === "A" ? letter.question : scene.question}</p>
         {plan === "A" && day === 3 && program.ownAsk && <p className="mt-1.5 text-xs leading-6 text-muted-foreground">{partner} 님에게는 내가 낸 질문이 갔어요 · “{program.ownAsk}”</p>}
-        {opened && <p className={`mt-4 inline-flex items-center gap-2 ${isFresh ? "letter-drop" : ""} ${butter}`}><LockOpen size={13} />{isFresh ? `새로 열렸어요 · ${match || "두 분의 글이 모두 도착했어요"}` : match || "두 분의 글이 모두 도착해 함께 열렸어요"}</p>}
+        {opened && <p className={`mt-4 inline-flex items-center gap-2 ${isFresh ? "letter-drop" : ""} ${butter}`}><LockOpen size={13} className="shrink-0" /><span>{isFresh ? <Segments parts={["새로 열렸어요", match || "두 분의 글이 모두 도착했어요"]} /> : match || "두 분의 글이 모두 도착해 함께 열렸어요"}</span></p>}
         {today && !!main?.own && !opened && <p className={`mt-4 inline-flex items-center gap-2 letter-drop ${butter}`}><Check size={13} />오늘 할 일 끝 · {plan === "A" ? "오늘의 편지를 보냈어요" : "오늘의 답을 보냈어요"}</p>}
         <EntryPair entry={main} plan={plan} day={day} past={!today} mark={mark} />
         {today && !main?.own && main?.partnerSent && <p className={`mt-4 inline-flex items-center gap-2 ${butter}`}><Check size={13} />상대는 이미 보냈어요. 내 글을 보내면 바로 함께 열려요.</p>}
@@ -689,7 +690,7 @@ function LetterComposer({ onSend, reply = false, draftKey, examples = [], photo,
   </div>;
   return <div className="mt-5 space-y-3">
     {!reply && <LetterExamples examples={examples} />}
-    <Textarea aria-label={reply ? "열린 편지에 답장 쓰기" : "오늘의 편지 쓰기"} value={body} onChange={event => { setBody(event.target.value); setWarning(""); }} maxLength={max} rows={reply ? 3 : 7} placeholder={reply ? "선택이에요. 짧게 한 줄도 괜찮아요." : "나를 소개하듯 편하게 적어 주세요. 보낸 뒤에는 고칠 수 없어요."} className="rounded-xl border-border bg-card text-base leading-7 md:text-sm" />
+    <Textarea aria-label={reply ? "열린 편지에 답장 쓰기" : "오늘의 편지 쓰기"} value={body} onChange={event => { setBody(event.target.value); setWarning(""); }} maxLength={max} rows={reply ? 3 : 7} placeholder={reply ? "선택이에요. 짧게 한 줄도 괜찮아요." : "나를 소개하듯 편하게 적어 주세요. 보낸 뒤에는 고칠\u00a0수 없어요."} className="rounded-xl border-border bg-card text-base leading-7 md:text-sm" />
     {photo && <div className="rounded-2xl border border-dashed border-primary/30 bg-mist p-4">
       {preview ? <div className="flex flex-wrap items-end gap-4">
         <span className="block w-28 shrink-0 -rotate-[1.5deg] bg-[#FFFEFA] p-1.5 pb-4 shadow-[0_14px_28px_-18px_rgba(30,20,80,0.6)] ring-1 ring-black/5"><img src={preview} alt="편지에 넣을 사진" onError={() => { if (preview.startsWith("blob:")) return; setPreview(null); setPhotoLoadFailed(true); }} className="aspect-[4/5] w-full object-cover" /></span>
@@ -797,7 +798,7 @@ function SceneComposer({ day, draftKey, previous, first, comment, onSend }: { da
     {day > 1 && !comment && field(opened ? prompt.reaction : prompt.reactionAlt, <Input value={payload.reaction ?? ""} maxLength={150} onChange={event => pick("reaction", event.target.value)} placeholder={opened ? (day === 2 ? "예: 서점이라니, 요즘 읽는 책이 궁금해졌어요" : "예: 천천히 머무는 거 저도 좋아요") : "예: 조용한 곳을 좋아하실 것 같아요"} className="h-11 rounded-xl border-border bg-card font-normal" />)}
     {field(prompt.about, <Input value={payload.about ?? ""} maxLength={100} onChange={event => pick("about", event.target.value)} placeholder={prompt.aboutHint} className="h-11 rounded-xl border-border bg-card font-normal" />)}
     {ready && <div><p className="mb-2 text-[11px] font-semibold text-muted-foreground">상대에게는 이렇게 보여요</p><EntryCard who="내 답" content={{ body: reason || null, payload: clean, at: "" }} plan="B" day={day} tone="bg-mist" /></div>}
-    <p className="text-[11px] leading-5 text-muted-foreground">{prompt.sees} 보낸 뒤에는 고칠 수 없어요.</p>
+    <p className="text-[11px] leading-5 text-muted-foreground">{prompt.sees} 보낸 뒤에는 고칠&nbsp;수 없어요.</p>
     {warning && <p role="alert" className="text-xs leading-6 text-destructive">{warning}</p>}
     <div className="flex justify-end"><Button disabled={!ready || sending} onClick={() => void send()} className="h-11 rounded-full px-6">{sending ? "보내는 중…" : "보내기"}</Button></div>
   </div>;
@@ -1104,7 +1105,7 @@ function MeetingView() {
       {open && open.mine && <QuietNote>보낸 제안: {open.slots.map(slot => `${dayLabel(slot.date)} ${slot.start}`).join(", ")} · 상대가 시간을 고르면 약속이 정해져요.</QuietNote>}
       <div id="proposal" className="scroll-mt-28"><ProposalForm program={data} act={act} again={!!(open || accepted || data.overlap?.length)} /></div>
       {accepted && <Contact program={data} act={act} />}
-      <NoteList items={[{ title: "처음 만남은", body: "사람이 많은 공개된 장소에서, 돌아가는 길을 각자 정해 두고 만나요." }, { title: "불편한 일이 생기면", body: "두 사람 화면에서 바로 신고·차단할 수 있어요. 만남이 어려워지면 문의로 알려 주세요." }]} />
+      <NoteList items={[{ title: "처음 만남은", body: "사람이 많은 공개된 장소에서, 돌아가는 길을 각자 정해 두고 만나요." }, { title: "불편한 일이 생기면", body: "두 사람 화면에서 바로 신고·차단할\u00a0수 있어요. 만남이 어려워지면 문의로 알려 주세요." }]} />
     </section>
   );
 }

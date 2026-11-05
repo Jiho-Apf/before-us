@@ -70,7 +70,7 @@ export function VouchPage() {
           : sent ? <div className="mt-6" role="status">
             <blockquote className="letter-drop text-xl font-semibold leading-[1.7] sm:text-2xl">“{sent}”</blockquote>
             <p className="mt-3 text-xs opacity-60">{relationText}의 한 줄</p>
-            <div className="mt-10 border-t border-black/10 pt-6 dark:border-white/15"><p className="text-base font-semibold">고마워요. 친구에게 잘 전할게요.</p><p className="mt-2 text-sm leading-7 opacity-75">친구가 받은 한 줄을 읽어 볼 수 있고, {BEFORE_US.brand.name}는 친구에게 어울리는 분을 고를 때 참고해요.</p><Explore /></div>
+            <div className="mt-10 border-t border-black/10 pt-6 dark:border-white/15"><p className="text-base font-semibold">고마워요. 친구에게 잘 전할게요.</p><p className="mt-2 text-sm leading-7 opacity-75">친구가 받은 한 줄을 읽어 볼 수 있고, {BEFORE_US.brand.name}는 친구에게 어울리는 분을 고를&nbsp;때 참고해요.</p><Explore /></div>
           </div>
           : <div className="mt-6 space-y-6">
             <fieldset><legend className="text-xs font-semibold">친구와 나는</legend>
@@ -124,11 +124,11 @@ export function VouchCard() {
   return <Sheet id="vouch" className="scroll-mt-24 p-6 sm:p-8">
     <div className="flex flex-wrap items-start justify-between gap-3"><p className="text-xs font-semibold text-accent">친구 추천사</p><span className="rounded-full bg-mist px-2.5 py-1 text-[11px] leading-none text-muted-foreground tabular-nums">{data.vouches.length} / {data.max || VOUCH_MAX}</span></div>
     <h2 className="mt-3 text-xl font-semibold leading-[1.5]">친구가 써 주는, 나에 대한 한 줄.</h2>
-    <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">링크를 보내면 친구가 ‘이 친구는 이런 사람이에요’ 한 줄을 남겨 줘요. 나와 운영진만 읽고, 소개할 분을 고를 때 참고해요. 소개받는 상대에게는 보이지 않아요.</p>
+    <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">링크를 보내면 친구가 ‘이 친구는 이런 사람이에요’ 한 줄을 남겨 줘요. 나와 운영진만 읽고, 소개할 분을 고를&nbsp;때 참고해요. 소개받는 상대에게는 보이지 않아요.</p>
     {full ? <p className="mt-5 rounded-xl bg-mist p-4 text-xs leading-6 text-muted-foreground">세 개를 모두 받았어요. 하나를 지우면 다시 받을 수 있어요.</p>
       : url ? <div className="mt-5 rounded-2xl border border-lilac bg-mist p-4">
         <div className="flex flex-wrap items-center gap-3"><span className="min-w-0 flex-1 truncate rounded-xl bg-card px-3 py-2 text-xs text-muted-foreground" title={url}>{url}</span><Button onClick={() => void share()} className={`h-10 shrink-0 rounded-xl px-4 text-xs ${interaction}`}><Link2 size={14} />링크 보내기</Button></div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground"><span>{kstDay(data.link!.expiresAt)}까지 열려 있어요 · 친구 여러 명에게 보내도 돼요</span><button type="button" onClick={() => void close()} className={`text-[11px] hover:text-foreground ${interaction}`}>링크 닫기</button></div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground"><span>{kstDay(data.link!.expiresAt)}까지 열려 있어요 · 친구 여러 명에게 보내도&nbsp;돼요</span><button type="button" onClick={() => void close()} className={`text-[11px] hover:text-foreground ${interaction}`}>링크 닫기</button></div>
       </div>
       : <div className="mt-5 flex flex-wrap items-center gap-3">{data.link?.expired && <p className="text-xs text-muted-foreground">링크 기한이 지났어요.</p>}<Button disabled={busy} onClick={() => void make()} className={`h-11 rounded-xl px-5 ${interaction}`}>{busy ? "만드는 중…" : data.link?.expired ? "새 링크 만들기" : "링크 만들기"}</Button><span className="text-[11px] text-muted-foreground">14일 동안 열려 있어요</span></div>}
     {data.vouches.length > 0 && <ul className="mt-6 space-y-3">{data.vouches.map(item => <li key={item.id} className="rounded-2xl border border-border bg-card px-5 py-4">

@@ -33,7 +33,7 @@ async function submitLive(input: { type: string; name: string; email: string; bo
 }
 
 const time = (at: string) => kstDateTime(at)
-const chip = "min-h-10 rounded-full border px-4 py-2.5 text-[13px] transition-colors duration-200 motion-reduce:transition-none"
+const chip = "min-h-10 whitespace-nowrap rounded-full border px-3 py-2.5 text-[13px] transition-colors duration-200 motion-reduce:transition-none sm:px-4"
 
 function InquiryLookup() {
   useInquiries()
@@ -91,7 +91,7 @@ export default function InquiryPage() {
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-2xl bg-mist p-4"><dt className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">답변 시간</dt><dd className="mt-1.5 font-semibold leading-6">평일 10~18시<br /><span className="text-xs font-normal text-muted-foreground">보통 1영업일 안</span></dd></div>
           <div className="rounded-2xl bg-mist p-4"><dt className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">먼저 보면 좋아요</dt><dd className="mt-1.5 leading-6"><Link to="/faq" className="font-semibold text-primary underline-offset-4 hover:underline">자주 묻는 질문</Link><br /><span className="text-xs text-muted-foreground">요금·소개·환불</span></dd></div>
-          <div className="rounded-2xl bg-mist p-4"><dt className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">회원이라면</dt><dd className="mt-1.5 leading-6"><Link to="/support" className="font-semibold text-primary underline-offset-4 hover:underline">문의·요청</Link><br /><span className="text-xs text-muted-foreground">정정·삭제·재검토 요청</span></dd></div>
+          <div className="rounded-2xl bg-mist p-4"><dt className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground">회원이라면</dt><dd className="mt-1.5 leading-6"><Link to="/support" className="font-semibold text-primary underline-offset-4 hover:underline">문의·요청</Link><br /><span className="text-xs text-muted-foreground">정정·삭제·재검토&nbsp;요청</span></dd></div>
           <div className="rounded-2xl bg-[#F8E5A6]/70 p-4 text-[#2B2540] dark:bg-[#3B3424] dark:text-white"><dt className="text-[11px] font-semibold tracking-[0.08em] text-[#7A5A10] dark:text-[#F3D98A]">위급하다면</dt><dd className="mt-1.5 font-semibold leading-6">112에 먼저<br /><span className="text-xs font-normal opacity-75">상대 신고는 두 사람 화면에서</span></dd></div>
         </dl>
         {!LIVE && <p className="rounded-xl bg-accent/5 p-4 text-xs leading-6 text-accent">데모 화면이에요. 문의는 이 브라우저에만 임시로 저장되고 실제 메일은 발송되지 않아요.</p>}

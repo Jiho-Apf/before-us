@@ -13,7 +13,7 @@ const PRICE = BEFORE_US.pricing
 const PLAN = BEFORE_US.introductionPlans.standard
 const REFUND = BEFORE_US.refund
 const won = (value: number) => `${value.toLocaleString("ko-KR")}원`
-const day = (iso: string) => iso.replace(/^(\d+)-0?(\d+)-0?(\d+)$/, "$1년 $2월 $3일")
+const day = (iso: string) => iso.replace(/^(\d+)-0?(\d+)-0?(\d+)$/, "$1년\u00a0$2월\u00a0$3일")
 const OPERATOR = O.name ? `운영자 ${O.name}` : "운영자"
 const SAFETY_YEARS = P.legal.safetyEvidenceYearsAfterClose
 

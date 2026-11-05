@@ -43,14 +43,14 @@ const CONSENT_DETAILS: Record<string, [string, string][]> = {
     ["목적", "상대가 나를 알아보고 ‘알아가고 싶어요’를 고를 수 있게 하고, 서로 선택하면 3일 교류와 만남을 이어 가기 위해"],
     ["항목", "이 화면에서 ‘상대 공개’로 켠 항목과 운영진이 확인한 사진. 생년월일 원래 값·휴대폰 번호·이메일은 주지 않아요."],
     ["기간", "소개가 공개된 날 정오부터 다음 날 오전 11시 응답 마감까지. 서로 알아가기로 하면 교류와 약속이 끝날 때까지(최대 약속일 다음 날 23:59). 끝나거나 쉬기·차단·탈퇴가 생기면 바로 볼 수 없어요."],
-    ["거부할 때", "거부할 수 있어요. 다만 소개 서비스의 핵심이라, 거부하면 소개를 받을 수 없어요."],
+    ["거부할 때", "거부할 수 있어요. 다만 소개 서비스의 핵심이라, 거부하면 소개를 받을\u00a0수 없어요."],
     ["멈추기", "내 정보에서 ‘쉬기’를 누르면 새 소개를 멈추고, 아직 공개되지 않은 예약 소개는 취소돼요. 이미 공개된 소개는 ‘이번엔 넘길게요’로, 진행 중인 교류는 두 사람 화면의 차단이나 문의·요청으로 끝낼 수 있어요."],
   ],
 }
 const DETAIL_TITLE: Record<string, string> = {
   "consent.collection": "항목·목적·보유 기간 보기",
-  "consent.matching": "항목·목적·보유 기간·거부할 때 보기",
-  "consent.provision": "받는 사람·목적·항목·기간·거부할 때 보기",
+  "consent.matching": "항목·목적·보유 기간·거부할\u00a0때 보기",
+  "consent.provision": "받는 사람·목적·항목·기간·거부할\u00a0때 보기",
 }
 
 const text = (value: string | string[]) =>
@@ -381,7 +381,7 @@ export default function ApplicationReviewStep({
               <Group
                 id="review-scope-base"
                 title="기본 소개 · 꼭 공개"
-                summary={baseOff ? `꺼진 항목 ${baseOff}개 · 소개하려면 켜 주세요` : "이름·만 나이·지역·관계 목적·한 줄 소개·필수 사진 3장 공개"}
+                summary={baseOff ? `꺼진 항목 ${baseOff}개 · 소개하려면 켜 주세요` : "이름·만 나이·지역·관계 목적·한 줄 소개·필수 사진\u00a03장\u00a0공개"}
                 warn={baseOff > 0 || hasError(baseIds)}
                 open={open.base}
                 onToggle={() => setOpen((current) => ({ ...current, base: !current.base }))}
@@ -439,7 +439,7 @@ export default function ApplicationReviewStep({
             </p>
             <div className="mt-3 space-y-3">{required.map(consentCard)}</div>
             <h4 className="mt-6 text-xs font-semibold">선택 · 체크하지 않아도 신청할 수 있어요</h4>
-            <p className="mt-1 text-xs leading-6 text-muted-foreground">동의하지 않아도 신청과 소개에 불이익이 없어요. 내 정보 → 알림 설정에서 언제든 바꿀 수 있어요.</p>
+            <p className="mt-1 text-xs leading-6 text-muted-foreground">동의하지 않아도 신청과 소개에 불이익이 없어요. 내 정보 → 알림 설정에서 언제든 바꿀&nbsp;수 있어요.</p>
             <div className="mt-3 space-y-3">{optional.map(consentCard)}</div>
             <p className="mt-4 text-xs leading-6 text-muted-foreground">
               {LIVE ? <>필수 항목에 동의하지 않으면 소개 신청을 마칠 수 없어요. 동의를 거두려면 신청을 철회하거나 ‘문의·요청’에서 처리정지를 요청해 주세요. 자세한 내용은 <a href="/terms" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-primary">이용약관</a>과 <a href="/privacy" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-primary">개인정보처리방침</a>에 있어요.</> : "데모 화면이라 실제 개인정보를 받지 않고, 여기의 체크는 실제 동의로 기록하지 않아요. 선택 항목(광고성 정보 수신, 정오 상태 알림)은 체크하지 않아도 신청할 수 있어요."}
@@ -473,10 +473,10 @@ export default function ApplicationReviewStep({
             "사진·본인 확인",
             "운영진이 상대 고르기",
             "쉬기·취소 언제든",
-            "준비된 날 정오 공개",
+            "준비된 날 정오\u00a0공개",
           ].map((item, index) => (
-            <li key={item} className="border border-border p-3">
-              <span className="font-semibold text-accent">0{index + 1}</span> {item}
+            <li key={item} className="border border-border p-3 text-balance">
+              <span className="font-semibold text-accent sm:block">0{index + 1}</span> {item}
             </li>
           ))}
         </ol>
