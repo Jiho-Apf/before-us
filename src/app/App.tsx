@@ -198,10 +198,14 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
             <span className="font-semibold tracking-[0.12em]">{BEFORE_US.brand.english}</span>
             <span className="text-muted-foreground">{BEFORE_US.brand.message}</span>
             <nav aria-label="정책과 문의" className="flex flex-wrap items-center gap-x-4 gap-y-2 text-muted-foreground">
-              <Link to="/terms" className="underline-offset-4 hover:text-primary hover:underline">이용약관</Link>
-              <Link to="/privacy" className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">개인정보처리방침</Link>
-              <Link to="/faq" className="underline-offset-4 hover:text-primary hover:underline">자주 묻는 질문</Link>
-              <Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
+              <span className="flex gap-x-4">
+                <Link to="/terms" className="underline-offset-4 hover:text-primary hover:underline">이용약관</Link>
+                <Link to="/privacy" className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">개인정보처리방침</Link>
+              </span>
+              <span className="flex gap-x-4">
+                <Link to="/faq" className="underline-offset-4 hover:text-primary hover:underline">자주 묻는 질문</Link>
+                <Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
+              </span>
             </nav>
           </div>
           <div className="mt-6 space-y-1 border-t border-border pt-5 leading-6 text-muted-foreground">{LIVE && BEFORE_US.beta.active ? <p>베타 운영 중 · 결제 없이 운영해요{BEFORE_US.operator.name ? ` · 운영자 ${BEFORE_US.operator.name}` : ""}{BEFORE_US.operator.email ? ` · ${BEFORE_US.operator.email}` : ""}</p> : <p>상호 · 대표자 · 사업자등록번호 · 통신판매업 신고번호 · 준비 중</p>}{(BEFORE_US.social.instagram || BEFORE_US.social.threads) && <p className="flex flex-wrap gap-x-4">{BEFORE_US.social.instagram && <a href={`https://www.instagram.com/${BEFORE_US.social.instagram}`} target="_blank" rel="noreferrer" className="underline-offset-4 hover:text-primary hover:underline">인스타그램 @{BEFORE_US.social.instagram}</a>}{BEFORE_US.social.threads && <a href={`https://www.threads.net/@${BEFORE_US.social.threads}`} target="_blank" rel="noreferrer" className="underline-offset-4 hover:text-primary hover:underline">스레드 @{BEFORE_US.social.threads}</a>}</p>}<p><span className="font-semibold text-foreground">19세 미만 이용 불가</span> · 만 19세 이상 대상 일대일 소개</p></div>
@@ -247,13 +251,17 @@ function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
         {/* 회원 화면에서도 약관·개인정보·문의로 바로 갈 수 있게 아주 작은 줄 하나 */}
         <footer className="mx-auto w-full max-w-[1120px] px-5 pb-8 sm:px-8 lg:px-10">
           <nav aria-label="정책과 문의" className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-primary/[0.07] pt-5 text-[11px] text-muted-foreground">
-            <Link to="/terms" className="underline-offset-4 hover:text-primary hover:underline">이용약관</Link>
-            <Link to="/privacy" className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">개인정보처리방침</Link>
+            <span className="flex gap-x-4">
+              <Link to="/terms" className="underline-offset-4 hover:text-primary hover:underline">이용약관</Link>
+              <Link to="/privacy" className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">개인정보처리방침</Link>
+            </span>
+            <span className="flex gap-x-4">
             <Link to="/faq" className="underline-offset-4 hover:text-primary hover:underline">자주 묻는 질문</Link>
             <Link to="/support" className="underline-offset-4 hover:text-primary hover:underline">문의·요청</Link>
             {/* 베타는 결제가 필요 없어 링크를 숨긴다(대표의 흐름 점검용 /payments 는 주소로 바로 열 수 있다). */}
             {!(LIVE && BEFORE_US.beta.active) && <Link to="/payments" className="underline-offset-4 hover:text-primary hover:underline">결제</Link>}
             <Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
+            </span>
           </nav>
         </footer>
       </div>

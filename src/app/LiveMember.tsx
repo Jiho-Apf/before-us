@@ -181,7 +181,7 @@ function LiveTodayView() {
         <h2 id="status-title" className="mb-5 text-sm font-semibold">지금 알아두면 좋은 것</h2>
         <HomeScreenTip className="mb-6" />
         <dl className="grid gap-5 text-xs sm:grid-cols-3"><div><dt className="mb-2 text-muted-foreground">신청 접수</dt><dd>{data.application?.submittedAt && data.application.status !== "draft" ? kstDay(data.application.submittedAt) : "아직 접수 전"}</dd></div><div><dt className="mb-2 text-muted-foreground">최근 소개</dt><dd>{data.introduction.status !== "waiting" && data.introduction.publishedAt ? kstDay(data.introduction.publishedAt) : "아직 없어요"}</dd></div><div><dt className="mb-2 text-muted-foreground">{data.cohort ? "내 기수" : "소개 방식"}</dt><dd>{data.cohort ? `${cohortName(data.cohort.number)} · ${noonOf(data.cohort.startsOn)} 정오 시작` : "준비된 날 정오 · 하루 최대 한 명"}</dd></div></dl>
-        <div className="mt-6 flex flex-wrap gap-2"><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/profile">알림 설정·내 정보</Link></Button><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/support">정정·삭제 요청</Link></Button><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/contact">문의하기</Link></Button></div>
+        <div className="mt-6 grid gap-2 sm:flex sm:flex-wrap"><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/profile">알림 설정·내 정보</Link></Button><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/support">정정·삭제 요청</Link></Button><Button asChild variant="outline" className={`h-10 rounded-xl border-border text-xs ${interaction}`}><Link to="/contact">문의하기</Link></Button></div>
       </section>
     </section>
   );
@@ -715,7 +715,7 @@ function LiveProfileView() {
         </div>
       </div>
       <nav aria-label="내 정보 바로 가기" className="-mt-4 flex flex-wrap gap-2">
-        {([["my-profile", "내 소개·사진"], ["my-notices", "신청서·알림"], ...(data.application?.status === "approved" && notices?.status === "active" ? [["pause", "소개 쉬기"]] : []), ["my-safety", "마주치고 싶지 않은 연락처"], ["my-account", "계정·탈퇴"]] as [string, string][]).map(([id, label]) => <a key={id} href={`#${id}`} onClick={event => { event.preventDefault(); window.history.replaceState(null, "", `#${id}`); document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className="inline-flex min-h-11 items-center rounded-full border border-border bg-card px-4 text-xs transition-colors hover:border-primary/40 hover:text-primary">{label}</a>)}
+        {([["my-profile", "내 소개·사진"], ["my-notices", "신청서·알림"], ...(data.application?.status === "approved" && notices?.status === "active" ? [["pause", "소개 쉬기"]] : []), ["my-safety", "아는 사람 피하기"], ["my-account", "계정·탈퇴"]] as [string, string][]).map(([id, label]) => <a key={id} href={`#${id}`} onClick={event => { event.preventDefault(); window.history.replaceState(null, "", `#${id}`); document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className="inline-flex min-h-11 items-center rounded-full border border-border bg-card px-4 text-xs transition-colors hover:border-primary/40 hover:text-primary">{label}</a>)}
       </nav>
       <div id="my-profile" className="scroll-mt-24 space-y-10"><MyPublicProfileCard />
       {data.application?.status === "approved" && <PhotosPanel photos={data.photos ?? null} />}</div>

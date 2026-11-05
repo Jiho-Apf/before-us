@@ -119,7 +119,7 @@ export default function StartPage() {
           ["안전", "사진은 운영진이 기준을 확인해요(신원·미혼을 보증하는 절차는 아니에요). 차단하면 교류가 바로 멈추고, 신고는 평일 10~18시에 확인해요. 위험할 때는 112에 먼저 연락해 주세요."],
         ] as [string, ReactNode][]).map(([term, desc]) => <div key={term} className="grid gap-1 px-5 py-4 sm:grid-cols-[96px_1fr] sm:gap-4"><dt className="text-sm font-semibold">{term}</dt><dd className="text-sm leading-6 text-foreground/85">{desc}</dd></div>)}
       </dl>
-      <nav aria-label="자세히 보기" className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+      <nav aria-label="자세히 보기" className="mt-5 grid grid-cols-2 gap-x-5 text-sm sm:flex sm:flex-wrap sm:gap-y-2">
         {[["진행 방식", "/two-starts"], ["이용 요금·환불", "/pricing"], ["자주 묻는 질문", "/faq"], ["개인정보처리방침", "/privacy"]].map(([label, to]) => <Link key={to} to={to} className={`inline-flex min-h-11 items-center gap-1 font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>{label} <ArrowUpRight size={14} aria-hidden="true" /></Link>)}
       </nav>
       {LIVE && signedIn ? <MemberNext /> : <PrimaryCta />}

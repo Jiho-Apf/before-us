@@ -142,7 +142,7 @@ function withUnderlines(text: string, phrases: readonly string[]) {
 // 핵심인 ‘3일 교류’ 칩만 버터 노랑으로 짚는다(위의 한 줄, 두 가지 시작의 3일 교류 칸과 같은 색).
 const HERO_POINTS = [{ text: "운영진이 고른 한 사람" }, { text: "정오 12시 도착" }, { text: "만나기 전 3일 교류", core: true }];
 function HeroPoints() {
-  return <ul className="mt-6 flex flex-wrap gap-2" aria-label="플라비의 소개 방식">{HERO_POINTS.map(point => <li key={point.text} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ring-1 backdrop-blur-sm ${point.core ? "bg-[#F8E5A6]/25 text-[#F8E5A6] ring-[#F8E5A6]/70" : "bg-white/12 text-white ring-white/25"}`}><Check size={12} aria-hidden="true" />{point.text}</li>)}</ul>;
+  return <ul className="mt-6 flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap" aria-label="플라비의 소개 방식">{HERO_POINTS.map(point => <li key={point.text} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ring-1 backdrop-blur-sm ${point.core ? "bg-[#F8E5A6]/25 text-[#F8E5A6] ring-[#F8E5A6]/70" : "bg-white/12 text-white ring-white/25"}`}><Check size={12} aria-hidden="true" />{point.text}</li>)}</ul>;
 }
 function HeroDeadline() {
   const cohort = useRecruitingCohort();
@@ -303,7 +303,7 @@ function SceneTrial() {
     <button key={value} type="button" aria-pressed={picks[key] === value} onClick={() => choose(key, value)} className={`rounded-full border px-3.5 py-2 text-sm ${interaction} ${picks[key] === value ? "border-accent bg-accent/5 text-accent" : "border-border bg-card hover:border-accent/60"}`}>{text}</button>
   );
   // 직접 작성: 칩을 누르면 짧은 칸이 열리고, ‘고르기’를 눌러야 다음으로 넘어간다(장소·머무는 방식·쉬어 갈 곳은 20자, 이야기는 40자 안).
-  const own = (key: string) => <button key={`${key}-own`} type="button" aria-pressed={writing?.key === key} onClick={() => setWriting(value => value?.key === key ? value : { key, text: "" })} className={`inline-flex items-center gap-1.5 rounded-full border border-dashed px-3.5 py-2 text-sm ${interaction} ${writing?.key === key ? "border-accent bg-accent/5 text-accent" : "border-accent/40 bg-card text-foreground/80 hover:border-accent/60"}`}><PenLine size={13} aria-hidden="true" />직접 작성</button>;
+  const own = (key: string, extra = "") => <button key={`${key}-own`} type="button" aria-pressed={writing?.key === key} onClick={() => setWriting(value => value?.key === key ? value : { key, text: "" })} className={`inline-flex items-center justify-center gap-1.5 rounded-full border border-dashed px-3.5 py-2 text-sm ${extra} ${interaction} ${writing?.key === key ? "border-accent bg-accent/5 text-accent" : "border-accent/40 bg-card text-foreground/80 hover:border-accent/60"}`}><PenLine size={13} aria-hidden="true" />직접 작성</button>;
   const ownField = (key: string, hint: string) => {
     if (writing?.key !== key) return null;
     const max = key === "topic" ? SCENE_TOPIC_MAX : SCENE_CUSTOM_MAX;
@@ -317,8 +317,13 @@ function SceneTrial() {
         {current.groups.map(group => <div key={group.key} className="space-y-2">{group.label && <p className="text-[11px] text-muted-foreground">{group.label}</p>}
           {group.key === "activity"
             // 장소 일곱 곳은 늘 두 줄로: 전시 산책 서점 카페 / 공원·피크닉 시장 골목 작은 공연 · 직접 작성
-            ? <div className="space-y-2">{SCENE_ACTIVITY_ROWS.map((row, index) => <div key={row[0]} className="flex flex-wrap gap-2">{row.map(key => chip("activity", [key, SCENE_ACTIVITY_LABEL[key]]))}{index === SCENE_ACTIVITY_ROWS.length - 1 && own("activity")}</div>)}</div>
-            : <div className="flex flex-wrap gap-2">{group.options.map(option => chip(group.key, option))}{picks[group.key] && isCustom(picks[group.key]) && chip(group.key, [picks[group.key], sceneLabel(picks[group.key])])}{own(group.key)}</div>}
+            ? <div className="grid grid-cols-2 gap-2 sm:block sm:space-y-2">{SCENE_ACTIVITY_ROWS.map((row, index) => <div key={row[0]} className="contents sm:flex sm:flex-wrap sm:gap-2">{row.map(key => chip("activity", [key, SCENE_ACTIVITY_LABEL[key]]))}{index === SCENE_ACTIVITY_ROWS.length - 1 && own("activity")}</div>)}</div>
+            : (() => {
+              // 휴대폰: 짧은 칩은 두 칸, 긴 칩은 한 줄에 하나씩. ‘직접 작성’은 칸이 맞으면 마지막 칸, 아니면 마지막 줄 전체.
+              const extra = picks[group.key] && isCustom(picks[group.key]) ? 1 : 0;
+              const short = group.options.every(([, text]) => Array.from(text).length <= 9);
+              return <div className={short ? "grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" : "grid gap-2 sm:flex sm:flex-wrap"}>{group.options.map(option => chip(group.key, option))}{extra ? chip(group.key, [picks[group.key], sceneLabel(picks[group.key])]) : null}{own(group.key, short && (group.options.length + extra) % 2 === 0 ? "col-span-2" : "")}</div>;
+            })()}
           {ownField(group.key, group.hint)}
         </div>)}
         {step > 0 && <div className="grid grid-cols-2 gap-3 pt-1" aria-live="polite">
@@ -461,7 +466,7 @@ function Exchange({ compact = false }: { compact?: boolean }) {
         </>
       ) : (
         <>
-        <div className="mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-4 border-t border-border pt-6 text-center text-xs"><span className="font-semibold text-accent">DAY 01—03 <span className="ml-2 font-normal text-foreground">교류</span></span><ArrowRight size={14} className="text-muted-foreground" /><span className="font-semibold text-accent">DAY 04 <span className="ml-2 font-normal text-foreground">각자 만남 의사 확인</span></span><span className="text-muted-foreground">양쪽이 희망하면 시간·장소 조율</span></div>
+        <div className="mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-4 border-t border-border pt-6 text-center text-xs"><span className="font-semibold text-accent">DAY 01—03 <span className="ml-2 font-normal text-foreground">교류</span></span><ArrowRight size={14} className="text-muted-foreground" /><span className="font-semibold text-accent">DAY 04 <span className="ml-2 font-normal text-foreground">각자 만남 의사 확인</span></span><span className="basis-full text-muted-foreground">양쪽이 희망하면 시간·장소 조율</span></div>
         <ExchangeExamples />
         </>
       )}

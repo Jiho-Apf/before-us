@@ -726,12 +726,17 @@ function CustomField({ value, onChange, label, placeholder, max = SCENE_CUSTOM_M
 function Chips({ options, value, onPick, label, custom }: { options: [string, string][]; value?: string; onPick: (value: string) => void; label: string; custom?: string }) {
   const [touched, setTouched] = useState(false);
   const writing = !!custom && isCustom(value);
-  const chip = ([key, text]: [string, string]) => <button key={key} type="button" aria-pressed={value === key} onClick={() => onPick(key)} className={chipClass(value === key)}>{isCustom(key) && <PenLine size={12} aria-hidden="true" />}{text}</button>;
-  const own = custom ? <button key="custom" type="button" aria-pressed={writing} onClick={() => { setTouched(true); if (!writing) onPick(CUSTOM); }} className={customChipClass(writing)}><PenLine size={13} aria-hidden="true" />직접 작성</button> : null;
+  // 휴대폰: 짧은 칩은 두 칸, 긴 칩은 한 줄에 하나씩. ‘직접 작성’은 칸이 맞으면 마지막 칸, 아니면 마지막 줄 전체(칩 하나만 떨어지지 않게). 넓은 화면은 지금처럼 흘려 놓는다.
+  const short = options.every(([, text]) => Array.from(text).length <= 9);
+  const align = short ? " justify-center" : " justify-start text-left";
+  const ownSpan = short && options.length % 2 === 0 ? " col-span-2" : "";
+  const flow = short ? "grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" : "grid gap-2 sm:flex sm:flex-wrap";
+  const chip = ([key, text]: [string, string]) => <button key={key} type="button" aria-pressed={value === key} onClick={() => onPick(key)} className={chipClass(value === key) + align}>{isCustom(key) && <PenLine size={12} aria-hidden="true" />}{text}</button>;
+  const own = custom ? <button key="custom" type="button" aria-pressed={writing} onClick={() => { setTouched(true); if (!writing) onPick(CUSTOM); }} className={customChipClass(writing) + " justify-center" + ownSpan}><PenLine size={13} aria-hidden="true" />직접 작성</button> : null;
   const field = writing ? <CustomField value={value!.slice(CUSTOM.length)} onChange={text => onPick(CUSTOM + text)} label={label} placeholder={custom!} focus={touched} /> : null;
   const allPlaces = options.length === ACTIVITY_OPTIONS.length && ACTIVITY_OPTIONS.every(([key]) => options.some(([option]) => option === key));
-  if (allPlaces) return <div className="space-y-2" role="group" aria-label={label}>{SCENE_ACTIVITY_ROWS.map((row, index) => <div key={row[0]} className="flex flex-wrap gap-2">{row.map(key => chip(options.find(([option]) => option === key)!))}{index === SCENE_ACTIVITY_ROWS.length - 1 && own}</div>)}{field}</div>;
-  return <div className="space-y-2" role="group" aria-label={label}><div className="flex flex-wrap gap-2">{options.map(chip)}{own}</div>{field}</div>;
+  if (allPlaces) return <div className="space-y-2" role="group" aria-label={label}><div className="grid grid-cols-2 gap-2 sm:block sm:space-y-2">{SCENE_ACTIVITY_ROWS.map((row, index) => <div key={row[0]} className="contents sm:flex sm:flex-wrap sm:gap-2">{row.map(key => chip(options.find(([option]) => option === key)!))}{index === SCENE_ACTIVITY_ROWS.length - 1 && own}</div>)}</div>{field}</div>;
+  return <div className="space-y-2" role="group" aria-label={label}><div className={flow}>{options.map(chip)}{own}</div>{field}</div>;
 }
 const ACTIVITY_OPTIONS = Object.entries(SCENE_ACTIVITY_LABEL) as [string, string][];
 const pairs = (items: readonly string[]) => items.map(item => [item, item] as [string, string]);
@@ -1153,7 +1158,7 @@ function CalendarLinks({ proposal }: { proposal: { id: string; selected: Slot | 
   const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//FLAVIE//KO", "CALSCALE:GREGORIAN", "BEGIN:VEVENT", `UID:${proposal.id}@flavie`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "")}`, `DTSTART:${utc(start)}`, `DTEND:${utc(end)}`, `SUMMARY:${esc(title)}`, `DESCRIPTION:${esc(`${proposal.activity} · ${details}`)}`, ...(location ? [`LOCATION:${esc(location)}`] : []), "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   const download = () => { const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = "flavie-first-meeting.ics"; document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); };
   const google = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${utc(start)}/${utc(end)}&details=${encodeURIComponent(details)}`;
-  return <div className="flex flex-wrap items-center gap-2"><Button variant="outline" onClick={download} className="h-10 rounded-full border-border px-4 text-xs"><CalendarPlus size={14} />캘린더에 넣기</Button><Button asChild variant="ghost" className="h-10 rounded-full px-4 text-xs text-muted-foreground"><a href={google} target="_blank" rel="noreferrer">구글 캘린더로</a></Button><span className="text-[11px] text-muted-foreground">상대 이름은 넣지 않아요.</span></div>;
+  return <div className="flex flex-wrap items-center gap-2"><Button variant="outline" onClick={download} className="h-10 rounded-full border-border px-4 text-xs"><CalendarPlus size={14} />캘린더에 넣기</Button><Button asChild variant="ghost" className="h-10 rounded-full px-4 text-xs text-muted-foreground"><a href={google} target="_blank" rel="noreferrer">구글 캘린더로</a></Button><span className="basis-full text-[11px] text-muted-foreground">상대 이름은 넣지 않아요.</span></div>;
 }
 
 // B 첫 장면 → 약속 제안: 두 분이 맞춘 장면(아직이면 내가 고른 장면, 그것도 없으면 사흘 동안 고른 것)을 미리 채운다.

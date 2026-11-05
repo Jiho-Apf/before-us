@@ -264,7 +264,7 @@ export function Standards() {
       </div>
       <div className="mx-auto mt-14 flex max-w-4xl flex-col items-center justify-between gap-4 rounded-2xl border border-border bg-mist px-6 py-5 sm:flex-row">
         <div className="text-center sm:text-left"><p className="text-sm font-semibold">이런 행동은 바로 이용이 제한돼요</p><p className="mt-1 text-[11px] text-muted-foreground">모든 제한에는 다시 검토를 요청할 수 있어요.</p></div>
-        <div className="flex flex-wrap justify-center gap-2">{[{ icon: CalendarX2, label: "노쇼" }, { icon: BadgeAlert, label: "거짓 정보" }, { icon: Link2Off, label: "외부 연락 유도" }].map(({ icon: Icon, label }) => <span key={label} className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs"><Icon size={14} strokeWidth={1.6} className="text-primary" />{label}</span>)}</div>
+        <div className="flex flex-col items-center gap-1.5 min-[390px]:flex-row min-[390px]:flex-wrap min-[390px]:justify-center sm:gap-2">{[{ icon: CalendarX2, label: "노쇼" }, { icon: BadgeAlert, label: "거짓 정보" }, { icon: Link2Off, label: "외부 연락 유도" }].map(({ icon: Icon, label }) => <span key={label} className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2 text-xs sm:px-4"><Icon size={14} strokeWidth={1.6} className="text-primary" />{label}</span>)}</div>
       </div>
     </div>
   );
