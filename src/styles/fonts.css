@@ -1,1 +1,2 @@
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+/* 화면에 쓰인 글자 조각만 받는 Pretendard(같은 글꼴). 통째로 받던 때는 느린 휴대폰 망에서 제목이 늦게 다시 그려졌다(실험실 LCP 26초). */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css');

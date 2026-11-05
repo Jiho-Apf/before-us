@@ -49,6 +49,8 @@ export async function removeLetterPhoto(path: string) {
 }
 
 const urlCache = new Map<string, { url: string; until: number }>()
+// 주소가 만료됐거나 못 불러왔을 때 ‘다시 불러오기’는 새 주소를 만든다(검수 C12).
+export const forgetLetterPhoto = (path: string) => { urlCache.delete(path) }
 // 내 사진은 바로 5분짜리 주소를 만들고, 상대 사진은 서버 함수(letter-photo)로 연다.
 // 결과는 성공·잠깐의 실패·볼 수 없음·지워짐으로 나눈다(검수 C12). 잠깐의 실패를 ‘지워짐’으로 다루면 초안의 사진이 빠진다.
 export async function letterPhotoResult(path: string): Promise<PhotoResult> {

@@ -11,7 +11,7 @@ import { kstDateTime, kstDay } from "./dates";
 import { SAFETY_COMPOSE_NOTE } from "./message-safety";
 import { APPOINTMENT_ACTIVITIES, QUICK_TIMES } from "./appointment-details";
 import { COMMENT_MAX, CUSTOM, END_REASON, PIECE_MAX, PIECE_MIN, PLAN_COPY, SCENE_ACTIVITY_LABEL, SCENE_ACTIVITY_ROWS, SCENE_CUSTOM_MAX, SCENE_PROMPTS, SCENE_REASON_MAX, SCENE_STAY, SCENE_TOPIC_EXAMPLES, SCENE_TOPIC_MAX, AVAIL_BANDS, ASK_IDEAS, ASK_MAX, ASK_MIN, POSTCARD_MAX, POSTCARD_MIN, acceptAppointment, setBookConsent, setBookmark, setDay3Question, availLabel, bookSlot, chooseFirstScene, quickStart, setAvailability, chooseMeeting, choosePlan, confirmProgram, contactProblem, customOk, isCustom, leaveComment, letterPrompt, loadMyProgram, loadReadablePrograms, proposeAppointment, proposeStart, sceneAppointment, sceneLabel, sceneNote, setContactConsent, stayFor, submitEntry, tidyChoice, writeScenePiece, type EntryContent, type Program, type ProgramEntry, type ReadableProgram, type ScenePick, type Slot } from "./backend/program";
-import { letterPhotoResult, removeLetterPhoto, uploadLetterPhoto } from "./backend/letterPhotos";
+import { forgetLetterPhoto, letterPhotoResult, removeLetterPhoto, uploadLetterPhoto } from "./backend/letterPhotos";
 import { clearDrafts, readDraft, writeDraft } from "./backend/drafts";
 
 // 실제 서버 모드의 교류(/exchange)와 약속·연락처(/meeting). 데모 화면과 같은 편집 톤을 쓴다.
@@ -47,38 +47,79 @@ function arrivalNote(before: Program, after: Program): string {
   if ((after.meetingRev ?? 0) !== (before.meetingRev ?? 0)) return "약속이 바뀌었어요. 새 날짜와 장소를 확인해 주세요.";
   if (after.proposals.length !== before.proposals.length || after.proposals.some(item => before.proposals.find(old => old.id === item.id)?.status !== item.status)) return "약속 제안이 새로 도착했어요.";
   if (!!after.bookOpen !== !!before.bookOpen) return after.bookOpen ? "두 분 모두 동의해서 한 권이 열렸어요." : "한 권 동의가 거둬져 닫혔어요.";
-  if (after.partnerConfirmed !== before.partnerConfirmed || after.partnerPlan !== before.partnerPlan || after.partnerReady !== before.partnerReady) return "상대가 시작 방식을 정했어요.";
+  // 시작 방식(검수 T05·U07): 상대가 고르거나 바꾸거나 확인을 거두면 그대로 알린다. 저절로 맞추지 않는다.
+  if (before.partnerPlan && after.partnerPlan && before.partnerPlan !== after.partnerPlan) return `상대가 방식을 ${planName(after.partnerPlan)}로 바꿨어요. 어느 쪽으로 할지 다시 확인해 주세요.`;
+  if (!before.partnerPlan && after.partnerPlan) return after.ownPlan && after.ownPlan !== after.partnerPlan ? `상대는 ${planName(after.partnerPlan)}를 골랐어요. 두 분의 선택이 달라요.` : `상대가 ${planName(after.partnerPlan)}를 골랐어요.`;
+  if (before.startOn !== after.startOn && after.startOn) return `시작일이 ${dayLabel(after.startOn)}로 바뀌었어요. 바뀐 날짜만 다시 확인해 주세요.`;
+  if (before.partnerConfirmed && !after.partnerConfirmed) return "상대의 시작 확인이 풀렸어요. 바뀐 내용을 다시 확인해 주세요.";
+  if (!before.partnerConfirmed && after.partnerConfirmed) return "상대가 시작 일정을 확인했어요.";
+  if (!!after.partnerReady !== !!before.partnerReady) return after.partnerReady ? "상대가 ‘이대로 시작’을 눌렀어요." : "상대가 ‘이대로 시작’을 거뒀어요.";
   return "";
 }
 // 서버가 ‘바뀌었어요’로 거부하면(약속·시작일이 그 사이 바뀜) 바로 새로 불러온다.
 const CHANGED = /바뀌었어요|새로 고친 뒤/;
 const LIVE_REFRESH_MS = 20000;
+const MAX_REFRESH_MS = 160000;
+const LOAD_TIMEOUT_MS = 30000;
+// 다음 조용한 새로 고침까지: 실패가 이어지면 두 배씩(최대 160초) 늘리고, 여러 화면이 한꺼번에 묻지 않게 ±20% 흔든다.
+const nextRefresh = (failures: number) => Math.min(LIVE_REFRESH_MS * 2 ** failures, MAX_REFRESH_MS) * (0.8 + Math.random() * 0.4);
+type Loaded = { data: Program | null; error: string | null };
+const SLOW_LOAD = "교류를 불러오는 데 시간이 오래 걸려요. 잠시 뒤 다시 시도해 주세요.";
+const loadWithin = (ms: number): Promise<Loaded> => { let timer = 0; return Promise.race([loadMyProgram(), new Promise<Loaded>(resolve => { timer = window.setTimeout(() => resolve({ data: null, error: SLOW_LOAD }), ms); })]).finally(() => window.clearTimeout(timer)); };
 function useProgram() {
   const [state, setState] = useState<{ data: Program | null; error: string | null; loading: boolean }>({ data: null, error: null, loading: true });
   const [arrival, setArrival] = useState("");
   // 늦게 끝난 이전 요청이 새 결과를 덮지 않게 차례 번호를 붙인다(검수 C8).
   const sequence = useRef(0);
   const latest = useRef<Program | null>(null);
+  const latestKey = useRef<string | null>(null);
+  const pending = useRef(0);
+  const failures = useRef(0);
   const apply = (data: Program | null, error: string | null, quiet = false) => {
     const before = latest.current;
     if (quiet && error) return; // 조용한 새로 고침이 실패하면 지금 화면을 그대로 둔다
+    // 바뀐 것이 없으면 다시 그리지 않는다(검수 T05): 쓰던 글·커서·포커스·스크롤·사진 주소가 그대로 남는다.
+    const key = JSON.stringify(data);
+    if (quiet && key === latestKey.current) return;
     if (quiet && before && data) { const note = arrivalNote(before, data); if (note) setArrival(note); }
     latest.current = data;
+    latestKey.current = key;
     setState({ data, error, loading: false });
   };
-  const reload = async (quiet = false) => { const mine = ++sequence.current; const result = await loadMyProgram(); if (mine !== sequence.current) return; apply(result.data, result.error, quiet); };
+  // 조용한 새로 고침은 앞 요청이 끝나기 전에는 겹쳐 보내지 않는다(25초 넘게 걸리는 응답이 쌓이지 않게). 30초가 지나면 실패로 본다.
+  // 늦게 끝난 이전 요청은 차례 번호로 버린다(검수 C8).
+  const reload = async (quiet = false): Promise<"ok" | "error" | "skipped"> => {
+    if (quiet && pending.current > 0) return "skipped";
+    const mine = ++sequence.current;
+    pending.current += 1;
+    let result: Loaded;
+    try { result = await loadWithin(LOAD_TIMEOUT_MS); } finally { pending.current -= 1; }
+    if (mine !== sequence.current) return "skipped";
+    apply(result.data, result.error, quiet);
+    return result.error ? "error" : "ok";
+  };
   useEffect(() => { void reload(); }, []);
   // 시각이 바뀌는 때(00:00 그날 글 마감 · 09:00 새 날·만남 선택 열림), 1분 넘게 다른 창에 있다가 돌아왔을 때,
   // 그리고 화면이 보이는 동안 20초마다 조용히 다시 불러온다(상대가 보낸 글·동의·약속 변경이 먼저 기다리던 화면에도 도착하게).
   // 쓰던 글은 입력 칸과 임시 저장에 그대로 남는다.
+  // 화면이 숨어 있거나 오프라인이면 묻지 않고 쉰다. 다시 보이면(20초 넘게 숨어 있었으면) · 연결이 돌아오면 바로 한 번 묻는다.
   useEffect(() => {
-    let hiddenAt = 0, timer = 0;
-    const onVisible = () => { if (document.visibilityState === "hidden") hiddenAt = Date.now(); else if (hiddenAt && Date.now() - hiddenAt > 60000) { hiddenAt = 0; void reload(true); } };
+    let hiddenAt = 0, timer = 0, poll = 0, stopped = false;
+    const tick = async () => {
+      if (document.visibilityState === "visible" && navigator.onLine !== false && !sending.current) {
+        const outcome = await reload(true);
+        if (outcome === "error") failures.current += 1; else if (outcome === "ok") failures.current = 0;
+      }
+      if (!stopped) poll = window.setTimeout(() => void tick(), nextRefresh(failures.current));
+    };
+    poll = window.setTimeout(() => void tick(), nextRefresh(0));
+    const onVisible = () => { if (document.visibilityState === "hidden") hiddenAt = Date.now(); else if (hiddenAt && Date.now() - hiddenAt > LIVE_REFRESH_MS) { hiddenAt = 0; void reload(true); } };
+    const onOnline = () => { failures.current = 0; void reload(true); };
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
     const schedule = () => { timer = window.setTimeout(() => { void reload(true); schedule(); }, untilProgramBoundary()); };
     schedule();
-    const poll = window.setInterval(() => { if (document.visibilityState === "visible" && !sending.current) void reload(true); }, LIVE_REFRESH_MS);
-    return () => { document.removeEventListener("visibilitychange", onVisible); window.clearTimeout(timer); window.clearInterval(poll); };
+    return () => { stopped = true; document.removeEventListener("visibilitychange", onVisible); window.removeEventListener("online", onOnline); window.clearTimeout(timer); window.clearTimeout(poll); };
   }, []);
   // 서버 함수는 고친 뒤의 교류를 그대로 돌려준다. 실패하면 안내만 바꾼다.
   // 보내는 중에 다시 누르면 무시한다(두 번 눌러도 한 번만 보내지게). 성공 여부도 함께 돌려준다.
@@ -89,7 +130,7 @@ function useProgram() {
     try {
       const result = await action();
       if (result.error) { if (CHANGED.test(result.error)) await reload(); return { text: result.error, ok: false }; }
-      if (result.data) { sequence.current += 1; apply(result.data, null); }
+      if (result.data) { sequence.current += 1; apply(result.data, null); failures.current = 0; }
       setArrival("");
       return { text: result.data?.notice || done, ok: true };
     } finally {
@@ -111,7 +152,7 @@ function NotYet({ title }: { title: string }) {
 const PARTY_ENDED = ["blocked", "withdrawn", "suspended"];
 function Closed({ program, reread = false }: { program: Program; reread?: boolean }) {
   const done = program.endReason === "completed";
-  return <Moment eyebrow={done ? "THANK YOU" : "SEE YOU AGAIN"} title={done ? "만남까지 마친 교류예요." : "이번 교류는 여기서 마무리됐어요."} action={<div className="flex flex-wrap gap-2"><Button asChild className="h-11 rounded-full px-6"><Link to="/today">오늘 화면으로</Link></Button>{reread && program.entries.length > 0 && <Button asChild variant="outline" className="h-11 rounded-full border-border px-5 hover:bg-muted hover:text-foreground"><Link to="/exchange">주고받은 글 다시 읽기</Link></Button>}<Button asChild variant="outline" className="h-11 rounded-full border-border px-5 hover:bg-muted hover:text-foreground"><Link to="/us">불편한 일 신고하기</Link></Button></div>}>{PARTY_ENDED.includes(program.endReason ?? "") ? "더 이어 가기 어려운 사정이 생겨 교류를 마무리했어요. 다음 소개가 준비되면 정오에 알려 드릴게요." : END_REASON[program.endReason ?? ""] ?? "다음 소개가 준비되면 정오에 알려 드릴게요."}</Moment>;
+  return <Moment eyebrow={done ? "THANK YOU" : "SEE YOU AGAIN"} title={done ? "약속한 날이 지나, 이번 교류를 마무리했어요." : "이번 교류는 여기서 마무리됐어요."} action={<div className="flex flex-wrap gap-2"><Button asChild className="h-11 rounded-full px-6"><Link to="/today">오늘 화면으로</Link></Button>{reread && program.entries.length > 0 && <Button asChild variant="outline" className="h-11 rounded-full border-border px-5 hover:bg-muted hover:text-foreground"><Link to="/exchange">주고받은 글 다시 읽기</Link></Button>}<Button asChild variant="outline" className="h-11 rounded-full border-border px-5 hover:bg-muted hover:text-foreground"><Link to="/us">불편한 일 신고하기</Link></Button></div>}>{PARTY_ENDED.includes(program.endReason ?? "") ? "더 이어 가기 어려운 사정이 생겨 교류를 마무리했어요. 다음 소개가 준비되면 정오에 알려 드릴게요." : done ? "불편한 일이 있었다면 두 사람 화면에서 신고해 주세요. 다음 소개가 준비되면 정오에 알려 드릴게요." : END_REASON[program.endReason ?? ""] ?? "다음 소개가 준비되면 정오에 알려 드릴게요."}</Moment>;
 }
 
 // ─────────────────────────────────────────────
@@ -149,7 +190,9 @@ function ExchangeView() {
       {(data.status === "choosing" || data.status === "scheduled") && <PreludeLetters program={data} />}
       {data.status === "choosing" && data.startMissedAt && <p role="status" className="rounded-xl border border-[#EBD9A0] bg-[#FFFBEF] px-4 py-3 text-sm leading-7 dark:border-[#5A4C2A] dark:bg-[#26221A]">저희 쪽 문제로 정해 둔 날 교류가 열리지 못했어요. 죄송해요. 아래에서 새 시작일을 다시 확인해 주세요. 지금까지 나눈 것은 그대로예요.</p>}
       {data.status === "choosing" && <Agreement program={data} act={act} />}
-      {data.status === "scheduled" && <Moment eyebrow="SEE YOU AT 09:00" title={<>{data.startOn && dayLabel(data.startOn)} 09:00,<br />첫날이 열려요.</>}>{data.ownPlan && PLAN_COPY[data.ownPlan].name} · 3일 동안 이어지고, 넷째 날 09:00에 만남을 정해요. 시작하면 알림으로 알려 드릴게요.</Moment>}
+      {data.status === "scheduled" && <Moment eyebrow="SEE YOU AT 09:00" title={<>{data.startOn && dayLabel(data.startOn)} 09:00,<br />첫날이 열려요.</>}>{data.ownPlan && PLAN_COPY[data.ownPlan].name} · 두 분 모두 확인했어요. 시작하면 알림으로 알려 드릴게요.</Moment>}
+      {data.status === "scheduled" && data.ownPlan && data.startOn && <Sheet className="p-6 sm:p-8"><Eyebrow label="사흘 일정" en="SCHEDULE" /><div className="mt-4"><ScheduleList plan={data.ownPlan} startOn={data.startOn} /></div></Sheet>}
+      {data.status === "started" && <TodayAction program={data} />}
       {(data.status === "started" || data.status === "deciding") && <OurDays program={data} />}
       {data.status === "deciding" && <MeetingDecision program={data} act={act} />}
       {data.status === "arranging" && <Moment eyebrow="WE BOTH SAID YES" title="두 분 모두 만나고 싶다고 했어요." action={<Button asChild className="h-11 rounded-full px-6"><Link to="/meeting">약속 정하러 가기 <ArrowRight size={14} /></Link></Button>}>{data.arrangeBy && `${kstDateTime(data.arrangeBy)}까지 약속을 함께 정해 주세요.`}</Moment>}
@@ -167,69 +210,83 @@ function ExchangeView() {
 
 type Act = (action: () => Promise<{ data: Program | null; error: string | null }>, done?: string) => Promise<boolean>;
 
+// 사흘 일정 한 줄씩(방식을 고르면 보인다) · 넷째 날 만남 정하기까지
+function ScheduleList({ plan, startOn }: { plan: "A" | "B"; startOn: string }) {
+  return <ol className="space-y-1">{PLAN_COPY[plan].days.slice(0, 3).map((title, index) => <li key={title} className="flex gap-3 text-xs leading-6"><span className="w-24 shrink-0 text-muted-foreground">{DAY_NAME[index]} · {monthDay(shift(startOn, index))}</span><span className="text-foreground/85">{title}</span></li>)}<li className="flex gap-3 text-xs leading-6"><span className="w-24 shrink-0 text-muted-foreground">{DAY_NAME[3]} · {monthDay(shift(startOn, 3))}</span><span className="text-foreground/85">09:00 만나고 싶은지 고르기</span></li></ol>;
+}
+// 방식과 시작일을 한 장에서(검수 U07): 고른 방식 · 시작일 · 사흘 일정 · 내 확인 · 상대 확인. 규칙은 ‘진행 방식 다시 보기’에 접어 둔다.
+// 내가 고른 방식만 미리 표시하고, 상대 방식이나 A를 대신 골라 두지 않는다. 두 분이 달라도 저절로 정하지 않는다.
+// 시작일만 바뀌면 시작일만 다시 확인하면 된다(방식은 그대로).
 function Agreement({ program, act }: { program: Program; act: Act }) {
   const [date, setDate] = useState(program.startOn ?? "");
   useEffect(() => setDate(program.startOn ?? ""), [program.startOn]);
   const same = !!program.ownPlan && program.ownPlan === program.partnerPlan;
   const differ = !!program.ownPlan && !!program.partnerPlan && !same;
   const min = shift(program.today, 1), max = shift(program.today, 14);
-  // 추천: 상대가 고른 방식 → 내가 고른 방식 → A. 시작일은 기본(내일 09:00, 상대가 다른 날을 제안했다면 그날).
-  const suggested: "A" | "B" = program.partnerPlan ?? program.ownPlan ?? "A";
-  const [pick, setPick] = useState<"A" | "B">(suggested);
-  useEffect(() => setPick(suggested), [suggested]);
-  const [detail, setDetail] = useState(false);
-  const startText = `${program.startOn && program.ownPlan === program.partnerPlan ? dayLabel(program.startOn) : dayLabel(shift(program.today, 1))} 09:00 시작`;
-  const waiting = program.ownReady === pick && !program.partnerReady;
-  const openDetail = detail || differ || (program.partnerConfirmed && !program.ownConfirmed && !program.partnerReady);
-  return <>
-    <Sheet className="p-6 sm:p-8">
-      <Eyebrow mark="01" label="이대로 시작하기" en="START SIMPLY" />
-      <p className="mt-3 text-sm leading-7 text-muted-foreground">방식을 하나 고르고 ‘이대로 시작’을 누르면 끝이에요. 두 분이 같은 방식으로 누르면 바로 일정이 정해져요.</p>
-      <div role="radiogroup" aria-label="교류 방식" className="mt-5 grid gap-2 sm:grid-cols-2">{(["A", "B"] as const).map(plan => <button key={plan} type="button" role="radio" aria-checked={pick === plan} onClick={() => setPick(plan)} className={`rounded-2xl border px-4 py-3 text-left ${interaction} ${pick === plan ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"}`}>
-        <span className="flex items-center justify-between gap-2 text-sm font-semibold">{PLAN_COPY[plan].name}{program.partnerPlan === plan && <span className="rounded-full bg-[#F8E5A6] px-2 py-0.5 text-[10px] font-semibold text-[#5A4310]">상대가 고른 방식</span>}</span>
-        <span className="mt-1 block text-xs leading-5 text-muted-foreground">{PLAN_COPY[plan].fit}</span>
-      </button>)}</div>
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-mist p-5">
-        <p className="text-sm leading-7"><span className="font-semibold">{planName(pick)} · {startText}</span><br /><span className="text-xs text-muted-foreground">{program.partnerReady && program.partnerPlan === pick ? "상대는 이대로 시작을 눌러 두었어요. 나도 누르면 바로 정해져요." : waiting ? "이대로 시작을 눌렀어요. 상대가 같은 방식을 고르면 그때 바로 정해져요." : program.partnerReady && program.partnerPlan !== pick ? `상대는 ${planName(program.partnerPlan!)}로 이대로 시작을 눌러 두었어요.` : "상대도 같은 방식을 고르면 이 일정으로 시작해요."}</span></p>
-        <Button disabled={waiting || program.ownConfirmed && program.ownPlan === pick} onClick={() => void act(() => quickStart(program.id, pick), "")} className="h-11 rounded-xl px-6">{waiting || program.ownConfirmed && program.ownPlan === pick ? "눌렀어요" : "이대로 시작"}</Button>
+  const [pick, setPick] = useState<"A" | "B" | null>(program.ownPlan ?? null);
+  useEffect(() => setPick(program.ownPlan ?? null), [program.ownPlan]);
+  const [dateOpen, setDateOpen] = useState(false);
+  const start = same && program.startOn ? program.startOn : shift(program.today, 1);
+  const partnerProposed = same && !!program.startOn && program.partnerConfirmed && !program.ownConfirmed && !program.partnerReady;
+  const confirmMode = same && pick === program.ownPlan && !!program.startOn && !program.ownConfirmed;
+  const waiting = !!pick && ((program.ownReady === pick && !program.partnerReady) || (program.ownConfirmed && program.ownPlan === pick));
+  const mine = program.ownConfirmed && same ? "시작일 확인 완료" : program.ownReady ? `${planName(program.ownReady)}로 ‘이대로 시작’을 눌렀어요` : program.ownPlan ? `${planName(program.ownPlan)}를 골랐어요 · 확인 전` : "아직 고르지 않았어요";
+  const theirs = program.partnerConfirmed && same ? "시작일 확인 완료" : program.partnerReady && program.partnerPlan ? `${planName(program.partnerPlan)}로 ‘이대로 시작’을 눌렀어요` : program.partnerPlan ? `${planName(program.partnerPlan)}를 골랐어요 · 확인 전` : "아직 고르지 않았어요";
+  const row = "grid gap-2 border-t border-border py-4 sm:grid-cols-[88px_1fr]";
+  return <Sheet className="p-6 sm:p-8">
+    <Eyebrow label="시작 방식과 날짜" en="START TOGETHER" />
+    <p className="mt-3 text-sm leading-7 text-muted-foreground">방식을 고르고 아래 버튼을 누르면 돼요. 두 분이 같은 방식으로 확인하면 바로 일정이 정해져요.</p>
+    <div className="mt-5">
+      <div className={row}>
+        <p className="text-xs font-semibold">방식</p>
+        <div>
+          <div role="radiogroup" aria-label="교류 방식" className="grid gap-2 sm:grid-cols-2">{(["A", "B"] as const).map(plan => <button key={plan} type="button" role="radio" aria-checked={pick === plan} onClick={() => setPick(plan)} className={`min-h-11 rounded-2xl border px-4 py-3 text-left ${interaction} ${pick === plan ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"}`}>
+            <span className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold">{PLAN_COPY[plan].name}<span className="flex gap-1">{program.ownPlan === plan && <span className="rounded-full bg-mist px-2 py-0.5 text-[10px] font-semibold ring-1 ring-border">내가 고른 방식</span>}{program.partnerPlan === plan && <span className="rounded-full bg-[#F8E5A6] px-2 py-0.5 text-[10px] font-semibold text-[#5A4310]">상대가 고른 방식</span>}</span></span>
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">{PLAN_COPY[plan].fit}</span>
+          </button>)}</div>
+          {differ && <div role="status" className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-mist p-4">
+            <p className="text-xs leading-6"><span className="font-semibold">두 분의 선택이 달라요.</span> 나 {planName(program.ownPlan!)} · 상대 {planName(program.partnerPlan!)}<br /><span className="text-muted-foreground">저절로 정하지 않아요. 한 분이 맞추면 시작일 확인으로 넘어가요.</span></p>
+            <Button variant="outline" onClick={() => void act(() => choosePlan(program.id, program.partnerPlan!), "상대 방식으로 맞췄어요.")} className="h-11 rounded-full border-border px-5">상대 방식으로 맞추기</Button>
+          </div>}
+        </div>
       </div>
-      {!openDetail && <button type="button" onClick={() => setDetail(true)} className={`mt-4 text-xs font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>방식을 자세히 보고 고르거나, 다른 시작일 제안하기</button>}
-      <p className="mt-4 text-xs leading-6 text-muted-foreground"><span className="font-semibold text-foreground">{kstDateTime(program.agreeBy)}까지</span> 정해지지 않으면 교류는 열리지 않고 이번 소개는 마무리돼요.</p>
-    </Sheet>
-    {openDetail && <>
-    <Sheet className="p-6 sm:p-8">
-      <Eyebrow mark="02" label="방식 자세히 보기" en="CHOOSE TOGETHER" />
-      <p className="mt-3 text-sm leading-7 text-muted-foreground">두 분이 같은 방식을 고르면 시작일을 확인해요. 날마다 무엇을 하는지 보고 골라 주세요.</p>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">{(["A", "B"] as const).map(plan => <button key={plan} type="button" aria-pressed={program.ownPlan === plan} onClick={() => void act(() => choosePlan(program.id, plan), "골랐어요.")} className={choice(program.ownPlan === plan)}>
-        <span className="flex items-center justify-between gap-2"><span className="font-semibold">{PLAN_COPY[plan].name}</span>{program.ownPlan === plan && <Check size={16} className="text-primary" />}</span>
-        <span className="mt-2 block text-xs leading-6 text-muted-foreground">{PLAN_COPY[plan].description}</span>
-        <span className="mt-3 block text-[11px] font-semibold text-primary">{PLAN_COPY[plan].fit}</span>
-        <ol className="mt-3 space-y-1.5 border-t border-border pt-3">{PLAN_COPY[plan].days.map((title, index) => <li key={title} className="flex gap-2 text-xs leading-5 text-foreground/80"><span className="w-12 shrink-0 text-muted-foreground">{DAY_NAME[index]}</span>{title}</li>)}</ol>
-        <span className="mt-3 block rounded-xl bg-mist px-3 py-2 text-xs leading-5 text-foreground/80">{PLAN_COPY[plan].example}</span>
-        {program.partnerPlan === plan && <span className="mt-3 inline-block rounded-full bg-[#F8E5A6] px-2.5 py-1 text-[11px] font-semibold text-[#5A4310]">{program.ownPlan ? "상대도 이 방식을 골랐어요" : "상대가 고른 방식이에요"}</span>}
-      </button>)}</div>
-      {!program.partnerPlan && <p className="mt-4 text-xs text-muted-foreground">상대는 아직 고르지 않았어요.</p>}
-      {differ && <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-mist p-5">
-        <p className="text-sm leading-7"><span className="font-semibold">두 분의 선택이 달라요.</span><br /><span className="text-xs text-muted-foreground">나 {planName(program.ownPlan!)} · 상대 {planName(program.partnerPlan!)} · 한 분이 맞추면 바로 시작일 확인으로 넘어가요.</span></p>
-        <Button onClick={() => void act(() => choosePlan(program.id, program.partnerPlan!), "상대 방식으로 맞췄어요.")} className="h-11 rounded-full px-6">상대 방식으로 맞추기</Button>
-      </div>}
-      <p className="mt-5 border-t border-border pt-4 text-xs leading-6 text-muted-foreground"><span className="font-semibold text-foreground">{kstDateTime(program.agreeBy)}까지</span> 두 분이 같은 방식과 시작일을 모두 확인해야 교류가 시작돼요. 그때까지 정해지지 않으면 교류는 열리지 않고 이번 소개는 마무리돼요. 그 뒤에는 다음 소개를 기다리게 돼요.</p>
-    </Sheet>
-    {same && <Sheet className="p-6 sm:p-8">
-      <Eyebrow mark="03" label="시작일 확인" en="DAY 01" />
-      <p className="mt-3 text-sm leading-7 text-muted-foreground">기본은 내일 09:00 시작이에요. 다른 날이 좋으면 14일 안에서 제안할 수 있어요. 제안한 사람은 그 날짜로 확인한 것으로 보고, 상대의 확인만 다시 받아요.</p>
-      <div className="mt-5 flex flex-wrap items-end gap-3">
-        <label className="grid gap-1.5 text-xs font-semibold">시작일<Input type="date" min={min} max={max} value={date} onChange={event => setDate(event.target.value)} className="h-11 w-48 rounded-xl border-border bg-card" /></label>
-        {date && date !== program.startOn && <Button variant="outline" onClick={() => void act(() => proposeStart(program.id, date), "새 시작일을 제안했어요.")} className="h-11 rounded-xl border-border">이 날로 제안하기</Button>}
+      <div className={row}>
+        <p className="text-xs font-semibold">시작일</p>
+        <div className="text-sm leading-7">
+          <span className="font-semibold">{dayLabel(start)} 09:00</span>{partnerProposed && <span className={`ml-2 ${butter}`}>상대가 제안한 날 · 이 날만 다시 확인해 주세요</span>}
+          {!same && <span className="block text-xs text-muted-foreground">기본 시작일이에요. 두 분 방식이 같아지면 다른 날도 제안할 수 있어요.</span>}
+          {same && !dateOpen && <button type="button" onClick={() => setDateOpen(true)} className={`block min-h-11 text-xs font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>다른 날 제안하기</button>}
+          {same && dateOpen && <div className="mt-2 flex flex-wrap items-end gap-3">
+            <label className="grid gap-1.5 text-xs font-semibold">시작일<Input type="date" min={min} max={max} value={date} onChange={event => setDate(event.target.value)} className="h-11 w-48 rounded-xl border-border bg-card" /></label>
+            {date && date !== program.startOn && <Button variant="outline" onClick={() => void act(() => proposeStart(program.id, date), "새 시작일을 제안했어요. 상대가 이 날짜만 다시 확인하면 돼요.")} className="h-11 rounded-xl border-border">이 날로 제안하기</Button>}
+            <span className="w-full text-[11px] leading-5 text-muted-foreground">14일 안에서 고를 수 있어요. 제안한 사람은 그 날짜로 확인한 것으로 보고, 상대는 날짜만 다시 확인해요.</span>
+          </div>}
+        </div>
       </div>
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-mist p-5">
-        <p className="text-sm leading-7"><span className="font-semibold">{program.startOn && dayLabel(program.startOn)} 09:00 시작</span><br /><span className="text-xs text-muted-foreground">나 {program.ownConfirmed ? "확인 완료" : "확인 전"} · 상대 {program.partnerConfirmed ? "확인 완료" : "확인 전"}</span></p>
-        <Button disabled={program.ownConfirmed} onClick={() => void act(() => confirmProgram(program.id, program.startOn), "확인했어요.")} className="h-11 rounded-xl px-6">{program.ownConfirmed ? "확인했어요" : "이 일정으로 시작하기"}</Button>
+      <div className={row}>
+        <p className="text-xs font-semibold">사흘 일정</p>
+        {pick ? <ScheduleList plan={pick} startOn={start} /> : <p className="text-xs leading-6 text-muted-foreground">방식을 고르면 날마다 무엇을 하는지 보여요.</p>}
       </div>
-    </Sheet>}
-    </>}
-    <NoteList items={[{ title: "베타 기간", body: "지금은 교류비 없이 진행해요. 정식 운영부터 각자 교류비를 결제한 뒤 시작해요." }, { title: "시작한 뒤에는", body: "방식은 바꿀 수 없어요. 3일 동안 하루 한 번씩 쓰고, 넷째 날 09:00에 만남을 정해요." }]} />
-  </>;
+      <div className={row}>
+        <p className="text-xs font-semibold">확인</p>
+        <ul className="space-y-1 text-xs leading-6"><li className="flex gap-2"><span className="w-8 shrink-0 text-muted-foreground">나</span><span className={program.ownConfirmed || program.ownReady ? "font-semibold text-primary" : ""}>{mine}</span></li><li className="flex gap-2"><span className="w-8 shrink-0 text-muted-foreground">상대</span><span className={program.partnerConfirmed || program.partnerReady ? "font-semibold text-primary" : ""}>{theirs}</span></li></ul>
+      </div>
+    </div>
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-mist p-5">
+      <p className="text-sm leading-7"><span className="font-semibold">{pick ? `${planName(pick)} · ${dayLabel(start)} 09:00 시작` : "방식을 먼저 골라 주세요"}</span>{pick && <><br /><span className="text-xs text-muted-foreground">{confirmMode ? partnerProposed ? "상대가 이 날로 확인했어요. 나도 확인하면 바로 정해져요." : "나도 확인하면 상대 확인을 기다려요." : program.partnerReady && program.partnerPlan === pick ? "상대는 이대로 시작을 눌러 두었어요. 나도 누르면 바로 정해져요." : waiting ? same && program.ownConfirmed ? "확인했어요. 상대가 확인하면 바로 정해져요." : "눌렀어요. 상대가 같은 방식으로 확인하면 그때 바로 정해져요." : program.partnerPlan && program.partnerPlan !== pick ? "상대와 방식이 달라요. 눌러도 상대가 맞추기 전까지는 정해지지 않아요." : "상대도 같은 방식으로 확인하면 이 일정으로 시작해요."}</span></>}</p>
+      <Button disabled={!pick || (waiting && !confirmMode)} onClick={() => { if (!pick) return; void act(() => confirmMode ? confirmProgram(program.id, program.startOn) : quickStart(program.id, pick), confirmMode ? "확인했어요." : ""); }} className="h-11 rounded-xl px-6">{!pick ? "방식을 골라 주세요" : confirmMode ? "이 일정으로 시작하기" : waiting ? "눌렀어요" : "이대로 시작"}</Button>
+    </div>
+    <p className="mt-4 text-xs leading-6 text-muted-foreground"><span className="font-semibold text-foreground">{kstDateTime(program.agreeBy)}까지</span> 정해지지 않으면 교류는 열리지 않고 이번 소개는 마무리돼요.</p>
+    <details className="group mt-3 border-t border-border pt-2">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold [&::-webkit-details-marker]:hidden">진행 방식 다시 보기<ChevronDown aria-hidden="true" size={14} className="shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none" /></summary>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">{(["A", "B"] as const).map(plan => <div key={plan} className="rounded-2xl border border-border p-4">
+        <p className="text-sm font-semibold">{PLAN_COPY[plan].name}</p>
+        <p className="mt-2 text-xs leading-6 text-muted-foreground">{PLAN_COPY[plan].description}</p>
+        <p className="mt-2 rounded-xl bg-mist px-3 py-2 text-xs leading-5 text-foreground/80">{PLAN_COPY[plan].example}</p>
+      </div>)}</div>
+      <div className="mt-3"><NoteList items={[{ title: "베타 기간", body: "지금은 교류비 없이 진행해요. 정식 운영부터 각자 교류비를 결제한 뒤 시작해요." }, { title: "시작한 뒤에는", body: "방식은 바꿀 수 없어요. 3일 동안 하루 한 번씩 쓰고, 넷째 날 09:00에 만남을 정해요." }, { title: "정하지 못하면", body: `${kstDateTime(program.agreeBy)}까지 두 분이 같은 방식과 시작일을 확인하지 않으면 교류는 열리지 않고 이번 소개는 마무리돼요. 그 뒤에는 다음 소개를 기다리게 돼요.` }]} /></div>
+    </details>
+  </Sheet>;
 }
 
 // B: 함께 열린 날 두 분의 선택이 겹치면 작게 알려 준다.
@@ -305,12 +362,6 @@ function OurDays({ program }: { program: Program }) {
   const final = program.entries.find(item => item.kind === "final");
   const agreed = !!final?.own?.payload && !!final.partner?.payload && sceneKey(final.own.payload) === sceneKey(final.partner.payload);
   const strong = (text: string) => <b className="font-semibold text-foreground">{text}</b>;
-  // 지금 할 일 하나(검수 F3): 오늘 아직 안 썼으면 ‘오늘 … 쓰기’, 오늘 글이 열렸으면 ‘함께 열린 글 읽기’
-  const todayStamp = stamps.find(stamp => stamp.state === "today" || stamp.state === "sent" || (stamp.state === "open" && stamp.date === program.today));
-  const primary = program.status !== "started" || !todayStamp ? null
-    : todayStamp.state === "today" ? { day: todayStamp.day, label: plan === "A" ? "오늘 편지 쓰기" : "오늘의 답 고르기", note: "" }
-    : todayStamp.state === "open" ? { day: todayStamp.day, label: "함께 열린 글 읽기", note: "" }
-    : { day: todayStamp.day, label: "보낸 글 보기", note: "상대가 보내면 함께 열려요." };
   return <Sheet className="p-6 sm:p-8">
     <div className="flex flex-wrap items-center justify-between gap-3"><Eyebrow label={recap ? "두 사람의 사흘" : "우리의 사흘"} en={recap ? "LOOKING BACK" : "OUR THREE DAYS"} /><DotsTrack step={opened} /></div>
     {recap && <p className="mt-3 text-sm leading-7 text-muted-foreground">만남을 고르기 전에, 사흘 동안 나눈 것을 한눈에 돌아봐요.</p>}
@@ -329,7 +380,6 @@ function OurDays({ program }: { program: Program }) {
         <span className={`text-[11px] leading-4 ${recap ? "font-semibold text-accent" : "text-muted-foreground"}`}>{recap ? "만남 선택" : <>{monthDay(meetDate)}<br />만남 선택</>}</span>
       </li>
     </ol>
-    {primary && <div className="mt-6 flex flex-wrap items-center gap-3"><Button onClick={() => goToDay(primary.day)} className="h-11 rounded-full px-6">{primary.label} <ArrowRight size={14} /></Button>{primary.note && <span className="text-xs text-muted-foreground">{primary.note}</span>}</div>}
     {plan === "A" && <p className="mt-6 border-t border-border pt-4 text-xs leading-6 text-muted-foreground">{opened ? <>함께 연 편지 {strong(`${opened}통`)}{replies > 0 && <> · 주고받은 답장 {strong(`${replies}번`)}</>}{photos > 0 && <> · 나눈 사진 {strong(`${photos}장`)}</>}</> : program.status === "started" ? "두 분 모두 보내면 그날의 도장이 채워지고, 두 점이 한 걸음 가까워져요." : "사흘 동안 함께 열린 편지는 없었어요."}</p>}
     {plan === "A" && recap && opened > 0 && <div className="mt-4"><p className="text-xs font-semibold">상대가 들려준 사흘</p><ul className="mt-3 space-y-2.5">{[1, 2, 3].map(day => { const item = entry(day); if (!isOpen(item) || !item?.partner?.body) return null; return <li key={day} className="flex gap-3 text-sm leading-6"><span className="w-14 shrink-0 pt-0.5 text-[11px] font-semibold text-accent">DAY 0{day}</span><span className="min-w-0 text-foreground/85"><span className="block text-[11px] text-muted-foreground">{day === 3 && program.ownAsk ? `내가 낸 질문 · “${program.ownAsk}”` : letterPrompt(day, day === 1 || isOpen(entry(day - 1)), program.letterSet).title}</span>“{firstLine(item.partner.body)}”{item.partner.payload?.photo && <span className="ml-1.5 whitespace-nowrap text-[11px] text-muted-foreground">· 사진 한 장</span>}</span></li>; })}</ul></div>}
     {plan === "B" && (isOpen(entry(3))
@@ -339,6 +389,33 @@ function OurDays({ program }: { program: Program }) {
         <SceneBoard program={program} />
         {recap && <p className="mt-4 text-xs leading-6 text-muted-foreground">셋째 날 답이 함께 열리지 않아 첫 장면을 맞추지는 않았어요. 두 분이 고른 것은 그대로 남아 있어요.</p>}
       </div>)}
+  </Sheet>;
+}
+
+// 오늘 할 일 하나(검수 U08): 쓰기 · 기다리기 · 읽기 중 하나와 한 줄 상태. 답장·한마디·질문 같은 선택 항목은 여기서 요구하지 않는다.
+function TodayAction({ program }: { program: Program }) {
+  if (!program.startOn || !program.day) return null;
+  const plan = program.ownPlan ?? "A";
+  const day = program.day;
+  const entry = program.entries.find(item => item.day === day && item.kind === (plan === "A" ? "letter" : "scene"));
+  const early = kstHour() < 9;
+  const opened = !!entry?.own && !!entry?.partner;
+  const state = early ? "early" : opened ? "read" : entry?.own ? "wait" : "write";
+  const what = plan === "A" ? "편지" : "답";
+  const previous = program.entries.find(item => item.day === day - 1 && item.kind === (plan === "A" ? "letter" : "scene"));
+  const topic = plan === "B" ? SCENE_PROMPTS[day - 1].title : day === 3 && program.partnerAsk ? `${program.partnerName ?? "상대"} 님이 낸 질문` : letterPrompt(day, day === 1 || (!!previous?.own && !!previous?.partner), program.letterSet).title;
+  const copy = {
+    early: { title: topic, line: `DAY 0${day}은 오늘 09:00에 열려요. 열리면 알림으로 알려 드릴게요.`, button: "" },
+    write: { title: topic, line: `오늘 23:59까지 · ${untilMidnight()} 남았어요 · ${entry?.partnerSent ? "상대는 이미 보냈어요. 보내면 바로 함께 열려요." : "두 분 모두 보내면 함께 열려요."}`, button: plan === "A" ? "오늘 편지 쓰기" : "오늘의 답 고르기" },
+    wait: { title: "오늘 할 일은 끝났어요", line: `오늘의 ${what}을 보냈어요. 상대가 보내면 함께 열려요.`, button: "보낸 글 보기" },
+    read: { title: topic, line: plan === "A" ? "두 분의 편지가 함께 열렸어요. 답장은 선택이에요." : "두 분의 답이 함께 열렸어요. 한마디는 선택이에요.", button: "함께 열린 글 읽기" },
+  }[state];
+  return <Sheet className={`p-5 sm:p-6 ${state === "write" || state === "read" ? "border-primary/40" : ""}`}>
+    <p className="text-[11px] font-semibold tracking-[0.12em] text-accent">오늘 할 일 · DAY 0{day}</p>
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0"><h2 className="text-lg font-semibold leading-7">{copy.title}</h2><p role="status" className="mt-1 text-xs leading-6 text-muted-foreground">{copy.line}</p></div>
+      {copy.button && <Button variant={state === "wait" ? "outline" : "default"} onClick={() => goToDay(day)} className={`h-11 rounded-full px-6 ${state === "wait" ? "border-border" : ""}`}>{copy.button} <ArrowRight size={14} /></Button>}
+    </div>
   </Sheet>;
 }
 
@@ -396,7 +473,7 @@ function Days({ program, act }: { program: Program; act: Act }) {
     const foldable = !today && !future && (!!main?.own || !!main?.partner) && !(replyOpen && !reply?.own) && !commentOpen;
     const previewSource = main?.partner ?? main?.own;
     const preview = plan === "A" ? twoSentences(previewSource?.body ?? "") : sceneSummary(previewSource?.payload) || twoSentences(previewSource?.body ?? "");
-    return <DayCard key={day} day={day} foldable={foldable} highlight={today || (replyOpen && !reply?.own)} title={plan === "A" ? letter.title : scene.title} date={dayLabel(date)} preview={preview}>
+    return <DayCard key={day} day={day} foldable={foldable} highlight={today && !main?.own} title={plan === "A" ? letter.title : scene.title} date={dayLabel(date)} preview={preview}>
       <div className="flex flex-wrap items-baseline justify-between gap-2"><Eyebrow mark={`0${day}`} label={plan === "A" ? letter.title : scene.title} en={DAY_NAME[day - 1]} /><span className="text-xs text-muted-foreground">{dayLabel(date)} 09:00~23:59</span></div>
       {future ? <p className="mt-4 text-sm text-muted-foreground">{dayLabel(date)} 오전 9시에 열려요. 그때 알림으로 알려 드릴게요.</p> : <>
         <p className="mt-4 text-sm font-semibold leading-7">{plan === "A" ? letter.question : scene.question}</p>
@@ -410,11 +487,11 @@ function Days({ program, act }: { program: Program; act: Act }) {
           : <SceneComposer draftKey={`${program.id}:${day}:scene`} day={day} previous={previousOpened ? previous : undefined} first={find(1)} comment={day > 1 ? find(day - 1, "comment")?.own : undefined} onSend={(body, payload) => act(() => submitEntry(program.id, day, "scene", body, payload), main?.partnerSent ? "보냈어요. 두 분의 답이 함께 열렸어요." : "보냈어요. 상대도 보내면 함께 열려요.")} />)}
         {today && !main?.own && <p className="mt-3 text-[11px] text-muted-foreground">오늘 23:59까지 {untilMidnight()} 남았어요. 두 분 모두 보내야 함께 열려요.</p>}
         {plan === "A" && opened && <div className="mt-6 border-t border-border pt-5">
-          <p className="text-xs font-semibold text-accent">답장 · 한 번 · {replyUntil}까지</p>
+          <p className="text-xs font-semibold text-accent">답장 · 선택 · 한 번 · {replyUntil}까지</p>
           <EntryPair entry={reply} plan="A" reply until={replyUntil} past={!replyOpen} mark={mark} />
           {replyOpen && !reply?.own && (reply?.partnerSent
             ? <p className={`mt-4 inline-flex items-center gap-2 ${butter}`}><Check size={13} />상대는 답장을 보냈어요. 내 답장도 보내면 함께 열려요.</p>
-            : <p className="mt-3 text-xs leading-6 text-muted-foreground">열린 편지에 답장을 한 번 보낼 수 있어요. 두 분 모두 보내면 답장도 함께 열려요.</p>)}
+            : <p className="mt-3 text-xs leading-6 text-muted-foreground">보내지 않아도 괜찮아요. 열린 편지에 답장을 한 번 보낼 수 있고, 두 분 모두 보내면 답장도 함께 열려요.</p>)}
           {replyOpen && !reply?.own && <LetterComposer reply draftKey={`${program.id}:${day}:reply`} onSend={body => act(() => submitEntry(program.id, day, "reply", body), reply?.partnerSent ? "답장을 보냈어요. 두 분의 답장이 함께 열렸어요." : "답장을 보냈어요. 상대도 보내면 함께 열려요.")} />}
           {!replyOpen && !reply?.own && <p className="mt-3 text-xs text-muted-foreground">{reply?.partnerSent ? "두 분이 모두 답장을 보내지 않아 답장은 열리지 않았어요." : "이날은 답장을 나누지 않았어요."}</p>}
         </div>}
@@ -509,7 +586,7 @@ function LetterPhoto({ path, caption, className = "" }: { path: string; caption:
       <span className="block aspect-[4/5] overflow-hidden bg-lilac">{url ? <img src={url} alt="" draggable={false} onContextMenu={event => event.preventDefault()} onError={() => { setUrl(null); setFailed("temporary"); }} className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center px-3 text-center text-[11px] leading-5 text-[#1F1B33]/55">{failed === "gone" ? "지금은 사진을 볼 수 없어요" : failed ? "사진을 불러오지 못했어요" : "사진을 불러오는 중…"}</span>}</span>
       <span className="mt-1.5 block text-center text-[10px] font-semibold tracking-[0.12em] text-[#1F1B33]/55">{caption}</span>
     </button>
-    {failed === "temporary" && <button type="button" onClick={() => setAttempt(value => value + 1)} className={`mt-2 inline-flex min-h-9 items-center text-[11px] font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>다시 불러오기</button>}
+    {failed === "temporary" && <button type="button" onClick={() => { forgetLetterPhoto(path); setAttempt(value => value + 1); }} className={`mt-2 inline-flex min-h-11 items-center text-[11px] font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>다시 불러오기</button>}
     {open && url && <Lightbox url={url} caption={caption} onClose={() => setOpen(false)} />}
   </>;
 }
@@ -541,7 +618,7 @@ export function LetterExamples({ examples, className = "" }: { examples: readonl
   const [open, setOpen] = useState(false);
   if (!examples.length) return null;
   return <div className={className}>
-    <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)} className={`inline-flex items-center gap-1 rounded-full text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring ${interaction}`}>{open ? "예시 닫기" : "예시 보기"}<ChevronDown size={13} className={`transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} /></button>
+    <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)} className={`inline-flex min-h-11 items-center gap-1 rounded-full text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring ${interaction}`}>{open ? "예시 닫기" : "예시 보기"}<ChevronDown size={13} className={`transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} /></button>
     {open && <ul aria-label="이 질문의 예시 답" className="mt-2 space-y-1.5 rounded-xl bg-mist px-4 py-3 text-xs leading-6 text-foreground/75">{examples.map(example => <li key={example}>“{example}”</li>)}</ul>}
   </div>;
 }
@@ -566,12 +643,15 @@ function LetterComposer({ onSend, reply = false, draftKey, examples = [], photo,
   const [photoLoadFailed, setPhotoLoadFailed] = useState(false);
   useEffect(() => { if (!photoPath || preview) return; let alive = true; setPhotoLoadFailed(false); void letterPhotoResult(photoPath).then(result => { if (!alive) return; if (result.status === "ok") setPreview(result.url); else if (result.status === "deleted") { setPhotoPath(""); writeDraft(photoKey, ""); } else setPhotoLoadFailed(true); }); return () => { alive = false; }; }, [photoPath, photoRetry]);
   useEffect(() => () => { if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview); }, [preview]);
+  const lastFile = useRef<File | null>(null);
   const pickPhoto = async (file?: File) => {
     if (!file || !photo) return;
+    lastFile.current = file;
     setPhotoBusy(true); setPhotoError("");
     const result = await uploadLetterPhoto(photo.programId, photo.day, file);
     setPhotoBusy(false);
-    if ("error" in result) { setPhotoError(result.error); return; }
+    if ("error" in result) { setPhotoError(navigator.onLine === false ? "인터넷 연결이 끊겨 사진을 올리지 못했어요. 연결되면 ‘다시 올리기’를 눌러 주세요. 쓰던 편지와 넣어 둔 사진은 그대로예요." : result.error); return; }
+    lastFile.current = null;
     if (photoPath) void removeLetterPhoto(photoPath);
     setPhotoPath(result.path); writeDraft(photoKey, result.path); setPreview(URL.createObjectURL(result.blob));
   };
@@ -582,6 +662,7 @@ function LetterComposer({ onSend, reply = false, draftKey, examples = [], photo,
     // 서버와 같은 기준으로 먼저 살펴, 보내기 실패 대신 무엇을 빼면 되는지 알려 준다.
     const problem = contactProblem(body);
     if (problem) { setWarning(problem); return; }
+    if (navigator.onLine === false) { setWarning("인터넷 연결이 끊겨 있어요. 쓴 편지는 이 기기에 저장돼 있어요. 연결되면 다시 보내 주세요."); return; }
     setSending(true);
     if (await onSend(body, photo && photoPath ? photoPath : null)) { writeDraft(draftKey, ""); writeDraft(photoKey, ""); }
     setSending(false);
@@ -608,14 +689,14 @@ function LetterComposer({ onSend, reply = false, draftKey, examples = [], photo,
   </div>;
   return <div className="mt-5 space-y-3">
     {!reply && <LetterExamples examples={examples} />}
-    <Textarea aria-label={reply ? "열린 편지에 답장 쓰기" : "오늘의 편지 쓰기"} value={body} onChange={event => { setBody(event.target.value); setWarning(""); }} maxLength={max} rows={reply ? 3 : 7} placeholder={reply ? "열린 편지에 한 번 답해요." : "나를 소개하듯 편하게 적어 주세요. 보낸 뒤에는 고칠 수 없어요."} className="rounded-xl border-border bg-card text-base leading-7 md:text-sm" />
+    <Textarea aria-label={reply ? "열린 편지에 답장 쓰기" : "오늘의 편지 쓰기"} value={body} onChange={event => { setBody(event.target.value); setWarning(""); }} maxLength={max} rows={reply ? 3 : 7} placeholder={reply ? "선택이에요. 짧게 한 줄도 괜찮아요." : "나를 소개하듯 편하게 적어 주세요. 보낸 뒤에는 고칠 수 없어요."} className="rounded-xl border-border bg-card text-base leading-7 md:text-sm" />
     {photo && <div className="rounded-2xl border border-dashed border-primary/30 bg-mist p-4">
       {preview ? <div className="flex flex-wrap items-end gap-4">
-        <span className="block w-28 shrink-0 -rotate-[1.5deg] bg-[#FFFEFA] p-1.5 pb-4 shadow-[0_14px_28px_-18px_rgba(30,20,80,0.6)] ring-1 ring-black/5"><img src={preview} alt="편지에 넣을 사진" className="aspect-[4/5] w-full object-cover" /></span>
+        <span className="block w-28 shrink-0 -rotate-[1.5deg] bg-[#FFFEFA] p-1.5 pb-4 shadow-[0_14px_28px_-18px_rgba(30,20,80,0.6)] ring-1 ring-black/5"><img src={preview} alt="편지에 넣을 사진" onError={() => { if (preview.startsWith("blob:")) return; setPreview(null); setPhotoLoadFailed(true); }} className="aspect-[4/5] w-full object-cover" /></span>
         <span className="min-w-0 flex-1 space-y-2"><span className="block text-xs font-semibold">사진 한 장을 함께 보내요</span><span className="block text-[11px] leading-5 text-muted-foreground">보내기 전에는 바꾸거나 뺄 수 있어요.</span><span className="flex flex-wrap gap-2"><Button variant="outline" disabled={photoBusy || sending} onClick={() => picker.current?.click()} className="h-9 rounded-full border-border px-4 text-xs">{photoBusy ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}바꾸기</Button><Button variant="ghost" disabled={photoBusy || sending} onClick={dropPhoto} className="h-9 rounded-full px-3 text-xs text-muted-foreground"><X size={13} />빼기</Button></span></span>
       </div> : photoPath ? <div className="flex flex-wrap items-center justify-between gap-3">
         <p role="status" className="text-xs leading-6"><span className="font-semibold">넣어 둔 사진이 있어요</span><br /><span className="text-muted-foreground">{photoLoadFailed ? "사진을 불러오지 못했어요. 사진은 그대로 함께 보내져요." : "사진을 불러오는 중…"}</span></p>
-        <span className="flex flex-wrap gap-2">{photoLoadFailed && <Button variant="outline" onClick={() => setPhotoRetry(value => value + 1)} className="h-9 rounded-full border-border px-4 text-xs">다시 불러오기</Button>}<Button variant="ghost" disabled={sending} onClick={dropPhoto} className="h-9 rounded-full px-3 text-xs text-muted-foreground">사진 빼기</Button></span>
+        <span className="flex flex-wrap gap-2">{photoLoadFailed && <Button variant="outline" onClick={() => { forgetLetterPhoto(photoPath); setPhotoRetry(value => value + 1); }} className="h-11 rounded-full border-border px-4 text-xs">다시 불러오기</Button>}<Button variant="ghost" disabled={sending} onClick={dropPhoto} className="h-9 rounded-full px-3 text-xs text-muted-foreground">사진 빼기</Button></span>
       </div> : <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs leading-6"><span className="font-semibold">사진 한 장 · 선택</span><br /><span className="text-muted-foreground">편지와 어울리는 풍경·물건·요즘 좋아하는 장면이면 좋아요.</span></p>
         <Button variant="outline" disabled={photoBusy || sending} onClick={() => picker.current?.click()} className="h-10 rounded-full border-border px-4 text-xs">{photoBusy ? <><Loader2 size={13} className="animate-spin" />올리는 중…</> : <><ImagePlus size={13} />사진 넣기</>}</Button>
@@ -623,13 +704,14 @@ function LetterComposer({ onSend, reply = false, draftKey, examples = [], photo,
       <input ref={picker} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void pickPhoto(file); }} />
       <p className="mt-3 text-[11px] leading-5 text-muted-foreground">다른 사람의 얼굴, 연락처·QR·주소가 보이는 사진은 피해 주세요. 촬영 위치 같은 정보는 이 기기에서 지우고 올려요. 사진은 두 분의 편지가 함께 열린 뒤에만 상대에게 보여요.</p>
       {photoError && <p role="alert" className="mt-2 text-xs leading-6 text-destructive">{photoError}</p>}
+      {photoError && lastFile.current && <Button variant="outline" disabled={photoBusy || sending} onClick={() => void pickPhoto(lastFile.current ?? undefined)} className="mt-2 h-11 rounded-full border-border px-4 text-xs">다시 올리기</Button>}
     </div>}
     {warning && <p role="alert" className="text-xs leading-6 text-destructive">{warning}</p>}
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <span className="text-xs text-muted-foreground">{length} / {max}자{!reply && (length < 20 ? " · 20자부터 보낼 수 있어요" : sweet ? " · 읽기 좋은 길이예요" : length < 300 ? " · 300~600자를 권해요" : "")}{body && " · 이 기기에 저장 중"}</span>
+      <span className="text-xs text-muted-foreground">{length} / {reply ? `최대 ${max}` : max}자{!reply && (length < 20 ? " · 20자부터 보낼 수 있어요" : sweet ? " · 읽기 좋은 길이예요" : length < 300 ? " · 300~600자를 권해요" : "")}{body && " · 이 기기에 저장 중"}</span>
       <Button disabled={sending || photoBusy || length < min} onClick={() => void send()} className="h-11 rounded-full px-6">{sending ? "보내는 중…" : reply ? "답장 보내기" : "편지 보내기"}</Button>
     </div>
-    {postcard && !reply && <button type="button" onClick={() => { setCard(true); setWarning(""); }} className={`text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline ${interaction}`}>오늘은 여유가 없나요? 한 줄 엽서로 보내기</button>}
+    {postcard && !reply && <button type="button" onClick={() => { setCard(true); setWarning(""); }} className={`inline-flex min-h-11 items-center text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline ${interaction}`}>오늘은 여유가 없나요? 한 줄 엽서로 보내기</button>}
   </div>;
 }
 

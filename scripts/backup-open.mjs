@@ -10,8 +10,13 @@ const { key, keyId } = loadKey()
 const manifest = JSON.parse(readFileSync(join(from, "manifest.json"), "utf8"))
 if (manifest.encryption?.keyId && manifest.encryption.keyId !== keyId) { console.error(`이 백업은 다른 키(${manifest.encryption.keyId})로 잠겨 있어요. 지금 키: ${keyId}`); process.exit(1) }
 const walk = (dir) => readdirSync(dir).flatMap((name) => { const path = join(dir, name); return statSync(path).isDirectory() ? walk(path) : [path] })
+const files = walk(from).filter((path) => path.endsWith(".enc"))
+// 먼저 모두 풀리는지 확인한 뒤에 꺼낸다(중간에 손상된 파일이 있으면 평문을 하나도 남기지 않는다).
+for (const file of files) {
+  try { decrypt(key, readFileSync(file)) } catch (error) { console.error(`${relative(from, file)}: ${error.message} 아무 파일도 풀지 않았어요.`); process.exit(1) }
+}
 let opened = 0
-for (const file of walk(from).filter((path) => path.endsWith(".enc"))) {
+for (const file of files) {
   const out = join(to, relative(from, file).replace(/\.enc$/, ""))
   mkdirSync(dirname(out), { recursive: true })
   writeFileSync(out, decrypt(key, readFileSync(file)))

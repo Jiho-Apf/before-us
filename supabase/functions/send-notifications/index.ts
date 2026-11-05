@@ -13,7 +13,7 @@
 // 한 통이 실패하면 사유를 남기고 다음 차례(5분 뒤)에 다시 보낸다. 3번 시도한 메일은 더 보내지 않는다(claim_email_notifications · record_email_result).
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.49.4"
 import { buildMessage, parseAddress } from "./mime.ts"
-import { Smtp } from "./smtp.ts"
+import { Smtp, UncertainDelivery } from "./smtp.ts"
 
 // 서비스 이름(화면 src/app/config.ts 의 brand 와 같이 바꾼다)
 const BRAND = { name: "플라비", english: "FLAVIE", message: "끌리는 사람을, 천천히 알아갑니다." }
@@ -97,11 +97,15 @@ Deno.serve(async (request) => {
   }
   if (key) {
     for (const mail of mails) {
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "Idempotency-Key": `notification-${mail.id}` },
-        body: JSON.stringify({ from: `${BRAND.name} <${parseAddress(from!).address}>`, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text }),
-      })
+      // 네트워크 오류로 답을 못 받아도 함수가 멈추지 않게 실패로 남긴다. 같은 Idempotency-Key 로 다시 보내므로 Resend가 두 번 보내지 않는다(24시간).
+      let response: Response
+      try {
+        response = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "Idempotency-Key": `notification-${mail.id}` },
+          body: JSON.stringify({ from: `${BRAND.name} <${parseAddress(from!).address}>`, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text }),
+        })
+      } catch (error) { await fail(mail, `Resend 연결 실패: ${String((error as Error)?.message ?? error)}`); continue }
       if (response.ok) await done(mail); else await fail(mail, `Resend ${response.status} ${response.statusText}`)
     }
   } else {
@@ -115,14 +119,28 @@ Deno.serve(async (request) => {
       const fromHeader = `${BRAND.name} <${sender}>`
       try {
         for (const mail of mails) {
-          try { await client.send(sender, mail.to, buildMessage({ from: fromHeader, to: mail.to, subject: mail.subject, text: mail.text, html: mail.html, id: mail.id })); handled.add(mail.id); await done(mail) } catch (error) { handled.add(mail.id); const message = String((error as Error)?.message ?? error); await fail(mail, message); reason ||= message.replaceAll(mail.to, "(받는 주소)").slice(0, 300) }
+          // 연결이 끊겼으면 남은 메일은 보내지 않는다(아래에서 선점을 풀어 다음 차례에 보낸다).
+          if (client.broken) break
+          try { await client.send(sender, mail.to, buildMessage({ from: fromHeader, to: mail.to, subject: mail.subject, text: mail.text, html: mail.html, id: mail.id })); handled.add(mail.id); await done(mail) } catch (error) {
+            const message = String((error as Error)?.message ?? error).replaceAll(mail.to, "(받는 주소)").slice(0, 300)
+            reason ||= message
+            if (error instanceof UncertainDelivery) {
+              // 본문을 다 보낸 뒤 답을 못 받음: 이미 갔을 수 있어 다시 보내지 않는다.
+              handled.add(mail.id); unknown++; await mark(mail, "unknown", message)
+            } else if (!client.broken) {
+              // 메일 서버가 거절함(주소 오류 등): 이 메일의 실패로 센다(3번까지 다시).
+              handled.add(mail.id); await fail(mail, message)
+            }
+            // 본문을 다 보내기 전에 연결이 끊김: 메일 탓이 아니므로 아래에서 선점을 푼다.
+          }
         }
       } finally { await client.quit() }
     } catch (error) {
-      // 연결·로그인 실패: 메일 탓이 아니므로 선점을 풀고 시도 횟수를 되돌린다(설정을 고치면 그대로 보내지게). 대시보드에 사유가 남는다.
+      // 연결·로그인 실패
       reason ||= String((error as Error)?.message ?? error).slice(0, 300)
-      for (const mail of mails) if (!handled.has(mail.id)) await mark(mail, "released")
     }
+    // 보내지 못한 메일(연결·로그인 실패 · 중간에 끊김)은 메일 탓이 아니므로 선점을 풀고 시도 횟수를 되돌린다(설정을 고치면 그대로 보내지게). 대시보드에 사유가 남는다.
+    for (const mail of mails) if (!handled.has(mail.id)) await mark(mail, "released")
     if (reason) { await record(db, sent, failed, reason, gaveUp, unknown); return Response.json({ sent, failed, gaveUp, unknown, reason }) }
   }
   await record(db, sent, failed, "", gaveUp, unknown)

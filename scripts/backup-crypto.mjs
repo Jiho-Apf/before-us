@@ -34,8 +34,13 @@ export function encrypt(key, plain) {
 }
 
 export function decrypt(key, sealed) {
-  if (!sealed.subarray(0, 4).equals(MAGIC)) throw new Error("플라비 백업 파일이 아니에요.")
-  const decipher = createDecipheriv("aes-256-gcm", key, sealed.subarray(4, 16))
+  if (sealed.length < 32 || !sealed.subarray(0, 4).equals(MAGIC)) throw new Error("플라비 백업 파일이 아니거나 잘린 파일이에요.")
+  // 인증 태그 길이를 16바이트로 못 박는다(짧은 태그를 받아들이지 않게).
+  const decipher = createDecipheriv("aes-256-gcm", key, sealed.subarray(4, 16), { authTagLength: 16 })
   decipher.setAuthTag(sealed.subarray(16, 32))
-  return Buffer.concat([decipher.update(sealed.subarray(32)), decipher.final()])
+  try {
+    return Buffer.concat([decipher.update(sealed.subarray(32)), decipher.final()])
+  } catch {
+    throw new Error("백업 파일을 풀 수 없어요. 키가 다르거나 파일이 바뀌었거나 잘렸어요.")
+  }
 }

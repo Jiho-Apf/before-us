@@ -13,12 +13,16 @@ import { fileURLToPath } from "node:url"
 import { encrypt, KEY_FILE, loadKey } from "./backup-crypto.mjs"
 
 const code = join(dirname(fileURLToPath(import.meta.url)), "..")
-const root = join(code, "..", "백업")
+// 시험(supabase/tests/backup/backup-tools.test.mjs)에서만: 가짜 CLI와 임시 백업 폴더를 쓴다. 둘은 함께 있어야 한다(진짜 백업 폴더를 건드리지 않게).
+const FAKE_CLI = process.env.FLAVIE_BACKUP_FAKE_CLI
+if (FAKE_CLI && !process.env.FLAVIE_BACKUP_ROOT) { console.error("FLAVIE_BACKUP_FAKE_CLI는 FLAVIE_BACKUP_ROOT와 함께만 쓸 수 있어요."); process.exit(2) }
+const root = process.env.FLAVIE_BACKUP_ROOT || join(code, "..", "백업")
 const CLI = ["--yes", "supabase@2.121.0"]
 const KEEP_DAYS = 30
 const BUCKETS = ["application-photos", "letter-photos"]
 const now = new Date()
-const stamp = now.toLocaleString("sv-SE", { timeZone: "Asia/Seoul" }).replace(" ", "_").replace(/:/g, "").slice(0, 15)
+// 폴더 이름: 날짜_시분초(KST) · 예: 2026-11-05_153012 (초까지 넣어 같은 분에 다시 돌려도 폴더가 겹치지 않게)
+const stamp = now.toLocaleString("sv-SE", { timeZone: "Asia/Seoul" }).replace(" ", "_").replace(/:/g, "").slice(0, 17)
 const { key, keyId, created } = loadKey({ create: true })
 if (created) console.log(`새 백업 키를 만들었어요 · ${KEY_FILE}\n  이 키를 비밀번호 관리자에도 꼭 보관해 주세요. 키가 없으면 백업을 풀 수 없어요.`)
 
@@ -44,11 +48,23 @@ for (const name of readdirSync(root)) {
 
 const target = join(root, stamp)
 mkdirSync(target, { recursive: true })
+// 중간에 오류로 끝나도(예외 · Ctrl+C) 이번 폴더에 평문이 남지 않게 한다. 강제 종료·전원 차단처럼 이것도 못 도는 경우는
+// 다음 실행의 0) 단계가 manifest 없는 폴더의 평문을 암호화한다.
+let finished = false
+process.on("exit", () => {
+  if (finished) return
+  try {
+    for (const file of walk(target)) if (!file.endsWith(".enc")) { try { seal(file) } catch { rmSync(file, { force: true }) } }
+    console.error("백업이 끝나지 않았어요. 받은 파일은 모두 암호화해 두었어요(이번 폴더는 manifest가 없어 다음 실행 때 다시 확인해요).")
+  } catch { /* 폴더가 없으면 할 일 없음 */ }
+})
+process.on("SIGINT", () => process.exit(130))
 
 // Windows에서는 npx가 .cmd라 셸로 실행한다. 공백·한글이 있는 경로는 따옴표로 감싸고, SQL은 파일로 넘긴다.
 const quote = (value) => (/^[\w./:=-]+$/.test(value) ? value : `"${value.replace(/"/g, '\\"')}"`)
+const command = (args) => (FAKE_CLI ? ["node", FAKE_CLI, ...args] : ["npx", ...CLI, ...args]).map(quote).join(" ")
 function cli(args) {
-  return execFileSync(["npx", ...CLI, ...args].map(quote).join(" "), { cwd: code, encoding: "utf8", maxBuffer: 512 * 1024 * 1024, shell: true, stdio: ["ignore", "pipe", "pipe"] })
+  return execFileSync(command(args), { cwd: code, encoding: "utf8", maxBuffer: 512 * 1024 * 1024, shell: true, stdio: ["ignore", "pipe", "pipe"] })
 }
 let step = 0
 function query(sql) {
@@ -76,7 +92,7 @@ console.log(`자료 ${tables.length + 1}개 표 저장(암호화)`)
 // 2) 사진 파일: 버킷마다 목록을 받아 한 장씩 내려받고 바로 암호화한다(한꺼번에 복사하는 명령은 중간에 멈추는 경우가 있어서).
 //    로컬 경로는 상대 경로로 넘긴다(C:\ 로 시작하는 경로는 원격 주소로 오해한다).
 function cliIn(cwd, args) {
-  return execFileSync(["npx", ...CLI, ...args, "--workdir", code].map(quote).join(" "), { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, shell: true, stdio: ["ignore", "pipe", "pipe"], timeout: 120000 })
+  return execFileSync(command([...args, "--workdir", code]), { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, shell: true, stdio: ["ignore", "pipe", "pipe"], timeout: 120000 })
 }
 const photos = {}
 for (const bucket of BUCKETS) {
@@ -104,5 +120,6 @@ writeFileSync(join(target, "manifest.json"), JSON.stringify({
   at: now.toISOString(), expiresAt: new Date(now.getTime() + KEEP_DAYS * 86400000).toISOString(), project: "mmrqcefipllmcqztksqm",
   counts, photos, encryption: { alg: "aes-256-gcm", keyId }, restore: "node scripts/backup-open.mjs → 자료 넣기 → select public.apply_deletion_log();",
 }, null, 2))
+finished = true
 console.log("백업 끝", counts)
 if (!existsSync(KEY_FILE) && !process.env.FLAVIE_BACKUP_KEY) console.log("키 파일을 찾을 수 없어요. 키를 따로 보관했는지 확인해 주세요.")

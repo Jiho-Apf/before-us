@@ -123,7 +123,7 @@ export function SignupPage() {
     </Frame>
   )
   return (
-    <Frame title="회원가입" lead={`계정에는 이메일과 비밀번호만 받아요. 사진과 이야기는 가입 뒤 소개 신청에서 천천히 적어요.`} foot={<p>이미 계정이 있나요? <Link to="/login" className="text-foreground underline underline-offset-4 hover:text-primary">로그인</Link></p>}>
+    <Frame title="회원가입" lead={`계정에는 이메일과 비밀번호만 받아요. 가입 뒤 소개 신청에서 최근 ${BEFORE_US.operatingDraft.photos.recentMonths}개월 안에 찍은 내 사진 3장과 나를 소개하는 짧은 한 줄을 적어요. 미리 골라 두면 편해요.`} foot={<p>이미 계정이 있나요? <Link to="/login" className="text-foreground underline underline-offset-4 hover:text-primary">로그인</Link></p>}>
       <form className="space-y-5" onSubmit={submit} noValidate>
         <div>
           <Field id="signup-email" label="이메일" type="email" autoComplete="email" value={email} onChange={(value) => { setEmail(value); setError("") }} />

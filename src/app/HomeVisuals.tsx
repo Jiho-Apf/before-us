@@ -145,7 +145,7 @@ export function NumberBand() {
 
 // 한눈에 보는 흐름(THE JOURNEY): 카드 색은 거의 보이지 않을 만큼만, 03만 숨 쉬듯
 const FLOW = [
-  { n: "01", meta: "무료 · 약 15분", title: "소개 신청", body: "가입하고 신청서와 사진 3장을 적어요. 단계마다 저장돼서 나눠 써도 돼요." },
+  { n: "01", meta: "무료 · 최근 사진 3장 필요", title: "소개 신청", body: "가입하고 신청서와 사진 3장을 적어요. 단계마다 저장돼서 나눠 써도 돼요." },
   { n: "02", meta: "사람이 직접", title: "운영진 확인", body: "사진과 신청서를 운영진이 하나하나 읽고, 잘 맞을 분을 찾아요." },
   { n: "03", meta: "12:00", title: "정오에 한 분 소개", body: "상대의 사진과 프로필이 함께 도착해요. 다음 날 오전 11시까지 답해요.", key: true },
   { n: "04", meta: "두 분 모두일 때만", title: "서로 선택", body: "한 분이라도 넘기면 조용히 마무리돼요. 누가 넘겼는지는 알리지 않아요." },
@@ -192,49 +192,28 @@ export function Journey() {
   );
 }
 
-// 비교해 보세요: 플라비 칸만 카드처럼 떠오른다(요금표의 추천 칸 방식)
-const COMPARE = [
-  { row: "누가 고르나요", app: "내가 넘기며 직접", agency: "매니저가 조건 위주로", us: "운영진이 신청서를 읽고 한 분" },
-  { row: "동시에 몇 명과", app: "여러 명과 동시에", agency: "일정에 따라 여러 번", us: "한 번에 한 분" },
-  { row: "첫 대화", app: "바로 채팅", agency: "바로 만남 약속", us: "3일 동안 편지·첫 장면" },
-  { row: "연락처는 언제", app: "대화하며 직접 교환", agency: "매니저가 전달", us: "둘 다 원하면 만나는 날과 다음 날만" },
-  { row: "다음 소개는", app: "알고리즘이 다시 추천", agency: "조건을 다시 맞춰", us: "교류 뒤 남긴 한 줄을 반영해" },
-  { row: "비용", app: "월 구독·유료 아이템", agency: "가입비 수십만~수백만 원", us: BETA ? "지금은 베타라 무료" : "소개 1만 원 · 교류 2.9만 원" },
+// 플라비는 이렇게 해요(GPT 최종 U04): 다른 서비스를 한데 묶어 평가하지 않고, 플라비가 실제로 하는 것만 적는다.
+const HOW_WE_DO = [
+  { row: "누가 고르나요", us: "운영진이 신청서를 읽고, 취향과 성향을 살펴 한 분을 골라요" },
+  { row: "한 번에 몇 명과", us: "한 번에 한 분이에요. 서로 선택하면 새 소개를 멈춰요" },
+  { row: "첫 대화", us: "만나기 전 사흘 동안 하루 한 통 편지, 또는 함께 만드는 첫 장면" },
+  { row: "연락처는 언제", us: "두 분이 동의하면 만나는 날과 다음 날만 보여요" },
+  { row: "다음 소개는", us: "교류 뒤 남긴 한 줄을 다음 소개를 고를 때 참고해요" },
+  { row: "비용", us: BETA ? "지금은 무료 베타 · 정식 운영은 첫 교류까지 1인 39,000원" : "소개비 10,000원 + 교류비 29,000원(첫 교류까지 1인 39,000원)" },
 ];
+
 export function CompareTable() {
-  const { ref, shown } = useInView<HTMLDivElement>(0.25);
-  const cell = "flex items-center justify-center border-b border-border px-2 py-4 text-center text-[11px] leading-5 text-muted-foreground sm:px-4 sm:py-5 sm:text-[13px]";
   return (
     <div className="relative mt-20 sm:mt-24">
       <div className="mx-auto max-w-xl text-center">
-        <p className="text-[11px] font-semibold tracking-[0.24em] text-accent">WHY FLAVIE</p>
-        <h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">비교해 보세요</h3>
-        <p className="mt-4 text-sm leading-7 text-muted-foreground">앱은 너무 가볍고, 결혼정보회사는 너무 무거웠다면.</p>
+        <p className="text-[11px] font-semibold tracking-[0.24em] text-accent">HOW FLAVIE WORKS</p>
+        <h3 className="text-ink mt-4 text-[26px] font-semibold leading-[1.45] sm:text-[32px]">플라비는 이렇게 해요</h3>
+        <p className="mt-4 text-sm leading-7 text-muted-foreground">다른 곳과 견주기보다, 플라비가 실제로 하는 것만 적었어요.</p>
       </div>
-      <dl className="mx-auto mt-10 max-w-md space-y-3 sm:hidden">{COMPARE.map(item => <div key={item.row} className="rounded-2xl border border-border bg-card p-4">
-        <dt className="text-[13px] font-semibold text-ink">{item.row}</dt>
-        <dd className="mt-2 grid grid-cols-[88px_1fr] gap-x-3 gap-y-1.5 text-sm leading-[22px]"><span className="text-[13px] text-muted-foreground">소개팅 앱</span><span className="text-muted-foreground">{item.app}</span><span className="text-[13px] text-muted-foreground">결혼정보회사</span><span className="text-muted-foreground">{item.agency}</span><span className="text-[13px] font-semibold text-primary">플라비</span><span className="font-semibold text-ink">{item.us}</span></dd>
+      <dl className="mx-auto mt-10 grid max-w-4xl gap-3 sm:grid-cols-2">{HOW_WE_DO.map(item => <div key={item.row} className="rounded-2xl border border-border bg-card p-5 shadow-[0_18px_40px_-34px_color-mix(in_oklch,var(--primary)_50%,transparent)]">
+        <dt className="flex items-center gap-2 text-[13px] font-semibold text-primary"><span aria-hidden="true" className="flex gap-0.5"><span className="size-1.5 rounded-full bg-primary" /><span className="size-1.5 rounded-full bg-accent" /></span>{item.row}</dt>
+        <dd className="text-ink mt-2 text-[15px] leading-[1.65]">{item.us}</dd>
       </div>)}</dl>
-      <div ref={ref} role="table" aria-label="소개팅 앱 · 결혼정보회사 · 플라비 비교" className="relative mx-auto mt-14 hidden max-w-4xl [--label:150px] sm:block">
-        <div aria-hidden="true" className={`absolute -bottom-5 -top-5 left-[calc(var(--label)+(100%-var(--label))*2/3)] w-[calc((100%-var(--label))/3)] rounded-[1.75rem] bg-card ring-1 ring-primary/15 shadow-[0_34px_70px_-34px_color-mix(in_oklch,var(--primary)_55%,transparent)] transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none ${shown ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`} />
-        <div className="relative grid grid-cols-[var(--label)_repeat(3,1fr)]">
-          <div role="row" className="contents">
-          <span role="columnheader" className="border-b border-border"><span className="sr-only">기준</span></span>
-          <span role="columnheader" className="flex items-center justify-center border-b border-border px-2 pb-4 text-xs font-semibold text-muted-foreground">소개팅 앱</span>
-          <span role="columnheader" className="flex items-center justify-center border-b border-border px-2 pb-4 text-xs font-semibold text-muted-foreground">결혼정보회사</span>
-          <span role="columnheader" className="flex flex-col items-center justify-center gap-1.5 border-b border-primary/15 px-2 pb-4"><span aria-hidden="true" className="flex gap-1"><span className="size-2 rounded-full bg-primary" /><span className="size-2 rounded-full bg-accent" /></span><span className="text-xs font-semibold text-primary sm:text-sm">플라비</span></span>
-          </div>
-          {COMPARE.map((item, index) => {
-            const last = index === COMPARE.length - 1;
-            return <div key={item.row} role="row" className="contents">{[
-              <span key={`${item.row}-r`} role="rowheader" className={`flex items-center py-4 pr-2 text-[11px] font-semibold sm:py-5 sm:text-[13px] ${last ? "" : "border-b border-border"}`}>{item.row}</span>,
-              <span key={`${item.row}-a`} role="cell" className={`${cell} ${last ? "border-b-0" : ""}`}>{item.app}</span>,
-              <span key={`${item.row}-b`} role="cell" className={`${cell} ${last ? "border-b-0" : ""}`}>{item.agency}</span>,
-              <span key={`${item.row}-c`} role="cell" className={`flex flex-col items-center justify-center gap-1.5 px-2 py-4 text-center text-[11px] font-semibold leading-5 text-ink sm:flex-row sm:gap-2 sm:px-4 sm:py-5 sm:text-[13px] ${last ? "" : "border-b border-primary/10"}`}><span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><Check size={11} strokeWidth={3} /></span>{item.us}</span>,
-            ]}</div>;
-          })}
-        </div>
-      </div>
     </div>
   );
 }
@@ -244,7 +223,7 @@ const STANDARDS = [
   { n: "01", icon: UserCheck, title: "운영진이 직접 확인", body: "사진과 신청서를 사람이 읽고 승인해요" },
   { n: "02", icon: ShieldCheck, title: "연락처·링크 자동 차단", body: "편지와 약속에서 번호·SNS·계좌는 막혀요" },
   { n: "03", icon: Smartphone, title: "번호는 만나는 날과 다음 날만", body: "두 분이 동의할 때, 만나는 날 0시부터 다음 날 밤 11시 59분까지" },
-  { n: "04", icon: Siren, title: "신고·차단 즉시", body: "차단은 즉시 끝나고, 신고는 먼저 확인해요" },
+  { n: "04", icon: Siren, title: "차단은 바로, 신고는 평일 확인", body: "차단하면 교류가 바로 멈춰요. 신고는 평일 10~18시에 확인하고, 위험하면 112에 먼저 연락해 주세요" },
 ];
 // 곡선(viewBox 1000×120): M0 110 Q500 -30 1000 110 → x=12.5%에서 y≈79, x=37.5%에서 y≈44. 아이콘(48px) 중심을 그 높이에 맞춘다.
 export function Standards() {
@@ -368,7 +347,7 @@ export function PaymentSteps() {
         ))}
       </ol>
       <div className="mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 rounded-xl bg-mist px-4 py-3.5 text-[13px]">
-        <span className="font-semibold text-ink">{BETA ? "지금은 베타라 모든 단계가 무료예요" : `첫 만남까지 1인 최대 ${won(BEFORE_US.pricing.firstExchangeTotalPerPerson)}`}</span>
+        <span className="font-semibold text-ink">{BETA ? `지금은 베타라 모든 단계가 무료예요 · 정식 운영은 첫 교류까지 1인 ${won(BEFORE_US.pricing.firstExchangeTotalPerPerson)}(소개비 ${won(BEFORE_US.pricing.introduction)} + 교류비 ${won(BEFORE_US.pricing.exchangePerPerson)})` : `첫 교류까지 1인 ${won(BEFORE_US.pricing.firstExchangeTotalPerPerson)}(소개비 ${won(BEFORE_US.pricing.introduction)} + 교류비 ${won(BEFORE_US.pricing.exchangePerPerson)})`}</span>
         <span className="text-foreground/65">월정액·자동 결제 없음</span>
       </div>
     </div>

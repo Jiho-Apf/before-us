@@ -13,6 +13,7 @@ const later = <T, K extends keyof T>(load: () => Promise<T>, name: K) =>
   lazy(async () => ({ default: (await load())[name] as T[K] extends ComponentType<any> ? T[K] : never }));
 const MemberToday = later(() => import("./MemberToday"), "default");
 const VouchPage = later(() => import("./Vouch"), "VouchPage");
+const StartPage = later(() => import("./StartPage"), "default");
 const TodayDemo = later(() => import("./MemberToday"), "TodayDemo");
 const ApplicationForm = later(() => import("./ApplicationForm"), "default");
 const MemberProfile = later(() => import("./MemberProfile"), "default");
@@ -67,7 +68,7 @@ const LiveCohorts = later(() => import("./LiveAdmin"), "LiveCohorts");
 const LiveMembers = later(() => import("./LiveAdmin"), "LiveMembers");
 
 function RouteFallback() {
-  return <div role="status" aria-live="polite" className="flex flex-1 items-center justify-center py-24"><span className="sr-only">화면을 불러오는 중</span><span aria-hidden="true" className="flex gap-1.5"><span className="size-2 animate-pulse rounded-full bg-primary" /><span className="size-2 animate-pulse rounded-full bg-accent [animation-delay:150ms]" /></span></div>;
+  return <div role="status" aria-live="polite" className="flex min-h-[100svh] flex-1 items-center justify-center py-24"><span className="sr-only">화면을 불러오는 중</span><span aria-hidden="true" className="flex gap-1.5"><span className="size-2 animate-pulse rounded-full bg-primary" /><span className="size-2 animate-pulse rounded-full bg-accent [animation-delay:150ms]" /></span></div>;
 }
 
 
@@ -295,7 +296,7 @@ function BeforeUsRoot() {
   const signedIn = useSignedIn();
   const isMember = ["/payments","/payments/success","/payments/fail","/support","/meeting/contact"].includes(location.pathname) || MEMBER_NAV.some(item => item.to === location.pathname) || (LIVE && signedIn && ["/apply", "/contact"].includes(location.pathname));
   useEffect(() => {
-    const label = [...PUBLIC_NAV, ...MEMBER_NAV, ...MEMBER_EXTRA, { to: "/contact", label: "문의하기" }, { to: "/login", label: "로그인" }, { to: "/apply", label: "소개 신청하기" }, { to: "/terms", label: "이용약관" }, { to: "/privacy", label: "개인정보처리방침" }, { to: "/how-it-works", label: "진행 방식" }, { to: "/signup", label: "회원가입" }, { to: "/reset-password", label: "비밀번호 다시 설정" }].find(item => item.to === location.pathname)?.label;
+    const label = [...PUBLIC_NAV, ...MEMBER_NAV, ...MEMBER_EXTRA, { to: "/contact", label: "문의하기" }, { to: "/start", label: "한 사람을 만나기 전, 사흘 먼저" }, { to: "/login", label: "로그인" }, { to: "/apply", label: "소개 신청하기" }, { to: "/terms", label: "이용약관" }, { to: "/privacy", label: "개인정보처리방침" }, { to: "/how-it-works", label: "진행 방식" }, { to: "/signup", label: "회원가입" }, { to: "/reset-password", label: "비밀번호 다시 설정" }].find(item => item.to === location.pathname)?.label;
     document.title = label ? `${label} · ${BEFORE_US.brand.name}` : `${BEFORE_US.brand.name} · 편지로 시작하는 1:1 소개팅`;
   }, [location.pathname]);
   return (
@@ -341,6 +342,8 @@ const beforeUsRouter = createBrowserRouter([
     { path: "/drawer", element: <Navigate to="/" replace /> },
     { path: "/mailbox", element: <Navigate to="/" replace /> },
     { path: "/vouch/:token", element: <VouchPage /> },
+    // 인스타그램·Threads 링크용 짧은 시작 화면(긴 홈은 자세히 보기 자원으로 둔다).
+    { path: "/start", element: <StartPage /> },
     { path: "/terms", element: <TermsPage /> },
     { path: "/privacy", element: <PrivacyPage /> },
     { path: "/contact", element: <InquiryPage /> },

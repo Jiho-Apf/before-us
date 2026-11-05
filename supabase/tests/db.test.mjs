@@ -8,7 +8,8 @@ import assert from "node:assert/strict"
 
 const here = dirname(fileURLToPath(import.meta.url))
 const migrations = join(here, "..", "migrations")
-const db = new PGlite()
+// 실제 PostgreSQL에서 같은 점검을 돌릴 때는 realpg/run-suite.mjs가 연결을 넣어 준다(globalThis.__FLAVIE_DB__).
+const db = globalThis.__FLAVIE_DB__ ?? new PGlite()
 
 // Supabase가 기본으로 갖고 있는 것들을 흉내 낸다(auth·storage 스키마, 역할, 기본 권한).
 await db.exec(`
@@ -2770,7 +2771,8 @@ await db.exec("reset role")
     await q("select public.record_email_result('notification', $1, 'unknown', 'smtp ok, record failed')", [mailIds[0]])
     await q("select public.record_email_result('notification', $1, 'failed', 'smtp 550')", [mailIds[1]])
     await q("select public.record_email_result('notification', $1, 'sent', null)", [mailIds[2]])
-    await q("update public.notifications set email_lease_until = now() - interval '1 minute' where member_id = $1", [A])
+    // 결과를 기록하면 선점 기한이 비워진다(기한이 남은 채 지난 메일은 ‘보내는 도중 멈춤’ — 6100에서 불확실로 처리, 아래 T06 시험).
+    eq("C7: 결과를 기록하면 선점 기한이 비워진다", (await one("select count(*)::int n from public.notifications where member_id = $1 and email_lease_until is not null", [A])).n, 0)
     const again = (await q("select id from public.claim_email_notifications(500)")).map((r) => r.id)
     eq("C7: 보냈는지 불확실한 메일과 보낸 메일은 다시 잡지 않고, 실패한 메일만 다시 잡는다", mailIds.map((id) => again.includes(id)), [false, true, false])
     eq("C7: 불확실은 따로 남는다", (await one("select email_status from public.notifications where id = $1", [mailIds[0]])).email_status, "unknown")
@@ -2872,4 +2874,327 @@ await db.exec("reset role")
   }
 }
 
+// ── GPT 2차 검수 대응(6000~, 2026-11-05): 사진 파일 선점(T02) · 메일(T06) · 파기 기한(T07) · 만 나이(T12) · 권한 표(3.1)
+{
+  await as("postgres")
+  await clock(null)
+  let k = 0
+  const person = async () => { await as("postgres"); k++; return signup(`r3-${k}@example.test`) }
+  const expectError = async (label, run, pattern) => {
+    try { await run() } catch (error) { if (pattern && !pattern.test(error.message)) throw new Error(`${label}: 다른 오류 → ${error.message}`); passed++; return }
+    throw new Error(`${label}: 거부해야 하는데 받아들였어요`)
+  }
+
+  // T02: 지우기 직전 확인이 경로를 ‘지우는 중’으로 선점하고, 그 경로를 새로 쓰는 곳은 모두 거절된다.
+  {
+    const X = await person()
+    const P = `${X}/photo.face-old.jpg`, Q = `${X}/photo.upper-old.jpg`, L = `${X}/day1-letter.jpg`
+    await as("postgres")
+    await q("insert into storage.objects (bucket_id, name, owner, created_at) values ('application-photos', $1, $3, now() - interval '3 days'), ('application-photos', $2, $3, now() - interval '3 days')", [P, Q, X])
+    await q("insert into public.storage_cleanup (bucket, path) values ('application-photos', $1), ('application-photos', $2), ('letter-photos', $3)", [P, Q, L])
+    eq("T02: 지우기 직전 확인은 지워도 되는 경로를 돌려준다", await one("select public.storage_cleanup_recheck('application-photos', $1) v", [[P]]).then((r) => r.v), [P])
+    ok("T02: 돌려준 경로는 ‘지우는 중’으로 선점된다", (await one("select claimed_at from public.storage_cleanup where path = $1", [P])).claimed_at !== null)
+    ok("T02: 지우는 중인 경로는 목록에 다시 나오지 않는다", !(await q("select path from public.storage_cleanup_batch(5000)")).some((r) => r.path === P))
+    eq("T02: 같은 경로를 다시 확인해도 두 번 선점하지 않는다", (await one("select public.storage_cleanup_recheck('application-photos', $1) v", [[P]])).v, [])
+    await as(X)
+    await expectError("T02: 지우는 중인 사진 경로를 신청 사진으로 등록", () => q("select public.register_photo('photo.face', $1, 'image/jpeg', 1000, 800, 1000, $2, true, true)", [P, "c".repeat(64)]), /정리 중/)
+    await as("postgres")
+    await expectError("T02: 지우는 중인 경로를 교체 사진으로", () => q("insert into public.photo_replacements (member_id, slot, path, mime, bytes, width, height, sha256, recent_confirmed, rights_confirmed) values ($1, 'photo.face', $2, 'image/jpeg', 1000, 800, 1000, repeat('d', 64), true, true)", [X, P]), /정리 중/)
+    const [Y] = [await person()]
+    await as("postgres")
+    await expectError("T02: 지우는 중인 경로가 든 소개 사본", () => q("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'reserved', now() + interval '1 day', now() + interval '2 days', now() + interval '2 days', $3, '{}')", [X, Y, JSON.stringify({ version: 1, items: [], photos: [{ slot: "photo.face", path: P }] })]), /정리 중/)
+    eq("T02: 선점은 지운 뒤에만 대기열에서 빠진다(쓰이지 않은 경로 Q는 그대로)", (await one("select public.storage_cleanup_done('application-photos', $1) n", [[P, Q]])).n, 1)
+    // 대기열에만 있는(선점 전) 경로를 다시 쓰면 대기열에서 빠진다.
+    await as(X)
+    await q("select public.register_photo('photo.upper', $1, 'image/jpeg', 1000, 800, 1000, $2, true, true)", [Q, "e".repeat(64)])
+    await as("postgres")
+    eq("T02: 선점 전 대기열의 경로를 다시 쓰면 대기열에서 빠진다", (await one("select count(*)::int n from public.storage_cleanup where path = $1", [Q])).n, 0)
+    // 지우지 못했을 때는 선점을 푼다 · 멈춘 정리 함수의 선점은 30분 뒤 다시 고른다
+    eq("T02: 편지 사진도 선점한다", (await one("select public.storage_cleanup_recheck('letter-photos', $1) v", [[L]])).v, [L])
+    eq("T02: 지우지 못하면 선점을 푼다", (await one("select public.storage_cleanup_release('letter-photos', $1) n", [[L]])).n, 1)
+    ok("T02: 푼 경로는 다음 목록에 다시 나온다", (await q("select path from public.storage_cleanup_batch(5000)")).some((r) => r.path === L))
+    await q("update public.storage_cleanup set claimed_at = now() - interval '31 minutes' where path = $1", [L])
+    ok("T02: 30분 넘게 멈춘 선점은 다시 고른다", (await q("select path from public.storage_cleanup_batch(5000)")).some((r) => r.path === L))
+    await q("update public.storage_cleanup set claimed_at = now() where path = $1", [L])
+    const fakeProgram = "00000000-0000-4000-8000-000000000001"
+    await expectError("T02: 지우는 중인 편지 사진을 편지에 붙임(트리거)", () => q("insert into public.program_entries (program_id, day, kind, author, body, payload) values ($1, 1, 'letter', $2, '안녕하세요', $3)", [fakeProgram, X, JSON.stringify({ photo: L })]), /정리 중/)
+    for (const fn of ["storage_path_take", "storage_cleanup_done", "storage_cleanup_release", "storage_cleanup_recheck"]) {
+      await as(X)
+      await expectError(`T02: 회원은 ${fn}을 부를 수 없다`, () => q(`select public.${fn}('application-photos', $1)`, [fn === "storage_path_take" ? P : [P]]), /permission denied/)
+    }
+    await as("postgres")
+  }
+
+  // T06: 메일 — 두 작업이 겹쳐도 한 번 · 보내는 도중 멈춘 메일은 다시 보내지 않음 · 결과 기록 · 열쇠
+  {
+    await as("postgres")
+    await clock((await one("select public.kst_at(public.kst_today(), '13:00')::text t")).t)
+    const M = await person()
+    await q("update public.profiles set notify_email = true where id = $1", [M])
+    for (const k of [1, 2, 3, 4]) await q("select public.notify($1, 'new-introduction', '오늘의 인연이 도착했어요', '확인해 주세요.', '/us', $2)", [M, `r3-mail:${M}:${k}`])
+    const ids = (await q("select id from public.notifications where member_id = $1 order by created_at, id", [M])).map((r) => r.id)
+    await q("set role service_role")
+    const first = (await q("select id from public.claim_email_notifications(500)")).map((r) => r.id).filter((id) => ids.includes(id))
+    eq("T06: 첫 작업이 네 통을 잡는다", first.length, 4)
+    eq("T06: 기한 안에는 두 번째 작업이 같은 메일을 잡지 않는다", (await q("select id from public.claim_email_notifications(500)")).filter((r) => ids.includes(r.id)).length, 0)
+    // 1통: 보냄 기록 · 2통: 실패 기록 · 3·4통: 메일 서버가 받은 뒤 함수가 멈춤(결과 없음)
+    await q("select public.record_email_result('notification', $1, 'sent')", [ids[0]])
+    await q("select public.record_email_result('notification', $1, 'failed', 'smtp 451 잠시 뒤 다시')", [ids[1]])
+    await db.exec("reset role")
+    await q("update public.notifications set email_lease_until = now() - interval '1 second' where id = any($1)", [[ids[2], ids[3]]])
+    const runsBefore = (await one("select count(*)::int n from public.job_runs where job = 'email' and ok = false")).n
+    await q("set role service_role")
+    const again = (await q("select id from public.claim_email_notifications(500)")).map((r) => r.id)
+    eq("T06: 기한이 지난 뒤 다시 잡는 것은 실패한 메일뿐(보낸 메일·멈춘 메일은 다시 보내지 않음)", ids.map((id) => again.includes(id)), [false, true, false, false])
+    await db.exec("reset role")
+    eq("T06: 보내는 도중 멈춘 메일은 ‘불확실’로 남는다", (await q("select email_status s from public.notifications where id = any($1) order by created_at, id", [[ids[2], ids[3]]])).map((r) => r.s), ["unknown", "unknown"])
+    const run = await one("select ok, detail from public.job_runs where job = 'email' order by id desc limit 1")
+    ok("T06: 멈춘 메일이 있으면 작업 기록(메일 · 실패)에 몇 통인지 남는다", (await one("select count(*)::int n from public.job_runs where job = 'email' and ok = false")).n === runsBefore + 1 && run.detail.unknown === 2)
+    eq("T06: 시도 횟수는 3번을 넘지 않는다(실패 메일 두 번째 시도)", (await one("select email_attempts n from public.notifications where id = $1", [ids[1]])).n, 2)
+    await q("set role service_role")
+    await q("select public.record_email_result('notification', $1, 'failed', 'x')", [ids[1]])
+    await db.exec("reset role")
+    await q("update public.notifications set email_attempts = 3 where id = $1", [ids[1]])
+    await q("set role service_role")
+    ok("T06: 세 번 실패한 메일은 더 잡지 않는다", !(await q("select id from public.claim_email_notifications(500)")).some((r) => r.id === ids[1]))
+    await expectError("T06: 결과 종류가 틀리면 거절", () => q("select public.record_email_result('notification', $1, 'delivered')", [ids[1]]), /메일 결과를 확인/)
+    eq("T06: 예약 작업 열쇠 — 틀림·빈 값·없음은 모두 통과하지 못한다", [(await one("select public.cron_token_ok('wrong') v")).v, (await one("select public.cron_token_ok('') v")).v, (await one("select public.cron_token_ok(null) v")).v], [false, false, false])
+    await db.exec("reset role")
+    for (const who of ["anon", M]) {
+      await as(who)
+      await expectError(`T06: ${who === "anon" ? "비회원" : "회원"}은 열쇠 확인 함수를 부를 수 없다`, () => q("select public.cron_token_ok('x')"), /permission denied/)
+      await expectError(`T06: ${who === "anon" ? "비회원" : "회원"}은 열쇠 값을 읽을 수 없다`, () => q("select value from public.private_values"), /permission denied/)
+      await expectError(`T06: ${who === "anon" ? "비회원" : "회원"}은 메일 결과를 기록할 수 없다`, () => q("select public.record_email_result('notification', $1, 'sent')", [ids[2]]), /permission denied/)
+    }
+    await as("postgres")
+    await clock(null)
+  }
+
+  // T07: 탈퇴 — 계정과 사진 파일 모두 기한(7일) 전에 · 작업 기록 · 늦거나 실패한 예약 작업 찾기
+  {
+    await as("postgres")
+    const X = await person(), Y = await person()
+    const prog = "11111111-1111-4111-8111-111111111111"
+    const photo = `${X}/photo.face-w.jpg`, upload = `${X}/photo.daily-unregistered.jpg`, letter = `${prog}/${X}/day1-abcd1234.jpg`, other = `${Y}/photo.face-y.jpg`
+    await as(X)
+    await q("select public.register_photo('photo.face', $1, 'image/jpeg', 1000, 800, 1000, $2, true, true)", [photo, "f".repeat(64)])
+    await as("postgres")
+    await q("insert into storage.objects (bucket_id, name, owner) values ('application-photos', $1, $4), ('application-photos', $2, $4), ('letter-photos', $3, $4), ('application-photos', $5, $6)", [photo, upload, letter, X, other, Y])
+    // 상대에게 보이는 소개(X의 사진) → 탈퇴 요청 즉시 상대는 사진을 볼 수 없다
+    await q("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'published', now() - interval '1 hour', now() + interval '20 hours', now() + interval '20 hours', $3, '{}', now() - interval '1 hour')", [X, Y, JSON.stringify({ version: 1, items: [], photos: [{ slot: "photo.face", path: photo }] })])
+    await as(Y); ok("T07: 탈퇴 전에는 소개 상대가 사진을 볼 수 있다", (await one("select public.can_view_partner_photo($1) v", [photo])).v === true)
+    await as(X); const requested = await one("select public.request_withdrawal(array[]::text[], null) v")
+    await as(Y); ok("T07: 탈퇴를 요청하면 소개 상대는 바로 사진 주소를 받을 수 없다(서명 주소 발급 전 확인)", (await one("select public.can_view_partner_photo($1) v", [photo])).v === false)
+    await as("postgres")
+    const due = new Date(requested.v.deletionDueAt)
+    const days = (due - Date.now()) / 86400000
+    ok("T07: 삭제 예정은 요청 뒤 7일(화면에 보이는 날짜)", days > 6.99 && days <= 7.0001)
+    await q("update public.profiles set deletion_due_at = now() + interval '3 hours' where id = $1", [X])
+    await one("select public.run_withdrawal_deletion()")
+    eq("T07: 기한까지 2시간 넘게 남으면 아직 지우지 않는다", (await one("select count(*)::int n from auth.users where id = $1", [X])).n, 1)
+    await q("update public.profiles set deletion_due_at = now() + interval '110 minutes' where id = $1", [X])
+    const runsBefore = (await one("select count(*)::int n from public.job_runs where job = 'withdrawals'")).n
+    await one("select public.run_withdrawal_deletion()")
+    eq("T07: 기한 2시간 안이면 계정을 지운다", (await one("select count(*)::int n from auth.users where id = $1", [X])).n, 0)
+    eq("T07: 그 회원의 신청 사진·올리기만 한 사진·편지 사진 파일이 모두 정리 대기열에 오른다", (await q("select path from public.storage_cleanup where path = any($1) order by path", [[photo, upload, letter, other]])).map((r) => r.path).sort(), [photo, upload, letter].sort())
+    const wrun = await one("select ok, detail from public.job_runs where job = 'withdrawals' order by id desc limit 1")
+    ok("T07: 탈퇴 삭제가 작업 기록에 남는다(지운 계정·파일 수)", (await one("select count(*)::int n from public.job_runs where job = 'withdrawals'")).n === runsBefore + 1 && wrun.ok === true && wrun.detail.deleted >= 1 && wrun.detail.files >= 3)
+    await as(Y); ok("T07: 지운 뒤에도 상대는 사진 주소를 받을 수 없다", (await one("select public.can_view_partner_photo($1) v", [photo])).v === false)
+    await as("postgres")
+    // 일정 계산: 탈퇴 삭제 :15(5800) · 사진 정리 :45(6300) · 기한 2시간 전부터 → 요청 시각(분)이 언제든 계정·파일 모두 7일 전에 지운다
+    {
+      const files = readdirSync(migrations)
+      const text = (f) => readFileSync(join(migrations, f), "utf8")
+      const minuteOf = (file, job) => Number(text(file).match(new RegExp(`cron\\.schedule\\('${job}', '(\\d+) \\* \\* \\* \\*'`))[1])
+      const withdrawMinute = minuteOf(files.filter((f) => f.includes("schedules") && text(f).includes("'before-us-withdrawals'")).sort().at(-1), "before-us-withdrawals")
+      const cleanupMinute = minuteOf(files.filter((f) => f.includes("schedules") && /'before-us-storage-cleanup', '\d+ \* \* \* \*'/.test(text(f))).sort().at(-1), "before-us-storage-cleanup")
+      const windowHours = Number((await one("select substring(pg_get_functiondef('public.run_withdrawal_deletion()'::regprocedure) from 'deletion_due_at <= now\\(\\) \\+ interval ''(\\d+) hours''') h")).h)
+      let worst = -Infinity
+      for (let minute = 0; minute < 60 * 24; minute++) {
+        const dueAt = minute + 7 * 24 * 60
+        const run = Math.ceil((dueAt - windowHours * 60 - withdrawMinute) / 60) * 60 + withdrawMinute
+        let clean = Math.ceil((run - cleanupMinute) / 60) * 60 + cleanupMinute
+        if (clean < run) clean += 60
+        worst = Math.max(worst, clean - dueAt, run - dueAt)
+      }
+      ok(`T07: 일정(삭제 :${withdrawMinute} · 파일 :${cleanupMinute} · ${windowHours}시간 전)으로는 요청 시각과 상관없이 계정·파일 모두 기한 전(가장 늦어도 ${-worst}분 전)`, worst < 0)
+    }
+    // 실패하면 작업 기록에 남기고, 기한이 지난 계정이 남으면 점검이 찾는다
+    const Z = await person()
+    await q("create or replace function public.test_block_delete() returns trigger language plpgsql as $f$ begin raise exception '시험용으로 막은 삭제'; end $f$")
+    await q("create trigger test_block_delete before delete on auth.users for each row execute function public.test_block_delete()")
+    await q("update public.profiles set status = 'withdrawal_requested', withdrawal_requested_at = now() - interval '7 days', deletion_due_at = now() - interval '5 minutes' where id = $1", [Z])
+    eq("T07: 삭제가 실패해도 작업은 0을 돌려주고 멈추지 않는다", (await one("select public.run_withdrawal_deletion() n")).n, 0)
+    const failed = await one("select ok, detail from public.job_runs where job = 'withdrawals' order by id desc limit 1")
+    ok("T07: 삭제 실패는 작업 기록(실패 · 오류)에 남는다", failed.ok === false && /시험용으로 막은 삭제/.test(failed.detail.error))
+    await q("drop trigger test_block_delete on auth.users"); await q("drop function public.test_block_delete()")
+    // pg_cron·pg_net 기록 흉내(실제 Supabase의 표 모양)
+    await db.exec("create schema if not exists cron; create table cron.job (jobid bigint primary key, jobname text, schedule text, active boolean default true); create table cron.job_run_details (jobid bigint, runid bigint, status text, start_time timestamptz, end_time timestamptz)")
+    await db.exec("create schema if not exists net; create table net._http_response (id bigint, status_code int, timed_out boolean, error_msg text, created timestamptz)")
+    await q("insert into cron.job values (1, 'before-us-withdrawals', '15 * * * *', true), (2, 'before-us-noon', '0,5 3 * * *', true), (3, 'before-us-programs', '*/10 * * * *', true)")
+    await q("insert into cron.job_run_details values (1, 1, 'succeeded', now() - interval '5 hours', now() - interval '5 hours'), (2, 2, 'failed', now() - interval '20 minutes', now() - interval '20 minutes'), (3, 3, 'succeeded', now() - interval '4 minutes', now() - interval '4 minutes')")
+    await q("insert into net._http_response values (1, 401, false, null, now() - interval '10 minutes'), (2, 200, false, null, now() - interval '5 minutes')")
+    const watch = (await one("select public.run_job_watchdog() v")).v.problems.join(" · ")
+    ok("T07: 점검이 기한 지난 탈퇴 계정을 찾는다", /기한이 지난 탈퇴 계정 1개/.test(watch))
+    ok("T07: 점검이 늦은 매시간 작업을 찾는다", /before-us-withdrawals 늦음/.test(watch))
+    ok("T07: 점검이 실패한 예약 작업을 찾는다", /before-us-noon 실패 1번/.test(watch))
+    ok("T07: 점검이 함수 호출 실패(401 등)를 찾는다", /함수 호출 실패 1번/.test(watch))
+    ok("T07: 제때 돈 작업은 늦음으로 잡지 않는다", !/before-us-programs/.test(watch))
+    eq("T07: 점검 결과가 작업 기록(실패)으로 남는다", (await one("select ok, detail ->> 'error' e from public.job_runs where job = 'job-watchdog' order by id desc limit 1")).e, watch)
+    await db.exec("drop schema cron cascade; drop schema net cascade")
+    await q("delete from auth.users where id = $1", [Z])
+    await as(Y)
+    await expectError("T07: 회원은 작업 점검을 부를 수 없다", () => q("select public.run_job_watchdog()"), /permission denied/)
+    await expectError("T07: 회원은 탈퇴 삭제를 부를 수 없다", () => q("select public.run_withdrawal_deletion()"), /permission denied/)
+    await as("postgres")
+  }
+
+  // T12: 만 19세는 실제 생년월일로(제출할 때 · 승인할 때 모두) · 1992~2007년생 범위는 그대로 · 신분증은 받지 않는다
+  let s12 = 0
+  const applicant = async (birth) => {
+      const id = await person()
+      const values = { "self.name": "시험", "self.birthDate": birth, "self.gender": "여성", "desired.gender": "남성", "self.province": "서울", "self.area": "마포구", "self.purpose": "천천히 알아가며 연애", "self.bio": "산책을 좋아해요. 천천히 알아가고 싶어요.", "self.statement": true, "self.pledge": true, "self.phone": `010-5${String(++s12).padStart(3, "0")}-${String(s12).padStart(4, "0")}`, "self.notifyChannels": ["카카오톡", "메일"], "consent.collection": true, "consent.matching": true, "consent.provision": true, "consent.review": true, "consent.noon": true }
+      await as(id)
+      await q("select public.save_application_draft($1)", [{ values, sharing: { "self.name": true, "self.age": true, "self.province": true, "self.area": true, "self.purpose": true, "self.bio": true }, step: 3, visited: [0, 1, 2, 3] }])
+      for (const [i, slot] of ["photo.face", "photo.upper", "photo.style"].entries()) await q("select public.register_photo($1, $2, 'image/jpeg', 1000, 800, 1000, $3, true, true)", [slot, `${id}/${slot}-t12.jpg`, (s12 * 10 + i).toString(16).padStart(64, "0")])
+      return id
+  }
+  {
+    await as("postgres")
+    const dates = await one("select (public.kst_today() - interval '19 years' + interval '1 day')::date::text young, (public.kst_today() - interval '19 years')::date::text adult, extract(year from public.kst_today() - interval '19 years')::int y")
+    const young = await applicant(dates.young)
+    await expectError("T12: 내일 만 19세가 되는 생년월일은 제출할 수 없다(연도만이 아니라 날짜로)", () => q("select public.submit_application()"), /만 19세 이상만/)
+    const adult = await applicant(dates.adult)
+    if (dates.y <= 2007) {
+      eq("T12: 오늘 만 19세가 되는 생년월일은 제출할 수 있다", (await one("select public.submit_application() v")).v.status, "submitted")
+    } else {
+      await expectError("T12: (2027년 이후 실행) 19년 전 출생은 1992~2007년생 범위 밖", () => q("select public.submit_application()"), /1992~2007년생/)
+    }
+    await expectError("T12: 1991년생은 범위 밖", async () => { await applicant("1991-12-31"); await q("select public.submit_application()") }, /1992~2007년생/)
+    // 승인할 때도 다시 본다: 제출된 신청서의 생년월일이 만 19세 미만이면 승인할 수 없다(사진 확인을 마친 상태에서)
+    await as("postgres")
+    await q("update public.applications set status = 'submitted', submitted_at = now(), draft = jsonb_set(draft, '{values,self.birthDate}', to_jsonb($2::text)) where member_id = $1", [young, dates.young])
+    await q("update public.application_photos set review = '기준 확인' where member_id = $1", [young])
+    await as(O, "aal2")
+    await expectError("T12: 만 19세 미만 신청서는 승인할 수 없다", () => q("select public.admin_decide_application($1, 'approved')", [young]), /승인할 수 없어요 · 만 19세 이상만/)
+    await as("postgres")
+    eq("T12: 2월 29일생은 평년에는 3월 1일에 한 살 더한다(PostgreSQL age, 민법 기간 계산과 같음)", (await one("select extract(year from age('2023-02-28'::date, '2004-02-29'::date))::int a, extract(year from age('2023-03-01'::date, '2004-02-29'::date))::int b")), { a: 18, b: 19 })
+    eq("T12: 신청서 항목에 신분증·주민번호 칸이 없다", (await one("select count(*)::int n from public.applications where draft::text ~* '(resident|idcard|주민|신분증)'")).n, 0)
+    await as("postgres")
+  }
+
+  // 3.1 공통 보안 경계: 함수 목록 점검(검색 경로 고정 · 비회원 실행 허용 목록 · 회원이 부르는 서버 권한 함수 목록) + 역할별 권한 표 + 상대에게 가는 내용
+  {
+    await as("postgres")
+    const access = JSON.parse(readFileSync(join(here, "function-access.json"), "utf8"))
+    const fnList = async (where) => (await q(`select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' f from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prokind = 'f' and ${where} order by 1`)).map((r) => r.f)
+    eq("3.1: 모든 public 함수는 검색 경로(search_path)를 고정한다", await fnList("not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')"), [])
+    eq("3.1: 비회원(anon)이 실행할 수 있는 함수는 허용 목록과 같다(새 함수는 function-access.json에 이유와 함께 올려야 통과)", await fnList("has_function_privilege('anon', p.oid, 'EXECUTE')"), Object.keys(access.anon).sort())
+    eq("3.1: 회원(authenticated)이 부를 수 있는 서버 권한(SECURITY DEFINER) 함수는 목록과 같다", await fnList("p.prosecdef and has_function_privilege('authenticated', p.oid, 'EXECUTE')"), [...access.authenticatedDefiner].sort())
+    eq("3.1: 비회원은 어떤 표·뷰도 직접 읽거나 쓸 수 없다", (await q("select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind in ('r', 'v', 'm') and (has_table_privilege('anon', c.oid, 'SELECT') or has_table_privilege('anon', c.oid, 'INSERT') or has_table_privilege('anon', c.oid, 'UPDATE') or has_table_privilege('anon', c.oid, 'DELETE'))")).map((r) => r.relname), [])
+    eq("3.1: 모든 public 표에 RLS가 켜져 있다", (await q("select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity")).map((r) => r.relname), [])
+
+    // 역할별 권한 표: 본인 A · 소개 상대 B · 제3자 C · 탈퇴 요청 W · 정지 S · 운영진(2단계 전 aal1 / 후 aal2) · 비회원
+    await q("update public.cohorts set starts_on = public.kst_today() - 1, application_deadline = public.kst_today() - 5 where number = 1")
+    const approved = async (gender, desired, birth = "1995-06-06") => {
+      const id = await applicant(birth)
+      await as("postgres")
+      await q("update public.applications set draft = jsonb_set(jsonb_set(draft, '{values,self.gender}', to_jsonb($2::text)), '{values,desired.gender}', to_jsonb($3::text)) where member_id = $1", [id, gender, desired])
+      await as(id); await q("select public.submit_application()")
+      await as(O, "aal2")
+      for (const slot of ["photo.face", "photo.upper", "photo.style"]) await q("select public.admin_review_photo($1, $2, '기준 확인')", [id, slot])
+      await q("select public.admin_decide_application($1, 'approved')", [id])
+      await q("select public.admin_move_member_cohort($1, 1)", [id])
+      await as("postgres")
+      return id
+    }
+    const A = await approved("여성", "남성"), B = await approved("남성", "여성"), C = await approved("남성", "여성"), W = await approved("남성", "여성"), S = await approved("남성", "여성")
+    const draftOf = async (id) => (await one("select draft -> 'values' v from public.applications where member_id = $1", [id])).v
+    const secretsOfA = await draftOf(A)
+    const emailOfA = (await one("select email from public.profiles where id = $1", [A])).email
+    await as(O, "aal2")
+    const intro = (await one("select public.admin_reserve_introduction($1, $2, (public.kst_today() + 3), '두 분 모두 주말 산책을 좋아한다고 적으셨어요.') id", [A, B])).id
+    const readingNote = (await one("select public.admin_set_reading_note($1, '주말을 보내는 방식과 편하게 대화할 수 있는 속도를 함께 살펴보고 있어요.') v", [A])).v.body
+    await as("postgres")
+    await q("update public.introductions set reveal_at = now() - interval '1 minute', respond_by = now() + interval '23 hours', view_until = now() + interval '23 hours' where id = $1", [intro])
+    await q("select public.run_noon()")
+    await as(B)
+    const seen = JSON.stringify((await one("select public.my_introduction() v")).v)
+    ok("3.1 상대(B): 소개가 보인다", seen.includes(intro))
+    for (const [label, secret] of [["휴대폰 번호", secretsOfA["self.phone"]], ["이메일", emailOfA], ["생년월일(날짜)", secretsOfA["self.birthDate"]], ["읽은 한 문장(운영진 메모)", readingNote]]) ok(`3.1 상대(B): 받은 소개에 A의 ${label}이 없다`, !seen.includes(secret))
+    for (const key of ["self.phone", "self.birthDate", "self.notifyChannels", "self.source", "self.statement", "self.pledge", "consent.", "decision_note", "sha256", "email"]) ok(`3.1 상대(B): 받은 소개에 운영 전용 항목(${key})이 없다`, !seen.includes(key))
+    eq("3.1 상대(B): A의 신청서 표는 직접 읽을 수 없다(0줄)", (await q("select member_id from public.applications where member_id = $1", [A])).length, 0)
+    await expectError("3.1 상대(B): 운영진 함수는 부를 수 없다", () => q("select * from public.admin_list_applications()"), /권한|permission/)
+    await as(C)
+    eq("3.1 제3자(C): 다른 사람 소개는 보이지 않는다", (await one("select public.my_introduction() v")).v.status, "waiting")
+    ok("3.1 제3자(C): A의 사진 주소를 받을 수 없다", (await one("select public.can_view_partner_photo($1) v", [`${A}/photo.face-t12.jpg`])).v === false)
+    await expectError("3.1 제3자(C): 남의 소개에 답할 수 없다", () => q("select public.respond_introduction($1, 'positive')", [intro]))
+    eq("3.1 제3자(C): 남의 신청서·알림은 읽을 수 없다", [(await q("select 1 from public.applications where member_id <> $1", [C])).length, (await q("select 1 from public.notifications where member_id <> $1", [C])).length], [0, 0])
+    await as(A)
+    eq("3.1 본인(A): 내 신청서는 내 번호까지 보인다", (await one("select draft -> 'values' ->> 'self.phone' p from public.applications where member_id = $1", [A])).p, secretsOfA["self.phone"])
+    await as(W); await q("select public.request_withdrawal(array[]::text[], null)")
+    await expectError("3.1 탈퇴 요청(W): 소개에 답하거나 신청서를 고칠 수 없다", () => q("select public.save_application_draft($1)", [{ values: {}, sharing: {}, step: 0, visited: [] }]), /로그인한 회원/)
+    await as(O, "aal2"); await q("select public.admin_set_member_state($1, 'suspend', '시험용 정지 사유예요.')", [S])
+    await as(S)
+    await expectError("3.1 정지(S): 신청서를 고칠 수 없다", () => q("select public.save_application_draft($1)", [{ values: {}, sharing: {}, step: 0, visited: [] }]), /로그인한 회원/)
+    await as(O, "aal1")
+    await expectError("3.1 운영진 2단계 인증 전(aal1): 신청서 목록을 볼 수 없다", () => q("select * from public.admin_list_applications()"), /권한/)
+    await expectError("3.1 운영진 2단계 인증 전(aal1): 소개를 예약할 수 없다", () => q("select public.admin_reserve_introduction($1, $2, (public.kst_today() + 3), '두 분 모두 주말 산책을 좋아한다고 적으셨어요.')", [C, A]), /권한/)
+    await as(O, "aal2")
+    ok("3.1 운영진 2단계 인증 뒤(aal2): 신청서 목록을 본다", (await q("select * from public.admin_list_applications()")).length > 0)
+    await as("anon")
+    await expectError("3.1 비회원: 신청서 표를 읽을 수 없다", () => q("select 1 from public.applications"), /permission denied/)
+    await expectError("3.1 비회원: 소개 함수를 부를 수 없다", () => q("select public.my_introduction()"), /permission denied/)
+    await expectError("3.1 비회원: 운영진 함수를 부를 수 없다", () => q("select * from public.admin_list_applications()"), /permission denied/)
+    await as("postgres")
+  }
+
+  // T11: 서버 경로 빈칸 — A/B 방식이 끝내 다를 때 · 모집이 닫혔을 때(나머지 경로는 위 시험에 이미 있음: B 1~3일 ‘여정 B’, 무응답·차단·신고·사진 재등록·탈퇴)
+  {
+    await as("postgres")
+    const X = await person(), Y = await person()
+    const intro = (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at, mutual_at, response_a, response_b) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'mutual', now() - interval '1 day', now() - interval '2 hours', now() + interval '1 day', '{}', '{}', now() - interval '1 day', now() - interval '3 hours', 'positive', 'positive') returning id", [X, Y])).id
+    const prog = (await one("insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by) values ($1, $2, $3, 'choosing', 'A', 'B', public.kst_today() + 1, now() + interval '1 day') returning id", [intro, X, Y])).id
+    await as(X)
+    await expectError("T11: 두 분의 방식이 다르면 시작일을 확정할 수 없다", () => q("select public.confirm_program($1, (public.kst_today() + 1))", [prog]), /같은 방식/)
+    await as("postgres")
+    await q("update public.programs set agree_by = now() - interval '1 minute' where id = $1", [prog])
+    await one("select public.run_programs()")
+    const closed = await one("select status, end_reason from public.programs where id = $1", [prog])
+    eq("T11: 합의 기한(48시간)까지 방식이 다르면 교류를 닫는다(agreement-expired)", { ...closed }, { status: "closed", end_reason: "agreement-expired" })
+    eq("T11: 두 분 모두 ‘방식이 정해지지 않았어요’ 알림을 받는다", (await one("select count(distinct member_id)::int n from public.notifications where kind = 'program-closed' and member_id = any($1)", [[X, Y]])).n, 2)
+    await as(X)
+    await expectError("T11: 닫힌 뒤에는 방식을 바꿀 수 없다", () => q("select public.choose_program_plan($1, 'B')", [prog]), /바꿀 수 없어요|찾을 수 없어요/)
+    // 모집이 닫혔을 때: 공개 기수가 없으면 null(화면은 ‘다음 기수 안내’)
+    await as("postgres")
+    const saved = await q("select number, application_deadline from public.cohorts")
+    await q("update public.cohorts set application_deadline = public.kst_today() - 1")
+    await as("anon")
+    eq("T11: 신청 마감이 모두 지나면 공개 기수 정보가 비어 있다(모집 마감)", (await one("select public.public_cohort() v")).v, null)
+    await as("postgres")
+    for (const c of saved) await q("update public.cohorts set application_deadline = $2 where number = $1", [c.number, c.application_deadline])
+  }
+
+  // 3.1 횟수 제한: 신고·문의 요청은 한 계정당 1시간 5건 · 하루 20건(합쳐서)
+  {
+    const R = await person()
+    await as(R)
+    for (let i = 0; i < 4; i++) await q("select public.submit_member_request('inquiry', $1)", [`시험 요청 ${i}번이에요.`])
+    await q("select public.submit_report(null, '기타', '시험 신고예요.')")
+    await expectError("3.1 횟수 제한: 1시간에 다섯 건을 넘는 요청은 받지 않는다", () => q("select public.submit_member_request('inquiry', '여섯 번째 요청이에요.')"), /짧은 시간에 신고·요청이 많이/)
+    await expectError("3.1 횟수 제한: 신고도 같은 제한을 함께 센다", () => q("select public.submit_report(null, '기타', '여섯 번째 신고예요.')"), /짧은 시간에 신고·요청이 많이/)
+    await as("postgres")
+    await q("update public.member_requests set created_at = now() - interval '2 hours' where member_id = $1", [R])
+    await q("update public.reports set created_at = now() - interval '2 hours' where reporter_id = $1", [R])
+    await as(R)
+    ok("3.1 횟수 제한: 한 시간이 지나면 다시 받는다", !!(await one("select public.submit_member_request('inquiry', '두 시간 뒤 요청이에요.') v")).v)
+    await as("postgres")
+    await q("insert into public.member_requests (member_id, kind, description, created_at) select $1, 'inquiry', '하루치 시험', now() - interval '3 hours' from generate_series(1, 15)", [R])
+    await as(R)
+    await expectError("3.1 횟수 제한: 하루 스무 건을 넘으면 받지 않는다", () => q("select public.submit_member_request('inquiry', '하루 스물한 번째예요.')"), /짧은 시간에 신고·요청이 많이/)
+    await as("postgres")
+  }
+}
+
 console.log(`서버 데이터베이스 점검 통과: ${passed}개`)
+globalThis.__FLAVIE_PASSED__ = passed

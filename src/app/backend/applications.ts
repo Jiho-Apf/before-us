@@ -186,6 +186,8 @@ export async function removePhoto(slot: PhotoSlotId, path: string) {
 
 // 사진 주소는 5분 동안만 쓸 수 있게 만든다(외부로 퍼져도 곧 열리지 않는다).
 const urlCache = new Map<string, { url: string; until: number }>()
+// 주소가 만료됐거나 못 불러왔을 때 ‘다시 불러오기’는 새 주소를 만든다(검수 C12).
+export const forgetPhotoUrl = (path: string) => { urlCache.delete(path) }
 // 사진 주소 결과(검수 C12): 잠깐 못 불러온 것(temporary-error)과 볼 수 없는 것(forbidden)·지워진 것(deleted)을 나눈다.
 // 화면은 잠깐의 실패를 ‘사진 없음’으로 바꾸지 않고, 다시 불러오기를 보여 준다.
 export type PhotoResult = { status: "ok"; url: string } | { status: "temporary-error"; message: string } | { status: "forbidden" } | { status: "deleted" }

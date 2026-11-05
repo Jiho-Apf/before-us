@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react"
 import { BEFORE_US } from "./config"
-import { LANDING, LIVE, endSession, friendlyError, rpc, supabase } from "./backend/client"
+import { LANDING, LIVE, clearLoggedOut, endSession, friendlyError, onRemoteLogout, rpc, supabase } from "./backend/client"
 import { clearDrafts, setDraftOwner } from "./backend/drafts"
 
 // 계정(회원가입·로그인·비밀번호 재설정·탈퇴).
@@ -52,6 +52,9 @@ async function hash(text: string) {
 const publicUser = (user: Stored): AuthUser => ({ id: user.id, email: user.email, createdAt: user.createdAt, status: user.status, deletionDueAt: user.deletionDueAt })
 const randomToken = () => [...crypto.getRandomValues(new Uint8Array(16))].map((byte) => byte.toString(16).padStart(2, "0")).join("")
 
+// 다른 탭에서 로그아웃하면(검수 T03) 이 탭도 바로 로그아웃 상태로 바꾸고, 이 기기의 초안을 지운다.
+if (LIVE) onRemoteLogout(() => { if (session) clearDrafts({ ownerId: session.id }); session = null; ready = true; emit() })
+
 // 실제 서버: 로그인 상태가 바뀔 때마다 회원 상태(탈퇴 요청 여부)를 함께 읽는다.
 if (LIVE) {
   void supabase().then(async (db) => {
@@ -89,6 +92,7 @@ export async function signUp(input: { email: string; password: string; adult: bo
     const db = await supabase()
     const { data, error } = await db.auth.signUp({ email, password: input.password, options: { emailRedirectTo: `${window.location.origin}/apply`, data: { adult: true, terms_version: LEGAL_VERSION, privacy_version: LEGAL_VERSION, marketing: false } } })
     if (error) return { error: /password/i.test(error.message) ? `비밀번호는 ${PASSWORD_RULE}` : /rate|too many/i.test(error.message) ? "잠시 뒤 다시 시도해 주세요." : friendlyError(error) }
+    if (data.session) clearLoggedOut()
     // 가입 여부를 알려 주지 않도록, 이미 가입된 이메일이어도 같은 안내(메일 확인)를 보여 준다.
     return { error: null, confirm: !data.session }
   }
@@ -117,6 +121,7 @@ export async function signIn(emailInput: string, password: string, now = Date.no
       return { error: WRONG }
     }
     attempts.delete(email)
+    clearLoggedOut()
     const { data: profile } = await db.from("profiles").select("status, deletion_due_at").eq("id", data.user.id).maybeSingle()
     if (profile?.status === "withdrawal_requested") {
       await endSession("local")
@@ -152,7 +157,12 @@ export async function signOut(): Promise<{ error: string | null; notice: string 
   if (!result.localOk) return { error: "이 기기의 로그아웃을 마치지 못했어요. 인터넷 연결을 확인한 뒤 한 번 더 눌러 주세요.", notice: null }
   session = null
   emit()
-  return { error: null, notice: result.serverOk ? null : "이 기기에서는 로그아웃했어요. 연결이 불안정해 다른 기기의 로그인까지 끊었는지는 확인하지 못했어요. 걱정되면 비밀번호를 바꿔 주세요." }
+  // 있는 그대로 알린다: 서버 쿠키를 못 지웠으면 ‘연결되면 마저 지운다’, 다른 기기까지 끊었는지 모르면 그 사실을.
+  const notes = [
+    !result.cookieOk && "이 기기에서는 로그아웃했어요. 로그인 유지 기록은 인터넷이 다시 연결되면 마저 지울게요. 그 전까지도 이 기기에서 저절로 다시 로그인되지는 않아요.",
+    !result.serverOk && (result.cookieOk ? "이 기기에서는 로그아웃했어요. 연결이 불안정해 다른 기기의 로그인까지 끊었는지는 확인하지 못했어요. 걱정되면 비밀번호를 바꿔 주세요." : "다른 기기의 로그인까지 끊었는지는 확인하지 못했어요. 걱정되면 비밀번호를 바꿔 주세요."),
+  ].filter(Boolean)
+  return { error: null, notice: notes.length ? notes.join(" ") : null }
 }
 
 // 가입 여부와 관계없이 같은 안내를 보여 준다. 데모에서는 메일 대신 화면에 재설정 링크를 돌려준다(devLink).
@@ -261,7 +271,7 @@ export async function confirmEmailLink(tokenHash: string, type: "email" | "recov
   try {
     const db = await supabase()
     const { error } = await db.auth.verifyOtp({ token_hash: tokenHash, type })
-    if (!error) return { error: null }
+    if (!error) { clearLoggedOut(); return { error: null } }
     if (/expired|invalid|not found/i.test(error.message)) return { error: "링크가 만료됐거나 이미 쓰였어요. 로그인해 보시고, ‘메일 확인이 필요해요’가 나오면 확인 메일을 다시 받아 주세요." }
     return { error: friendlyError(error) }
   } catch (error) {

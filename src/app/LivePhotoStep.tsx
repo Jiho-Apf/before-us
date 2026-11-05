@@ -7,7 +7,7 @@ import { BEFORE_US } from "./config";
 import { PHOTO_REVIEW_TEXT, PHOTO_SLOTS, type PhotoSlotId } from "./photo-model";
 import { kstDateTime } from "./dates";
 import { Composition } from "./PhotoStep";
-import { cancelReplacement, decodePhoto, photoResult, photoUrl, removePhoto, uploadPhoto, uploadPreparedPhoto, type PhotoRow, type PreparedPhoto, type ReplacementRow } from "./backend/applications";
+import { cancelReplacement, decodePhoto, forgetPhotoUrl, photoResult, photoUrl, removePhoto, uploadPhoto, uploadPreparedPhoto, type PhotoRow, type PreparedPhoto, type ReplacementRow } from "./backend/applications";
 import PhotoAdjuster from "./PhotoAdjuster";
 
 // 실제 서버 모드의 사진 단계. 카드 구성은 데모 사진 단계(PhotoStep)와 같고, 실제 파일을 올린다.
@@ -23,7 +23,7 @@ function Thumbnail({ path, number }: { path: string | null; number: number }) {
   const [attempt, setAttempt] = useState(0);
   useEffect(() => { let alive = true; setUrl(null); setFailed(""); if (path) void photoResult(path).then(result => { if (!alive) return; if (result.status === "ok") setUrl(result.url); else setFailed(result.status === "temporary-error" ? "temporary" : "gone"); }); return () => { alive = false; }; }, [path, attempt]);
   if (path && url) return <img src={url} alt="" onError={() => { setUrl(null); setFailed("temporary"); }} className="h-full w-full object-cover" />;
-  if (path && failed) return <div role="status" className="grid h-full w-full place-items-center bg-mist p-3 text-center"><span className="space-y-2"><span className="block text-[11px] leading-5 text-muted-foreground">{failed === "gone" ? "사진을 찾을 수 없어요. 다시 올려 주세요." : "올린 사진을 불러오지 못했어요."}</span>{failed === "temporary" && <button type="button" onClick={event => { event.preventDefault(); event.stopPropagation(); setAttempt(value => value + 1); }} className={`inline-flex min-h-9 items-center text-[11px] font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>다시 불러오기</button>}</span></div>;
+  if (path && failed) return <div role="status" className="grid h-full w-full place-items-center bg-mist p-3 text-center"><span className="space-y-2"><span className="block text-[11px] leading-5 text-muted-foreground">{failed === "gone" ? "사진을 찾을 수 없어요. 다시 올려 주세요." : "올린 사진을 불러오지 못했어요."}</span>{failed === "temporary" && <button type="button" onClick={event => { event.preventDefault(); event.stopPropagation(); if (path) forgetPhotoUrl(path); setAttempt(value => value + 1); }} className={`inline-flex min-h-11 items-center text-[11px] font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>다시 불러오기</button>}</span></div>;
   if (path) return <div role="status" aria-label="사진을 불러오는 중" className="h-full w-full animate-pulse bg-mist" />;
   return <Composition number={number} crop />;
 }
@@ -34,6 +34,8 @@ export default function LivePhotoStep({ rows, replacements = [], approved = fals
   const [failure, setFailure] = useState<Record<string, string>>({});
   const inputs = useRef<Record<string, HTMLInputElement | null>>({});
   const [adjust, setAdjust] = useState<{ slot: PhotoSlotId; bitmap: ImageBitmap; file: File | null; previous: string | null } | null>(null);
+  // 올리기에 실패한 사진(검수 U06): 다시 고르지 않고 ‘다시 올리기’로 같은 사진을 다시 보낸다(이 화면에서만 기억).
+  const [retry, setRetry] = useState<Partial<Record<PhotoSlotId, () => Promise<{ error: string | null }>>>>({});
   const bySlot = Object.fromEntries(rows.map(row => [row.slot, row])) as Partial<Record<PhotoSlotId, PhotoRow>>;
   const required = PHOTO_SLOTS.filter(slot => slot.required && bySlot[slot.id] && bySlot[slot.id]!.review !== "재등록 요청").length;
   const swapOf = (slot: PhotoSlotId) => replacements.find(item => item.slot === slot);
@@ -63,23 +65,37 @@ export default function LivePhotoStep({ rows, replacements = [], approved = fals
     setBusy(null);
   };
   const closeAdjust = () => { adjust?.bitmap.close(); setAdjust(null); };
-  const finish = async (slot: PhotoSlotId, result: { error: string | null }) => {
-    if (result.error) { setFailure(current => ({ ...current, [slot]: result.error! })); return; }
+  const finish = async (slot: PhotoSlotId, result: { error: string | null }, again?: () => Promise<{ error: string | null }>) => {
+    if (result.error) {
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      setFailure(current => ({ ...current, [slot]: offline ? "인터넷 연결이 끊겨 사진을 올리지 못했어요. 연결되면 ‘다시 올리기’를 눌러 주세요. 고른 사진은 이 화면에 그대로 있어요." : result.error! }));
+      if (again) setRetry(current => ({ ...current, [slot]: again }));
+      return;
+    }
+    setRetry(current => { const next = { ...current }; delete next[slot]; return next; });
     await onChanged(); setConfirm(current => ({ ...current, [slot]: { recent: false, rights: false } }));
+  };
+  const runRetry = async (slot: PhotoSlotId) => {
+    const again = retry[slot]; if (!again) return;
+    setBusy(slot); setFailure(current => ({ ...current, [slot]: "" }));
+    await finish(slot, await again(), again);
+    setBusy(null);
   };
   const uploadAdjusted = async (prepared: PreparedPhoto) => {
     if (!adjust) return;
     const { slot, previous } = adjust;
-    const result = await uploadPreparedPhoto(slot, prepared, previous);
+    const again = () => uploadPreparedPhoto(slot, prepared, previous);
+    const result = await again();
     closeAdjust();
-    await finish(slot, result);
+    await finish(slot, result, again);
   };
   const uploadOriginal = async () => {
     if (!adjust?.file) return;
     const { slot, file, previous } = adjust;
     closeAdjust();
     setBusy(slot);
-    await finish(slot, await uploadPhoto(slot, file, previous));
+    const again = () => uploadPhoto(slot, file, previous);
+    await finish(slot, await again(), again);
     setBusy(null);
   };
   const cancel = async (slot: PhotoSlotId) => {
@@ -97,7 +113,7 @@ export default function LivePhotoStep({ rows, replacements = [], approved = fals
     setBusy(null);
   };
   return <section aria-labelledby="photos-title">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 id="photos-title" className="text-2xl font-semibold">현재의 나를 보여 주세요.</h3><p className="mt-4 text-sm leading-7">특별히 촬영한 사진일 필요는 없어요. 최근의 모습을 솔직하게 보여 주세요.</p></div><span className="rounded-full border border-border px-3 py-1.5 text-[11px] text-muted-foreground">필수 {required}/3 · 총 {rows.length}/4</span></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 id="photos-title" className="text-2xl font-semibold">현재의 나를 보여 주세요.</h3><p className="mt-4 text-sm leading-7">특별히 촬영한 사진일 필요는 없어요. 최근의 모습을 솔직하게 보여 주세요.</p></div><span role="status" aria-live="polite" className={`rounded-full border px-3 py-1.5 text-[11px] ${required === 3 ? "border-primary/40 font-semibold text-primary" : "border-border text-muted-foreground"}`}>{busy ? "사진을 올리는 중… · " : ""}필수 사진 {required}/3장{rows.length > required ? ` · 선택 ${rows.length - required}/1장` : ""}</span></div>
     <NoteList className="mt-5" items={[{ title: "필수 3장 + 선택 1장", body: <>최근 {BEFORE_US.operatingDraft.photos.recentMonths}개월 안에 찍은 서로 다른 사진을 올려 주세요.</> }, { title: "파일 형식", body: <>JPG·PNG·WebP·HEIC(아이폰 사진은 JPG로 자동으로 바꿔요), 한 장에 10MB 이하. 짧은 변 {BEFORE_US.photoFiles.recommendedShortSide}px 이상을 권해요.</> }, { title: "위치정보는 지워요", body: <span className="font-medium text-accent">올리기 전에 이 기기에서 다시 저장해 촬영 위치 같은 정보를 지워요.</span> }, { title: "볼 수 있는 사람", body: "운영진과, 소개가 열린 동안의 상대만 볼 수 있어요." }]} />
     {approved && <p role="note" className="mt-5 rounded-xl bg-mist p-4 text-xs leading-6">이미 소개를 받고 있어서 사진을 바꿔도 소개가 멈추지 않아요. 새 사진은 운영진이 확인한 뒤 바뀌고, 그동안은 지금 사진이 그대로 보여요.</p>}
     <div className="mt-7 grid gap-5 lg:grid-cols-2">{PHOTO_SLOTS.map(slot => { const row = bySlot[slot.id]; const state = confirm[slot.id] || { recent: false, rights: false }; const ready = state.recent && state.rights; const loading = busy === slot.id; const swap = swapOf(slot.id); const live = replacing(slot.id); const status = !row ? "미등록" : live && swap ? swap.review === "대기" ? "새 사진 확인 중" : "새 사진 다시 골라 주세요" : live && row.change_reason ? "바꿔 주세요" : PHOTO_REVIEW_TEXT[row.review] ?? row.review; return <article key={slot.id} className="flex flex-col border border-border bg-card" aria-labelledby={`${slot.id}-title`}>
@@ -106,13 +122,15 @@ export default function LivePhotoStep({ rows, replacements = [], approved = fals
         {row && <p className="mt-3 text-xs text-muted-foreground">{row.width} × {row.height}px · {(row.bytes / (1024 * 1024)).toFixed(1)}MB{Math.min(row.width, row.height) < BEFORE_US.photoFiles.recommendedShortSide ? " · 조금 작은 사진이에요" : ""}</p>}
         {row?.review === "재등록 요청" && <p className="mt-4 rounded-xl bg-muted p-3 text-xs leading-6">보완 사유: {row.reason || "운영진 안내 확인"} · 이 사진만 다시 올려 주세요.{approved ? "" : " 새 사진을 확인하기 전까지는 소개를 준비하지 않아요."}</p>}
         {live && row?.change_reason && swap?.review !== "대기" && <p className="mt-4 rounded-xl bg-[#F8E5A6]/55 p-3 text-xs leading-6 text-[#5A4310] dark:bg-[#3B3424] dark:text-[#F3D98A]">운영진 요청 · {row.change_reason}. 새 사진을 올려 주시면 확인한 뒤 바꿔 드려요. 그동안 지금 사진이 그대로 보여요.{row.change_requested_at ? ` ${kstDateTime(new Date(Date.parse(row.change_requested_at) + 7 * 86400000).toISOString())}까지 올리지 않으면 새 소개를 잠시 멈춰요.` : ""}</p>}
-        {live && swap && <div className="mt-4 flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 p-3"><div className="aspect-[4/5] w-14 shrink-0 overflow-hidden rounded-md border border-border"><Thumbnail path={swap.path} number={slot.number} /></div><div className="min-w-0 flex-1 text-xs leading-6"><p className="font-semibold text-primary">{swap.review === "대기" ? "바꿀 새 사진 · 확인 중" : "바꿀 새 사진 · 다시 골라 주세요"}</p><p className="text-muted-foreground">{swap.review === "대기" ? "확인되면 지금 사진과 바뀌어요." : `운영진 안내 · ${swap.reason || "다른 사진으로 다시 올려 주세요"}. 지금 사진은 그대로 보여요.`}</p></div>{editable && <Button variant="ghost" disabled={loading} onClick={() => void cancel(slot.id)} className={`h-9 shrink-0 rounded-xl px-3 text-xs text-muted-foreground hover:bg-muted hover:text-foreground ${interaction}`}>취소</Button>}</div>}
-        {editable && <div className="mt-5 space-y-3 border-t border-border pt-4"><label className="flex cursor-pointer items-start gap-2.5 text-xs leading-6"><Checkbox className="mt-1" checked={state.recent} onCheckedChange={checked => setConfirm(current => ({ ...current, [slot.id]: { ...state, recent: checked === true } }))} /><span>최근 {BEFORE_US.operatingDraft.photos.recentMonths}개월 안에 찍은 지금의 내 모습이고, 다른 칸과 다른 사진이에요.</span></label><label className="flex cursor-pointer items-start gap-2.5 text-xs leading-6"><Checkbox className="mt-1" checked={state.rights} onCheckedChange={checked => setConfirm(current => ({ ...current, [slot.id]: { ...state, rights: checked === true } }))} /><span>내가 올릴 권리가 있는 사진이에요.</span></label>
+        {live && swap && <div className="mt-4 flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 p-3"><div className="aspect-[4/5] w-14 shrink-0 overflow-hidden rounded-md border border-border"><Thumbnail path={swap.path} number={slot.number} /></div><div className="min-w-0 flex-1 text-xs leading-6"><p className="font-semibold text-primary">{swap.review === "대기" ? "바꿀 새 사진 · 확인 중" : "바꿀 새 사진 · 다시 골라 주세요"}</p><p className="text-muted-foreground">{swap.review === "대기" ? "확인되면 지금 사진과 바뀌어요." : `운영진 안내 · ${swap.reason || "다른 사진으로 다시 올려 주세요"}. 지금 사진은 그대로 보여요.`}</p></div>{editable && <Button variant="ghost" disabled={loading} onClick={() => void cancel(slot.id)} className={`h-11 shrink-0 rounded-xl px-3 text-xs text-muted-foreground hover:bg-muted hover:text-foreground ${interaction}`}>취소</Button>}</div>}
+        {editable && <div className="mt-5 space-y-3 border-t border-border pt-4"><label className="flex cursor-pointer items-start gap-2.5 text-xs leading-6"><Checkbox className="mt-1" checked={state.recent} onCheckedChange={checked => setConfirm(current => ({ ...current, [slot.id]: { ...(current[slot.id] || { recent: false, rights: false }), recent: checked === true } }))} /><span>최근 {BEFORE_US.operatingDraft.photos.recentMonths}개월 안에 찍은 지금의 내 모습이고, 다른 칸과 다른 사진이에요.</span></label><label className="flex cursor-pointer items-start gap-2.5 text-xs leading-6"><Checkbox className="mt-1" checked={state.rights} onCheckedChange={checked => setConfirm(current => ({ ...current, [slot.id]: { ...(current[slot.id] || { recent: false, rights: false }), rights: checked === true } }))} /><span>내가 올릴 권리가 있는 사진이에요.</span></label>
           <input ref={element => { inputs.current[slot.id] = element; }} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void pick(slot.id, file); }} />
-          <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!ready || loading} onClick={() => inputs.current[slot.id]?.click()} className={`h-10 rounded-xl border-border text-xs hover:bg-muted hover:text-foreground ${interaction}`}>{loading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}{live ? swap ? "다른 사진으로" : "새 사진으로 바꾸기" : row ? "사진 바꾸기" : "사진 올리기"}</Button>{row && <Button variant="outline" disabled={loading} onClick={() => void reframe(slot.id)} className={`h-10 rounded-xl border-border text-xs hover:bg-muted hover:text-foreground ${interaction}`}><Crop size={13} />위치 조절</Button>}{row && !(approved && slot.required) && <Button variant="ghost" disabled={loading} aria-label={`${slot.label} 사진 삭제`} onClick={() => void remove(slot.id)} className={`h-10 rounded-xl text-xs text-muted-foreground hover:bg-muted hover:text-foreground ${interaction}`}><Trash2 size={13} />삭제</Button>}</div>
+          <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!ready || loading} onClick={() => inputs.current[slot.id]?.click()} className={`h-11 rounded-xl border-border text-xs hover:bg-muted hover:text-foreground ${interaction}`}>{loading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}{live ? swap ? "다른 사진으로" : "새 사진으로 바꾸기" : row ? "사진 바꾸기" : "사진 올리기"}</Button>{row && <Button variant="outline" disabled={loading} onClick={() => void reframe(slot.id)} className={`h-11 rounded-xl border-border text-xs hover:bg-muted hover:text-foreground ${interaction}`}><Crop size={13} />위치 조절</Button>}{row && !(approved && slot.required) && <Button variant="ghost" disabled={loading} aria-label={`${slot.label} 사진 삭제`} onClick={() => void remove(slot.id)} className={`h-11 rounded-xl text-xs text-muted-foreground hover:bg-muted hover:text-foreground ${interaction}`}><Trash2 size={13} />삭제</Button>}</div>
           {!ready && <p className="text-[11px] text-muted-foreground">두 가지를 확인하면 사진을 고를 수 있어요.</p>}
         </div>}
+        {loading && <p role="status" className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><Loader2 size={13} className="animate-spin motion-reduce:animate-none" />{slot.number}번 사진을 올리는 중이에요. 화면을 닫지 말아 주세요.</p>}
         {failure[slot.id] && <p role="alert" className="mt-4 flex items-start gap-2 text-xs leading-6 text-destructive"><AlertCircle size={14} className="mt-1 shrink-0" />{failure[slot.id]}</p>}
+        {failure[slot.id] && retry[slot.id] && <Button variant="outline" disabled={loading} onClick={() => void runRetry(slot.id)} className={`mt-2 h-11 rounded-xl border-border text-xs hover:bg-muted hover:text-foreground ${interaction}`}><Upload size={13} />다시 올리기</Button>}
         {errors[slot.id] && <p role="alert" className="mt-4 text-xs leading-6 text-destructive">{errors[slot.id]}</p>}
       </div>
     </article>; })}</div>

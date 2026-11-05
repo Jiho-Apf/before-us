@@ -53,7 +53,14 @@ export function writeDraft(key: string, value: string, now = Date.now()): boolea
   }
 }
 
+export function clearDraft(key: string) {
+  const store = storage(), full = storeKey(key)
+  if (!store || !full) return
+  try { store.removeItem(full) } catch { /* 무시 */ }
+}
+
 // 지우기: 회원 하나(로그아웃·탈퇴) · 교류 하나(마무리) · 기한 지난 것
+// 회원 하나를 지울 때는 제출 전 고친 신청서(before-us:pending-edit:{회원 id})도 함께 지운다(같은 기기를 다른 사람이 쓸 수 있어서).
 export function clearDrafts(filter: { ownerId?: string | null; programId?: string } = {}) {
   const store = storage()
   if (!store) return
@@ -65,6 +72,7 @@ export function clearDrafts(filter: { ownerId?: string | null; programId?: strin
       if (filter.programId && programId !== filter.programId) continue
       store.removeItem(key)
     }
+    if (filter.ownerId && !filter.programId) store.removeItem(`before-us:pending-edit:${filter.ownerId}`)
   } catch { /* 무시 */ }
 }
 export function clearExpiredDrafts(now = Date.now()) {

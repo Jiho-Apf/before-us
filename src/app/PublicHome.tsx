@@ -87,9 +87,9 @@ function untilNoon(now: Date) {
   return { left, atNoon: now.getTime() >= noon && now.getTime() < noon + 60000 };
 }
 // target을 주면 정오 대신 그 마감(예: 응답 마감 11:00)까지 센다.
-export function NoonClock({ tone = "light", target }: { tone?: "light" | "plain"; target?: { at: string; label: string; note: string } }) {
+export function NoonClock({ tone = "light", target, compact = false }: { tone?: "light" | "plain"; target?: { at: string; label: string; note: string }; compact?: boolean }) {
   const [now, setNow] = useState(() => new Date());
-  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 1000); return () => window.clearInterval(timer); }, []);
+  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), compact ? 30000 : 1000); return () => window.clearInterval(timer); }, [compact]);
   const noon = untilNoon(now);
   const left = target ? Math.max(0, Math.floor((Date.parse(target.at) - now.getTime()) / 1000)) : noon.left;
   const atNoon = !target && noon.atNoon;
@@ -99,6 +99,11 @@ export function NoonClock({ tone = "light", target }: { tone?: "light" | "plain"
   const label = target ? target.label : atNoon ? "지금, 정오예요" : "다음 정오까지";
   const light = tone === "light";
   const muted = light ? "text-white/95" : "text-muted-foreground";
+  if (compact) {
+    const hours = Math.floor(left / 3600), minutes = Math.floor((left % 3600) / 60);
+    const short = atNoon ? "지금, 정오예요" : `다음 정오까지 ${hours ? `${hours}시간 ` : ""}${minutes}분`;
+    return <p className={`text-xs leading-5 ${muted}`}><span className="font-semibold">{short}</span> · {target ? target.note : "소개는 준비된 날, 정오 12시에 두 분께 함께 도착해요."}</p>;
+  }
   return (
     <div className="w-full max-w-[17rem]">
       <p className={`text-xs ${muted}`}>{label}</p>
@@ -154,15 +159,15 @@ function Hero() {
           <p className="-mt-3 mb-6 inline-flex items-center rounded-full bg-white/12 px-3 py-1 text-xs font-semibold tracking-[0.04em] text-white/90 ring-1 ring-white/20 sm:-mt-4 sm:mb-6">편지로 시작하는 1:1 소개팅</p>
           <p className="mb-6 flex items-center gap-2.5 text-base font-semibold text-[#F8E5A6] sm:text-lg"><span aria-hidden="true" className="size-1.5 rounded-full bg-[#F8E5A6]" />넘기는 소개팅에 지쳤다면.</p>
           <h1 id="home-title" className="text-[clamp(2.5rem,5vw,4.25rem)] font-semibold leading-[1.22] tracking-[-0.02em]">끌리는 사람을,<br />천천히 알아갑니다.</h1>
-          <p className="mt-7 max-w-lg text-sm leading-[1.95] text-white/95 dark:text-white sm:text-[15px]">몇 명을 보여 줄지보다, 누구를 보여 줄지를 오래 고민해요.<br />서로 끌림이 확인될 때만 두 분을 이어 드려요.</p>
+          <p className="mt-7 max-w-lg text-[15px] leading-[1.85] text-white/95 dark:text-white sm:text-base">운영진이 신청서를 읽고 한 사람을 소개해요.<br />서로 마음이 있으면, 만나기 전 사흘을 편지로 먼저 알아가요.</p>
           <HeroPoints />
           <HeroDeadline />
           <div className="mt-4 flex flex-wrap gap-3">
-            <Button asChild className={`h-12 rounded-full bg-white px-6 text-primary hover:bg-white/90 ${interaction}`}><Link to="/apply">소개 신청하기 <ArrowUpRight size={17} /></Link></Button>
-            <Button asChild variant="outline" className={`h-12 rounded-full border-white/35 bg-transparent px-5 text-white hover:bg-white/10 hover:text-white dark:bg-transparent ${interaction}`}><Link to="/two-starts">어떻게 알아가나요? <ArrowRight size={15} /></Link></Button>
+            <Button asChild className={`h-13 rounded-full bg-white px-7 text-base text-primary hover:bg-white/90 ${interaction}`}><Link to="/apply">{BETA ? "무료 베타 신청하기" : "소개 신청하기"} <ArrowUpRight size={17} /></Link></Button>
           </div>
+          <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm"><Link to="/start" className="inline-flex min-h-11 items-center gap-1 font-semibold text-white underline-offset-4 hover:underline">짧게 훑어보기 <ArrowRight size={14} aria-hidden="true" /></Link><Link to="/two-starts" className="inline-flex min-h-11 items-center gap-1 text-white/90 underline-offset-4 hover:underline">어떻게 알아가나요? <ArrowRight size={14} aria-hidden="true" /></Link></p>
           <p className="mt-6 text-sm text-white/95">{part.phrase}</p>
-          <div className="mt-5"><NoonClock /></div>
+          <div className="mt-2"><NoonClock compact /></div>
           <p className="mt-5 text-[11px] text-white/95 dark:text-white">{LIVE ? "베타 운영 중 · 지금은 결제 없이 진행해요." : "데모 둘러보기 · 실제 신청이나 결제는 진행되지 않아요."}</p>
         </div>
         <div className="relative z-10 lg:flex lg:items-center lg:justify-end"><HeroLetters /></div>
@@ -396,11 +401,12 @@ function TwoVoices() {
         <div className="flex justify-center"><SectionLabel number="04" ko="이야기">A STORY IN TWO VOICES</SectionLabel></div>
         <h2 id="story-title" className="text-ink text-[26px] font-semibold leading-[1.5] sm:text-[32px]">한 사람을 알아가는 데 필요한,<br />사흘이라는 시간.</h2>
         <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-muted-foreground">정오에 도착한 한 사람과의 3일을, 두 사람의 시점으로 나란히 적었어요.</p>
+        <p className="mx-auto mt-2 w-fit rounded-full bg-card px-3 py-1 text-xs font-medium text-foreground/70 ring-1 ring-border">서비스 흐름을 보여 주는 가상 이야기예요 · 실제 회원의 기록이 아니에요</p>
         <div role="group" aria-label="이야기 고르기" className="mx-auto mt-8 flex w-fit items-end gap-3">
           {STORIES.map(item => {
             const active = storyId === item.id;
             return (
-              <button key={item.id} type="button" aria-pressed={active} aria-label={`이야기 ${item.number} · ${item.people.left}과 ${item.people.right}`} title={`${item.people.left}과 ${item.people.right}`} onClick={() => { setStoryId(item.id); setVoice("both"); }} className="group flex min-h-9 min-w-9 flex-col items-center justify-end rounded-sm px-2 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <button key={item.id} type="button" aria-pressed={active} aria-label={`이야기 ${item.number} · ${item.people.left}과 ${item.people.right}`} title={`${item.people.left}과 ${item.people.right}`} onClick={() => { setStoryId(item.id); setVoice("both"); }} className="group flex min-h-11 min-w-11 flex-col items-center justify-end rounded-sm px-2 outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className={`text-base font-[500] leading-none tabular-nums transition-colors duration-300 motion-reduce:transition-none ${active ? "bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent" : "text-muted-foreground group-hover:text-foreground"}`}>{item.number}</span>
                 <span aria-hidden="true" className={`mt-2 h-px transition-all duration-300 motion-reduce:transition-none ${active ? "w-3.5 bg-gradient-to-r from-primary to-accent" : "w-0 bg-transparent"}`} />
               </button>
@@ -412,7 +418,6 @@ function TwoVoices() {
             <button key={id} type="button" aria-pressed={voice === id} onClick={() => setVoice(id)} className={`rounded-full px-4 py-2 ${interaction} ${voice === id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
           ))}
         </div>
-        <p className="mt-4 text-[11px] text-muted-foreground">약 3분</p>
       </div>
       <ol key={storyId} className="relative mx-auto mt-16 max-w-4xl">
         <span aria-hidden="true" className="absolute top-2 bottom-2 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-primary/5 via-primary/40 to-primary/5 md:block" />
@@ -495,7 +500,7 @@ const FAQ_BASE = [
   { id: "after", title: "교류가 끝나면 다음 소개는 어떻게 골라요?", text: "교류를 마치면 오늘 화면에서 ‘다음 소개를 위한 한 줄’을 남길 수 있어요. 어떤 점이 편했는지, 다음엔 어떤 분이면 좋을지 적어 주시면 운영진이 다음 분을 고를 때 반영하고, 그 한 줄을 참고해 고른 소개에는 ‘남겨 주신 한 줄을 참고해 골랐어요’라고 함께 알려 드려요. 한 줄은 운영진에게만 보이고 상대에게는 보이지 않으며, 1년이 지나면 지워요." },
   { id: "prelude", title: "소개를 기다리는 동안 할 수 있는 게 있나요?", text: "오늘 화면에서 ‘아직 모르는 당신에게’ 편지를 써 둘 수 있어요. 누군지 모르는 다음 분께 쓰는 편지이고, 두 분 모두 ‘알아가고 싶어요’를 고른 순간에만 상대에게 전해져요. 넘긴 소개에는 아무것도 가지 않고, 운영진은 읽지 않아요. 2주마다 바뀌는 ‘창가 질문’에 답해 두면 운영진이 다음 분을 고를 때 참고하고, 참고한 소개에는 그렇다고 알려 드려요." },
   { id: "letters-extra", title: "편지를 쓸 여유가 없는 날은요?", text: "A 편지 나누기에서는 사흘 중 한 번, 편지 대신 ‘한 줄 엽서’를 보낼 수 있어요. 엽서도 두 분 모두 보내면 편지처럼 함께 열려요. 둘째 날에는 원하면 셋째 날 질문을 상대에게 직접 낼 수 있고, 상대 편지에서 마음에 남은 문장 하나에 밑줄을 그어 두면 넷째 날 아침 상대에게 보여요. 두 분 모두 만나고 싶다고 한 교류는, 두 분이 동의하면 사흘의 글을 한 권으로 남길 수 있어요." },
-  { id: "safety", title: "불편한 일이 생기면 어떻게 하나요?", text: "두 사람 화면에서 신고하거나 차단할 수 있어요. 차단하면 진행 중인 소개와 교류가 바로 끝나고, 다시는 서로 소개되지 않아요. 신고는 운영진이 가장 먼저 확인하고, 급한 일이면 ‘급한 일이에요’를 골라 주세요. 상대에게는 신고·차단 사실을 알리지 않아요. 위급하면 112에 먼저 연락해 주세요." },
+  { id: "safety", title: "불편한 일이 생기면 어떻게 하나요?", text: "두 사람 화면에서 신고하거나 차단할 수 있어요. 차단하면 진행 중인 소개와 교류가 바로 끝나고, 다시는 서로 소개되지 않아요. 신고는 운영진이 평일 10~18시에 확인해요. 신고만으로 교류가 멈추지는 않으니, 바로 끝내고 싶다면 차단해 주세요. 상대에게는 신고·차단 사실을 알리지 않아요. 위험할 때는 112에 먼저 연락해 주세요." },
   { id: "avoid", title: "아는 사람과 소개되지 않게 할 수 있나요?", text: "내 정보의 ‘아는 사람 피하기’에 휴대폰 번호를 적어 두면, 그 번호로 신청한 분과는 서로 소개하지 않아요. 번호는 원래 값 그대로 두지 않고 암호값으로 바꿔 두며, 번호 주인에게는 알리지 않아요." },
   { id: "contact", title: "문의는 어디에서 할 수 있나요?", text: "페이지 맨 아래의 ‘문의하기’에서 남길 수 있어요. 회원이라면 회원 화면 맨 아래의 ‘문의·요청’에서 정정·삭제 같은 요청을, 상대와 관련된 일은 두 사람 화면의 ‘신고’로 남기면 더 빨리 확인할 수 있어요." },
 ];
