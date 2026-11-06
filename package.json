@@ -11,7 +11,13 @@
     "test:db": "node supabase/tests/db.test.mjs",
     "backup": "node scripts/backup.mjs",
     "backup:open": "node scripts/backup-open.mjs",
-    "backup:rehearsal": "node scripts/backup-rehearsal.mjs"
+    "backup:rehearsal": "node scripts/backup-rehearsal.mjs",
+    "backup:expire": "node scripts/backup-expire.mjs",
+    "backup:deletions": "node scripts/backup-deletions.mjs",
+    "backup:offsite": "node scripts/backup-offsite.mjs",
+    "backup:dr-rehearsal": "node scripts/backup-dr-rehearsal.mjs",
+    "test:backup": "node supabase/tests/backup/backup-tools.test.mjs",
+    "test:edge": "node supabase/tests/edge/smtp.test.mjs && node supabase/tests/edge/toss.test.mjs && node supabase/tests/edge/storage-cleanup.test.mjs && node supabase/tests/edge/send-notifications.test.mjs && node supabase/tests/edge/photo-check.test.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

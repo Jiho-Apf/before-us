@@ -91,7 +91,7 @@ const CONTROL_MOTION = "transition-colors duration-200 motion-reduce:transition-
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <Link to="/" aria-label={`${BEFORE_US.brand.name} 공개 홈`} className="flex w-fit shrink-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4">
+    <Link to="/" aria-label={`${BEFORE_US.brand.name} 공개 홈`} className="flex min-h-11 w-fit shrink-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4">
       <span aria-hidden="true" className="flex gap-1.5">
         <span className="size-3 rounded-full bg-primary" />
         <span className="size-3 rounded-full bg-accent" />
@@ -106,7 +106,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
 
 function ShellThemeToggle({ isDark, toggle }: { isDark: boolean; toggle: () => void }) {
   return (
-    <Button variant="ghost" size="icon" onClick={toggle} aria-label={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"} className={`rounded-full text-muted-foreground hover:bg-muted hover:text-foreground ${CONTROL_MOTION}`}>
+    <Button variant="ghost" size="icon" onClick={toggle} aria-label={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"} className={`size-11 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground ${CONTROL_MOTION}`}>
       {isDark ? <Sun size={17} /> : <Moon size={17} />}
     </Button>
   );
@@ -170,14 +170,14 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
         <div className="mx-auto flex min-h-24 max-w-7xl items-center justify-between gap-5 px-5 sm:px-8 lg:px-12">
           <Brand />
           <nav aria-label="공개 메뉴" className="hidden items-center gap-8 lg:flex">
-            {PUBLIC_NAV.map(item => <NavLink key={item.to} to={item.to} className={({ isActive }) => `whitespace-nowrap rounded-sm py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "text-primary" : "text-foreground hover:text-primary"}`}>{item.label}</NavLink>)}
+            {PUBLIC_NAV.map(item => <NavLink key={item.to} to={item.to} className={({ isActive }) => `inline-flex min-h-11 items-center whitespace-nowrap rounded-sm text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring ${CONTROL_MOTION} ${isActive ? "text-primary" : "text-foreground hover:text-primary"}`}>{item.label}</NavLink>)}
           </nav>
           {/* 아주 좁은 휴대폰(360px 미만)에서는 다크 모드 버튼을 메뉴 안으로 옮겨 메뉴 버튼이 밀려나지 않게 한다. */}
           <div className="flex items-center gap-1.5 sm:gap-4">
             <span className="max-[359px]:hidden"><ShellThemeToggle isDark={isDark} toggle={toggle} /></span>
-            <Button asChild variant="ghost" className={`hidden hover:bg-muted hover:text-foreground sm:inline-flex ${CONTROL_MOTION}`}>{signedIn ? <Link to="/profile">내 정보</Link> : <Link to="/login">로그인</Link>}</Button>
+            <Button asChild variant="ghost" className={`hidden h-11 hover:bg-muted hover:text-foreground sm:inline-flex ${CONTROL_MOTION}`}>{signedIn ? <Link to="/profile">내 정보</Link> : <Link to="/login">로그인</Link>}</Button>
             <Button asChild className={`h-11 rounded-full px-4 text-[13px] max-[359px]:px-3 max-[359px]:text-xs sm:px-5 sm:text-sm ${CONTROL_MOTION}`}>{signedIn ? <Link to="/today">내 소개 보기 <ArrowRight size={15} className="hidden sm:block" /></Link> : <Link to="/apply">소개 신청하기 <ArrowRight size={15} className="hidden sm:block" /></Link>}</Button>
-            <Button variant="ghost" size="icon" aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"} aria-expanded={menuOpen} aria-controls="public-mobile-menu" onClick={() => setMenuOpen(open => !open)} className={`lg:hidden hover:bg-muted hover:text-foreground ${CONTROL_MOTION}`}>
+            <Button variant="ghost" size="icon" aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"} aria-expanded={menuOpen} aria-controls="public-mobile-menu" onClick={() => setMenuOpen(open => !open)} className={`size-11 lg:hidden hover:bg-muted hover:text-foreground ${CONTROL_MOTION}`}>
               {menuOpen ? <X /> : <Menu />}
             </Button>
           </div>
@@ -199,16 +199,16 @@ function PublicShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
             <span className="text-muted-foreground">{BEFORE_US.brand.message}</span>
             <nav aria-label="정책과 문의" className="flex flex-wrap items-center gap-x-4 gap-y-2 text-muted-foreground">
               <span className="flex gap-x-4">
-                <Link to="/terms" className="underline-offset-4 hover:text-primary hover:underline">이용약관</Link>
-                <Link to="/privacy" className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">개인정보처리방침</Link>
+                <Link to="/terms" className="inline-flex min-h-11 items-center underline-offset-4 hover:text-primary hover:underline">이용약관</Link>
+                <Link to="/privacy" className="inline-flex min-h-11 items-center font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">개인정보처리방침</Link>
               </span>
               <span className="flex gap-x-4">
-                <Link to="/faq" className="underline-offset-4 hover:text-primary hover:underline">자주 묻는 질문</Link>
-                <Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
+                <Link to="/faq" className="inline-flex min-h-11 items-center underline-offset-4 hover:text-primary hover:underline">자주 묻는 질문</Link>
+                <Link to="/contact" className="inline-flex min-h-11 items-center underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
               </span>
             </nav>
           </div>
-          <div className="mt-6 space-y-1 border-t border-border pt-5 leading-6 text-muted-foreground">{LIVE && BEFORE_US.beta.active ? <p>베타 운영 중 · 결제 없이 운영해요{BEFORE_US.operator.name ? ` · 운영자 ${BEFORE_US.operator.name}` : ""}{BEFORE_US.operator.email ? ` · ${BEFORE_US.operator.email}` : ""}</p> : <p>상호 · 대표자 · 사업자등록번호 · 통신판매업 신고번호 · 준비 중</p>}{(BEFORE_US.social.instagram || BEFORE_US.social.threads) && <p className="flex flex-wrap gap-x-4">{BEFORE_US.social.instagram && <a href={`https://www.instagram.com/${BEFORE_US.social.instagram}`} target="_blank" rel="noreferrer" className="underline-offset-4 hover:text-primary hover:underline">인스타그램 @{BEFORE_US.social.instagram}</a>}{BEFORE_US.social.threads && <a href={`https://www.threads.net/@${BEFORE_US.social.threads}`} target="_blank" rel="noreferrer" className="underline-offset-4 hover:text-primary hover:underline">스레드 @{BEFORE_US.social.threads}</a>}</p>}<p><span className="font-semibold text-foreground">19세 미만 이용 불가</span> · 만 19세 이상 대상 일대일 소개</p></div>
+          <div className="mt-6 space-y-1 border-t border-border pt-5 leading-6 text-muted-foreground">{LIVE && BEFORE_US.beta.active ? <p>베타 운영 중 · 결제 없이 운영해요{BEFORE_US.operator.name ? ` · 운영자 ${BEFORE_US.operator.name}` : ""}{BEFORE_US.operator.email ? ` · ${BEFORE_US.operator.email}` : ""}</p> : <p>상호 · 대표자 · 사업자등록번호 · 통신판매업 신고번호 · 준비 중</p>}{BEFORE_US.social.verified && (BEFORE_US.social.instagram || BEFORE_US.social.threads) && <p className="flex flex-wrap gap-x-4">{BEFORE_US.social.instagram && <a href={`https://www.instagram.com/${BEFORE_US.social.instagram}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center underline-offset-4 hover:text-primary hover:underline">인스타그램 @{BEFORE_US.social.instagram}</a>}{BEFORE_US.social.threads && <a href={`https://www.threads.net/@${BEFORE_US.social.threads}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center underline-offset-4 hover:text-primary hover:underline">스레드 @{BEFORE_US.social.threads}</a>}</p>}<p><span className="font-semibold text-foreground">19세 미만 이용 불가</span> · 만 19세 이상 대상 일대일 소개</p></div>
         </div>
       </footer>
     </div>
@@ -252,15 +252,15 @@ function MemberShell({ isDark, toggle }: { isDark: boolean; toggle: () => void }
         <footer className="mx-auto w-full max-w-[1120px] px-5 pb-8 sm:px-8 lg:px-10">
           <nav aria-label="정책과 문의" className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-primary/[0.07] pt-5 text-[11px] text-muted-foreground">
             <span className="flex gap-x-4">
-              <Link to="/terms" className="underline-offset-4 hover:text-primary hover:underline">이용약관</Link>
-              <Link to="/privacy" className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">개인정보처리방침</Link>
+              <Link to="/terms" className="inline-flex min-h-11 items-center underline-offset-4 hover:text-primary hover:underline">이용약관</Link>
+              <Link to="/privacy" className="inline-flex min-h-11 items-center font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">개인정보처리방침</Link>
             </span>
             <span className="flex gap-x-4">
-            <Link to="/faq" className="underline-offset-4 hover:text-primary hover:underline">자주 묻는 질문</Link>
-            <Link to="/support" className="underline-offset-4 hover:text-primary hover:underline">문의·요청</Link>
+            <Link to="/faq" className="inline-flex min-h-11 items-center underline-offset-4 hover:text-primary hover:underline">자주 묻는 질문</Link>
+            <Link to="/support" className="inline-flex min-h-11 items-center underline-offset-4 hover:text-primary hover:underline">문의·요청</Link>
             {/* 베타는 결제가 필요 없어 링크를 숨긴다(대표의 흐름 점검용 /payments 는 주소로 바로 열 수 있다). */}
-            {!(LIVE && BEFORE_US.beta.active) && <Link to="/payments" className="underline-offset-4 hover:text-primary hover:underline">결제</Link>}
-            <Link to="/contact" className="underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
+            {!(LIVE && BEFORE_US.beta.active) && <Link to="/payments" className="inline-flex min-h-11 items-center underline-offset-4 hover:text-primary hover:underline">결제</Link>}
+            <Link to="/contact" className="inline-flex min-h-11 items-center underline-offset-4 hover:text-primary hover:underline">문의하기</Link>
             </span>
           </nav>
         </footer>

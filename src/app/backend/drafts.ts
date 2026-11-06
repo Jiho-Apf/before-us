@@ -75,6 +75,16 @@ export function clearDrafts(filter: { ownerId?: string | null; programId?: strin
     if (filter.ownerId && !filter.programId) store.removeItem(`before-us:pending-edit:${filter.ownerId}`)
   } catch { /* 무시 */ }
 }
+// 로그아웃·탈퇴 전에 알리기(검수 D3): 이 회원의 ‘아직 보내지 않은 글’이 이 기기에 남아 있는지만 센다(내용은 읽지 않는다).
+export function countDeviceDrafts(ownerId: string | null | undefined, now = Date.now()): number {
+  const store = storage()
+  if (!store || !ownerId) return 0
+  try {
+    let count = keys(store).filter(key => key.startsWith(`${PREFIX}${ownerId}:`)).filter(key => { try { const record = JSON.parse(store.getItem(key) ?? "null") as Partial<DraftRecord> | null; return !!record && typeof record.expiresAt === "number" && record.expiresAt > now; } catch { return false; } }).length
+    if (store.getItem(`before-us:pending-edit:${ownerId}`)) count += 1
+    return count
+  } catch { return 0 }
+}
 export function clearExpiredDrafts(now = Date.now()) {
   const store = storage()
   if (!store) return

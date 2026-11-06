@@ -65,8 +65,8 @@ function Texture() {
 function SectionLabel({ number, ko, children }: { number: string; ko?: string; children: React.ReactNode }) {
   return (
     <div className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span className="text-xs font-semibold tabular-nums text-accent">{number}</span>
-      <span aria-hidden="true" className="h-px w-8 bg-accent/40" />
+      <span className="shrink-0 text-xs font-semibold tabular-nums text-accent">{number}</span>
+      <span aria-hidden="true" className="h-px w-8 shrink-0 bg-accent/40" />
       {ko && <span className="text-xs font-semibold">{ko}</span>}
       <span className="text-[10px] tracking-[0.16em] text-muted-foreground">{children}</span>
     </div>
@@ -247,7 +247,7 @@ function InitialOperation({ detailsTo = "#faq-cohort" }: { detailsTo?: string })
   return (
     <section className="bleed relative isolate overflow-clip bg-[#F8E5A6] py-16 text-[#2B2540] sm:py-20 dark:bg-[#3B3424] dark:text-white" aria-labelledby="initial-title">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
-      <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.15em] text-[#7A5A10] dark:text-[#F3D98A]"><span aria-hidden="true" className="flex gap-1"><span className="size-1.5 rounded-full bg-primary" /><span className="size-1.5 rounded-full bg-accent" /></span>{cohortCode(cohort.number)} · TOGETHER AT NOON</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">{cohortName(cohort.number)} 첫 소개는,<br /><span className="text-primary dark:text-[#B9ABF2]">{kstDay(cohort.startsOn).replace(/\s\(.\)$/, "")}</span> 정오에.</h2><p className="mt-6 inline-flex items-center gap-2.5 rounded-full bg-white/70 py-2 pl-3 pr-4 text-xs shadow-[0_10px_24px_-16px_rgba(120,90,20,0.6)] ring-1 ring-[#2B2540]/5 dark:bg-white/10"><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" /><span className="text-[#2B2540]/65 dark:text-white/70">신청 마감</span><span className="font-semibold text-primary dark:text-[#B9ABF2]">{kstDay(cohort.applicationDeadline)}</span></p></div><div className="space-y-4 text-sm leading-[1.95]">{cohort.number === 0 ? <><p>정식으로 열기 전에, 베타 테스터와 먼저 시작해요. 같은 날 신청을 마친 분들이 시작하는 날 정오에 함께 첫 소개를 받아요.</p><p className="opacity-95"><strong className="font-semibold">베타는 무료예요</strong> · 소개도, 서로 선택한 뒤의 3일 교류도 결제 없이 진행해요. 써 보신 의견으로 플라비를 다듬어 갈게요.</p></> : BETA ? <><p>한 달 단위 기수제로 시작해요. 같은 기수의 분들이 시작하는 날 정오에 함께 첫 소개를 받아요. 첫 소개 날짜를 미리 알려 드려서 오래 기다리지 않아요.</p><p className="opacity-95"><strong className="font-semibold">베타라서 {cohortName(cohort.number)}도 무료예요</strong> · 소개도, 서로 선택한 뒤의 3일 교류도 결제 없이 진행해요. 유료 운영은 사업자등록을 마친 뒤 시작하고, 시작하기 전에 사이트와 메일로 미리 알려 드려요.</p></> : <><p>처음에는 한 달 단위 기수제로 시작해요. 같은 기수의 분들이 모이면, 시작하는 날 정오에 함께 첫 소개를 받아요. 첫 소개 날짜를 미리 알려 드려서 오래 기다리지 않아요.</p><p className="opacity-95"><strong className="font-semibold">한 번 더, 5번</strong> · 2026년 12월 31일까지 소개비를 낸 분이 5번의 소개 동안 교류를 시작하지 못했다면, 한 번 더 5번을 추가 비용 없이 소개해 드려요. 계정마다 한 번이에요.</p></>}<p className="border-t border-current/20 pt-4 text-xs"><Link to={detailsTo} className="inline-flex items-center gap-1.5 underline-offset-4 hover:underline">{cohort.number === 0 || BETA ? "베타 운영 자세히" : "기수제와 ‘한 번 더, 5번’ 자세히"} <ArrowRight size={13} /></Link></p></div></div>
+      <div className="grid gap-8 lg:grid-cols-[7fr_5fr] lg:gap-16"><div><p className="mb-6 flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.15em] text-[#7A5A10] dark:text-[#F3D98A]"><span aria-hidden="true" className="flex gap-1"><span className="size-1.5 rounded-full bg-primary" /><span className="size-1.5 rounded-full bg-accent" /></span>{cohortCode(cohort.number)} · TOGETHER AT NOON</p><h2 id="initial-title" className="text-3xl font-semibold leading-[1.5] sm:text-[34px]">{cohortName(cohort.number)} 첫 소개는,<br /><span className="text-primary dark:text-[#B9ABF2]">{kstDay(cohort.startsOn).replace(/\s\(.\)$/, "")}</span> 정오에.</h2><p className="mt-6 inline-flex items-center gap-2.5 rounded-full bg-white/70 py-2 pl-3 pr-4 text-xs shadow-[0_10px_24px_-16px_rgba(120,90,20,0.6)] ring-1 ring-[#2B2540]/5 dark:bg-white/10"><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" /><span className="text-[#2B2540]/65 dark:text-white/70">신청 마감</span><span className="font-semibold text-primary dark:text-[#B9ABF2]">{kstDay(cohort.applicationDeadline)}</span></p></div><div className="space-y-4 text-sm leading-[1.95]">{cohort.number === 0 ? <><p>정식으로 열기 전에, 베타 테스터와 먼저 시작해요. 같은 날 신청을 마친 분들이 시작하는 날 정오에 함께 첫 소개를 받아요.</p><p className="opacity-95"><strong className="font-semibold">베타는 무료예요</strong> · 소개도, 서로 선택한 뒤의 3일 교류도 결제 없이 진행해요. 써 보신 의견으로 플라비를 다듬어 갈게요.</p></> : BETA ? <><p>한 달 단위 기수제로 시작해요. 같은 기수의 분들이 시작하는 날 정오에 함께 첫 소개를 받아요. 첫 소개 날짜를 미리 알려 드려서 오래 기다리지 않아요.</p><p className="opacity-95"><strong className="font-semibold">베타라서 {cohortName(cohort.number)}도 무료예요</strong> · 소개도, 서로 선택한 뒤의 3일 교류도 결제 없이 진행해요. 유료 운영은 사업자등록을 마친 뒤 시작하고, 시작하기 전에 사이트와 메일로 미리 알려 드려요.</p></> : <><p>처음에는 한 달 단위 기수제로 시작해요. 같은 기수의 분들이 모이면, 시작하는 날 정오에 함께 첫 소개를 받아요. 첫 소개 날짜를 미리 알려 드려서 오래 기다리지 않아요.</p><p className="opacity-95"><strong className="font-semibold">한 번 더, 5번</strong> · 2026년 12월 31일까지 소개비를 낸 분이 5번의 소개 동안 교류를 시작하지 못했다면, 한 번 더 5번을 추가 비용 없이 소개해 드려요. 계정마다 한 번이에요.</p></>}<p className="border-t border-current/20 pt-4 text-xs"><Link to={detailsTo} className="inline-flex min-h-11 items-center gap-1.5 underline-offset-4 hover:underline">{cohort.number === 0 || BETA ? "베타 운영 자세히" : "기수제와 ‘한 번 더, 5번’ 자세히"} <ArrowRight size={13} /></Link></p></div></div>
     </section>
   );
 }
@@ -262,7 +262,7 @@ function LetterTrial() {
   const [examples, setExamples] = useState(false);
   return (
     <div className="mt-8 border border-border bg-card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs font-medium text-accent"><span>실제 교류의 질문 · {prompt.title}</span><span className="flex gap-1">{days.map((item, index) => <button key={index} type="button" aria-pressed={day === index} onClick={() => { setDay(index); setSent(false); setText(""); setExamples(false); }} className={`whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] ${interaction} ${day === index ? "border-accent bg-accent text-white" : "border-border text-muted-foreground hover:border-accent/50"}`}>DAY 0{index + 1}</button>)}</span></div>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs font-medium text-accent"><span>실제 교류의 질문 · {prompt.title}</span><span className="flex gap-1">{days.map((item, index) => <button key={index} type="button" aria-pressed={day === index} onClick={() => { setDay(index); setSent(false); setText(""); setExamples(false); }} className={`hit-44 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] ${interaction} ${day === index ? "border-accent bg-accent text-white" : "border-border text-muted-foreground hover:border-accent/50"}`}>DAY 0{index + 1}</button>)}</span></div>
       <p className="mt-4 text-[15px] font-semibold leading-7" aria-live="polite">{prompt.question}</p>
       {sent ? (
         <div className="mt-4 space-y-3" aria-live="polite">
@@ -273,11 +273,11 @@ function LetterTrial() {
       ) : (
         <div className="mt-4 space-y-3">
           <div>
-            <button type="button" aria-expanded={examples} onClick={() => setExamples(value => !value)} className={`inline-flex items-center gap-1 rounded-full text-xs text-muted-foreground hover:text-foreground ${interaction}`}>{examples ? "예시 닫기" : "예시 보기"}<ChevronDown size={13} className={`transition-transform duration-200 motion-reduce:transition-none ${examples ? "rotate-180" : ""}`} /></button>
+            <button type="button" aria-expanded={examples} onClick={() => setExamples(value => !value)} className={`inline-flex min-h-11 items-center gap-1 rounded-full text-xs text-muted-foreground hover:text-foreground ${interaction}`}>{examples ? "예시 닫기" : "예시 보기"}<ChevronDown size={13} className={`transition-transform duration-200 motion-reduce:transition-none ${examples ? "rotate-180" : ""}`} /></button>
             {examples && <ul aria-label="이 질문의 예시 답" className="mt-2 space-y-1.5 rounded-xl bg-accent/5 px-4 py-3 text-xs leading-6 text-foreground/75">{prompt.examples.map(example => <li key={example}>“{example}”</li>)}</ul>}
           </div>
           <Textarea aria-label="편지 쓰기 체험 · 저장되지 않음" maxLength={200} value={text} onChange={event => setText(event.target.value)} placeholder="질문에 답하듯 편하게 써 보세요." className="min-h-24 bg-background leading-7" />
-          <div className="flex items-center justify-between gap-3"><span className="text-[11px] text-muted-foreground"><Segments parts={[`${text.length}/200`, "실제 편지는 300~600자를 권해요", "사진 한 장도 넣을 수 있어요(선택)"]} /></span><Button size="sm" disabled={!text.trim()} onClick={() => setSent(true)}>한 통 보내 보기</Button></div>
+          <div className="flex flex-wrap items-center justify-between gap-3"><span className="min-w-[12rem] flex-1 text-[11px] text-muted-foreground"><Segments parts={[`${text.length}/200`, "실제 편지는 300~600자를 권해요", "사진 한 장도 넣을 수 있어요(선택)"]} /></span><Button size="sm" className="hit-44" disabled={!text.trim()} onClick={() => setSent(true)}>한 통 보내 보기</Button></div>
         </div>
       )}
     </div>
@@ -300,10 +300,10 @@ function SceneTrial() {
   const current = steps[step];
   const choose = (key: string, value: string) => { setWriting(null); setPicks(prev => ({ ...prev, [key]: value })); };
   const chip = (key: string, [value, text]: readonly [string, string]) => (
-    <button key={value} type="button" aria-pressed={picks[key] === value} onClick={() => choose(key, value)} className={`rounded-full border px-3.5 py-2 text-sm ${interaction} ${picks[key] === value ? "border-accent bg-accent/5 text-accent" : "border-border bg-card hover:border-accent/60"}`}>{text}</button>
+    <button key={value} type="button" aria-pressed={picks[key] === value} onClick={() => choose(key, value)} className={`hit-44 rounded-full border px-3.5 py-2 text-sm ${interaction} ${picks[key] === value ? "border-accent bg-accent/5 text-accent" : "border-border bg-card hover:border-accent/60"}`}>{text}</button>
   );
   // 직접 작성: 칩을 누르면 짧은 칸이 열리고, ‘고르기’를 눌러야 다음으로 넘어간다(장소·머무는 방식·쉬어 갈 곳은 20자, 이야기는 40자 안).
-  const own = (key: string, extra = "") => <button key={`${key}-own`} type="button" aria-pressed={writing?.key === key} onClick={() => setWriting(value => value?.key === key ? value : { key, text: "" })} className={`inline-flex items-center justify-center gap-1.5 rounded-full border border-dashed px-3.5 py-2 text-sm ${extra} ${interaction} ${writing?.key === key ? "border-accent bg-accent/5 text-accent" : "border-accent/40 bg-card text-foreground/80 hover:border-accent/60"}`}><PenLine size={13} aria-hidden="true" />직접 작성</button>;
+  const own = (key: string, extra = "") => <button key={`${key}-own`} type="button" aria-pressed={writing?.key === key} onClick={() => setWriting(value => value?.key === key ? value : { key, text: "" })} className={`hit-44 inline-flex items-center justify-center gap-1.5 rounded-full border border-dashed px-3.5 py-2 text-sm ${extra} ${interaction} ${writing?.key === key ? "border-accent bg-accent/5 text-accent" : "border-accent/40 bg-card text-foreground/80 hover:border-accent/60"}`}><PenLine size={13} aria-hidden="true" />직접 작성</button>;
   const ownField = (key: string, hint: string) => {
     if (writing?.key !== key) return null;
     const max = key === "topic" ? SCENE_TOPIC_MAX : SCENE_CUSTOM_MAX;
@@ -421,7 +421,7 @@ function TwoVoices() {
         </div>
         <div role="group" aria-label="이야기 시점" className="mx-auto mt-4 flex w-fit rounded-full bg-lilac p-1 text-xs">
           {([["both", "함께 읽기"], ["left", `${people.left}의 시점`], ["right", `${people.right}의 시점`]] as const).map(([id, label]) => (
-            <button key={id} type="button" aria-pressed={voice === id} onClick={() => setVoice(id)} className={`whitespace-nowrap rounded-full px-3 py-2 sm:px-4 ${interaction} ${voice === id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
+            <button key={id} type="button" aria-pressed={voice === id} onClick={() => setVoice(id)} className={`hit-44 whitespace-nowrap rounded-full px-3 py-2 sm:px-4 ${interaction} ${voice === id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{label}</button>
           ))}
         </div>
       </div>
@@ -462,7 +462,7 @@ function Exchange({ compact = false }: { compact?: boolean }) {
       {compact ? (
         <>
         <ExchangeExamples />
-        <div className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm"><Link to="/two-starts" className={`inline-flex items-center gap-1.5 font-medium text-primary underline-offset-4 hover:underline ${interaction}`}>편지·장면 미리 해 보고, 자세히 알아보기 <ArrowRight size={14} /></Link></div>
+        <div className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm"><Link to="/two-starts" className={`inline-flex min-h-11 items-center gap-1.5 font-medium text-primary underline-offset-4 hover:underline ${interaction}`}>편지·장면 미리 해 보고, 자세히 알아보기 <ArrowRight size={14} /></Link></div>
         </>
       ) : (
         <>
@@ -581,7 +581,7 @@ function Faq() {
   }, [location.hash, location.key]);
   return (
     <section ref={ref} id="faq" className="grid gap-8 pt-20 pb-14 sm:pt-24 sm:pb-18 lg:grid-cols-[5fr_7fr] lg:gap-16" aria-labelledby="faq-title">
-      <div><div className="lg:sticky lg:top-10">
+      <div><div className="lg:sticky lg:top-10 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto">
         <SectionLabel number="07" ko="자주 묻는 질문">BEFORE YOU BEGIN</SectionLabel><h2 id="faq-title" className="text-ink text-3xl font-semibold">시작 전, 궁금한 것들.</h2><p className="mt-5 text-sm leading-7 text-muted-foreground">신청하기 전에 많이 묻는 것들을 모았어요.<br />더 궁금한 건 <Link to="/contact" className="font-semibold text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary">문의하기</Link>로 남겨 주세요.</p>
         <div className="mt-10 hidden max-w-sm rounded-3xl border border-border bg-card p-6 shadow-[0_22px_44px_-34px_color-mix(in_oklch,var(--primary)_55%,transparent)] lg:block">
           <span aria-hidden="true" className="relative flex h-5 w-20 items-center justify-center">

@@ -62,7 +62,7 @@ function ConfirmDialog({ title, body, confirm, danger, reason, onClose }: Ask & 
 
 // ─────────────────────────────────────────────
 // 소개서(신청서) 보기: 운영진 열람은 admin_get_application이 하루 한 번 감사 기록을 남긴다.
-export type ApplicationDetail = { memberId: string; status: string; profileVersion: number; submittedAt: string | null; decisionNote: string | null; draft: { values: Record<string, unknown>; sharing: Record<string, boolean>; preferences?: Preferences }; photos: { slot: string; path: string; review: string; reason: string | null; width: number; height: number; changeReason?: string | null; changeRequestedAt?: string | null }[]; replacements?: { slot: string; path: string; review: string; reason: string | null; width: number; height: number }[]; reflections?: { body: string; createdAt: string; usedAt: string | null; met: boolean | null }[]; windowAnswers?: { question: string; body: string; createdAt: string; usedAt: string | null }[]; photoHoldAt?: string | null };
+export type ApplicationDetail = { memberId: string; status: string; profileVersion: number; submittedAt: string | null; decisionNote: string | null; draft: { values: Record<string, unknown>; sharing: Record<string, boolean>; preferences?: Preferences }; photos: { slot: string; path: string; review: string; reason: string | null; width: number; height: number; changeReason?: string | null; changeRequestedAt?: string | null }[]; replacements?: { slot: string; path: string; review: string; reason: string | null; width: number; height: number }[]; reflections?: { body: string | null; createdAt: string; usedAt: string | null; completed: boolean | null; met: "met" | "not_met" | "skip" | null }[]; windowAnswers?: { question: string; body: string; createdAt: string; usedAt: string | null }[]; photoHoldAt?: string | null };
 export const show = (value: unknown) => Array.isArray(value) ? value.join(" · ") : typeof value === "boolean" ? value ? "예" : "아니요" : String(value ?? "");
 const filled = (value: unknown) => value !== undefined && value !== null && value !== "" && !(Array.isArray(value) && value.length === 0);
 const KEY_ITEMS: [string, string][] = [["self.purpose", "관계 목적"], ["self.height", "키"], ["self.body", "체형"], ["self.style", "스타일"], ["self.smoking", "흡연"], ["self.drinking", "음주"], ["self.schedule", "생활"], ["self.available", "편한 시간"], ["self.interests", "관심사"], ["self.work", "직업·분야"], ["self.mbti", "MBTI"]];
@@ -138,7 +138,7 @@ export function Reflections({ items }: { items: NonNullable<ApplicationDetail["r
   if (!items.length) return null;
   return <div className="rounded-xl bg-[#F8E5A6]/45 p-3 text-xs leading-6 text-[#2B2540] dark:bg-[#3B3424] dark:text-white">
     <p className="font-semibold">지난 교류 뒤 남긴 한 줄</p>
-    <ul className="mt-1.5 space-y-1.5">{items.map(item => <li key={item.createdAt}><span className="text-[#2B2540]/60 dark:text-white/60">{kstDay(item.createdAt)}{item.met ? " · 만남까지" : ""}{item.usedAt ? " · 반영함" : " · 아직 반영 전"}</span><br />“{item.body}”</li>)}</ul>
+    <ul className="mt-1.5 space-y-1.5">{items.map(item => <li key={item.createdAt}><span className="text-[#2B2540]/60 dark:text-white/60">{kstDay(item.createdAt)}{item.completed ? " · 약속일 지나 마무리" : ""}{item.met === "met" ? " · 본인이 만났다고 답함" : item.met === "not_met" ? " · 아직 못 만났다고 답함" : ""}{item.body ? item.usedAt ? " · 반영함" : " · 아직 반영 전" : ""}</span>{item.body ? <><br />“{item.body}”</> : <><br /><span className="text-[#2B2540]/50 dark:text-white/50">한 줄 없이 응답만 남겼어요</span></>}</li>)}</ul>
   </div>;
 }
 

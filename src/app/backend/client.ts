@@ -173,23 +173,93 @@ export function supabase() {
   }))
 }
 
-// 서버 오류를 회원이 읽을 수 있는 문장으로 바꾼다. 서버 함수가 보낸 한국어 안내는 그대로 쓴다.
-export function friendlyError(error: { message?: string } | null | undefined, fallback = "잠시 문제가 생겼어요. 조금 뒤 다시 시도해 주세요.") {
-  const message = error?.message || ""
-  if (/[가-힣]/.test(message)) return message.replace(/^.*?ERROR:\s*/, "")
-  if (/Failed to fetch|NetworkError|network/i.test(message)) return "인터넷 연결을 확인한 뒤 다시 시도해 주세요."
-  if (/JWT|session|not authenticated/i.test(message)) return "로그인이 끝났어요. 다시 로그인해 주세요."
-  return fallback
+// ─────────────────────────────────────────────
+// 오류 안내(검수 R3-25): 확인한 사실만 말한다.
+//  - 로그인 만료(401)·권한 없음(403)·없음·끝남(404)은 상태 코드나 서버 오류 코드로 알 때만 나눠 말한다. 모르면 일반 안내.
+//  - 오프라인·응답 없음(시간 초과)은 따로 말한다. 쓰기의 시간 초과는 ‘저장됐는지 아직 모름’이다(실패라고도, 저장됐다고도 하지 않는다).
+//  - 문의할 때 쓸 짧은 오류 번호(회원 정보·주소·토큰이 들어가지 않는 임의 값)를 붙이고, 같은 번호로 오류 기록을 남긴다(R3-18).
+//  - 서버 함수가 보낸 한국어 안내(입력 확인 등)는 그대로 쓴다.
+export type ErrorKind = "offline" | "network" | "timeout" | "auth" | "forbidden" | "gone" | "conflict" | "limited" | "server" | "message" | "unknown"
+export type ErrorOp = "read" | "write" | "any"
+export type Failure = { kind: ErrorKind; status: number | null; ref: string | null; message: string }
+type ErrorLike = { message?: string; code?: string; status?: number; statusCode?: string | number; name?: string } | null | undefined
+// 문의용 오류 번호: 종류 한 글자 + 상태 코드 + 임의 네 글자(예: S503-K7Q2). 회원·요청 내용과 무관하다.
+const REF_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+const KIND_LETTER: Record<ErrorKind, string> = { offline: "O", network: "N", timeout: "T", auth: "A", forbidden: "P", gone: "G", conflict: "C", limited: "L", server: "S", message: "M", unknown: "U" }
+export function errorRef(kind: ErrorKind, status: number | null = null) {
+  const random = typeof crypto !== "undefined" && crypto.getRandomValues ? Array.from(crypto.getRandomValues(new Uint8Array(4)), byte => REF_CHARS[byte % REF_CHARS.length]).join("") : Math.random().toString(36).slice(2, 6).toUpperCase()
+  return `${KIND_LETTER[kind]}${status ?? ""}-${random}`
 }
+// 오류 기록 연결(error-report.ts가 등록한다). 이 파일이 error-report를 직접 불러오면 서로를 불러오는 고리가 생겨 등록 방식으로 둔다.
+type FailureReporter = (event: string, failure: Failure) => void
+let failureReporter: FailureReporter | null = null
+export const onFailure = (reporter: FailureReporter | null) => { failureReporter = reporter }
+const isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false
+export function errorKind(error: ErrorLike, status: number | null = null): ErrorKind {
+  const message = error?.message || ""
+  const code = String(error?.code ?? "")
+  const known = status ?? (Number(error?.status ?? error?.statusCode ?? 0) || null)
+  // 서버 함수의 한국어 안내가 먼저다(‘바뀌었어요’ 같은 안내로 화면이 새로 불러오기를 정한다).
+  if (/[가-힣]/.test(message)) return "message"
+  if (code === "P0409" || known === 409) return "conflict"
+  if (error?.name === "TimeoutError" || code === "TIMEOUT") return "timeout"
+  if (isOffline()) return "offline"
+  if (known === 0 || /Failed to fetch|NetworkError|network|Load failed|fetch failed|ERR_INTERNET|AbortError/i.test(message)) return isOffline() ? "offline" : "network"
+  if (known === 401 || code === "PGRST301" || code === "PGRST302" || /JWT expired|invalid JWT|not authenticated|session.*(missing|expired)/i.test(message)) return "auth"
+  if (known === 403 || code === "42501") return "forbidden"
+  if (known === 404 || code === "PGRST202" || code === "PGRST116" && known === 406) return "gone"
+  if (known === 429) return "limited"
+  if (known !== null && known >= 500) return "server"
+  return "unknown"
+}
+const COPY: Record<Exclude<ErrorKind, "message">, Record<ErrorOp, string>> = {
+  offline: { read: "인터넷에 연결되어 있지 않아 현재 내용을 불러오지 못했어요. 연결되면 다시 불러와 주세요.", write: "인터넷에 연결되어 있지 않아 보내지 못했어요. 연결되면 다시 시도해 주세요.", any: "인터넷에 연결되어 있지 않아요. 연결되면 다시 시도해 주세요." },
+  network: { read: "서버에 연결하지 못해 현재 내용을 불러오지 못했어요. 연결을 확인한 뒤 다시 불러와 주세요.", write: "서버에 연결하지 못했어요. 보낸 내용이 저장됐는지 확인하지 못했으니, 다시 불러와 확인한 뒤 시도해 주세요.", any: "서버에 연결하지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요." },
+  timeout: { read: "응답이 늦어 현재 내용을 불러오지 못했어요. 잠시 뒤 다시 불러와 주세요.", write: "응답이 오지 않아 저장됐는지 아직 확인하지 못했어요. 다시 불러와 확인한 뒤 시도해 주세요.", any: "응답이 늦어지고 있어요. 잠시 뒤 다시 시도해 주세요." },
+  auth: { read: "로그인이 끝났어요. 다시 로그인하면 이어서 볼 수 있어요.", write: "로그인이 끝나 보내지 못했어요. 다시 로그인한 뒤 시도해 주세요.", any: "로그인이 끝났어요. 다시 로그인해 주세요." },
+  forbidden: { read: "이 내용을 볼 수 있는 권한이 없어요.", write: "이 작업을 할 수 있는 권한이 없어요.", any: "이 작업을 할 수 있는 권한이 없어요." },
+  gone: { read: "찾는 내용이 없거나 이미 끝났어요.", write: "대상이 없거나 이미 끝나 처리하지 못했어요.", any: "찾는 내용이 없거나 이미 끝났어요." },
+  conflict: { read: "다른 화면에서 먼저 바뀐 내용이 있어요. 다시 불러와 주세요.", write: "다른 화면에서 먼저 바뀐 내용이 있어 저장하지 않았어요. 다시 불러온 뒤 시도해 주세요.", any: "다른 화면에서 먼저 바뀐 내용이 있어요. 다시 불러와 주세요." },
+  limited: { read: "요청이 많아 잠시 쉬어 가요. 조금 뒤 다시 불러와 주세요.", write: "요청이 많아 잠시 쉬어 가요. 조금 뒤 다시 시도해 주세요.", any: "요청이 많아 잠시 쉬어 가요. 조금 뒤 다시 시도해 주세요." },
+  server: { read: "현재 내용을 불러오지 못했어요. 잠시 뒤 다시 불러와 주세요.", write: "저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.", any: "요청을 처리하지 못했어요. 잠시 뒤 다시 시도해 주세요." },
+  unknown: { read: "현재 내용을 불러오지 못했어요. 잠시 뒤 다시 불러와 주세요.", write: "처리하지 못했어요. 잠시 뒤 다시 시도해 주세요.", any: "잠시 문제가 생겼어요. 조금 뒤 다시 시도해 주세요." },
+}
+// 오류 하나를 회원 안내 + 오류 번호로 바꾼다(번호가 붙은 오류는 같은 번호로 오류 기록을 남긴다).
+export function describeError(error: ErrorLike, options: { op?: ErrorOp; status?: number | null; fallback?: string; event?: string } = {}): Failure {
+  const op = options.op ?? "any"
+  const status = options.status ?? null
+  const kind = errorKind(error, status)
+  if (kind === "message") return { kind, status, ref: null, message: (error?.message || "").replace(/^.*?ERROR:\s*/, "") }
+  const ref = kind === "offline" ? null : errorRef(kind, status)
+  const base = (kind === "unknown" || kind === "server") && options.fallback ? options.fallback : COPY[kind][op]
+  const failure: Failure = { kind, status, ref, message: ref ? `${base} 오류 번호 ${ref}` : base }
+  if (ref && failureReporter) { try { failureReporter(options.event ?? `api.${op}`, failure) } catch { /* 기록 실패가 화면을 깨지 않게 */ } }
+  return failure
+}
+// 예전 모양(문장만): 서버 오류를 회원이 읽을 수 있는 문장으로 바꾼다. 서버 함수가 보낸 한국어 안내는 그대로 쓴다.
+export function friendlyError(error: ErrorLike, fallback?: string, options: { op?: ErrorOp; status?: number | null; event?: string } = {}) {
+  return describeError(error, { ...options, fallback }).message
+}
+// 시간 제한: 정해진 시간 안에 답이 없으면 ‘시간 초과’ 실패로 돌려준다(늦게 온 답은 버린다. 서버가 늦게 처리했을 수는 있다).
+export function withTimeout<T>(task: Promise<T>, ms: number, onTimeout: () => T): Promise<T> {
+  let timer = 0
+  return Promise.race([task, new Promise<T>(resolve => { timer = window.setTimeout(() => resolve(onTimeout()), ms) })]).finally(() => window.clearTimeout(timer))
+}
+export const TIMEOUT_ERROR = { name: "TimeoutError", code: "TIMEOUT", message: "timeout" } as const
 
-// RPC 호출: 실패하면 { error } 를, 성공하면 { data } 를 돌려준다.
-export async function rpc<T>(name: string, args?: Record<string, unknown>): Promise<{ data: T | null; error: string | null }> {
+// 읽기 함수 이름(검수 R3-25): 실패 안내를 ‘불러오지 못했어요’로 맞춘다. 그 밖은 쓰기로 본다.
+const READ_RPC = /^(my_|current_|load_|list_|admin_list|admin_get|admin_reading_note|admin_member_|admin_dashboard|admin_overview|public_)/
+
+// RPC 호출: 실패하면 { error, failure } 를, 성공하면 { data } 를 돌려준다(failure는 종류·상태·오류 번호).
+export async function rpc<T>(name: string, args?: Record<string, unknown>): Promise<{ data: T | null; error: string | null; failure?: Failure }> {
+  const op: ErrorOp = READ_RPC.test(name) ? "read" : "write"
   try {
     const db = await supabase()
-    const { data, error } = await db.rpc(name, args)
-    if (error) return { data: null, error: friendlyError(error) }
+    const { data, error, status } = await db.rpc(name, args)
+    if (error) { const failure = describeError(error, { op, status: status || (error.code ? null : 0), event: `rpc.${op}` }); return { data: null, error: failure.message, failure } }
     return { data: data as T, error: null }
   } catch (error) {
-    return { data: null, error: friendlyError(error as Error) }
+    const failure = describeError(error as Error, { op, event: `rpc.${op}` })
+    return { data: null, error: failure.message, failure }
   }
 }

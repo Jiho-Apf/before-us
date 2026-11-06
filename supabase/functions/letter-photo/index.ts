@@ -2,7 +2,10 @@
 // (저장소 정책은 쓴 사람만 직접 볼 수 있게 두고, 상대·운영진은 이 함수로만 연다. 회원 화면이 주소를 길게 만들지 못하게.)
 //  - 회원: 요청한 회원의 로그인 토큰으로 can_view_letter_photo 를 불러 확인한다(쓴 사람 · 그날 편지가 함께 열린 뒤의 상대).
 //  - 운영진: 신고가 들어온 교류의 사진만. admin_can_view_letter_photo 가 역할·2단계 인증·신고 여부를 확인하고 감사 기록을 남긴다.
+//  - 회원이 여는 경우에는 주소를 주기 전에 파일 바이트를 확인한다(R3-18 · _shared/photo-check.ts · 진짜 JPG · 위치 정보 없음).
+//    운영진(신고 확인)은 내용을 확인해야 하므로 이 검사로 막지 않는다.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4"
+import { checkJpeg } from "../_shared/photo-check.ts"
 
 const PUBLISHABLE_KEY = "sb_publishable_vJTN2b31pClzNM-uKNWPVQ_Aw4278cg"
 const cors = {
@@ -24,12 +27,22 @@ Deno.serve(async (req) => {
   const asCaller = createClient(url, Deno.env.get("SUPABASE_ANON_KEY") ?? PUBLISHABLE_KEY, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } })
   const { data: allowed, error } = await asCaller.rpc("can_view_letter_photo", { p_name: path })
   let ok = !error && allowed === true
+  const member = ok
   if (!ok) {
     const { data: admin, error: adminError } = await asCaller.rpc("admin_can_view_letter_photo", { p_path: path, p_reason: typeof reason === "string" ? reason.slice(0, 200) : null })
     ok = !adminError && admin === true
   }
   if (!ok) return reply({ error: "지금은 볼 수 없는 사진이에요." }, 403)
   const service = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } })
+  if (member) {
+    const { data: file, error: readError } = await service.storage.from("letter-photos").download(path)
+    if (readError || !file) return reply({ error: "사진을 불러오지 못했어요." }, 500)
+    const checked = checkJpeg(new Uint8Array(await file.arrayBuffer()))
+    if (!checked.ok) {
+      await service.rpc("flag_photo_content", { p_bucket: "letter-photos", p_path: path, p_reason: checked.reason })
+      return reply({ error: "지금은 볼 수 없는 사진이에요. 운영진이 확인하고 있어요." }, 403)
+    }
+  }
   const { data, error: signError } = await service.storage.from("letter-photos").createSignedUrl(path, 300)
   if (signError || !data?.signedUrl) return reply({ error: "사진을 불러오지 못했어요." }, 500)
   return reply({ url: data.signedUrl })

@@ -149,18 +149,22 @@ export function photoHoldAt(photos: MemberPhotoState | null | undefined): string
 }
 
 // 교류 뒤 한 줄: 운영진에게만 보이고, 다음 소개를 고를 때 참고한다. 반영한 뒤에는 고칠 수 없다.
-export type Reflection = { programId: string; body: string; usedAt: string | null }
+// 만남 자기보고(검수 R3-23): 약속일이 지난 것과 실제로 만났는지는 다르다. 회원이 고른 값만 남기고(객관적 증명 아님), 고르지 않아도 된다.
+export type ReflectionMet = "met" | "not_met" | "skip"
+export type Reflection = { programId: string; body: string | null; met: ReflectionMet | null; usedAt: string | null }
 export async function loadReflection(programId: string): Promise<Reflection | null | undefined> {
   try {
     const db = await supabase()
-    const { data, error } = await db.from("reflections").select("program_id, body, used_at").eq("program_id", programId).maybeSingle()
+    const { data, error } = await db.from("reflections").select("program_id, body, met, used_at").eq("program_id", programId).maybeSingle()
     if (error) return undefined
-    return data ? { programId: data.program_id, body: data.body, usedAt: data.used_at } : null
+    return data ? { programId: data.program_id, body: data.body ?? null, met: (data.met ?? null) as ReflectionMet | null, usedAt: data.used_at } : null
   } catch {
     return undefined // 불러오지 못함
   }
 }
-export const saveReflection = (programId: string, body: string) => rpc<{ programId: string; body: string; usedAt: string | null }>("save_reflection", { p_program: programId, p_body: body })
+// 저장: 글만 · 만남 여부만 · 둘 다. met은 넘길 때만 보낸다(넘기지 않으면 서버 값을 그대로 둔다).
+export const saveReflection = (programId: string, body: string | null, met?: ReflectionMet | null) =>
+  rpc<{ programId: string; body: string | null; met: ReflectionMet | null; usedAt: string | null; updatedAt?: string | null }>("save_reflection", { p_program: programId, p_body: body, ...(met !== undefined ? { p_met: met } : {}) })
 // 아직 모르는 당신에게: 다음 사람에게 미리 써 두는 편지(20~600자). 두 분 모두 서로를 고른 순간에만 전해진다.
 export type Prelude = { body: string | null; updatedAt: string | null; locked: boolean; delivered: number }
 export const loadPrelude = () => rpc<Prelude>("my_prelude")

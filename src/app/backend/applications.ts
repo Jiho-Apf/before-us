@@ -2,7 +2,7 @@ import { emptyApplication, normalizeLegacyValues, type ApplicationDraft } from "
 import { emptyPhoto, emptyPhotos, PHOTO_SLOTS, type ApplicationPhotos, type PhotoReview, type PhotoSlotId } from "../photo-model"
 import { BEFORE_US } from "../config"
 import { storedSource } from "../acquisition"
-import { PHOTO_BUCKET, friendlyError, rpc, supabase } from "./client"
+import { PHOTO_BUCKET, describeError, friendlyError, rpc, supabase, type Failure } from "./client"
 
 // 실제 서버의 소개 신청서·사진.
 export type ApplicationStatus = "draft" | "submitted" | "reviewing" | "needs_changes" | "approved" | "held" | "withdrawn" | "rejected"
@@ -12,7 +12,8 @@ export const EDIT_ALLOWED: ApplicationStatus[] = ["draft", "needs_changes", "sub
 export type PhotoRow = { slot: PhotoSlotId; path: string; mime: string; bytes: number; width: number; height: number; sha256: string; review: PhotoReview; reason: string | null; created_at: string; change_reason?: string | null; change_requested_at?: string | null }
 // 이미 소개를 받고 있는(승인된) 회원이 바꾸려고 올린 새 사진. 운영진이 확인하면 그 칸의 사진과 바뀌고, 그동안 지금 사진이 그대로 보인다.
 export type ReplacementRow = { slot: PhotoSlotId; path: string; width: number; height: number; bytes: number; review: "대기" | "재등록 요청"; reason: string | null; created_at: string }
-export type MyApplication = { draft: ApplicationDraft; status: ApplicationStatus; decisionNote: string | null; submittedAt: string | null; photoRows: PhotoRow[]; replacements: ReplacementRow[]; revision: number | null }
+// savedAt: 서버가 마지막으로 신청서를 저장한 때(저장 실패 안내에 ‘마지막 서버 저장’으로 보여 준다 · 검수 R3-25)
+export type MyApplication = { draft: ApplicationDraft; status: ApplicationStatus; decisionNote: string | null; submittedAt: string | null; photoRows: PhotoRow[]; replacements: ReplacementRow[]; revision: number | null; savedAt?: string | null }
 // 신청서 저장 판 번호(검수 C9): 서버가 저장할 때마다 올리고, 보낸 판이 다르면(다른 화면에서 먼저 저장) 거부한다(P0409).
 // 판 번호를 못 읽으면 null로 두고 확인 없이 저장한다(예전 서버와도 이어지게).
 const DRAFT_REVISION_COLUMN = "draft_rev"
@@ -34,19 +35,20 @@ export function photosFromRows(rows: PhotoRow[]): ApplicationPhotos {
 
 const SUBMISSION: Record<ApplicationStatus, ApplicationDraft["review"]["submission"]> = { draft: "draft", needs_changes: "draft", submitted: "received", reviewing: "received", approved: "received", rejected: "received", held: "held", withdrawn: "withdrawn" }
 
-export async function loadMyApplication(): Promise<{ data: MyApplication | null; error: string | null }> {
+export async function loadMyApplication(): Promise<{ data: MyApplication | null; error: string | null; failure?: Failure }> {
   try {
     const db = await supabase()
-    const { data: auth } = await db.auth.getUser()
-    if (!auth.user) return { data: null, error: "로그인이 필요해요." }
-    const [{ data: row, error }, { data: rows, error: photoError }, swaps, revisionRow] = await Promise.all([
+    const { data: auth, error: authError } = await db.auth.getUser()
+    if (!auth.user) { const failure = authError && !(authError as { status?: number }).status ? describeError(authError, { op: "read", event: "apply.load" }) : { kind: "auth" as const, status: 401, ref: null, message: "로그인이 끝났어요. 다시 로그인하면 이어서 쓸 수 있어요." }; return { data: null, error: failure.message, failure } }
+    const [{ data: row, error, status: httpStatus }, { data: rows, error: photoError, status: photoStatus }, swaps, revisionRow] = await Promise.all([
       db.from("applications").select("draft, status, decision_note, submitted_at").eq("member_id", auth.user.id).maybeSingle(),
       db.from("application_photos").select("slot, path, mime, bytes, width, height, sha256, review, reason, created_at, change_reason, change_requested_at").eq("member_id", auth.user.id),
       // 교체 사진은 못 읽어도 신청서는 그대로 보여 준다(교체 대기 표시만 빠진다).
       db.from("photo_replacements").select("slot, path, width, height, bytes, review, reason, created_at").eq("member_id", auth.user.id),
-      db.from("applications").select(DRAFT_REVISION_COLUMN).eq("member_id", auth.user.id).maybeSingle(),
+      // 판 번호·마지막 저장 때(없는 예전 서버에서도 신청서는 그대로 읽는다)
+      db.from("applications").select(`${DRAFT_REVISION_COLUMN}, updated_at`).eq("member_id", auth.user.id).maybeSingle(),
     ])
-    if (error || photoError) return { data: null, error: friendlyError(error || photoError) }
+    if (error || photoError) { const failure = describeError(error || photoError, { op: "read", status: (error ? httpStatus : photoStatus) || null, event: "apply.load" }); return { data: null, error: failure.message, failure } }
     const base = emptyApplication()
     const saved = (row?.draft ?? {}) as Partial<ApplicationDraft>
     const status = (row?.status ?? "draft") as ApplicationStatus
@@ -67,9 +69,11 @@ export async function loadMyApplication(): Promise<{ data: MyApplication | null;
       savedAt: null,
       completedDemo: false,
     }
-    return { data: { draft, status, decisionNote: row?.decision_note ?? null, submittedAt: row?.submitted_at ?? null, photoRows, replacements: swaps.error ? [] : ((swaps.data ?? []) as ReplacementRow[]), revision: revisionRow.error ? null : (((revisionRow.data as Record<string, unknown> | null)?.[DRAFT_REVISION_COLUMN] as number | null | undefined) ?? null) }, error: null }
+    const meta = revisionRow.error ? null : (revisionRow.data as Record<string, unknown> | null)
+    return { data: { draft, status, decisionNote: row?.decision_note ?? null, submittedAt: row?.submitted_at ?? null, photoRows, replacements: swaps.error ? [] : ((swaps.data ?? []) as ReplacementRow[]), revision: (meta?.[DRAFT_REVISION_COLUMN] as number | null | undefined) ?? null, savedAt: (meta?.updated_at as string | null | undefined) ?? null }, error: null }
   } catch (error) {
-    return { data: null, error: friendlyError(error as Error) }
+    const failure = describeError(error as Error, { op: "read", event: "apply.load" })
+    return { data: null, error: failure.message, failure }
   }
 }
 
@@ -77,12 +81,12 @@ export async function saveMyDraft(draft: ApplicationDraft, revision: number | nu
   const { values, sharing, preferences, step, visited } = draft
   try {
     const db = await supabase()
-    const { data, error } = await db.rpc("save_application_draft", { p_draft: { values, sharing, preferences, step, visited }, ...(revision === null ? {} : { p_revision: revision }) })
-    if (error) return { data: null, error: friendlyError(error), conflict: error.code === DRAFT_CONFLICT }
+    const { data, error, status } = await db.rpc("save_application_draft", { p_draft: { values, sharing, preferences, step, visited }, ...(revision === null ? {} : { p_revision: revision }) })
+    if (error) return { data: null, error: friendlyError(error, undefined, { op: "write", status: status || (error.code ? null : 0), event: "apply.save" }), conflict: error.code === DRAFT_CONFLICT }
     const saved = (data ?? {}) as { savedAt?: string; revision?: number | null }
     return { data: { savedAt: saved.savedAt ?? new Date().toISOString(), revision: typeof saved.revision === "number" ? saved.revision : null }, error: null }
   } catch (error) {
-    return { data: null, error: friendlyError(error as Error) }
+    return { data: null, error: friendlyError(error as Error, undefined, { op: "write", event: "apply.save" }) }
   }
 }
 export const submitMyApplication = () => rpc<{ status: string; submittedAt: string; edited?: boolean }>("submit_application")
@@ -188,6 +192,8 @@ export async function removePhoto(slot: PhotoSlotId, path: string) {
 const urlCache = new Map<string, { url: string; until: number }>()
 // 주소가 만료됐거나 못 불러왔을 때 ‘다시 불러오기’는 새 주소를 만든다(검수 C12).
 export const forgetPhotoUrl = (path: string) => { urlCache.delete(path) }
+// 교류·소개가 닫히면 기억한 주소(상대 사진 포함)를 모두 버린다(검수 R3-20). 내 사진은 다음에 볼 때 새로 만든다.
+export const forgetAllPhotoUrls = () => { urlCache.clear() }
 // 사진 주소 결과(검수 C12): 잠깐 못 불러온 것(temporary-error)과 볼 수 없는 것(forbidden)·지워진 것(deleted)을 나눈다.
 // 화면은 잠깐의 실패를 ‘사진 없음’으로 바꾸지 않고, 다시 불러오기를 보여 준다.
 export type PhotoResult = { status: "ok"; url: string } | { status: "temporary-error"; message: string } | { status: "forbidden" } | { status: "deleted" }

@@ -32,16 +32,16 @@ const APPLICATION_FIELD_SOURCE: readonly FieldDefinition[] = [
   { id: "self.bio", label: "한 줄 소개", step: 0, group: "core", format: "text", purpose: "나를 소개하는 짧은 글", required: true, scope: "partner", min: 20, max: 150, placeholder: "가상 인물에 대한 소개를 20~150자로 적어주세요." },
   { id: "self.statement", label: "현재 다른 사람과 교제·혼인 관계가 없고 성실히 참여할 의사가 있어요.", step: 0, group: "core", format: "boolean", purpose: "본인 진술 · 인증 아님", required: true, scope: "operator" },
   { id: "self.pledge", label: "기혼·사실혼이거나 다른 사람과 교제 중인 사실이 확인되면 이용이 종료되고, 상대 보호에 필요한 조치가 이뤄질 수 있음을 이해했어요.", step: 0, group: "core", format: "boolean", purpose: "허위 진술 시 조치 고지 확인 · 미혼 인증 아님", required: true, scope: "operator" },
-  { id: "self.height", label: "키", step: 0, group: "optional", format: "number", purpose: "본인이 입력한 키 · cm", required: true, scope: "partner", rule: "positive-cm", placeholder: "cm 직접 입력" },
-  { id: "self.body", label: "체형", step: 0, group: "optional", format: "single", purpose: "본인이 선택한 표현", required: true, scope: "operator", options: ["마른 편", "보통", "탄탄한 편", "체격 있는 편", "미선택"] },
-  { id: "self.style", label: "스타일", step: 0, group: "optional", format: "multi", purpose: "나의 평소 스타일 참고", required: true, scope: "operator", limit: 3, options: ["캐주얼", "미니멀", "깔끔한", "댄디", "스트릿", "스포티", "아웃도어", "빈티지", "개성 있는"] },
-  { id: "self.smoking", label: "흡연", step: 0, group: "optional", format: "single", purpose: "나의 생활 성향 참고", required: true, scope: "partner", options: ["안 함", "가끔", "자주", "답하지 않음"] },
-  { id: "self.drinking", label: "음주", step: 0, group: "optional", format: "single", purpose: "나의 생활 성향 참고", required: true, scope: "partner", options: ["안 함", "월 1~2회", "주 1회 이상", "상황에 따라", "답하지 않음"] },
-  { id: "self.schedule", label: "생활", step: 0, group: "optional", format: "single", purpose: "생활 시간대 참고", required: true, scope: "partner", options: ["주간", "야간", "교대·불규칙", "답하지 않음"] },
-  { id: "self.available", label: "편한 시간", step: 0, group: "optional", format: "single", purpose: "참여 가능한 시간대 참고", required: true, scope: "partner", options: ["평일 낮", "평일 저녁", "주말 낮", "주말 저녁", "일정에 따라"] },
-  { id: "self.interests", label: "관심사", step: 0, group: "optional", format: "multi", purpose: "넓은 관심 분야 참고", required: true, scope: "partner", limit: 5, options: ["음악", "산책", "영화", "책", "여행", "운동", "음식", "카페", "요리", "전시", "공연", "사진", "드라이브", "반려동물", "게임", "자연", "만들기·공예", "언어 공부"] },
-  { id: "self.source", label: "플라비를 어떻게 알게 되셨나요?", step: 0, group: "optional", format: "single", purpose: "운영 통계 참고 · 상대에게 보이지 않아요", required: true, scope: "operator", options: ["지인 소개", "인스타그램", "스레드", "검색", "블로그·커뮤니티", "제휴·오프라인 행사", "기타"] },
-  { id: "self.work", label: "직업/직무 · 넓은 분야", step: 0, group: "optional", format: "single", purpose: "동의한 매칭 참고 범위에서만 운영자 확인 · 회사명·직장 주소·소득 수집 안 함 · 미입력은 무직으로 판단하지 않음", required: true, scope: "partner", options: ["경영·기획", "사무·행정", "마케팅·홍보", "영업·고객 관리", "개발·IT", "엔지니어·기술", "디자인·예술", "콘텐츠·미디어", "교육", "연구·과학", "의료·보건", "복지·상담", "금융·회계", "법률·공공", "서비스·외식", "유통·물류", "건설·제조", "자영업·창업", "프리랜서", "학생·취업 준비", "기타", "답하지 않음"] },
+  { id: "self.height", label: "키", step: 0, group: "optional", format: "number", purpose: "본인이 입력한 키 · cm", required: false, scope: "partner", rule: "positive-cm", placeholder: "cm 직접 입력" },
+  { id: "self.body", label: "체형", step: 0, group: "optional", format: "single", purpose: "본인이 선택한 표현", required: false, scope: "operator", options: ["마른 편", "보통", "탄탄한 편", "체격 있는 편", "미선택"] },
+  { id: "self.style", label: "스타일", step: 0, group: "optional", format: "multi", purpose: "나의 평소 스타일 참고", required: false, scope: "operator", limit: 3, options: ["캐주얼", "미니멀", "깔끔한", "댄디", "스트릿", "스포티", "아웃도어", "빈티지", "개성 있는"] },
+  { id: "self.smoking", label: "흡연", step: 0, group: "optional", format: "single", purpose: "나의 생활 성향 참고", required: false, scope: "partner", options: ["안 함", "가끔", "자주", "답하지 않음"] },
+  { id: "self.drinking", label: "음주", step: 0, group: "optional", format: "single", purpose: "나의 생활 성향 참고", required: false, scope: "partner", options: ["안 함", "월 1~2회", "주 1회 이상", "상황에 따라", "답하지 않음"] },
+  { id: "self.schedule", label: "생활", step: 0, group: "optional", format: "single", purpose: "생활 시간대 참고", required: false, scope: "partner", options: ["주간", "야간", "교대·불규칙", "답하지 않음"] },
+  { id: "self.available", label: "편한 시간", step: 0, group: "optional", format: "single", purpose: "참여 가능한 시간대 참고", required: false, scope: "partner", options: ["평일 낮", "평일 저녁", "주말 낮", "주말 저녁", "일정에 따라"] },
+  { id: "self.interests", label: "관심사", step: 0, group: "optional", format: "multi", purpose: "넓은 관심 분야 참고", required: false, scope: "partner", limit: 5, options: ["음악", "산책", "영화", "책", "여행", "운동", "음식", "카페", "요리", "전시", "공연", "사진", "드라이브", "반려동물", "게임", "자연", "만들기·공예", "언어 공부"] },
+  { id: "self.source", label: "플라비를 어떻게 알게 되셨나요?", step: 0, group: "optional", format: "single", purpose: "운영 통계 참고 · 상대에게 보이지 않아요", required: false, scope: "operator", options: ["지인 소개", "인스타그램", "스레드", "검색", "블로그·커뮤니티", "제휴·오프라인 행사", "기타"] },
+  { id: "self.work", label: "직업/직무 · 넓은 분야", step: 0, group: "optional", format: "single", purpose: "동의한 매칭 참고 범위에서만 운영자 확인 · 회사명·직장 주소·소득 수집 안 함 · 미입력은 무직으로 판단하지 않음", required: false, scope: "partner", options: ["경영·기획", "사무·행정", "마케팅·홍보", "영업·고객 관리", "개발·IT", "엔지니어·기술", "디자인·예술", "콘텐츠·미디어", "교육", "연구·과학", "의료·보건", "복지·상담", "금융·회계", "법률·공공", "서비스·외식", "유통·물류", "건설·제조", "자영업·창업", "프리랜서", "학생·취업 준비", "기타", "답하지 않음"] },
   { id: "self.question", label: "질문형 소개", step: 0, section: "expression", group: "optional", format: "single", purpose: "고른 질문에만 답해요 · 선택하지 않아도 신청 가능", required: false, scope: "partner", options: ["어떤 사람과 있을 때 편안한가요?"] },
   { id: "self.answer", label: "어떤 사람과 있을 때 편안한가요? · 답변", step: 0, section: "expression", group: "optional", format: "text", purpose: "기존 대화 답변 재사용 · 연락처·SNS·민감정보는 적지 마세요", required: false, scope: "partner", min: 100, max: 300, placeholder: "가상 답변을 100~300자로 적어주세요." },
   ...EXPRESSION_FIELDS,
@@ -51,6 +51,64 @@ const APPLICATION_FIELD_SOURCE: readonly FieldDefinition[] = [
 ];
 // 실제 서버 모드에서는 항목 이름·안내의 데모 표기를 걷어 낸다.
 export const APPLICATION_FIELDS: readonly FieldDefinition[] = APPLICATION_FIELD_SOURCE.map(field => ({ ...field, label: copy(field.label), purpose: copy(field.purpose), ...(field.placeholder ? { placeholder: copy(field.placeholder) } : {}) }));
+
+// 추가 정보(검수 R3-01): 신청과 소개에 꼭 필요하지 않은 항목. 마지막 단계의 [선택] ‘추가 정보’ 동의(consent.matching)로만 받는다.
+//  - 핵심 항목(CORE_VALUE_IDS)과 동의 칸(consent.*)만 동의 없이 처리한다. 서버 제출 함수와 같은 목록이다(SERVER 2026-11-06).
+//  - 그 밖의 값(나에 대한 선택 항목 · 나는 어떤 사람인가요 · 질문형 소개 · 알게 된 경로 · 소개받을 상대 성별 말고 원하는 상대 조건)은 추가 정보다.
+//  - 동의하지 않으면 서버로 보내지 않는다(이 기기에만 잠시 보관). 서버도 동의 없이 제출하면 핵심 항목 말고는 지운다. 신청은 그대로 할 수 있다.
+//  - 추가 사진(photo.daily)은 올리는 순간 저장소에 들어가므로, 동의 없이 신청하면 신청할 때 지운다(ApplicationForm · 서버도 제출 때 뺀다).
+export const EXTRA_CONSENT = "consent.matching"
+export const EXTRA_PHOTO = "photo.daily"
+export const CORE_VALUE_IDS: readonly string[] = ["self.name", "self.birthDate", "self.phone", "self.notifyChannels", "self.gender", "desired.gender", "self.province", "self.area", "self.purpose", "self.bio", "self.statement", "self.pledge"]
+export const isCoreKey = (id: string) => CORE_VALUE_IDS.includes(id) || id.startsWith("consent.")
+export const EXTRA_FIELD_IDS: readonly string[] = APPLICATION_FIELDS.filter(field => field.format !== "photo" && !isCoreKey(field.id)).map(field => field.id)
+export const extraConsented = (values: Record<string, AnswerValue>) => values[EXTRA_CONSENT] === true
+// 적어 둔 추가 정보(답한 것만). self = 나에 대해 · desired = 원하는 상대 조건
+export const extraAnswered = (values: Record<string, AnswerValue>) => Object.keys(values).filter(id => !isCoreKey(id) && answerState(values[id]) !== "unanswered")
+// 동의가 없을 때 서버로 보낼 모양: 핵심 항목·동의 칸만 남기고, 추가 정보의 공개 설정은 끈다.
+export function withoutExtras<T extends { values: Record<string, AnswerValue>; sharing: Record<string, boolean> }>(draft: T): T {
+  const values = Object.fromEntries(Object.entries(draft.values).filter(([id]) => isCoreKey(id))) as Record<string, AnswerValue>
+  const sharing = { ...draft.sharing }
+  for (const id of Object.keys(sharing)) if (!isCoreKey(id) && !id.startsWith("photo.") && id !== PUBLIC_AGE_FIELD.id) sharing[id] = false
+  if (EXTRA_PHOTO in sharing) sharing[EXTRA_PHOTO] = false
+  // 원하는 상대 조건의 중요도·비공개 표시도 추가 정보에 딸린 것이라 함께 뺀다(보류 의사·운영진 요청은 그대로).
+  const preferences = (draft as { preferences?: PreferenceSettings }).preferences
+  return { ...draft, values, sharing, ...(preferences ? { preferences: { ...preferences, importance: {}, confidential: {} } } : {}) }
+}
+export const forServer = <T extends { values: Record<string, AnswerValue>; sharing: Record<string, boolean> }>(draft: T): T => extraConsented(draft.values) ? draft : withoutExtras(draft)
+
+// 동의·공개·보류 상태(검수 R3-08): 글 저장 충돌에서 ‘지금 쓴 내용으로 계속’을 골라도 이 값들은 서버의 최신 값을 지킨다.
+// 바꾸려면 화면에서 새로 확인(체크)해야 한다. 쉬기·차단·약속판은 신청서 저장과 다른 표에 있어 글 저장이 건드리지 않는다.
+export const PROTECTED_VALUE_IDS: readonly string[] = [...REVIEW_CONSENTS.map(field => field.id), "self.statement", "self.pledge"]
+type ProtectedShape = { values: Record<string, AnswerValue>; sharing: Record<string, boolean>; preferences?: PreferenceSettings }
+// mine에 server의 동의·공개·보류 값을 덮는다.
+// unsaved: 이 화면에서 마지막 저장 뒤 바꾼 키. 그 키는 ‘끄는 쪽’(동의 거둠·공개 끔·보류)만 남기고, 켜는 쪽은 서버 값을 따른다.
+// 다시 켜려면 충돌을 고른 뒤 화면에서 새로 체크해야 한다(그때가 ‘새 동의’).
+export function keepServerState<T extends ProtectedShape>(mine: T, server: ProtectedShape, unsaved: ReadonlySet<string> = new Set()): T {
+  const values = { ...mine.values }
+  for (const id of PROTECTED_VALUE_IDS) {
+    const next = unsaved.has(id) ? (server.values[id] === true && mine.values[id] === true) : server.values[id]
+    if (next === undefined) delete values[id]; else values[id] = next
+  }
+  const sharing = { ...mine.sharing }
+  for (const id of new Set([...Object.keys(mine.sharing), ...Object.keys(server.sharing)])) {
+    const next = unsaved.has(`sharing.${id}`) ? (server.sharing[id] === true && mine.sharing[id] === true) : server.sharing[id]
+    if (next === undefined) delete sharing[id]; else sharing[id] = next
+  }
+  const hold = unsaved.has("preferences.request") && mine.preferences?.request === "hold"
+  const preferences = mine.preferences && server.preferences && !hold ? { ...mine.preferences, request: server.preferences.request, requestNote: server.preferences.requestNote } : mine.preferences
+  return { ...mine, values, sharing, ...(preferences ? { preferences } : {}) }
+}
+const PROTECTED_NAMES: Record<string, string> = { "consent.collection": "필수 처리 안내 확인", "consent.matching": "추가 정보 동의", "consent.provision": "상대 제공 동의", "consent.review": "공개 범위 확인", "consent.marketing": "광고성 정보 수신", "consent.noon": "정오 상태 알림", "self.statement": "교제·혼인 관계 진술", "self.pledge": "허위 진술 조치 확인", "self.age": "만 나이" }
+// 서로 다른 동의·공개·보류 항목의 이름(충돌 안내에 보여 준다)
+export function protectedDifferences(mine: ProtectedShape, server: ProtectedShape) {
+  const name = (id: string) => PROTECTED_NAMES[id] ?? APPLICATION_FIELDS.find(field => field.id === id)?.label.split(" · ")[0].replace(/\s*\(.*?\)\s*$/, "") ?? (id === PUBLIC_AGE_FIELD.id ? "만 나이" : id)
+  const out: string[] = []
+  for (const id of PROTECTED_VALUE_IDS) if ((mine.values[id] === true) !== (server.values[id] === true)) out.push(name(id))
+  for (const id of new Set([...Object.keys(mine.sharing), ...Object.keys(server.sharing)])) if (!!mine.sharing[id] !== !!server.sharing[id]) out.push(`${PHOTO_SLOTS.find(slot => slot.id === id)?.label ?? name(id)} 공개`)
+  if (mine.preferences && server.preferences && mine.preferences.request !== server.preferences.request) out.push("신청 보류 의사")
+  return out
+}
 
 // 예전 신청서의 옛 선택지를 지금 선택지로 옮긴다(이름이 바뀐 것은 새 이름으로, 없어진 것은 빼고, 고를 수 있는 개수에 맞춘다).
 const LEGACY_RENAMES: Record<string, Record<string, string>> = {
@@ -134,14 +192,17 @@ function rawFieldError(field: FieldDefinition, value: AnswerValue | undefined, t
 }
 export function validateApplication(draft: ApplicationDraft, today: string, account: AccountFacts = {}, step?: number) {
   const errors: Record<string, string> = {};
-  for (const field of APPLICATION_FIELDS.filter(field => step === undefined || field.step === step || field.alsoOn === step)) {
+  // 추가 정보 동의를 직접 거부했으면(false) 추가 정보 칸은 보내지도 않으므로 확인하지 않는다(검수 R3-01).
+  // 예: ‘어떤 인상과 스타일에 눈길이 가나요?’(선호 없음 가능 · 대표 결정)는 거부한 회원에게 다시 묻지 않는다. 아직 고르지 않았으면(값 없음) 그대로 확인한다.
+  const refused = draft.values[EXTRA_CONSENT] === false;
+  for (const field of APPLICATION_FIELDS.filter(field => (step === undefined || field.step === step || field.alsoOn === step) && !(refused && field.format !== "photo" && !isCoreKey(field.id)))) {
     const error = fieldError(field, draft.values[field.id], today, account, draft.photos);
     if (error) errors[field.id] = error;
   }
   // 질문형 소개는 선택이에요. 질문을 골랐는데 답이 비어 있을 때만 알려 줘요.
-  if ((step === undefined || step === 0) && answerState(draft.values["self.question"]) === "answered" && answerState(draft.values["self.answer"]) === "unanswered") errors["self.answer"] = "고른 질문에 답을 적거나, 질문 선택을 풀어 주세요.";
-  if (step === undefined || step === 2) Object.assign(errors, validatePreferences(draft.values, draft.preferences || emptyPreferences()));
-  if (step === undefined || step === 2) Object.assign(errors, validateRelationshipPreferences(draft.values));
+  if (!refused && (step === undefined || step === 0) && answerState(draft.values["self.question"]) === "answered" && answerState(draft.values["self.answer"]) === "unanswered") errors["self.answer"] = "고른 질문에 답을 적거나, 질문 선택을 풀어 주세요.";
+  if (!refused && (step === undefined || step === 2)) Object.assign(errors, validatePreferences(draft.values, draft.preferences || emptyPreferences()));
+  if (!refused && (step === undefined || step === 2)) Object.assign(errors, validateRelationshipPreferences(draft.values));
   if (step === undefined || step === 3) {
     for (const id of [...BASE_PUBLIC_FIELDS, ...REQUIRED_PUBLIC_PHOTOS]) if (!draft.sharing[id]) errors[`sharing.${id}`] = "기본 소개 프로필에 필요한 공개예요. 동의하지 않으면 신청을 보류하거나 철회할 수 있어요.";
     if (draft.review?.submission === "held" || draft.review?.submission === "withdrawn") errors["submission.resume"] = "보류·철회 상태예요. 다시 작성하기를 선택한 뒤 확인해 주세요.";
@@ -160,11 +221,13 @@ export function partnerPreview(draft: ApplicationDraft, today: string, account: 
   return items;
 }
 export function operatorPreview(draft: ApplicationDraft, today: string, account: AccountFacts = {}) {
-  if (draft.values["consent.collection"] !== true || draft.values["consent.matching"] !== true) return {};
-  const values: Record<string, AnswerValue | number> = Object.fromEntries(APPLICATION_FIELDS.filter(field => field.scope !== "private" && answerState(draft.values[field.id]) !== "unanswered" && !fieldError(field, draft.values[field.id], today, account)).map(field => [field.id, draft.values[field.id]]));
+  // 필수 처리 안내 확인이 있어야 하고, 추가 정보는 ‘추가 정보’ 동의가 있을 때만 운영진에게 보인다(검수 R3-01).
+  if (draft.values["consent.collection"] !== true) return {};
+  const scoped = forServer(draft);
+  const values: Record<string, AnswerValue | number> = Object.fromEntries(APPLICATION_FIELDS.filter(field => field.scope !== "private" && answerState(scoped.values[field.id]) !== "unanswered" && !fieldError(field, scoped.values[field.id], today, account)).map(field => [field.id, scoped.values[field.id]]));
   const age = accountAge(account, today) ?? ageOn(String(draft.values["self.birthDate"] || ""), today);
   if (age !== null) values[PUBLIC_AGE_FIELD.id] = age;
-  for (const slot of PHOTO_SLOTS) { const photo = draft.photos[slot.id]; if (photo?.file && !photoError(draft.photos, slot.id)) values[slot.id] = `${photo.file.name} · 검토 ${photo.review} (가상)`; }
+  for (const slot of PHOTO_SLOTS) { const photo = draft.photos[slot.id]; if (slot.id === EXTRA_PHOTO && !extraConsented(draft.values)) continue; if (photo?.file && !photoError(draft.photos, slot.id)) values[slot.id] = `${photo.file.name} · 검토 ${photo.review} (가상)`; }
   return values;
 }
 

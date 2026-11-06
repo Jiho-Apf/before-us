@@ -3,6 +3,7 @@ import {
   APPLICATION_FIELDS,
   PUBLIC_AGE_FIELD,
   accountAge,
+  forServer,
   partnerPreview,
   validateApplication,
   type AccountFacts,
@@ -27,7 +28,8 @@ export function publicApplicationProfile(
   return {
     demo: true,
     version: draft.review?.profileVersion || 1,
-    items: partnerPreview(draft, today, account)
+    // 추가 정보는 ‘추가 정보’ 동의가 있을 때만 상대에게 보일 수 있다(검수 R3-01).
+    items: partnerPreview(forServer(draft), today, account)
       .filter(
         (item) => typeof item.value === "string" || Array.isArray(item.value),
       )
@@ -38,7 +40,7 @@ export function publicApplicationProfile(
       })),
     photos: PHOTO_SLOTS.flatMap((slot) => {
       const photo = draft.photos[slot.id]
-      return draft.sharing[slot.id] &&
+      return forServer(draft).sharing[slot.id] &&
         photo?.file &&
         photo.review === "기준 확인" &&
         !photoError(draft.photos, slot.id)
@@ -58,16 +60,13 @@ export function operatorApplicationOriginal(
   draft: ApplicationDraft,
   account: AccountFacts = {},
 ) {
-  if (
-    draft.values["consent.collection"] !== true ||
-    draft.values["consent.matching"] !== true
-  )
-    return null
+  // 필수 처리 안내 확인이 있어야 하고, 추가 정보는 ‘추가 정보’ 동의가 있을 때만 담는다(검수 R3-01).
+  if (draft.values["consent.collection"] !== true) return null
   return {
     demo: true,
     profileVersion: draft.review.profileVersion,
     values: Object.fromEntries(
-      Object.entries(draft.values).map(([id, value]) => [
+      Object.entries(forServer(draft).values).map(([id, value]) => [
         id,
         Array.isArray(value) ? [...value] : value,
       ]),
@@ -221,7 +220,6 @@ export function publicPreparationResponse(
     draft.review.submission !== "received" ||
     draft.review.profileReview !== "reviewed" ||
     draft.values["consent.collection"] !== true ||
-    draft.values["consent.matching"] !== true ||
     draft.values["consent.provision"] !== true ||
     draft.values["consent.review"] !== true ||
     BEFORE_US.unresolvedPolicies.provisionPeriod === null

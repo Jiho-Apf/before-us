@@ -395,10 +395,8 @@ export function adminTransition(
     const member = next.members.find((item) => item.id === command.memberId)
     if (!member) return fail("신청자를 찾을 수 없습니다")
     if (command.kind === "photo-review") {
-      if (
-        member.draft.values["consent.collection"] !== true ||
-        member.draft.values["consent.matching"] !== true
-      )
+      // ‘추가 정보’ 동의(consent.matching)는 선택이에요(3차 검수 R3-01).
+      if (member.draft.values["consent.collection"] !== true)
         return fail("운영자 검토 동의가 필요합니다")
       const record = member.draft.photos[command.slot]
       if (!record.file) return fail("등록된 사진이 없습니다")

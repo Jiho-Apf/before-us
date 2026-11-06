@@ -4,9 +4,13 @@ import { Button } from "./components/ui/button"
 import { Checkbox } from "./components/ui/checkbox"
 import {
   APPLICATION_FIELDS,
+  EXTRA_CONSENT,
+  EXTRA_PHOTO,
   PUBLIC_AGE_FIELD,
   accountAge,
   answerState,
+  extraAnswered,
+  extraConsented,
   type AccountFacts,
   type ApplicationDraft,
 } from "./application-model"
@@ -28,15 +32,15 @@ const interaction =
 // 기본 화면에서는 접어 두지만(검수 U05), 내용은 줄이지 않는다. 펼치면 그대로 모두 보인다.
 const CONSENT_DETAILS: Record<string, [string, string][]> = {
   "consent.collection": [
-    ["항목", "활동용 이름, 생년월일(만 나이 계산용 · 상대에게 보이지 않아요), 휴대폰 번호(운영진만 봐요), 주 활동 지역, 관계 목적, 한 줄 소개, 필수 사진 3장, 소개받을 상대 조건, 교제·혼인 여부 서약, 알림 받을 방법"],
+    ["항목", "활동용 이름, 생년월일(만 나이 계산용 · 상대에게 보이지 않아요), 휴대폰 번호(운영진만 봐요), 주 활동 지역, 관계 목적, 한 줄 소개, 필수 사진 3장, 본인 성별, 소개받을 상대 성별, 교제·혼인 여부 서약, 알림 받을 방법"],
     ["목적", "신청 검토, 소개할 상대 고르기, 소개·교류·만남 진행, 안내 연락, 부정 이용 방지"],
     ["보유 기간", "탈퇴 요청 뒤 7일 안에 지워요(백업은 최대 30일). 분쟁·안전을 위해 따로 남기는 기록은 개인정보처리방침 ‘3. 보유 기간’을 따라요."],
   ],
   "consent.matching": [
-    ["항목", "추가 사진 1장, 키·체형·스타일, 흡연·음주, 생활 시간대, 관심사, 직업 분야, 성격·대화 성향, 질문 답변, 알게 된 경로"],
-    ["목적", "잘 맞는 상대를 고르는 데 참고하고, ‘상대 공개’로 켠 항목은 소개된 상대에게 보여 주기 위해"],
-    ["보유 기간", "필수 정보와 같아요."],
-    ["거부할 때", "거부할 수 있어요. 다만 필수 항목이라, 거부하면 소개 신청을 마칠 수 없어요."],
+    ["항목", "추가 사진 1장(취향·일상), 키·체형·스타일, 흡연·음주, 생활·편한 시간, 관심사, 직업 분야(넓은 분야), ‘나는 어떤 사람인가요’(더 쓴 소개·MBTI·나를 설명하는 모습·요즘 좋아하는 것·쉬는 날·중요하게 보는 것), 질문형 소개 답, 알게 된 경로, 원하는 상대 조건(희망 나이·지역·만남 가능 지역·이동·생활·외적인 취향·성향·관계 취향과 그 중요도 · 상대에게 보이지 않아요). 모두 적지 않아도 돼요."],
+    ["목적", "잘 맞는 상대를 고르는 데 참고하고, ‘상대 공개’로 켠 항목은 소개된 상대 한 분에게 보여 주기 위해. 알게 된 경로는 어디서 알고 오셨는지 운영 통계에만 써요(상대에게 보이지 않아요)."],
+    ["보유 기간", "필수 정보와 같아요. 탈퇴 요청 뒤 7일 안에 지워요(백업은 최대 30일). 나중에 ‘신청서 고치기’에서 동의를 거두면 추가 정보를 지워요."],
+    ["거부할 때", "거부해도 신청과 소개를 그대로 받을 수 있어요. 적어 둔 추가 정보는 운영진에게 보내지 않고, 올려 둔 추가 사진은 신청할 때 지워요."],
   ],
   "consent.provision": [
     ["받는 사람", "운영진이 나에게 소개한 상대 회원(소개마다 1명)"],
@@ -51,6 +55,31 @@ const DETAIL_TITLE: Record<string, string> = {
   "consent.collection": "항목·목적·보유 기간 보기",
   "consent.matching": "항목·목적·보유 기간·거부할\u00a0때 보기",
   "consent.provision": "받는 사람·목적·항목·기간·거부할\u00a0때 보기",
+}
+// 체크하기 전에 늘 보이는 요점(검수 R3-01): 무엇을 · 왜 · 언제까지 · 하지 않으면. 휴대폰에서도 한 줄씩 읽히게 짧게 두고,
+// 항목 전체·법 근거·백업 기간 같은 자세한 내용은 아래 접힌 곳에 그대로 있다(줄이지 않는다).
+const CONSENT_BRIEF: Record<string, [string, string][]> = {
+  "consent.collection": [
+    ["무엇을", "이름·생년월일·연락처·지역·소개 글·필수 사진 등"],
+    ["왜", "신청 검토와 소개·안내 연락"],
+    ["언제까지", "탈퇴 요청 뒤 7일 안에 지워요"],
+    ["확인하지 않으면", "신청할 수 없어요"],
+  ],
+  "consent.provision": [
+    ["누구에게", "소개된 상대 한 분"],
+    ["무엇을", "‘상대 공개’로 켠 항목과 확인된 사진"],
+    ["언제까지", "응답 마감까지, 교류하면 끝날 때까지"],
+    ["동의하지 않으면", "소개를 받을 수 없어요"],
+  ],
+  "consent.review": [
+    ["확인하지 않으면", "신청할 수 없어요"],
+  ],
+  "consent.matching": [
+    ["무엇을", "비워 둬도 되는 내 정보·추가 사진·원하는 상대 조건"],
+    ["왜", "상대 고르기 참고 · 켠 항목만 상대에게"],
+    ["언제까지", "탈퇴 요청 뒤 7일 안에 지워요"],
+    ["동의하지 않으면", "신청·소개는 그대로, 추가 정보는 안 보내요"],
+  ],
 }
 
 const text = (value: string | string[]) =>
@@ -199,14 +228,19 @@ export default function ApplicationReviewStep({
   errors: Record<string, string>
   onSharing: (id: string, checked: boolean) => void
   onConsent: (id: string, checked: boolean) => void
-  onEdit: (step: number, optional?: boolean) => void
+  // 고치기: 그 단계의 그 칸으로 간 뒤, 다 고치면 이 확인 단계로 돌아온다(검수 R3-21). fieldId가 없으면 단계 맨 위.
+  onEdit: (step: number, optional?: boolean, fieldId?: string) => void
   onSuspend: (status: "held" | "withdrawn") => void
   onResume: () => void
   photoPaths?: Partial<Record<string, string>>
 }) {
   const [pendingAction, setPendingAction] =
     useState<"held" | "withdrawn" | null>(null)
+  // 미리 보기는 실제로 보낼 내용으로: 추가 정보 동의가 없으면 추가 정보는 보이지 않는다(publicApplicationProfile 안에서 거른다).
   const profile = publicApplicationProfile(draft, today, account)
+  const extraOn = extraConsented(draft.values)
+  const extraIds = extraAnswered(draft.values)
+  const extraPhoto = !!draft.photos[EXTRA_PHOTO]?.file
   const review = draft.review
   const verifiedAge = accountAge(account, today)
   const checkedPhotos = draft.photos
@@ -271,7 +305,7 @@ export default function ApplicationReviewStep({
             size="sm"
             variant="ghost"
             aria-label={`${name} 고치기`}
-            onClick={() => onEdit(photoSlot ? 1 : 0, !photoSlot && APPLICATION_FIELDS.find((item) => item.id === id)?.group === "optional")}
+            onClick={() => onEdit(photoSlot ? 1 : 0, !photoSlot && APPLICATION_FIELDS.find((item) => item.id === id)?.group === "optional", id === PUBLIC_AGE_FIELD.id ? "self.birthDate" : id)}
             className={`size-11 shrink-0 rounded-lg p-0 ${interaction}`}
           >
             <Pencil size={13} />
@@ -286,8 +320,15 @@ export default function ApplicationReviewStep({
     )
   }
   const required = REVIEW_CONSENTS.filter((field) => field.required)
-  const optional = REVIEW_CONSENTS.filter((field) => !field.required)
+  // 선택 동의는 둘로 나눈다: 추가 정보(신청서에 적은 선택 항목) · 알림(광고성 정보·정오 상태 알림)
+  const extraConsent = REVIEW_CONSENTS.filter((field) => field.id === EXTRA_CONSENT)
+  const optional = REVIEW_CONSENTS.filter((field) => !field.required && field.id !== EXTRA_CONSENT)
   const requiredDone = required.filter((field) => draft.values[field.id] === true).length
+  const extraSelf = extraIds.filter((id) => id.startsWith("self.")).length
+  const extraWanted = extraIds.filter((id) => id.startsWith("desired.")).length
+  const extraNow = extraIds.length || extraPhoto
+    ? `지금 적어 둔 추가 정보: ${[extraSelf ? `나에 대해 ${extraSelf}개` : "", extraWanted ? `원하는 상대 조건 ${extraWanted}개` : "", extraPhoto ? "추가 사진 1장" : ""].filter(Boolean).join(" · ")}.`
+    : "지금 적어 둔 추가 정보는 없어요."
   const consentCard = (field: (typeof REVIEW_CONSENTS)[number]) => (
     <div key={field.id} className="rounded-xl border border-border p-4">
       <label className="flex cursor-pointer items-start gap-3">
@@ -296,7 +337,7 @@ export default function ApplicationReviewStep({
           checked={draft.values[field.id] === true}
           onCheckedChange={(checked) => onConsent(field.id, checked === true)}
           aria-invalid={!!errors[field.id]}
-          aria-describedby={`${field.id}-purpose`}
+          aria-describedby={`${field.id}-purpose${CONSENT_BRIEF[field.id] ? ` ${field.id}-brief` : ""}`}
           className="mt-1"
         />
         <span className="text-xs leading-6">
@@ -309,6 +350,22 @@ export default function ApplicationReviewStep({
       <p id={`${field.id}-purpose`} className="ml-7 mt-2 text-xs leading-6 text-muted-foreground">
         {field.purpose}
       </p>
+      {CONSENT_BRIEF[field.id] && (
+        <dl id={`${field.id}-brief`} className="ml-7 mt-2 space-y-0.5 text-xs leading-6">
+          {CONSENT_BRIEF[field.id].map(([title, body]) => (
+            <div key={title}>
+              <dt className="inline font-semibold text-foreground">{title}</dt>
+              <dd className="inline text-muted-foreground"> · {body}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {field.id === EXTRA_CONSENT && (
+        <p role="status" className="ml-7 mt-2 rounded-lg bg-muted/50 px-3 py-2 text-xs leading-6">
+          {extraNow}{" "}
+          {(extraIds.length > 0 || extraPhoto) && (extraOn ? "동의하면 운영진이 참고하고, 켠 항목만 상대에게 보여요." : `동의하지 않으면 보내지 않아요${extraPhoto ? "(추가 사진은 신청할 때 지워요)" : ""}.`)}
+        </p>
+      )}
       {CONSENT_DETAILS[field.id] && (
         <details className="group ml-7 mt-2 text-xs">
           <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 font-semibold text-foreground underline-offset-4 hover:underline [&::-webkit-details-marker]:hidden">
@@ -396,12 +453,12 @@ export default function ApplicationReviewStep({
               <Group
                 id="review-scope-optional"
                 title="선택 정보 · 켠 항목만 공개"
-                summary={optionalIds.length === 0 ? "적은 선택 정보가 없어요 · 그대로 신청할 수 있어요" : optionalOn.length ? `공개: ${optionalOn.join(" · ")}` : `적은 항목 ${optionalIds.length}개 · 모두 비공개`}
+                summary={optionalIds.length === 0 ? "적은 선택 정보가 없어요 · 그대로 신청할 수 있어요" : !extraOn ? `적은 항목 ${optionalIds.length}개 · 아래 [선택] 추가 정보 동의 전이라 보이지 않아요` : optionalOn.length ? `공개: ${optionalOn.join(" · ")}` : `적은 항목 ${optionalIds.length}개 · 모두 비공개`}
                 warn={hasError(optionalIds)}
                 open={open.optional}
                 onToggle={() => setOpen((current) => ({ ...current, optional: !current.optional }))}
               >
-                {optionalIds.length > 0 && <p className="pt-1 text-[11px] text-muted-foreground">체크한 항목만 상대에게 보여요. 처음엔 모두 꺼져 있어요.</p>}
+                {optionalIds.length > 0 && <p className="pt-1 text-[11px] text-muted-foreground">{extraOn ? "체크한 항목만 상대에게 보여요. 처음엔 모두 꺼져 있어요." : "체크한 항목은 아래 [선택] 추가 정보에 동의할 때만 상대에게 보여요."}</p>}
                 {optionalIds.map((id) => shareRow(id, false))}
                 {optionalEmpty.length > 0 && (
                   <p className="mt-2 text-xs leading-6 text-muted-foreground">
@@ -438,11 +495,14 @@ export default function ApplicationReviewStep({
               필수 {requiredDone}/{required.length} · 목적마다 따로 확인해요. 미리 체크해 두지 않아요.
             </p>
             <div className="mt-3 space-y-3">{required.map(consentCard)}</div>
-            <h4 className="mt-6 text-xs font-semibold">선택 · 체크하지 않아도 신청할 수 있어요</h4>
-            <p className="mt-1 text-xs leading-6 text-muted-foreground">동의하지 않아도 신청과 소개에 불이익이 없어요. 내 정보 → 알림 설정에서 언제든 바꿀&nbsp;수 있어요.</p>
+            <h4 className="mt-6 text-xs font-semibold">선택 · 추가 정보 · 체크하지 않아도 신청할 수 있어요</h4>
+            <p className="mt-1 text-xs leading-6 text-muted-foreground">비워 둬도 되는 항목이에요. 동의할 때만 운영진에게 보내요.</p>
+            <div className="mt-3 space-y-3">{extraConsent.map(consentCard)}</div>
+            <h4 className="mt-6 text-xs font-semibold">선택 · 알림 · 체크하지 않아도 신청할 수 있어요</h4>
+            <p className="mt-1 text-xs leading-6 text-muted-foreground">내 정보 → 알림 설정에서 언제든 바꿀&nbsp;수 있어요.</p>
             <div className="mt-3 space-y-3">{optional.map(consentCard)}</div>
             <p className="mt-4 text-xs leading-6 text-muted-foreground">
-              {LIVE ? <>필수 항목에 동의하지 않으면 소개 신청을 마칠 수 없어요. 동의를 거두려면 신청을 철회하거나 ‘문의·요청’에서 처리정지를 요청해 주세요. 자세한 내용은 <a href="/terms" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-primary">이용약관</a>과 <a href="/privacy" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-primary">개인정보처리방침</a>에 있어요.</> : "데모 화면이라 실제 개인정보를 받지 않고, 여기의 체크는 실제 동의로 기록하지 않아요. 선택 항목(광고성 정보 수신, 정오 상태 알림)은 체크하지 않아도 신청할 수 있어요."}
+              {LIVE ? <>필수 항목에 동의하지 않으면 소개 신청을 마칠 수 없어요. 선택 항목은 동의하지 않아도 신청할 수 있어요. 필수 동의를 거두려면 신청을 철회하거나 ‘문의·요청’에서 처리정지를 요청해 주세요. 추가 정보 동의는 ‘신청서 고치기’에서 거둘 수 있어요. 자세한 내용은 <a href="/terms" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-primary">이용약관</a>과 <a href="/privacy" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-primary">개인정보처리방침</a>에 있어요.</> : "데모 화면이라 실제 개인정보를 받지 않고, 여기의 체크는 실제 동의로 기록하지 않아요. 선택 항목(추가 정보, 광고성 정보 수신, 정오 상태 알림)은 체크하지 않아도 신청할 수 있어요."}
             </p>
           </section>
           {/* ④ 보내기: 아래 버튼으로 보낸다 */}

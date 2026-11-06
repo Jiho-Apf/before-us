@@ -13,7 +13,7 @@ import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
 import { Checkbox } from "./components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
-import { APPLICATION_FIELDS, APPLICATION_STEPS, accountAge, ageOn, answerState, clearApplication, emptyApplication, fieldError, partnerPreview, requiredProgress, saveApplication, useSavedApplication, validateApplication, type AccountFacts, type AnswerValue, type ApplicationDraft } from "./application-model";
+import { APPLICATION_FIELDS, APPLICATION_STEPS, EXTRA_PHOTO, PROTECTED_VALUE_IDS, accountAge, ageOn, answerState, clearApplication, emptyApplication, extraAnswered, extraConsented, fieldError, forServer, keepServerState, partnerPreview, protectedDifferences, requiredProgress, saveApplication, useSavedApplication, validateApplication, type AccountFacts, type AnswerValue, type ApplicationDraft } from "./application-model";
 import { BEFORE_US } from "./config";
 import { seoulDate } from "./today-state";
 import PhotoStep from "./PhotoStep";
@@ -22,10 +22,11 @@ import { admitApplication } from "./gender-balance";
 import { getConsoleData } from "./admin-console-data";
 import { IdentityPanel } from "./MemberTrust";
 import { MOCK_PHOTO_FILES, PHOTO_SLOTS, registerMockPhoto, clonePhotos, emptyPhotos, type ApplicationPhotos, type PhotoSlotId } from "./photo-model";
-import { LIVE } from "./backend/client";
+import { LIVE, TIMEOUT_ERROR, describeError, withTimeout, type Failure } from "./backend/client";
 import { clearDraft, readDraft, writeDraft } from "./backend/drafts";
 import { useAuth, useAuthReady } from "./auth-service";
-import { EDITABLE, EDIT_ALLOWED, loadMyApplication, saveMyDraft, submitMyApplication, withdrawMyApplication, type ApplicationStatus, type PhotoRow, type ReplacementRow } from "./backend/applications";
+import { EDITABLE, EDIT_ALLOWED, loadMyApplication, removePhoto, saveMyDraft, submitMyApplication, withdrawMyApplication, type ApplicationStatus, type PhotoRow, type ReplacementRow } from "./backend/applications";
+import { LoadFailure, splitRef } from "./errors";
 import LivePhotoStep from "./LivePhotoStep";
 import ApplicationComplete from "./ApplicationComplete";
 import { loadEditBlock, loadNoticeSettings, saveNoticeSettings, setNotifyChannels } from "./backend/member";
@@ -104,12 +105,12 @@ function StepDots({ step }: { step: number }) {
   return <span aria-hidden="true" className="flex items-center"><span className="size-2.5 rounded-full bg-primary" /><span className="block transition-[width] duration-500 ease-out motion-reduce:transition-none" style={{ width: gap }} /><span className="size-2.5 rounded-full bg-accent" /></span>;
 }
 
-// 한 단계 안의 묶음 머리: 다 채운 묶음은 한 줄 요약으로 접는다.
+// 한 단계 안의 묶음 머리: 다 채운 묶음은 한 줄 요약으로 접는다. 선택 묶음은 ‘몇 개 적었는지’만 보여 준다(채워야 할 일처럼 보이지 않게).
 function GroupHeader({ id, title, lead, summary, done, total, open, onToggle, required = true }: { id: string; title: string; lead: string; summary: string; done: number; total: number; open: boolean; onToggle: () => void; required?: boolean }) {
-  const complete = total > 0 && done >= total;
+  const complete = required && total > 0 && done >= total;
   return <button type="button" aria-expanded={open} aria-controls={id} onClick={onToggle} className={`flex w-full items-start justify-between gap-4 rounded-xl py-1 text-left hover:text-primary ${interaction}`}>
     <span className="min-w-0"><span className="flex items-center gap-2 text-base font-semibold">{complete && <Check size={16} className="shrink-0 text-primary" />}{title}<span className="text-xs font-normal text-muted-foreground">{required ? "필수" : "선택"}</span></span><span className="mt-2 block text-xs leading-6 text-muted-foreground">{open || !complete ? lead : summary}</span></span>
-    <span className="flex shrink-0 items-center gap-2 pt-0.5"><span className={`rounded-full px-2.5 py-1 text-[11px] leading-none tabular-nums ${complete ? "bg-primary/8 text-primary" : "bg-muted text-muted-foreground"}`}>{complete ? (open ? "완료" : "완료 · 고치기") : `${done} / ${total}`}</span><ChevronDown size={18} className={`${open ? "rotate-180" : ""} transition-transform duration-200 motion-reduce:transition-none`} /></span>
+    <span className="flex shrink-0 items-center gap-2 pt-0.5"><span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] leading-none tabular-nums ${complete ? "bg-primary/8 text-primary" : "bg-muted text-muted-foreground"}`}>{!required ? `${done}개 적음` : complete ? (open ? "완료" : "완료 · 고치기") : `${done} / ${total}`}</span><ChevronDown size={18} className={`${open ? "rotate-180" : ""} transition-transform duration-200 motion-reduce:transition-none`} /></span>
   </button>;
 }
 
@@ -155,17 +156,29 @@ function FieldInput({ field, value, onChange, error, sharing, onSharing, account
 
 // 제출 전까지 이 기기에만 두는 고친 내용(검토 중·승인·보류 상태에서 고칠 때)
 const HOLD_UNTIL_SUBMIT: ApplicationStatus[] = ["reviewing", "approved", "held"];
-type PendingEdit = { values: ApplicationDraft["values"]; sharing: ApplicationDraft["sharing"]; preferences?: ApplicationDraft["preferences"] };
+// revision: 고치기 시작할 때 본 서버 판. 다시 열 때 서버 판이 달라졌으면 동의·공개 값은 서버 것을 따른다(검수 R3-08).
+type PendingEdit = { values: ApplicationDraft["values"]; sharing: ApplicationDraft["sharing"]; preferences?: ApplicationDraft["preferences"]; revision?: number | null };
 function readPending(key: string): PendingEdit | null { if (!key) return null; try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) as PendingEdit : null; } catch { return null; } }
 // 저장에 실패하면 false(저장 공간이 막힌 기기). 그때는 ‘이 기기에 저장됨’이라고 하지 않는다(검수 C9).
-function writePending(key: string, draft: ApplicationDraft) { if (!key) return false; try { localStorage.setItem(key, JSON.stringify({ values: draft.values, sharing: draft.sharing, preferences: draft.preferences })); return true; } catch { return false; } }
+function writePending(key: string, draft: ApplicationDraft, revision: number | null = null) { if (!key) return false; try { localStorage.setItem(key, JSON.stringify({ values: draft.values, sharing: draft.sharing, preferences: draft.preferences, revision })); return true; } catch { return false; } }
+// 추가 정보 동의 전에 적은 추가 정보는 서버로 보내지 않고 이 기기에만 둔다(검수 R3-01 · 회원별 · 14일 · 로그아웃 때 지움).
+const EXTRA_STASH = "application:0:extra";
+// 서버 저장에 실패한 내용은 이 기기에 따로 둔다(검수 R3-25). 다시 열면 서버 판과 비교해 이어 보여 준다.
+const UNSAVED_STASH = "application:0:unsaved";
+type ExtraStash = { values: ApplicationDraft["values"]; sharing: ApplicationDraft["sharing"]; importance: Record<string, "preference" | "required">; confidential: Record<string, boolean> };
+const DEVICE_ONLY = "device-only";
+const readStash = <T,>(key: string): T | null => { try { const raw = readDraft(key); return raw ? JSON.parse(raw) as T : null; } catch { return null; } };
+const clockTime = (at: number) => new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "numeric", minute: "2-digit" }).format(at);
 // 저장 충돌(검수 T04): 서버 판과 내가 쓴 내용을 비교한다(단계 이동은 내용이 아니라서 뺀다). 키 순서가 달라도 같게 본다.
 const stable = (value: unknown): string => Array.isArray(value) ? `[${value.map(stable).join(",")}]` : value && typeof value === "object" ? `{${Object.keys(value as Record<string, unknown>).sort().filter(key => (value as Record<string, unknown>)[key] !== undefined).map(key => `${JSON.stringify(key)}:${stable((value as Record<string, unknown>)[key])}`).join(",")}}` : JSON.stringify(value ?? null);
 const contentKey = (draft: Pick<ApplicationDraft, "values" | "sharing" | "preferences">) => stable({ values: draft.values, sharing: draft.sharing, preferences: draft.preferences });
 const CONFLICT_STASH = "application:0:conflict";
-type Conflict = { mine: PendingEdit; theirs: ApplicationDraft | null; revision: number | null; changed: string[] };
-const changedLabels = (mine: PendingEdit, theirs: ApplicationDraft | null) => { if (!theirs) return []; const ids = new Set([...Object.keys(mine.values), ...Object.keys(theirs.values)]); return [...ids].filter(id => stable(mine.values[id]) !== stable(theirs.values[id])).map(id => APPLICATION_FIELDS.find(field => field.id === id)?.label).filter((label): label is string => !!label); };
+// kept: 서로 다른 동의·공개·보류 항목. ‘지금 쓴 내용으로 계속’을 골라도 서버의 최신 값을 그대로 둔다(검수 R3-08).
+type Conflict = { mine: PendingEdit; theirs: ApplicationDraft | null; revision: number | null; changed: string[]; kept: string[] };
+// 서로 다른 글·답 항목(동의·공개 값은 kept로 따로 보여 준다). 추가 정보 동의가 없으면 보내지 않는 값은 비교하지 않는다.
+const changedLabels = (mineRaw: PendingEdit, theirs: ApplicationDraft | null) => { if (!theirs) return []; const mine = forServer({ ...mineRaw }); const ids = new Set([...Object.keys(mine.values), ...Object.keys(theirs.values)]); return [...ids].filter(id => !PROTECTED_VALUE_IDS.includes(id) && stable(mine.values[id]) !== stable(theirs.values[id])).map(id => APPLICATION_FIELDS.find(field => field.id === id)?.label).filter((label): label is string => !!label); };
 const SAVE_TIMEOUT_MS = 20000;
+const TIMEOUT_NOTE = "timeout";
 function clearPending(key: string) { if (!key) return; try { localStorage.removeItem(key); } catch { /* 무시 */ } }
 
 export default function ApplicationForm({ account: accountProp, initialDraft }: { account?: AccountFacts; initialDraft?: ApplicationDraft }) {
@@ -174,6 +187,15 @@ export default function ApplicationForm({ account: accountProp, initialDraft }: 
   const authReady = useAuthReady();
   const [server, setServer] = useState<{ status: ApplicationStatus; decisionNote: string | null; photoRows: PhotoRow[]; replacements: ReplacementRow[] } | null>(null);
   const [loadError, setLoadError] = useState("");
+  const [loadFailure, setLoadFailure] = useState<Failure | null>(null);
+  // 마지막으로 서버에 저장된 때(검수 R3-25): 저장 실패 안내에 함께 보여 준다(모르면 보여 주지 않는다).
+  const [lastServerSave, setLastServerSave] = useState<number | null>(null);
+  // 제출 응답이 오지 않음(검수 R3-07): 서버에 닿았는지 모르는 동안에는 다시 보내지 않고 ‘제출 상태 확인’만 한다.
+  const [submitUnknown, setSubmitUnknown] = useState(false);
+  // 확인 단계에서 ‘고치기’로 왔으면, 고친 뒤 바로 확인 단계로 돌아간다(검수 R3-21).
+  const [returnTo, setReturnTo] = useState<number | null>(null);
+  // 마지막 저장 뒤 이 화면에서 바꾼 동의·공개·보류 값(검수 R3-08). 충돌 때 서버 값보다 앞서지 않는다(끄는 쪽만 남긴다).
+  const unsavedState = useRef<Set<string>>(new Set());
   // 제출한 뒤 고치기: 내 정보의 ‘고치기’(?edit=1) 또는 상태 화면의 버튼으로 연다.
   const [editRequested, setEditRequested] = useState(params.get("edit") === "1");
   const [afterEdit, setAfterEdit] = useState("");
@@ -189,7 +211,7 @@ export default function ApplicationForm({ account: accountProp, initialDraft }: 
   const [coreOpen, setCoreOpen] = useState(true);
   const [completed, setCompleted] = useState(false);
   // 저장 상태(검수 C9): 실제 결과로만 표시한다. local = 제출 전까지 이 기기에 보관(검토 중·승인·보류에서 고칠 때).
-  type SaveState = { phase: "idle" | "saving" | "saved" | "failed" | "local" | "local-failed"; at: number | null; message?: string };
+  type SaveState = { phase: "idle" | "saving" | "saved" | "failed" | "local" | "local-failed"; at: number | null; message?: string; device?: boolean };
   const [save, setSave] = useState<SaveState>({ phase: "idle", at: null });
   // 저장은 한 줄로 세워 차례대로 보내고, 더 새 저장이 줄 서 있으면 앞의 것은 건너뛴다(늦게 끝난 옛 저장이 새 답을 덮지 않게).
   const saveQueue = useRef<Promise<unknown>>(Promise.resolve());
@@ -220,34 +242,92 @@ export default function ApplicationForm({ account: accountProp, initialDraft }: 
   const holdRemote = LIVE && !!server && HOLD_UNTIL_SUBMIT.includes(server.status);
   const pendingKey = user ? `before-us:pending-edit:${user.id}` : "";
   // 실제 서버: 로그인한 회원의 신청서와 사진을 불러온다.
-  const reload = async (keepDraft = false) => { const result = await loadMyApplication(); if (result.error || !result.data) { setLoadError(result.error || "신청서를 불러오지 못했어요."); return; } const data = result.data; revision.current = data.revision; setServer({ status: data.status, decisionNote: data.decisionNote, photoRows: data.photoRows, replacements: data.replacements }); if (!keepDraft && HOLD_UNTIL_SUBMIT.includes(data.status)) void loadEditBlock().then(setEditBlock); const settings = data.submittedAt && !keepDraft ? await loadNoticeSettings() : null; const synced = settings ? { noon: settings.notice_daily_waiting, marketing: settings.marketing_opt_in, channels: [settings.notify_kakao && "카카오톡", settings.notify_sms && "문자", settings.notify_email && "메일"].filter((item): item is string => !!item) } : null; if (synced) { setProfileSettings(synced); data.draft = { ...data.draft, values: { ...data.draft.values, "consent.noon": synced.noon, "consent.marketing": synced.marketing, ...(synced.channels.length ? { "self.notifyChannels": synced.channels } : {}) } }; } const requested = params.get("step"); const step = requested !== null && /^[0-3]$/.test(requested) ? Number(requested) : null; const pending = !keepDraft && HOLD_UNTIL_SUBMIT.includes(data.status) ? readPending(pendingKey) : null; const base = pending ? { ...data.draft, values: { ...data.draft.values, ...pending.values }, sharing: { ...data.draft.sharing, ...pending.sharing }, preferences: pending.preferences ?? data.draft.preferences } : data.draft; if (pending) setNotice("제출하지 않은 고친 내용이 있어 이어서 보여 드려요. ‘수정 내용 제출’을 눌러야 운영진에게 전달돼요."); const stashed = !keepDraft ? (() => { try { const raw = readDraft(CONFLICT_STASH); return raw ? JSON.parse(raw) as PendingEdit : null; } catch { return null; } })() : null; if (stashed && contentKey({ preferences: data.draft.preferences, ...stashed }) !== contentKey(base)) { const mine = { values: stashed.values, sharing: stashed.sharing, preferences: stashed.preferences ?? base.preferences }; setConflict({ mine, theirs: base, revision: data.revision, changed: changedLabels(mine, base) }); setDraft({ ...base, values: { ...base.values, ...mine.values }, sharing: { ...base.sharing, ...mine.sharing }, preferences: mine.preferences }); return; } if (stashed) clearDraft(CONFLICT_STASH); setDraft(current => keepDraft ? { ...current, photos: data.draft.photos, review: data.draft.review } : step === null ? base : { ...base, step, visited: [...new Set([...base.visited, step])] }); };
+  const reload = async (keepDraft = false) => {
+    const result = await loadMyApplication();
+    if (result.error || !result.data) { setLoadError(result.error || "현재 내용을 불러오지 못했어요."); setLoadFailure(result.failure ?? null); return; }
+    setLoadError(""); setLoadFailure(null);
+    const data = result.data;
+    // 추가 정보 동의 전에 이 기기에만 둔 추가 정보(서버에는 없다 · 검수 R3-01). 화면이 바뀌기 전에 먼저 읽는다.
+    const extra = !keepDraft && !extraConsented(data.draft.values) ? readStash<ExtraStash>(EXTRA_STASH) : null;
+    revision.current = data.revision;
+    if (data.savedAt) setLastServerSave(Date.parse(data.savedAt));
+    setServer({ status: data.status, decisionNote: data.decisionNote, photoRows: data.photoRows, replacements: data.replacements });
+    if (!keepDraft && HOLD_UNTIL_SUBMIT.includes(data.status)) void loadEditBlock().then(setEditBlock);
+    const settings = data.submittedAt && !keepDraft ? await loadNoticeSettings() : null;
+    const synced = settings ? { noon: settings.notice_daily_waiting, marketing: settings.marketing_opt_in, channels: [settings.notify_kakao && "카카오톡", settings.notify_sms && "문자", settings.notify_email && "메일"].filter((item): item is string => !!item) } : null;
+    if (synced) { setProfileSettings(synced); data.draft = { ...data.draft, values: { ...data.draft.values, "consent.noon": synced.noon, "consent.marketing": synced.marketing, ...(synced.channels.length ? { "self.notifyChannels": synced.channels } : {}) } }; }
+    const requested = params.get("step");
+    const step = requested !== null && /^[0-3]$/.test(requested) ? Number(requested) : null;
+    // 추가 정보 동의 전에 이 기기에만 둔 추가 정보를 다시 붙인다(서버에는 없다 · 검수 R3-01).
+    const serverBase: ApplicationDraft = extra ? { ...data.draft, values: { ...extra.values, ...data.draft.values }, sharing: { ...data.draft.sharing, ...extra.sharing }, preferences: { ...data.draft.preferences, importance: { ...extra.importance, ...data.draft.preferences.importance }, confidential: { ...extra.confidential, ...data.draft.preferences.confidential } } } : data.draft;
+    const pending = !keepDraft && HOLD_UNTIL_SUBMIT.includes(data.status) ? readPending(pendingKey) : null;
+    const pendingBase = pending ? { ...serverBase, values: { ...serverBase.values, ...pending.values }, sharing: { ...serverBase.sharing, ...pending.sharing }, preferences: pending.preferences ?? serverBase.preferences } : serverBase;
+    // 고치기 시작한 뒤 서버 판이 바뀌었으면, 이 기기에 둔 동의·공개·보류 값보다 서버 값을 따른다(검수 R3-08).
+    const base = pending && typeof pending.revision === "number" && pending.revision !== data.revision ? keepServerState(pendingBase, serverBase) : pendingBase;
+    if (pending) setNotice("제출하지 않은 고친 내용이 있어 이어서 보여 드려요. ‘수정 내용 제출’을 눌러야 운영진에게 전달돼요.");
+    const asDraft = (edit: PendingEdit) => ({ values: edit.values, sharing: edit.sharing, preferences: edit.preferences ?? base.preferences });
+    const stashed = !keepDraft ? readStash<PendingEdit>(CONFLICT_STASH) : null;
+    if (stashed && contentKey(forServer(asDraft(stashed))) !== contentKey(forServer(base))) {
+      // 고르기 전에 새로 열었을 때: 쓴 글은 되살리고, 동의·공개·보류 값은 서버의 최신 값을 둔다(검수 R3-08).
+      const mine = keepServerState(asDraft(stashed), base);
+      setConflict({ mine, theirs: base, revision: data.revision, changed: changedLabels(mine, base), kept: protectedDifferences(asDraft(stashed), base) });
+      setDraft({ ...base, values: { ...base.values, ...mine.values }, sharing: { ...base.sharing, ...mine.sharing }, preferences: mine.preferences });
+      return;
+    }
+    if (stashed) clearDraft(CONFLICT_STASH);
+    // 저장하지 못하고 이 기기에 남긴 내용(검수 R3-25): 서버 판이 그대로면 이어서 보여 주고, 그 사이 다른 화면이 저장했으면 고르게 한다.
+    const unsaved = !keepDraft && !HOLD_UNTIL_SUBMIT.includes(data.status) ? readStash<PendingEdit>(UNSAVED_STASH) : null;
+    if (unsaved && contentKey(forServer(asDraft(unsaved))) !== contentKey(forServer(base))) {
+      if (typeof unsaved.revision === "number" && data.revision !== null && unsaved.revision !== data.revision) {
+        const mine = keepServerState(asDraft(unsaved), base);
+        clearDraft(UNSAVED_STASH);
+        setConflict({ mine, theirs: base, revision: data.revision, changed: changedLabels(mine, base), kept: protectedDifferences(asDraft(unsaved), base) });
+        setDraft({ ...base, values: { ...base.values, ...mine.values }, sharing: { ...base.sharing, ...mine.sharing }, preferences: mine.preferences });
+        return;
+      }
+      setDraft({ ...base, values: { ...base.values, ...unsaved.values }, sharing: { ...base.sharing, ...unsaved.sharing }, preferences: unsaved.preferences ?? base.preferences });
+      setSave({ phase: "failed", at: null, message: DEVICE_ONLY });
+      setNotice("서버에 저장하지 못한 내용이 이 기기에 남아 있어 이어서 보여 드려요. 아직 서버에는 없어요. ‘임시 저장’이나 ‘다음’을 누르면 저장돼요.");
+      return;
+    }
+    if (unsaved) clearDraft(UNSAVED_STASH);
+    setDraft(current => keepDraft ? { ...current, photos: data.draft.photos, review: data.draft.review } : step === null ? base : { ...base, step, visited: [...new Set([...base.visited, step])] });
+  };
   useEffect(() => { if (LIVE && user) void reload(); }, [user?.id]);
-  const refreshPhotos = async () => { await reload(true); setDraft(current => ({ ...current, values: { ...current.values, "consent.review": false, "consent.provision": false } })); };
+  const refreshPhotos = async () => { await reload(true); unsavedState.current.add("consent.review"); unsavedState.current.add("consent.provision"); setDraft(current => ({ ...current, values: { ...current.values, "consent.review": false, "consent.provision": false } })); };
   const CONFLICT = "다른 화면에서 먼저 저장된 내용이 있어요. 지금 이 화면에 쓴 내용은 지우지 않고 그대로 두었어요. 어느 내용으로 이어 쓸지 골라 주세요.";
   const CONFLICT_PENDING = "다른 화면에서 먼저 저장된 내용이 있어요. 위에서 어느 내용으로 이어 쓸지 먼저 골라 주세요.";
-  const SLOW = "저장이 늦어지고 있어요. 쓴 내용은 이 화면에 그대로 있어요. 연결을 확인한 뒤 ‘다시 시도’를 눌러 주세요.";
+  const SLOW = "저장 응답이 20초 넘게 오지 않아 저장됐는지 아직 몰라요. 쓴 내용은 이 화면에 그대로 있어요. 연결을 확인한 뒤 ‘다시 시도’를 눌러 주세요(같은 내용이면 한 번만 저장돼요).";
   // 저장 한 번: 판이 다르면(P0409) 서버의 지금 내용을 읽어, 같은 내용이거나 이 화면이 보냈던 내용이면 판만 맞춰 한 번 더 저장한다.
   // 정말 다른 내용이면 내가 쓴 내용을 보관하고 고르게 한다. 어떤 저장도 20초 넘게 줄을 막지 않는다.
-  const attemptSave = async (target: ApplicationDraft, retried = false): Promise<{ ok: boolean; message?: string }> => {
+  const attemptSave = async (full: ApplicationDraft, retried = false): Promise<{ ok: boolean; message?: string }> => {
+    // 추가 정보 동의가 없으면 핵심 항목·동의 칸만 보낸다(검수 R3-01). 비교도 보낸 모양으로 한다.
+    const target = forServer(full);
     const key = contentKey(target);
     sentContents.current = [...sentContents.current.filter(item => item !== key), key].slice(-6);
-    let timer = 0;
-    const timeout = new Promise<Awaited<ReturnType<typeof saveMyDraft>>>(resolve => { timer = window.setTimeout(() => resolve({ data: null, error: SLOW }), SAVE_TIMEOUT_MS); });
-    const result = await Promise.race([saveMyDraft(target, revision.current), timeout]).finally(() => window.clearTimeout(timer));
+    const result = await withTimeout(saveMyDraft(target, revision.current), SAVE_TIMEOUT_MS, () => ({ data: null, error: SLOW }));
     if (!result.error && result.data) { if (result.data.revision !== null) revision.current = result.data.revision; return { ok: true }; }
     if (!result.conflict) return { ok: false, message: result.error || "저장하지 못했어요." };
     const latest = await loadMyApplication();
     if (!latest.data) return { ok: false, message: "다른 화면에서 먼저 저장된 내용이 있는 것 같아요. 지금 쓴 내용은 이 화면에 그대로 있어요. 연결을 확인한 뒤 ‘다시 시도’를 눌러 주세요." };
     const theirs = contentKey(latest.data.draft);
-    if (!retried && (theirs === key || sentContents.current.includes(theirs))) { revision.current = latest.data.revision; return attemptSave(target, true); }
-    const current = draftRef.current ?? target;
-    const mine = { values: current.values, sharing: current.sharing, preferences: current.preferences };
-    setConflict({ mine, theirs: latest.data.draft, revision: latest.data.revision, changed: changedLabels(mine, latest.data.draft) });
+    if (!retried && (theirs === key || sentContents.current.includes(theirs))) { revision.current = latest.data.revision; return attemptSave(full, true); }
+    // 정말 다른 내용: 쓴 글은 그대로 두고, 동의·공개·보류 값은 서버의 최신 값으로 바로 맞춘다(검수 R3-08).
+    // 이 화면에서 저장 뒤 끈 것(동의 거둠·공개 끔·보류)만 남고, 켠 것은 고른 뒤 새로 체크해야 한다.
+    const current = draftRef.current ?? full;
+    const unsaved = new Set(unsavedState.current);
+    const mine = keepServerState({ values: current.values, sharing: current.sharing, preferences: current.preferences }, latest.data.draft, unsaved);
+    const kept = protectedDifferences({ values: current.values, sharing: current.sharing, preferences: current.preferences }, mine);
+    unsavedState.current = new Set();
+    setDraft(now => ({ ...now, ...keepServerState({ values: now.values, sharing: now.sharing, preferences: now.preferences }, latest.data!.draft, unsaved) }));
+    setConflict({ mine, theirs: latest.data.draft, revision: latest.data.revision, changed: changedLabels(mine, latest.data.draft), kept });
     return { ok: false, message: CONFLICT };
   };
+  // 저장 실패를 이 기기에 남긴다(검수 R3-25): 남겼으면 true. 저장 공간이 막힌 기기면 false(그때는 ‘이 화면에만 있어요’).
+  const keepOnDevice = (target: ApplicationDraft) => writeDraft(UNSAVED_STASH, JSON.stringify({ values: target.values, sharing: target.sharing, preferences: target.preferences, revision: revision.current }));
   const saveRemote = (target: ApplicationDraft, submit = false): Promise<boolean> => {
     if (!LIVE || !editable) { setSave({ phase: "saved", at: Date.now() }); return Promise.resolve(true); }
-    if (holdRemote && !submit) { const ok = writePending(pendingKey, target); setSave(ok ? { phase: "local", at: Date.now() } : { phase: "local-failed", at: null, message: "이 기기에 저장하지 못했어요. 이 화면을 닫기 전에 마지막 단계에서 ‘수정 내용 제출’을 눌러 주세요." }); return Promise.resolve(ok); }
+    if (holdRemote && !submit) { const ok = writePending(pendingKey, target, revision.current); setSave(ok ? { phase: "local", at: Date.now() } : { phase: "local-failed", at: null, message: "이 기기에 저장하지 못했어요. 이 화면을 닫기 전에 마지막 단계에서 ‘수정 내용 제출’을 눌러 주세요." }); return Promise.resolve(ok); }
     // 고르기 전에는 어느 쪽도 덮어쓰지 않는다.
     if (conflictRef.current) { setSave({ phase: "failed", at: null, message: CONFLICT_PENDING }); if (submit) setNotice(CONFLICT_PENDING); return Promise.resolve(false); }
     const mine = ++saveSequence.current;
@@ -255,12 +335,18 @@ export default function ApplicationForm({ account: accountProp, initialDraft }: 
     const task = async () => {
       if (mine !== saveSequence.current && !submit) return true;
       if (conflictRef.current) return false;
+      // 이 저장에 담긴 동의·공개 변경: 저장되면 ‘저장 뒤 바꾼 것’ 목록에서 뺀다.
+      const sentState = new Set(unsavedState.current);
       const result = await attemptSave(target);
       if (!result.ok) {
-        if (mine === saveSequence.current || conflictRef.current) setSave({ phase: "failed", at: null, message: result.message });
+        const device = conflictRef.current ? true : keepOnDevice(draftRef.current ?? target);
+        if (mine === saveSequence.current || conflictRef.current) setSave({ phase: "failed", at: null, message: result.message, device });
         if (submit || conflictRef.current) setNotice(result.message || "저장하지 못했어요. 다시 시도해 주세요.");
         return false;
       }
+      for (const id of sentState) unsavedState.current.delete(id);
+      clearDraft(UNSAVED_STASH);
+      setLastServerSave(Date.now());
       if (submit) clearPending(pendingKey);
       if (mine === saveSequence.current) setSave({ phase: "saved", at: Date.now() });
       return true;
@@ -269,25 +355,41 @@ export default function ApplicationForm({ account: accountProp, initialDraft }: 
     saveQueue.current = next.catch(() => false);
     return next;
   };
-  // 충돌 고르기: 지금 쓴 내용으로 계속(서버 판에 맞춰 내 내용을 저장) · 새로 저장된 내용 불러오기(내 내용은 지운다)
-  const keepMine = () => { const open = conflictRef.current; if (!open) return; revision.current = open.revision; setConflict(null); setNotice(""); void saveRemote(draftRef.current ?? draft).then(ok => { if (ok) setNotice(holdRemote ? "지금 이 화면에 쓴 내용으로 이어 가요. 아래 ‘수정 내용 제출’을 다시 눌러야 운영진에게 전달돼요." : "지금 이 화면에 쓴 내용으로 저장했어요."); }); };
-  const loadTheirs = () => { const open = conflictRef.current; if (!open?.theirs) return; const theirs = open.theirs; revision.current = open.revision; setConflict(null); setDraft(current => ({ ...current, values: { ...theirs.values }, sharing: { ...theirs.sharing }, preferences: clonePreferences(theirs.preferences), photos: theirs.photos, review: theirs.review })); setSave({ phase: "saved", at: Date.now() }); setNotice("다른 화면에서 저장된 내용을 불러왔어요. 이 화면에서 쓰던 내용은 지웠어요."); };
-  const retryConflictLoad = async () => { const open = conflictRef.current; if (!open) return; const latest = await loadMyApplication(); if (!latest.data) { setNotice("아직 불러오지 못했어요. 연결을 확인한 뒤 다시 눌러 주세요."); return; } setConflict({ ...open, theirs: latest.data.draft, revision: latest.data.revision, changed: changedLabels(open.mine, latest.data.draft) }); };
+  // 충돌 고르기: 지금 쓴 내용으로 계속(서버 판에 맞춰 내 글을 저장 · 동의·공개·보류 값은 이미 서버 최신 값으로 맞춰 둠) · 새로 저장된 내용 불러오기(내 내용은 지운다)
+  const keepMine = () => { const open = conflictRef.current; if (!open) return; revision.current = open.revision; setConflict(null); setNotice(""); void saveRemote(draftRef.current ?? draft).then(ok => { if (ok) setNotice(`${holdRemote ? "지금 이 화면에 쓴 내용으로 이어 가요. 아래 ‘수정 내용 제출’을 다시 눌러야 운영진에게 전달돼요." : "지금 이 화면에 쓴 내용으로 저장했어요."}${open.kept.length ? ` 동의·공개 설정(${open.kept.slice(0, 3).join(" · ")}${open.kept.length > 3 ? ` 외 ${open.kept.length - 3}개` : ""})은 다른 화면에서 저장된 최신 값 그대로예요. 바꾸려면 마지막 단계에서 다시 확인해 주세요.` : ""}`); }); };
+  const loadTheirs = () => { const open = conflictRef.current; if (!open?.theirs) return; const theirs = open.theirs; revision.current = open.revision; unsavedState.current = new Set(); setConflict(null); setDraft(current => ({ ...current, values: { ...theirs.values }, sharing: { ...theirs.sharing }, preferences: clonePreferences(theirs.preferences), photos: theirs.photos, review: theirs.review })); clearDraft(UNSAVED_STASH); setSave({ phase: "saved", at: Date.now() }); setNotice("다른 화면에서 저장된 내용을 불러왔어요. 이 화면에서 쓰던 내용은 지웠어요."); };
+  const retryConflictLoad = async () => { const open = conflictRef.current; if (!open) return; const latest = await loadMyApplication(); if (!latest.data) { setNotice("아직 불러오지 못했어요. 연결을 확인한 뒤 다시 눌러 주세요."); return; } const mine = keepServerState(open.mine, latest.data.draft); setDraft(now => ({ ...now, ...keepServerState({ values: now.values, sharing: now.sharing, preferences: now.preferences }, latest.data!.draft) })); setConflict({ ...open, mine, theirs: latest.data.draft, revision: latest.data.revision, changed: changedLabels(mine, latest.data.draft), kept: [...new Set([...open.kept, ...protectedDifferences(open.mine, mine)])] }); };
   draftRef.current = draft;
+  // 추가 정보 동의 전에 적은 추가 정보는 이 기기에만 둔다(검수 R3-01). 서버 신청서를 읽은 뒤부터만(읽기 전에 지우지 않게).
+  useEffect(() => {
+    if (!LIVE || !user || !server) return;
+    if (completed || extraConsented(draft.values)) { clearDraft(EXTRA_STASH); return; }
+    const ids = extraAnswered(draft.values);
+    const { importance, confidential } = draft.preferences;
+    if (!ids.length && !Object.keys(importance).length && !Object.keys(confidential).length) { clearDraft(EXTRA_STASH); return; }
+    const stash: ExtraStash = { values: Object.fromEntries(ids.map(id => [id, draft.values[id]])), sharing: Object.fromEntries(Object.entries(draft.sharing).filter(([id]) => ids.includes(id))), importance, confidential };
+    writeDraft(EXTRA_STASH, JSON.stringify(stash));
+  }, [draft.values, draft.sharing, draft.preferences, server, user?.id, completed]);
   const ago = (at: number | null) => at === null ? "" : Date.now() - at < 60000 ? "방금" : `${Math.floor((Date.now() - at) / 60000)}분 전`;
+  // 저장 실패 안내(검수 R3-25): 쓴 내용이 어디에 있는지(이 화면 · 이 기기) · 마지막 서버 저장 때 · 다시 시도. 응답이 없을 때는 ‘저장됐는지 아직 몰라요’.
+  const lastSaved = lastServerSave ? ` · 마지막 서버 저장 ${clockTime(lastServerSave)}` : "";
+  const failedLabel = save.message === DEVICE_ONLY ? `서버에 아직 없어요 · 이 기기에 남아 있던 내용이에요${lastSaved}`
+    : `${save.message === SLOW ? "응답이 없어 저장됐는지 아직 몰라요" : "저장하지 못했어요"} · ${save.device ? "쓴 내용은 이 화면과 이 기기에 있어요" : "쓴 내용은 이 화면에만 있어요"}${lastSaved}${save.message && splitRef(save.message).ref ? ` · 오류 번호 ${splitRef(save.message).ref}` : ""}`;
   const savedLabel = save.phase === "idle" ? null
     : save.phase === "saving" ? "저장 중…"
     : save.phase === "saved" ? `${LIVE ? "저장됨" : "이 탭에 저장됨"} · ${ago(save.at)}`
     : save.phase === "local" ? `이 기기에 저장됨 · ${ago(save.at)}`
     : save.phase === "local-failed" ? <span className="text-destructive">{save.message}</span>
     : conflict ? <span className="text-destructive">저장 보류 · 위에서 골라 주세요</span>
-    : <span className="text-destructive">{save.message === SLOW ? "저장이 늦어지고 있어요" : "저장하지 못했어요"} · <button type="button" onClick={() => void saveRemote(draft)} className="text-xs font-semibold underline underline-offset-4">다시 시도</button></span>;
+    : <span className="text-destructive">{failedLabel} · <button type="button" onClick={() => void saveRemote(draft)} className="text-xs font-semibold underline underline-offset-4">{save.message === DEVICE_ONLY ? "지금 저장" : "다시 시도"}</button></span>;
   const today = seoulDate();
   const progress = requiredProgress(draft, today, account);
-  const updateValue = (id: string, value: AnswerValue) => { setDraft(current => ({ ...current, completedDemo: false, review: changedReview(current.review, id.startsWith("desired.") ? "preference" : id.startsWith("consent.") ? "consent" : "core", id.startsWith("consent.") && REVIEW_CONSENTS.some(field => field.id === id && field.required) && value !== true), values: { ...current.values, [id]: value, ...(id.startsWith("self.") ? { "consent.review": false, "consent.provision": false } : {}) } })); setErrors(current => { const next = { ...current }; delete next[id]; return next; }); setNotice(""); };
-  const updateSharing = (id: string, value: boolean) => { setDraft(current => ({ ...current, completedDemo: false, review: changedReview(current.review, "visibility", !value), sharing: { ...current.sharing, [id]: value }, values: { ...current.values, "consent.review": false, "consent.provision": false } })); setErrors(current => { const next = { ...current }; delete next["sharing." + id]; return next; }); };
-  const updatePreferences = (values: Record<string, AnswerValue>, preferences: PreferenceSettings) => { setDraft(current => ({ ...current, review: changedReview(current.review, "preference"), values: { ...values }, preferences: clonePreferences(preferences), completedDemo: false })); setErrors(current => Object.fromEntries(Object.entries(current).filter(([id]) => !id.startsWith("desired.")))); setNotice(""); };
-  const updatePhotos = (photos: ApplicationPhotos) => { setDraft(current => ({ ...current, review: changedReview(current.review, "photo", Object.keys(photos).some(id => !!current.photos[id as PhotoSlotId].file && !photos[id as PhotoSlotId].file)), photos, completedDemo: false, values: { ...current.values, "consent.review": false, "consent.provision": false } })); setErrors(current => Object.fromEntries(Object.entries(current).filter(([id]) => !id.startsWith("photo.")))); setNotice(""); };
+  // 동의·공개·보류 값을 바꾼 것은 ‘저장 뒤 바꾼 것’으로 적어 둔다(검수 R3-08). 글을 고쳐 공개 확인이 풀리는 것도 포함한다.
+  const markState = (...ids: string[]) => { for (const id of ids) unsavedState.current.add(id); };
+  const updateValue = (id: string, value: AnswerValue) => { if (PROTECTED_VALUE_IDS.includes(id)) markState(id); if (id.startsWith("self.")) markState("consent.review", "consent.provision"); setDraft(current => ({ ...current, completedDemo: false, review: changedReview(current.review, id.startsWith("desired.") ? "preference" : id.startsWith("consent.") ? "consent" : "core", id.startsWith("consent.") && REVIEW_CONSENTS.some(field => field.id === id && field.required) && value !== true), values: { ...current.values, [id]: value, ...(id.startsWith("self.") ? { "consent.review": false, "consent.provision": false } : {}) } })); setErrors(current => { const next = { ...current }; delete next[id]; return next; }); setNotice(""); };
+  const updateSharing = (id: string, value: boolean) => { markState(`sharing.${id}`, "consent.review", "consent.provision"); setDraft(current => ({ ...current, completedDemo: false, review: changedReview(current.review, "visibility", !value), sharing: { ...current.sharing, [id]: value }, values: { ...current.values, "consent.review": false, "consent.provision": false } })); setErrors(current => { const next = { ...current }; delete next["sharing." + id]; return next; }); };
+  const updatePreferences = (values: Record<string, AnswerValue>, preferences: PreferenceSettings) => { if (preferences.request !== draft.preferences.request) markState("preferences.request"); setDraft(current => ({ ...current, review: changedReview(current.review, "preference"), values: { ...values }, preferences: clonePreferences(preferences), completedDemo: false })); setErrors(current => Object.fromEntries(Object.entries(current).filter(([id]) => !id.startsWith("desired.")))); setNotice(""); };
+  const updatePhotos = (photos: ApplicationPhotos) => { markState("consent.review", "consent.provision"); setDraft(current => ({ ...current, review: changedReview(current.review, "photo", Object.keys(photos).some(id => !!current.photos[id as PhotoSlotId].file && !photos[id as PhotoSlotId].file)), photos, completedDemo: false, values: { ...current.values, "consent.review": false, "consent.provision": false } })); setErrors(current => Object.fromEntries(Object.entries(current).filter(([id]) => !id.startsWith("photo.")))); setNotice(""); };
   const move = (step: number, preserveErrors = false) => { const next = { ...draft, step, visited: [...new Set([...draft.visited, step])] }; setDraft(next); saveApplication(next); void saveRemote(next); if (!preserveErrors) setErrors({}); setNotice(""); };
   // 보내는 중에는 다시 누르지 못하게(두 번 제출 방지).
   const [submitting, setSubmitting] = useState(false);
@@ -304,12 +406,51 @@ export default function ApplicationForm({ account: accountProp, initialDraft }: 
     if (!failed.length) setProfileSettings({ noon, marketing, channels });
     return failed;
   };
-  const submitLive = async () => { if (submittingRef.current) return; submittingRef.current = true; setSubmitting(true); try { setNotice("신청서를 보내고 있어요."); if (!(await saveRemote(draft, true))) return; const result = await submitMyApplication(); if (result.error) { setNotice(result.error); return; } setNotice(""); const unsaved = await applyChangedSettings(); const settingsNote = unsaved.length ? ` 다만 ${unsaved.join("과 ")}은 저장하지 못했어요. 내 정보에서 다시 저장해 주세요.` : ""; if (result.data?.edited) { setEditRequested(false); setAfterEdit(`고친 내용을 받았어요. 운영진이 다시 확인한 뒤 오늘 화면에서 알려 드릴게요.${settingsNote}`); await reload(); window.scrollTo(0, 0); return; } if (settingsNote) { setNotice(`신청서는 제출됐지만 ${unsaved.join("과 ")}은 저장하지 못했어요. 내 정보에서 다시 저장해 주세요.`); void reload(); return; } setCompleted(true); void reload(); } finally { submittingRef.current = false; setSubmitting(false); } };
-  const next = () => { const checked = validateApplication(draft, today, account, draft.step === 3 ? undefined : draft.step); setErrors(checked); if (Object.keys(checked).length) { if (Object.keys(checked).some(id => APPLICATION_FIELDS.some(field => field.id === id && field.group === "optional" && field.section !== "expression"))) setOptionalOpen(true); setNotice("표시된 항목을 확인해 주세요. 선택 항목은 비워 둬도 괜찮아요."); return; } if (draft.step < 3) move(draft.step + 1); else if (LIVE) void submitLive(); else { const blocked = accountProp ? null : identityGate(identity); if (blocked) { setErrors({ identity: "휴대폰 본인 인증을 먼저 마쳐 주세요. 이 단계 맨 위 ‘본인·성인 인증’에서 할 수 있어요." }); setFocusTarget("identity-panel"); document.getElementById("identity-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }); return; } const result = receiveDemoApplication(draft, today, account); setDraft(result.draft); saveApplication(result.draft); if (result.draft.review.submission === "received") setCompleted(true); const admission = result.draft.review.submission === "received" ? admitApplication(getConsoleData().admin, "current-application", { gender: result.draft.values["self.gender"], account, province: result.draft.values["self.province"] }, today) : null; setNotice(admission?.waitlist ? "신청을 받았어요. 지금은 신청이 많아 순서대로 검토하고 있어요. 신청 내용은 그대로 보관되고, 검토가 시작되면 오늘 화면에서 알려 드려요." : "가상 자료의 신청 접수 상태만 기록했어요. 사진 확인·소개 준비는 별도이며 실제 접수·수집·발송은 진행되지 않았어요."); } };
+  // 제출(검수 R3-07·R3-01): 두 번 눌러도 한 번만. 저장이 끝난 뒤에만 제출하고, 제출 응답이 20초 넘게 없으면 결과를 모르는 상태로 두고
+  // 다시 보내지 않는다(‘제출 상태 확인’으로 서버 상태를 읽는다). 추가 정보 동의 없이 내면 올려 둔 추가 사진을 먼저 지운다.
+  const submitLive = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true; setSubmitting(true);
+    try {
+      setNotice("신청서를 보내고 있어요.");
+      if (!(await saveRemote(draft, true))) return;
+      const daily = server?.photoRows.find(row => row.slot === EXTRA_PHOTO);
+      if (daily && !extraConsented(draft.values)) {
+        const removed = await removePhoto(EXTRA_PHOTO, daily.path);
+        if (removed.error) { setNotice(`추가 정보에 동의하지 않아 추가 사진을 지우려 했는데, 지우지 못해 신청을 보내지 않았어요. ${removed.error}`); return; }
+        clearDraft(EXTRA_STASH);
+      }
+      const result = await withTimeout(submitMyApplication(), SAVE_TIMEOUT_MS, () => ({ data: null, error: TIMEOUT_NOTE, failure: describeError(TIMEOUT_ERROR, { op: "write", event: "apply.submit" }) }));
+      if (result.error === TIMEOUT_NOTE) { setSubmitUnknown(true); setNotice("보낸 신청이 서버에 닿았는지 아직 확인하지 못했어요. 두 번 보내지지 않도록, 다시 보내기 전에 ‘제출 상태 확인’을 눌러 주세요. 쓴 내용은 이 화면에 그대로 있어요."); return; }
+      if (result.error) { setNotice(result.error); return; }
+      setNotice("");
+      if (!extraConsented(draft.values)) clearDraft(EXTRA_STASH);
+      const unsaved = await applyChangedSettings();
+      const settingsNote = unsaved.length ? ` 다만 ${unsaved.join("과 ")}은 저장하지 못했어요. 내 정보에서 다시 저장해 주세요.` : "";
+      if (result.data?.edited) { setEditRequested(false); setAfterEdit(`고친 내용을 받았어요. 운영진이 다시 확인한 뒤 오늘 화면에서 알려 드릴게요.${settingsNote}`); await reload(); window.scrollTo(0, 0); return; }
+      if (settingsNote) { setNotice(`신청서는 제출됐지만 ${unsaved.join("과 ")}은 저장하지 못했어요. 내 정보에서 다시 저장해 주세요.`); void reload(); return; }
+      setCompleted(true); void reload();
+    } finally { submittingRef.current = false; setSubmitting(false); }
+  };
+  // 제출 결과를 모를 때: 다시 보내지 않고 서버 상태만 읽는다. 이미 접수됐으면 완료 화면, 아니면 다시 낼 수 있게 한다.
+  const checkSubmitted = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true; setSubmitting(true);
+    try {
+      const latest = await loadMyApplication();
+      if (!latest.data) { setNotice(latest.error || "아직 확인하지 못했어요. 잠시 뒤 다시 눌러 주세요."); return; }
+      if (["submitted", "reviewing", "approved"].includes(latest.data.status) && !editingSubmitted) { setSubmitUnknown(false); setCompleted(true); void reload(); return; }
+      setSubmitUnknown(false);
+      setNotice(editingSubmitted ? "서버 상태를 확인했어요. 고친 내용이 반영됐는지는 운영진 확인 뒤 오늘 화면에서 알려 드려요. 다시 보내도 같은 내용이면 한 번만 반영돼요." : "신청이 아직 접수되지 않았어요. 아래 ‘소개 신청하기’를 다시 눌러 주세요.");
+      void reload(true);
+    } finally { submittingRef.current = false; setSubmitting(false); }
+  };
+  const next = () => { if (LIVE && draft.step === 3 && submitUnknown) { void checkSubmitted(); return; } const checked = validateApplication(draft, today, account, draft.step === 3 ? undefined : draft.step); setErrors(checked); if (Object.keys(checked).length) { if (Object.keys(checked).some(id => APPLICATION_FIELDS.some(field => field.id === id && field.group === "optional" && field.section !== "expression"))) setOptionalOpen(true); setNotice("표시된 항목을 확인해 주세요. 선택 항목은 비워 둬도 괜찮아요."); return; } if (draft.step < 3 && returnTo !== null) { const back = returnTo; setReturnTo(null); move(back); } else if (draft.step < 3) move(draft.step + 1); else if (LIVE) void submitLive(); else { const blocked = accountProp ? null : identityGate(identity); if (blocked) { setErrors({ identity: "휴대폰 본인 인증을 먼저 마쳐 주세요. 이 단계 맨 위 ‘본인·성인 인증’에서 할 수 있어요." }); setFocusTarget("identity-panel"); document.getElementById("identity-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }); return; } const result = receiveDemoApplication(draft, today, account); setDraft(result.draft); saveApplication(result.draft); if (result.draft.review.submission === "received") setCompleted(true); const admission = result.draft.review.submission === "received" ? admitApplication(getConsoleData().admin, "current-application", { gender: result.draft.values["self.gender"], account, province: result.draft.values["self.province"] }, today) : null; setNotice(admission?.waitlist ? "신청을 받았어요. 지금은 신청이 많아 순서대로 검토하고 있어요. 신청 내용은 그대로 보관되고, 검토가 시작되면 오늘 화면에서 알려 드려요." : "가상 자료의 신청 접수 상태만 기록했어요. 사진 확인·소개 준비는 별도이며 실제 접수·수집·발송은 진행되지 않았어요."); } };
   const coreFields = APPLICATION_FIELDS.filter(field => field.step === 0 && field.group === "core" && field.required);
-  const optionalFields = APPLICATION_FIELDS.filter(field => field.step === 0 && field.group === "optional" && field.section !== "expression" && field.required);
+  // 선택 묶음(검수 R3-01): 모두 선택이라 ‘적은 개수’만 센다.
+  const optionalFields = APPLICATION_FIELDS.filter(field => field.step === 0 && field.group === "optional" && field.section !== "expression");
   const doneOf = (fields: readonly Field[]) => fields.filter(field => !fieldError(field, draft.values[field.id], today, account, draft.photos)).length;
-  const coreDone = doneOf(coreFields), optionalDone = doneOf(optionalFields);
+  const coreDone = doneOf(coreFields), optionalDone = optionalFields.filter(field => answerState(draft.values[field.id]) !== "unanswered" && !fieldError(field, draft.values[field.id], today, account, draft.photos)).length;
   const valueText = (id: string) => { const value = draft.values[id]; return Array.isArray(value) ? value.join(" · ") : typeof value === "string" ? value : ""; };
   const coreSummary = [valueText("self.name"), ageOn(String(draft.values["self.birthDate"] || ""), today) !== null ? `만 ${ageOn(String(draft.values["self.birthDate"]), today)}세` : "", [valueText("self.province"), valueText("self.area")].filter(Boolean).join(" "), valueText("self.purpose")].filter(Boolean).join(" · ");
   // 저장본을 불러왔을 때 이미 다 채운 묶음은 접어 둔다(처음 한 번).
@@ -335,26 +476,30 @@ export default function ApplicationForm({ account: accountProp, initialDraft }: 
   if (completed) return <ApplicationComplete name={typeof draft.values["self.name"] === "string" ? draft.values["self.name"] : undefined} />;
   if (LIVE && (!authReady || (user && !server && !loadError))) return <section className="mx-auto w-full max-w-4xl py-24" aria-busy="true"><p role="status" className="text-sm text-muted-foreground">신청서를 불러오고 있어요.</p></section>;
   if (LIVE && !user) return <section className="mx-auto w-full max-w-4xl py-16 sm:py-20" aria-labelledby="application-title"><p className="mb-3 text-xs font-semibold tracking-[0.13em] text-accent">YOUR INTRODUCTION</p><h1 id="application-title" className="text-3xl font-semibold">나를 알고, 나답게 시작하기.</h1><p className="mt-4 text-sm leading-7 text-muted-foreground">{/[?&](code|error)=/.test(window.location.search) ? "메일 확인이 끝났어요. 가입한 기기와 다른 곳에서 링크를 열었다면, 로그인하면 이어서 작성할 수 있어요." : "소개 신청은 로그인한 뒤 작성할 수 있어요. 작성한 내용은 단계마다 저장돼 다른 기기에서도 이어 쓸 수 있어요."}</p><div className="mt-8 flex flex-wrap gap-2"><Button asChild className="h-12 rounded-xl px-5"><Link to="/signup">회원가입 <ArrowRight size={15} /></Link></Button><Button asChild variant="outline" className="h-12 rounded-xl border-border"><Link to="/login">로그인</Link></Button></div></section>;
-  if (LIVE && loadError && !server) return <section className="mx-auto w-full max-w-4xl py-16 sm:py-20"><p role="alert" className="text-sm text-destructive">{loadError}</p><Button variant="outline" className="mt-5 rounded-xl" onClick={() => { setLoadError(""); void reload(); }}>다시 불러오기</Button></section>;
+  // 불러오기 실패(검수 R3-25): 빈 신청서를 보여 주지 않고, 이유(확인한 것만)·다시 불러오기·오류 번호를 보여 준다.
+  if (LIVE && loadError && !server) return <div className="mx-auto w-full max-w-4xl py-16 sm:py-20"><p className="mb-3 text-xs font-semibold tracking-[0.13em] text-accent">YOUR INTRODUCTION</p><h1 className="mb-6 text-2xl font-semibold">신청서를 불러오지 못했어요</h1><LoadFailure error={loadError} failure={loadFailure} onRetry={() => reload()} /></div>;
   if (LIVE && server && !editable) { const status = LIVE_STATUS[server.status]; return <section className="mx-auto w-full max-w-4xl py-16 sm:py-20" aria-labelledby="application-title"><p className="mb-3 text-xs font-semibold tracking-[0.13em] text-accent">YOUR INTRODUCTION</p><h1 id="application-title" className="text-3xl font-semibold">{status?.title}</h1><p className="mt-4 max-w-xl text-sm leading-7 text-muted-foreground">{status?.body}</p>{afterEdit && <p role="status" className="mt-6 max-w-xl rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-7">{afterEdit}</p>}{server.decisionNote && <p className="mt-6 max-w-xl rounded-xl bg-muted p-4 text-sm leading-7">운영진 안내 · {server.decisionNote}</p>}{EDIT_ALLOWED.includes(server.status) && <div className="mt-8 max-w-xl rounded-2xl bg-mist p-5"><p className="text-sm font-semibold">신청서를 고치고 싶나요?</p>{editBlock ? <p role="status" className="mt-1.5 text-xs leading-6 text-muted-foreground">{editBlock}</p> : <><p className="mt-1.5 text-xs leading-6 text-muted-foreground">{server.status === "submitted" ? "운영진이 검토를 시작하기 전이라 바로 고칠 수 있어요." : "고치면 운영진이 다시 확인해요. 확인하는 동안 새 소개 준비는 잠시 멈춰요."}</p><Button variant="outline" onClick={() => { setAfterEdit(""); setEditRequested(true); }} className="mt-4 h-10 rounded-xl border-border">신청서 고치기 <ArrowRight size={14} /></Button></>}</div>}<div className="mt-8 flex flex-wrap gap-2"><Button asChild className="h-12 rounded-xl px-5"><Link to="/today">오늘로 <ArrowRight size={15} /></Link></Button><Button asChild variant="outline" className="h-12 rounded-xl border-border"><Link to="/contact">문의하기</Link></Button></div></section>; }
   return <section className={`mx-auto w-full ${draft.step === 3 || draft.step === 0 ? "max-w-[1120px]" : "max-w-4xl"} py-16 sm:py-20`} aria-labelledby="application-title">
     <div className="mb-8 flex flex-wrap items-start justify-between gap-5"><div><p className="mb-3 text-xs font-semibold tracking-[0.13em] text-accent">{LIVE ? "YOUR INTRODUCTION" : "YOUR INTRODUCTION · DEMO"}</p><h1 id="application-title" className="text-3xl font-semibold">나를 알고, 나답게 시작하기.</h1><p className="mt-4 text-sm leading-7 text-muted-foreground">네 단계로 나를 소개해 주세요. 운영진이 한 장씩 읽고 잘 맞는 한 분을 찾아요.</p></div>{!LIVE && <Button variant="outline" onClick={fillExample} className={`rounded-xl border-border hover:bg-muted hover:text-foreground ${interaction}`}>가상 예시 채우기</Button>}</div>
     {editingSubmitted && <div role="status" className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-7"><span className="font-semibold">신청서를 고치는 중이에요</span> · {holdRemote ? `고친 내용은 이 기기에 잠시 저장되고, 마지막 단계에서 ‘수정 내용 제출’을 눌러야 운영진에게 전달돼요. 제출하기 전까지는 지금처럼 소개가 이어지고, 제출하면 운영진이 다시 확인하는 동안 새 소개 준비가 잠시 멈춰요. ${server?.status === "approved" ? "사진은 바꿔도 소개가 멈추지 않아요. 새 사진은 운영진이 확인한 뒤 바뀌고, 그동안 지금 사진이 그대로 보여요." : "사진을 바꾸면 그 순간 다시 확인을 받아요."}` : "고친 내용은 단계를 넘길 때 저장되고, 마지막 단계에서 ‘수정 내용 제출’을 눌러 주세요."}</div>}
     {LIVE && server?.status === "needs_changes" && server.decisionNote && <div role="status" className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-7"><span className="font-semibold">운영진 보완 안내</span> · {server.decisionNote}</div>}
-    <div className="mb-8 flex items-start gap-3 rounded-xl border border-accent/20 bg-accent/5 p-4"><ShieldCheck size={18} className="mt-1 shrink-0 text-accent" /><p className="text-xs leading-6 text-muted-foreground">{LIVE ? <><span className="font-semibold text-foreground">준비해 주세요 · 최근 {BEFORE_US.operatingDraft.photos.recentMonths}개월 안에 찍은 내 사진 3장(얼굴 · 상반신 · 전체 스타일)과 나를 소개하는 짧은 한 줄.</span> 단계를 넘길 때마다 저장돼서 쓰다 멈춰도 이어서 쓸 수 있어요. 휴대폰 번호는 운영진만 보고, 소개 글에는 연락처·SNS·직장명을 적지 말아 주세요.</> : "가상 정보로만 시연해 주세요. 실제 민감정보·생년월일·사진·신분증을 수집하지 않아요. 임시 저장은 이 탭의 화면 메모리에만 유지되며 새로고침·탭 종료 시 사라져요."}</p></div>
-    <nav aria-label="소개 신청 단계" className="grid grid-cols-4 gap-2 border-b border-border pb-6">{APPLICATION_STEPS.map((label, index) => <Button key={label} variant="ghost" disabled={!draft.visited.includes(index)} onClick={() => move(index)} aria-current={draft.step === index ? "step" : undefined} className={`h-auto flex-col items-start gap-2 rounded-xl px-3 py-3 text-left hover:bg-muted hover:text-foreground ${draft.step === index ? "bg-primary/5 text-primary" : "text-muted-foreground"} ${interaction}`}><span className="text-[10px] tracking-[0.1em]">STEP 0{index + 1}</span><span className="text-xs whitespace-normal sm:text-sm">{label}</span></Button>)}</nav>
-    <div className="my-6 flex flex-wrap items-center justify-between gap-3 text-xs"><span className="flex items-center gap-3"><StepDots step={draft.step} /><span className="text-muted-foreground">{remaining > 0 ? <>남은 필수 질문 <strong className="font-semibold text-foreground tabular-nums">{remaining}개</strong> · 약 {Math.max(1, Math.ceil(remaining / 2))}분</> : <span className="font-semibold text-primary">필수 질문을 모두 채웠어요</span>}</span></span><span role="status" aria-live="polite" className="shrink-0 text-muted-foreground">{savedLabel}</span></div>
-    {conflict && <div role="alert" className="mb-6 rounded-xl border border-destructive/20 p-4 text-sm leading-7"><p className="font-semibold">다른 화면에서 먼저 저장된 내용이 있어요</p><p className="mt-1 text-xs leading-6 text-muted-foreground">지금 이 화면에 쓴 내용은 지우지 않고 그대로 두었어요(이 기기에도 따로 보관했어요). 어느 내용으로 이어 쓸지 골라 주세요. 고르기 전에는 어느 쪽도 저장하지 않아요.{conflict.changed.length > 0 && <> 서로 다른 항목: {conflict.changed.slice(0, 4).join(" · ")}{conflict.changed.length > 4 ? ` 외 ${conflict.changed.length - 4}개` : ""}.</>}</p><div className="mt-3 flex flex-wrap gap-2"><Button onClick={keepMine} className={`min-h-11 rounded-xl ${interaction}`}>지금 쓴 내용으로 계속</Button>{conflict.theirs ? <Button variant="outline" onClick={loadTheirs} className={`min-h-11 rounded-xl border-border hover:bg-muted hover:text-foreground ${interaction}`}>새로 저장된 내용 불러오기</Button> : <Button variant="outline" onClick={() => void retryConflictLoad()} className={`min-h-11 rounded-xl border-border hover:bg-muted hover:text-foreground ${interaction}`}>새로 저장된 내용 다시 불러오기</Button>}</div></div>}
-    <div className={draft.step === 0 ? "grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_280px]" : ""}><div className="min-w-0 border border-border bg-card"><div className="flex items-end justify-between gap-4 border-b border-border p-6 sm:px-8"><div><p className="mb-3 text-[10px] font-semibold tracking-[0.2em] text-accent">STEP 0{draft.step + 1} / 04</p><h2 className="text-2xl font-semibold sm:text-[28px]">{APPLICATION_STEPS[draft.step]}</h2></div><span aria-hidden="true" className="text-6xl font-extralight leading-none tabular-nums text-primary">0{draft.step + 1}</span></div>
+    {/* 처음 안내(준비물): 마지막 확인 단계에서는 한 줄로 접는다(검수 R3-21). */}
+    {draft.step === 3 ? <details className="group mb-6 rounded-xl border border-accent/20 bg-accent/5 px-4 py-1 text-xs"><summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-muted-foreground [&::-webkit-details-marker]:hidden"><ShieldCheck size={15} className="shrink-0 text-accent" /><span className="min-w-0 flex-1">{LIVE ? "처음 안내 · 사진 3장과 한 줄 소개 · 단계마다 저장" : "처음 안내 · 가상 정보로만 시연"}</span><ChevronDown size={14} aria-hidden="true" className="shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" /></summary><p className="pb-3 leading-6 text-muted-foreground">{LIVE ? <><span className="font-semibold text-foreground">준비해 주세요 · 최근 {BEFORE_US.operatingDraft.photos.recentMonths}개월 안에 찍은 내 사진 3장(얼굴 · 상반신 · 전체 스타일)과 나를 소개하는 짧은 한 줄.</span> 단계를 넘길 때마다 저장돼서 쓰다 멈춰도 이어서 쓸 수 있어요. 휴대폰 번호는 운영진만 보고, 소개 글에는 연락처·SNS·직장명을 적지 말아 주세요.</> : "가상 정보로만 시연해 주세요. 실제 민감정보·생년월일·사진·신분증을 수집하지 않아요. 임시 저장은 이 탭의 화면 메모리에만 유지되며 새로고침·탭 종료 시 사라져요."}</p></details>
+    : <div className="mb-8 flex items-start gap-3 rounded-xl border border-accent/20 bg-accent/5 p-4"><ShieldCheck size={18} className="mt-1 shrink-0 text-accent" /><p className="text-xs leading-6 text-muted-foreground">{LIVE ? <><span className="font-semibold text-foreground">준비해 주세요 · 최근 {BEFORE_US.operatingDraft.photos.recentMonths}개월 안에 찍은 내 사진 3장(얼굴 · 상반신 · 전체 스타일)과 나를 소개하는 짧은 한 줄.</span> 단계를 넘길 때마다 저장돼서 쓰다 멈춰도 이어서 쓸 수 있어요. 휴대폰 번호는 운영진만 보고, 소개 글에는 연락처·SNS·직장명을 적지 말아 주세요.</> : "가상 정보로만 시연해 주세요. 실제 민감정보·생년월일·사진·신분증을 수집하지 않아요. 임시 저장은 이 탭의 화면 메모리에만 유지되며 새로고침·탭 종료 시 사라져요."}</p></div>}
+    <nav aria-label="소개 신청 단계" className="grid grid-cols-4 gap-2 border-b border-border pb-6">{APPLICATION_STEPS.map((label, index) => <Button key={label} variant="ghost" disabled={!draft.visited.includes(index)} onClick={() => { setReturnTo(null); move(index); }} aria-current={draft.step === index ? "step" : undefined} className={`h-auto flex-col items-start gap-2 rounded-xl px-3 py-3 text-left hover:bg-muted hover:text-foreground ${draft.step === index ? "bg-primary/5 text-primary" : "text-muted-foreground"} ${interaction}`}><span className="text-[10px] tracking-[0.1em]">STEP 0{index + 1}</span><span className="text-xs whitespace-normal sm:text-sm">{label}</span></Button>)}</nav>
+    <div className="my-6 flex flex-wrap items-center justify-between gap-3 text-xs"><span className="flex items-center gap-3"><StepDots step={draft.step} /><span className="text-muted-foreground">{remaining > 0 ? <>남은 필수 질문 <strong className="font-semibold text-foreground tabular-nums">{remaining}개</strong></> : <span className="font-semibold text-primary">필수 질문을 모두 채웠어요</span>}</span></span><span role="status" aria-live="polite" className="shrink-0 text-muted-foreground">{savedLabel}</span></div>
+    {conflict && <div role="alert" className="mb-6 rounded-xl border border-destructive/20 p-4 text-sm leading-7"><p className="font-semibold">다른 화면에서 먼저 저장된 내용이 있어요</p><p className="mt-1 text-xs leading-6 text-muted-foreground">지금 이 화면에 쓴 내용은 지우지 않고 그대로 두었어요(이 기기에도 따로 보관했어요). 어느 내용으로 이어 쓸지 골라 주세요. 고르기 전에는 어느 쪽도 저장하지 않아요.{conflict.changed.length > 0 && <> 서로 다른 항목: {conflict.changed.slice(0, 4).join(" · ")}{conflict.changed.length > 4 ? ` 외 ${conflict.changed.length - 4}개` : ""}.</>}</p>{conflict.kept.length > 0 && <p className="mt-2 rounded-lg bg-muted/60 px-3 py-2 text-xs leading-6">동의·공개 설정은 어느 쪽을 골라도 다른 화면에서 저장된 최신 값을 그대로 둬요: {conflict.kept.slice(0, 4).join(" · ")}{conflict.kept.length > 4 ? ` 외 ${conflict.kept.length - 4}개` : ""}. 바꾸려면 고른 뒤 마지막 단계에서 다시 확인해 주세요.</p>}<div className="mt-3 flex flex-wrap gap-2"><Button onClick={keepMine} className={`min-h-11 rounded-xl ${interaction}`}>지금 쓴 내용으로 계속</Button>{conflict.theirs ? <Button variant="outline" onClick={loadTheirs} className={`min-h-11 rounded-xl border-border hover:bg-muted hover:text-foreground ${interaction}`}>새로 저장된 내용 불러오기</Button> : <Button variant="outline" onClick={() => void retryConflictLoad()} className={`min-h-11 rounded-xl border-border hover:bg-muted hover:text-foreground ${interaction}`}>새로 저장된 내용 다시 불러오기</Button>}</div></div>}
+    <div className={draft.step === 0 ? "grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_280px]" : ""}><div className="min-w-0 border border-border bg-card">{draft.step === 3 ? <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-3 sm:px-8"><h2 className="text-sm font-semibold"><span className="mr-2 text-[10px] font-semibold tracking-[0.2em] text-accent">STEP 04 / 04</span>{APPLICATION_STEPS[3]}</h2></div> : <div className="flex items-end justify-between gap-4 border-b border-border p-6 sm:px-8"><div><p className="mb-3 text-[10px] font-semibold tracking-[0.2em] text-accent">STEP 0{draft.step + 1} / 04</p><h2 className="text-2xl font-semibold sm:text-[28px]">{APPLICATION_STEPS[draft.step]}</h2></div><span aria-hidden="true" className="text-6xl font-extralight leading-none tabular-nums text-primary">0{draft.step + 1}</span></div>}
+        {returnTo !== null && draft.step !== returnTo && <div role="status" className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-primary/5 px-6 py-3 text-xs leading-6 sm:px-8"><span className="min-w-0">마지막 확인에서 고치러 왔어요. 다 고치면 바로 돌아가요.</span><Button type="button" size="sm" onClick={next} className="h-11 shrink-0 whitespace-nowrap rounded-xl px-4 text-xs">마지막 확인으로</Button></div>}
       <div className="p-6 sm:p-8">
-        {draft.step === 0 && <><div className="mb-7"><GroupHeader id="core-details" title="먼저, 꼭 필요한 이야기." lead="사실 그대로 적어 주세요. 상대에게 보일 항목은 마지막 단계에서 직접 골라요." summary={coreSummary} done={coreDone} total={coreFields.length} open={coreOpen} onToggle={() => setCoreOpen(value => !value)} /></div>{coreOpen && <div id="core-details" className="grid gap-x-7 gap-y-8 md:grid-cols-2">{APPLICATION_FIELDS.filter(field => field.step === 0 && field.group === "core").map(renderField)}</div>}<div className="mt-9 border-t border-border pt-6"><GroupHeader id="optional-details" title="조금 더 알려 주세요" lead="잘 맞는 분을 찾는 데 꼭 필요한 정보예요. 답하고 싶지 않은 항목은 ‘답하지 않음’을 골라도 돼요. 상대 공개는 기본 꺼짐이에요." summary={`${optionalDone}개 모두 답했어요 · 상대 공개는 항목마다 따로 정해요`} done={optionalDone} total={optionalFields.length} open={optionalOpen} onToggle={() => setOptionalOpen(value => !value)} />{optionalOpen && <div id="optional-details" className="mt-7 grid gap-x-7 gap-y-8 md:grid-cols-2"><p className="text-xs leading-7 text-muted-foreground md:col-span-2">운영자의 매칭 목적 참고는 마지막 단계의 별도 동의로 확인해요. 상대 공개는 각 항목에서 따로 선택해요. 직장명·학벌·소득·재산·건강·정치·상세 연애 이력은 입력하지 않아요.</p>{APPLICATION_FIELDS.filter(field => field.step === 0 && field.group === "optional" && field.section !== "expression").map(renderField)}</div>}</div></>}
+        {draft.step === 0 && <><div className="mb-7"><GroupHeader id="core-details" title="먼저, 꼭 필요한 이야기." lead="사실 그대로 적어 주세요. 상대에게 보일 항목은 마지막 단계에서 직접 골라요." summary={coreSummary} done={coreDone} total={coreFields.length} open={coreOpen} onToggle={() => setCoreOpen(value => !value)} /></div>{coreOpen && <div id="core-details" className="grid gap-x-7 gap-y-8 md:grid-cols-2">{APPLICATION_FIELDS.filter(field => field.step === 0 && field.group === "core").map(renderField)}</div>}<div className="mt-9 border-t border-border pt-6"><GroupHeader id="optional-details" title="조금 더 알려 주세요" lead={LIVE ? "모두 선택이에요. 비워 둬도 신청할 수 있고, 적지 않은 걸 다르게 판단하지 않아요. 적은 내용은 마지막 단계의 [선택] 추가 정보 동의가 있을 때만 운영진에게 보내요(그 전에는 이 기기에만 보관해요). 상대 공개는 기본 꺼짐이에요." : "모두 선택이에요. 비워 둬도 신청할 수 있어요. 마지막 단계의 [선택] 추가 정보 동의가 있을 때만 운영진이 참고해요. 상대 공개는 기본 꺼짐이에요."} summary={`${optionalDone}개 적었어요 · 상대 공개는 항목마다 따로 정해요`} done={optionalDone} total={optionalFields.length} open={optionalOpen} onToggle={() => setOptionalOpen(value => !value)} required={false} />{optionalOpen && <div id="optional-details" className="mt-7 grid gap-x-7 gap-y-8 md:grid-cols-2"><p className="text-xs leading-7 text-muted-foreground md:col-span-2">운영진이 상대를 고를 때 참고하는 것은 마지막 단계의 [선택] 추가 정보 동의가 있을 때만이에요. 상대 공개는 각 항목에서 따로 선택해요. 직장명·학벌·소득·재산·건강·정치·상세 연애 이력은 입력하지 않아요.</p>{APPLICATION_FIELDS.filter(field => field.step === 0 && field.group === "optional" && field.section !== "expression").map(renderField)}</div>}</div></>}
         {draft.step === 1 && (LIVE ? <LivePhotoStep rows={server?.photoRows ?? []} replacements={server?.replacements ?? []} approved={server?.status === "approved"} editable={editable} onChanged={refreshPhotos} errors={errors} /> : <PhotoStep photos={draft.photos} onChange={updatePhotos} errors={errors} />)}
-        {draft.step === 2 && <PreferencesStep draft={draft} onChange={updatePreferences} errors={errors} />}
-        {draft.step === 3 && <ApplicationReviewStep photoPaths={LIVE && server ? Object.fromEntries(server.photoRows.map(row => [row.slot, row.path])) : undefined} top={!accountProp && !LIVE ? <div id="identity-panel" tabIndex={-1} className="outline-none"><IdentityPanel /></div> : null} draft={draft} today={today} account={account} errors={errors} onSharing={updateSharing} onConsent={(id, value) => updateValue(id, value)} onEdit={(step, optional) => { move(step); if(step === 0) setOptionalOpen(!!optional); }} onSuspend={status => { if (LIVE && status === "withdrawn") { void withdrawMyApplication().then(result => result.error ? setNotice(result.error) : reload()); return; } const suspended = suspendDemoApplication(draft, status); setDraft(suspended); saveApplication(suspended); setErrors({}); setNotice("신청 " + (status === "held" ? "보류" : "철회") + " 의사를 데모에만 기록했어요."); }} onResume={() => { const resumed = { ...draft, completedDemo: false, review: { ...cloneReview(draft.review), submission: "draft" as const } }; setDraft(resumed); saveApplication(resumed); setErrors({}); setNotice("다시 작성할 수 있어요. 필요한 공개·동의는 직접 확인해 주세요."); }} />}
+        {draft.step === 2 && <><p className="mb-6 rounded-xl bg-muted/50 px-4 py-3 text-xs leading-6 text-muted-foreground">소개받을 상대(성별) 말고는 모두 선택이에요. 적은 조건은 상대에게 보이지 않고, 마지막 단계의 [선택] 추가 정보 동의가 있을 때만 운영진이 참고해요.</p><PreferencesStep draft={draft} onChange={updatePreferences} errors={errors} /></>}
+        {draft.step === 3 && <ApplicationReviewStep photoPaths={LIVE && server ? Object.fromEntries(server.photoRows.map(row => [row.slot, row.path])) : undefined} top={!accountProp && !LIVE ? <div id="identity-panel" tabIndex={-1} className="outline-none"><IdentityPanel /></div> : null} draft={draft} today={today} account={account} errors={errors} onSharing={updateSharing} onConsent={(id, value) => updateValue(id, value)} onEdit={(step, optional, fieldId) => { move(step); setReturnTo(3); if (step === 0) { setOptionalOpen(!!optional || optionalOpen); if (fieldId && !optional) setCoreOpen(true); if (fieldId && APPLICATION_FIELDS.find(field => field.id === fieldId)?.section === "expression") setExpressionOpen(true); } if (fieldId) setFocusTarget(applicationErrorLocation(fieldId).elementId); }} onSuspend={status => { if (LIVE && status === "withdrawn") { void withdrawMyApplication().then(result => result.error ? setNotice(result.error) : reload()); return; } const suspended = suspendDemoApplication(draft, status); setDraft(suspended); saveApplication(suspended); setErrors({}); setNotice("신청 " + (status === "held" ? "보류" : "철회") + " 의사를 데모에만 기록했어요."); }} onResume={() => { const resumed = { ...draft, completedDemo: false, review: { ...cloneReview(draft.review), submission: "draft" as const } }; setDraft(resumed); saveApplication(resumed); setErrors({}); setNotice("다시 작성할 수 있어요. 필요한 공개·동의는 직접 확인해 주세요."); }} />}
         {notice && <p role="status" className="mt-7 rounded-xl bg-muted p-4 text-xs leading-7">{notice}</p>}
         {Object.keys(errors).length > 0 && <div role="alert" className="mt-5 rounded-xl border border-destructive/20 p-4"><p className="text-xs font-semibold text-destructive">확인이 필요한 항목</p><ul className="mt-2 space-y-2">{Object.keys(errors).map(id => { if (id === "identity") return <li key={id}><Button variant="link" onClick={() => { setFocusTarget("identity-panel"); document.getElementById("identity-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className="h-auto justify-start whitespace-normal p-0 text-left text-xs text-destructive">본인·성인 인증: {errors[id]}</Button></li>; const field = APPLICATION_FIELDS.find(item => item.id === id); const location = applicationErrorLocation(id); return <li key={id}><Button variant="link" onClick={() => { move(location.step, true); setFocusTarget(location.elementId); if(field?.section === "expression") setExpressionOpen(true); else if(field?.group === "optional") setOptionalOpen(true); }} className="h-auto justify-start p-0 text-xs text-destructive">{location.label}: {errors[id]}</Button></li>; })}</ul></div>}
       </div><div className="bg-accent px-6 py-3 text-[11px] text-accent-foreground sm:px-8">내 소개와 원하는 상대 조건은 따로 적어요.</div></div>{draft.step === 0 && <LivePreview draft={draft} today={today} account={account} />}</div>
-    <div className={`sticky ${LIVE && user ? "bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:bottom-0" : "bottom-[env(safe-area-inset-bottom)]"} z-20 -mx-5 mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 px-5 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none`}><Button variant="ghost" disabled={draft.step === 0} onClick={() => move(draft.step - 1)} className={`rounded-xl hover:bg-muted hover:text-foreground ${interaction}`}><ArrowLeft size={15} />이전</Button><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => { saveApplication(draft); if (LIVE) void saveRemote(draft).then(ok => ok && setNotice(holdRemote ? "이 기기에 저장했어요. ‘수정 내용 제출’을 눌러야 운영진에게 전달돼요." : "저장했어요. 다른 기기에서도 이어 쓸 수 있어요.")); else { setSave({ phase: "saved", at: Date.now() }); setNotice("데모 임시 저장 완료. 다른 화면에서 돌아와도 이어 쓸 수 있어요. 새로고침하면 삭제돼요."); } }} className={`h-12 rounded-xl border-border hover:bg-muted hover:text-foreground ${interaction}`}><Save size={15} />임시 저장</Button><Button onClick={next} disabled={submitting} className={`h-12 rounded-xl px-5 ${interaction}`}>{submitting ? "보내는 중…" : draft.step === 3 ? LIVE ? editingSubmitted ? "수정 내용 제출" : "소개 신청하기" : "소개 신청 확인 · 데모" : "다음"}{!submitting && <ArrowRight size={15} />}</Button></div></div>
+    <div className={`sticky ${LIVE && user ? "bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:bottom-0" : "bottom-[env(safe-area-inset-bottom)]"} z-20 -mx-5 mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 px-5 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none`}><Button variant="ghost" disabled={draft.step === 0} onClick={() => move(draft.step - 1)} className={`rounded-xl hover:bg-muted hover:text-foreground ${interaction}`}><ArrowLeft size={15} />이전</Button><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => { saveApplication(draft); if (LIVE) void saveRemote(draft).then(ok => ok && setNotice(holdRemote ? "이 기기에 저장했어요. ‘수정 내용 제출’을 눌러야 운영진에게 전달돼요." : "저장했어요. 다른 기기에서도 이어 쓸 수 있어요.")); else { setSave({ phase: "saved", at: Date.now() }); setNotice("데모 임시 저장 완료. 다른 화면에서 돌아와도 이어 쓸 수 있어요. 새로고침하면 삭제돼요."); } }} className={`h-12 rounded-xl border-border hover:bg-muted hover:text-foreground ${interaction}`}><Save size={15} />임시 저장</Button><Button onClick={next} disabled={submitting} className={`h-12 rounded-xl px-5 ${interaction}`}>{submitting ? (submitUnknown ? "확인하는 중…" : "보내는 중…") : draft.step === 3 ? LIVE ? submitUnknown ? "제출 상태 확인" : editingSubmitted ? "수정 내용 제출" : "소개 신청하기" : "소개 신청 확인 · 데모" : returnTo !== null ? "마지막 확인으로" : "다음"}{!submitting && <ArrowRight size={15} />}</Button></div></div>
     <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground"><Link to="/today" onClick={() => { saveApplication(draft); void saveRemote(draft); }} className="inline-flex min-h-11 items-center rounded-sm underline underline-offset-4">{holdRemote ? "오늘로 돌아가기 · 고친 내용은 이 기기에 남겨 둘게요" : "오늘로 돌아가기 · 작성 내용 임시 저장"}</Link>{!LIVE && <Button variant="ghost" onClick={() => { clearApplication(); setDraft(emptyApplication()); setErrors({}); setOptionalOpen(false); setNotice("이 탭의 데모 작성 내용을 지웠어요."); }} className={`h-8 text-xs text-muted-foreground hover:bg-muted hover:text-foreground ${interaction}`}><X size={12} />데모 작성 지우기</Button>}</div>
   </section>;
 }

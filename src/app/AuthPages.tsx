@@ -13,6 +13,7 @@ import { Textarea } from "./components/ui/textarea"
 // 누르는 동안 돌아가는 표시(두 번 누르지 않게)
 const Busy = ({ text }: { text: string }) => <><LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />{text}</>
 import { LIVE } from "./backend/client"
+import { countDeviceDrafts } from "./backend/drafts"
 
 // 계정 화면: 로그인 · 회원가입 · 비밀번호 재설정. 계정에는 사진이나 이상형을 받지 않는다(소개 신청은 따로 4단계).
 const motion = "transition-colors duration-200 motion-reduce:transition-none"
@@ -61,7 +62,7 @@ export function LoginPage() {
   }
   const resend = async () => { const result = await resendConfirmation(email); setResent(result.error || "확인 메일을 다시 보냈어요. 이 브라우저에서 링크를 열면 바로 이어져요.") }
   return (
-    <Frame title="로그인" foot={<><p>처음이신가요? <Link to="/signup" className="text-foreground underline underline-offset-4 hover:text-primary">회원가입</Link></p><p><Link to="/reset-password" className="underline underline-offset-4 hover:text-primary">비밀번호를 잊으셨나요?</Link></p></>}>
+    <Frame title="로그인" foot={<><p>처음이신가요? <Link to="/signup" className="inline-flex min-h-11 items-center text-foreground underline underline-offset-4 hover:text-primary">회원가입</Link></p><p><Link to="/reset-password" className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-primary">비밀번호를 잊으셨나요?</Link></p></>}>
       {signedOutNotice && <p role="status" className="mb-5 rounded-xl bg-mist p-4 text-xs leading-6">{signedOutNotice}</p>}
       <form className="space-y-5" onSubmit={submit} noValidate>
         <Field id="login-email" label="이메일" type="email" autoComplete="email" value={email} onChange={(value) => { setEmail(value); setError("") }} />
@@ -101,11 +102,11 @@ export function SignupPage() {
     navigate("/apply")
   }
   const check = (id: string, checked: boolean, set: (value: boolean) => void, label: ReactNode) => (
-    <label htmlFor={id} className="flex items-start gap-3 text-sm leading-6"><Checkbox id={id} className="mt-1" checked={checked} onCheckedChange={(value) => { set(value === true); setError("") }} />{label}</label>
+    <label htmlFor={id} className="flex min-h-11 items-center gap-3 text-sm leading-6"><Checkbox id={id} className="shrink-0" checked={checked} onCheckedChange={(value) => { set(value === true); setError("") }} />{label}</label>
   )
   const resend = async () => { const result = await resendConfirmation(email); setResent(result.error || "확인 메일을 다시 보냈어요. 1~2분 안에 도착해요.") }
   if (sent) return (
-    <Frame title="메일을 확인해 주세요" foot={<p><Link to="/login" className="underline underline-offset-4 hover:text-primary">로그인으로 가기</Link></p>}>
+    <Frame title="메일을 확인해 주세요" foot={<p><Link to="/login" className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-primary">로그인으로 가기</Link></p>}>
       <div className="space-y-4 text-sm leading-7">
         <p><span className="font-semibold">{email.trim().toLowerCase()}</span>(으)로 가입 확인 메일을 보냈어요. 메일의 버튼을 누르면 가입이 끝나고 바로 소개 신청으로 이어져요. 어느 휴대폰·앱에서 열어도 괜찮아요.</p>
         <div className="rounded-xl bg-mist p-4 text-xs leading-6">
@@ -157,7 +158,7 @@ export function AuthConfirmPage() {
     void confirmEmailLink(tokenHash, type).then((result) => { if (result.error) setError(result.error); else navigate(next, { replace: true }) })
   }, [])
   return (
-    <Frame title={error ? "링크를 확인하지 못했어요" : "확인하고 있어요"} foot={<p><Link to="/login" className="underline underline-offset-4 hover:text-primary">로그인으로 가기</Link></p>}>
+    <Frame title={error ? "링크를 확인하지 못했어요" : "확인하고 있어요"} foot={<p><Link to="/login" className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-primary">로그인으로 가기</Link></p>}>
       {error ? <div className="space-y-4 text-sm leading-7"><p>{error}</p><Button asChild className={`h-12 w-full rounded-xl ${motion}`}><Link to="/login">로그인하기 <ArrowRight size={16} /></Link></Button></div>
         : <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />메일 확인이 끝나면 바로 이어져요.</p>}
     </Frame>
@@ -208,7 +209,7 @@ export function ResetPasswordPage() {
     setSent({ devLink: result.devLink })
   }
   return (
-    <Frame title="비밀번호 다시 설정하기" lead={`가입한 이메일을 적어 주시면, ${LIVE ? "1시간" : "30분"} 동안 쓸 수 있는 재설정 링크를 보내 드려요.`} foot={<p><Link to="/login" className="underline underline-offset-4 hover:text-primary">로그인으로 돌아가기</Link></p>}>
+    <Frame title="비밀번호 다시 설정하기" lead={`가입한 이메일을 적어 주시면, ${LIVE ? "1시간" : "30분"} 동안 쓸 수 있는 재설정 링크를 보내 드려요.`} foot={<p><Link to="/login" className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-primary">로그인으로 돌아가기</Link></p>}>
       {sent ? (
         <div className="space-y-4 text-sm leading-7">
           <p>입력하신 이메일이 가입되어 있다면, 재설정 링크를 보냈어요. 메일이 오지 않으면 스팸함을 확인해 주세요.</p>
@@ -251,6 +252,9 @@ export function AccountPanel() {
   const [note, setNote] = useState("")
   const reasonList = WITHDRAWAL_REASONS.filter(item => item !== "비용이 부담돼요" || !(LIVE && BEFORE_US.beta.active))
   const toggleReason = (item: string) => setReasons(current => current.includes(item) ? current.filter(value => value !== item) : [...current, item])
+  // 이 기기에만 있는 보내지 않은 글(쓰다 만 편지·제출 전 고친 신청서·동의 전 추가 정보). 로그아웃·탈퇴 때 함께 지워진다(검수 D3).
+  const deviceDrafts = user ? countDeviceDrafts(user.id) : 0
+  const draftNote = deviceDrafts > 0 ? "이 기기에만 저장된, 아직 보내지 않은 글(쓰다 만 편지나 제출 전 고친 신청서)이 있어요. 로그아웃하거나 탈퇴하면 이 기기에서 함께 지워져요." : ""
   if (result) return <section className="border-t border-border pt-6 text-sm leading-7" aria-label="계정"><p className="font-semibold">탈퇴 요청을 받았어요.</p><p className="mt-1 text-muted-foreground">상대 노출과 알림은 바로 멈췄고, 일반 자료는 {result}까지 지워요. 그 전에 마음이 바뀌면 문의하기로 남겨 주세요. 그동안 고마웠어요.</p><Button className="mt-4 h-11 rounded-full px-6" onClick={() => { signOut(); navigate("/") }}>확인했어요 · 로그아웃</Button></section>
   if (!user) return (
     <section className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6 text-sm" aria-label="계정">
@@ -277,10 +281,11 @@ export function AccountPanel() {
           <Button variant="ghost" className="rounded-xl text-muted-foreground" aria-expanded={open} onClick={() => setOpen((value) => !value)}>회원 탈퇴</Button>
         </div>
       </div>
+      {draftNote && !open && <p className="text-xs leading-6 text-muted-foreground">{draftNote}</p>}
       {logoutError && <p role="alert" className="text-xs leading-6 text-destructive">{logoutError}</p>}
       {open && (
         <form onSubmit={submit} className="space-y-4 rounded-xl border border-border p-5" noValidate>
-          <p className="leading-7">탈퇴하면 상대 노출과 알림이 바로 멈추고, 진행 중인 소개·교류는 종료돼요. 일반 자료는 {BEFORE_US.privacy.activeDeleteDays}일 안에, 백업은 최대 {BEFORE_US.privacy.backupMaxDays}일 안에 지워요.{LIVE && BEFORE_US.beta.active ? "" : " 결제 환불은 환불 기준에 따라 따로 안내해요."}</p>
+          <p className="leading-7">탈퇴하면 상대 노출과 알림이 바로 멈추고, 진행 중인 소개·교류는 종료돼요. 일반 자료는 {BEFORE_US.privacy.activeDeleteDays}일 안에, 백업은 최대 {BEFORE_US.privacy.backupMaxDays}일 안에 지워요.{LIVE && BEFORE_US.beta.active ? "" : " 결제 환불은 환불 기준에 따라 따로 안내해요."}{draftNote ? ` ${draftNote}` : ""}</p>
           <fieldset className="space-y-3">
             <legend className="text-sm font-semibold">떠나시는 이유를 알려 주세요 <span className="font-normal text-muted-foreground">(선택 · 여러 개)</span></legend>
             <p className="text-xs leading-6 text-muted-foreground">운영진만 보고, 서비스를 고치는 데에만 써요.</p>
@@ -290,7 +295,7 @@ export function AccountPanel() {
             <Textarea aria-label="하고 싶은 말" value={note} maxLength={300} onChange={(event) => setNote(event.target.value)} placeholder="더 하고 싶은 말이 있다면 적어 주세요. (선택 · 300자)" className="min-h-20 rounded-xl text-base md:text-sm" />
           </fieldset>
           <Field id="withdraw-password" label="비밀번호 다시 입력" type="password" autoComplete="current-password" value={password} onChange={(value) => { setPassword(value); setError("") }} />
-          <label htmlFor="withdraw-agree" className="flex items-start gap-3 leading-6"><Checkbox id="withdraw-agree" className="mt-1" checked={agree} onCheckedChange={(value) => { setAgree(value === true); setError("") }} />위 내용을 확인했어요.</label>
+          <label htmlFor="withdraw-agree" className="flex min-h-11 items-center gap-3 leading-6"><Checkbox id="withdraw-agree" className="shrink-0" checked={agree} onCheckedChange={(value) => { setAgree(value === true); setError("") }} />위 내용을 확인했어요.</label>
           <ErrorText text={error} />
           <Button type="submit" variant="outline" disabled={sending} className="rounded-xl border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive">{sending ? "보내는 중…" : "탈퇴 요청하기"}</Button>
         </form>

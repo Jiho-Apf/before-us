@@ -138,8 +138,8 @@ export function replaceConsoleData(next: ConsoleData) {
 }
 export function recordCandidateView(memberId: string, purpose: "신청 검토" | "양쪽 조건 비교", now = new Date()) {
   const member = snapshot.admin.members.find(item => item.id === memberId)
-  if (!member || member.draft.values["consent.collection"] !== true ||
-      member.draft.values["consent.matching"] !== true || !Number.isFinite(now.getTime())) return false
+  // ‘추가 정보’ 동의(consent.matching)는 선택이에요(3차 검수 R3-01). 필수 수집 동의만 확인해요.
+  if (!member || member.draft.values["consent.collection"] !== true || !Number.isFinite(now.getTime())) return false
   const { profileVersion, preferenceVersion } = member.draft.review
   const action = `가상 후보 원본 열람 · ${purpose} · 프로필 v${profileVersion} / 선호 v${preferenceVersion}`
   if (snapshot.audits.some(item => item.target === memberId && item.action === action)) return true

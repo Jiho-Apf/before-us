@@ -60,7 +60,7 @@ function MemberNext() {
 function PrimaryCta() {
   return <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
     <Button asChild className={`h-13 w-full rounded-full px-7 text-base sm:w-auto ${interaction}`}><Link to="/apply">{BETA ? "무료 베타 신청하기" : "소개 신청하기"} <ArrowRight size={17} /></Link></Button>
-    <Link to="/two-starts" className={`text-sm font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>진행 방식 자세히 보기</Link>
+    <Link to="/two-starts" className={`inline-flex min-h-11 items-center text-sm font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>진행 방식 자세히 보기</Link>
   </div>;
 }
 
@@ -98,12 +98,12 @@ export default function StartPage() {
       <h2 id="start-feel" className="text-ink text-xl font-semibold">사흘 동안 이런 이야기를 나눠요</h2>
       <p className="mt-2 text-[13px] text-muted-foreground">서비스 흐름을 보여 주는 가상 예시예요. 실제 회원의 글이 아니에요.</p>
       <figure className="mt-5 overflow-hidden rounded-3xl border border-lilac bg-mist p-5 sm:p-7">
-        <figcaption className="inline-flex items-center gap-2 rounded-full bg-card px-3 py-1.5 text-xs font-medium text-ink ring-1 ring-lilac"><LockOpen size={13} aria-hidden="true" className="text-primary" /><span className="font-semibold text-primary">첫째 날</span>“편안하다고 느끼는 대화는?”</figcaption>
+        <figcaption className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-card px-3 py-1.5 text-xs font-medium text-ink ring-1 ring-lilac"><LockOpen size={13} aria-hidden="true" className="shrink-0 text-primary" /><span className="shrink-0 whitespace-nowrap font-semibold text-primary">첫째 날</span>“편안하다고 느끼는 대화는?”</figcaption>
         <div className="mt-4 space-y-2.5">
-          <p className="max-w-[88%] rounded-2xl rounded-tl-md bg-card px-4 py-3 text-[15px] leading-7 shadow-[0_12px_30px_-24px_rgba(40,24,100,0.5)]">말이 끊겨도 어색하지 않은 대화요. 그런 대화는 오래 기억에 남더라고요.</p>
-          <p className="ml-auto max-w-[88%] rounded-2xl rounded-tr-md bg-primary px-4 py-3 text-[15px] leading-7 text-primary-foreground">상대가 끝까지 말하게 기다려 주는 대화요. 우리 대화는 좀 느리겠네요.</p>
+          <div className="max-w-[88%]"><p className="mb-1 text-[11px] font-semibold text-muted-foreground">상대의 편지</p><p className="rounded-2xl rounded-tl-md bg-card px-4 py-3 text-[15px] leading-7 shadow-[0_12px_30px_-24px_rgba(40,24,100,0.5)]">말이 끊겨도 어색하지 않은 대화요. 그런 대화는 오래 기억에 남더라고요.</p></div>
+          <div className="ml-auto max-w-[88%]"><p className="mb-1 text-right text-[11px] font-semibold text-muted-foreground">나의 편지</p><p className="rounded-2xl rounded-tr-md bg-primary px-4 py-3 text-[15px] leading-7 text-primary-foreground">상대가 끝까지 말하게 기다려 주는 대화요. 우리 대화는 좀 느리겠네요.</p></div>
         </div>
-        <p className="mt-4 text-[13px] leading-6 text-muted-foreground">두 분이 모두 보내야 같은 순간에 열려요.</p>
+        <p className="mt-4 text-[13px] leading-6 text-muted-foreground">하루에 한 통씩 써요. 두 분이 모두 보내야 같은 순간에 함께 열리고, 실시간으로 주고받는 대화는 아니에요.</p>
       </figure>
     </section>
 

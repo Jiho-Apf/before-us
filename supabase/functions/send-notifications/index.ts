@@ -3,6 +3,9 @@
 //  - 예약 작업만 부를 수 있다: 머리글 x-cron-token 을 서버의 열쇠(cron_token_ok)와 맞춰 보고, 다르면 401.
 //  - 보낼 메일은 claim_email_notifications 로 ‘선점’한다(잠금 건너뛰기 + 10분 기한). 두 작업이 겹쳐도 같은 메일을 두 번 잡지 않는다.
 //  - 결과는 record_email_result 로 남기고 오류를 확인한다. 보냈는데 기록하지 못하면 ‘불확실(unknown)’로 남겨 다시 보내지 않는다.
+//  - 메일 서버(또는 Resend)에 보내기 직전에 email_send_started 로 ‘보내기 시작’을 남긴다(R3-15 · 6700). 선점 기한이 지나 false면 보내지 않는다.
+//    그래서 선점만 하고 멈춘 메일(확실히 안 보냄)은 기한 뒤 다시 보내고, 보내기 시작 뒤 멈춘 메일만 ‘불확실’로 남아 운영진이 판단한다.
+//  - 차례마다 작업 기록을 한 줄 남긴다(보낼 메일이 0통이어도 · record_job_run · 6800). ‘0통으로 잘 돎’과 ‘아예 안 돎’을 구분하려고.
 // 보내는 방법(대표가 Supabase 대시보드 → Edge Functions → Secrets 에 직접 넣는다. 채팅에 붙이지 않는다):
 //   A) Resend(도메인이 있을 때 · 권장): RESEND_API_KEY, MAIL_FROM(예: 플라비 <hello@도메인>)
 //   B) 메일 계정 SMTP(도메인 없이 · 베타용): SMTP_HOST(예: smtp.gmail.com), SMTP_USER(메일 주소), SMTP_PASS(앱 비밀번호),
@@ -36,12 +39,18 @@ ${body ? `<p style="margin:0 0 24px;font-size:15px;line-height:1.85;color:#4A467
 </table></td></tr></table></body></html>`
 }
 
-// 보낸 결과를 예약 작업 기록에 남긴다(운영진 대시보드 · 실패하면 맨 위에 경고). 보낸 것도 실패도 없으면 남기지 않는다.
+// 보낸 결과를 예약 작업 기록에 남긴다(운영진 대시보드 · 실패하면 맨 위에 경고). 0통이어도 한 줄(zero)을 남긴다.
 // deno-lint-ignore no-explicit-any
-async function record(db: SupabaseClient<any, "public", any>, sent: number, failed: number, reason: string, gaveUp = 0, unknown = 0) {
-  if (!sent && !failed && !reason && !unknown) return
-  const { error } = await db.from("job_runs").insert({ job: "email", finished_at: new Date().toISOString(), ok: !failed && !reason && !unknown, detail: { sent, failed, ...(gaveUp ? { gaveUp } : {}), ...(unknown ? { unknown } : {}), ...(reason ? { reason } : {}) } })
-  if (error) console.error("job_runs 기록 실패", error.message)
+async function record(db: SupabaseClient<any, "public", any>, sent: number, failed: number, reason: string, gaveUp = 0, unknown = 0, extra: Record<string, unknown> = {}) {
+  const zero = !sent && !failed && !reason && !unknown
+  const detail = { sent, failed, ...(gaveUp ? { gaveUp } : {}), ...(unknown ? { unknown } : {}), ...(reason ? { reason } : {}), ...extra }
+  const ok = !failed && !reason && !unknown
+  const { error } = await db.rpc("record_job_run", { p_job: "email", p_ok: ok, p_detail: detail, p_zero: zero })
+  if (!error) return
+  // 6800 이전 DB(되돌린 경우): 예전처럼 표에 바로 남긴다(0통은 남기지 않음)
+  if (zero) return
+  const { error: insertError } = await db.from("job_runs").insert({ job: "email", finished_at: new Date().toISOString(), ok, detail })
+  if (insertError) console.error("job_runs 기록 실패", insertError.message)
 }
 const NOT_CONFIGURED = "메일 발송 설정(MAIL_FROM과 Resend 키 또는 SMTP)이 아직 없어 메일을 보내지 못했어요."
 
@@ -62,17 +71,21 @@ Deno.serve(async (request) => {
       const since = new Date(Date.now() - 3600000).toISOString()
       const { count } = await db.from("job_runs").select("id", { count: "exact", head: true }).eq("job", "email").eq("ok", false).gt("started_at", since)
       if (!count) await record(db, 0, 0, NOT_CONFIGURED)
-    }
+      else await record(db, 0, 0, "", 0, 0, { notConfigured: true })
+    } else await record(db, 0, 0, "", 0, 0, { notConfigured: true })
     return Response.json({ skipped: NOT_CONFIGURED })
   }
   const site = (Deno.env.get("SITE_URL") ?? "https://before-us-3jr4.vercel.app").replace(/\/$/, "")
-  const { data, error } = await db.rpc("claim_email_notifications", { p_limit: 50 })
+  // p_tracks_start: 이 함수는 보내기 직전에 ‘보내기 시작’을 따로 남긴다(6700). 6700 이전 DB에는 이 인자가 없어 예전처럼 다시 부른다.
+  let claimed = await db.rpc("claim_email_notifications", { p_limit: 50, p_tracks_start: true })
+  if (claimed.error && /claim_email_notifications/.test(claimed.error.message)) claimed = await db.rpc("claim_email_notifications", { p_limit: 50 })
+  const { data, error } = claimed
   if (error) { await record(db, 0, 0, `보낼 메일을 가져오지 못했어요: ${error.message.slice(0, 200)}`); return Response.json({ error: error.message }, { status: 500 }) }
   const mails: Mail[] = ((data ?? []) as { id: string; email: string; title: string; body: string | null; link: string | null; source: string }[]).map((item) => {
     const url = site + (item.link?.startsWith("/") ? item.link : "/today")
     return { id: item.id, source: item.source, to: item.email, subject: `[${BRAND.name}] ${item.title}`, html: html(item.title, item.body, url), text: `${item.title}\n\n${item.body ?? ""}\n\n${url}` }
   })
-  if (!mails.length) return Response.json({ sent: 0, failed: 0 })
+  if (!mails.length) { await record(db, 0, 0, ""); return Response.json({ sent: 0, failed: 0 }) }
   let sent = 0, failed = 0, gaveUp = 0, unknown = 0
   // 결과 기록은 실패하면 한 번 더 시도한다. 그래도 안 되면 false(선점 기한이 지나기 전에는 다시 잡히지 않는다).
   const mark = async (mail: Mail, status: Result, error: string | null = null) => {
@@ -82,6 +95,17 @@ Deno.serve(async (request) => {
       console.error("메일 결과 기록 실패", status, writeError.message)
     }
     return { ok: false, attempts: 0 }
+  }
+  // 보내기 직전: ‘보내기 시작’을 남긴다. 내 선점이 이미 끝났거나(false) 기록하지 못하면(오류) 보내지 않는다.
+  //  · false: 기한이 지나 다른 작업이 넘겨받을 수 있으니 손대지 않는다.  · 오류: 확실히 안 보냈으니 선점을 풀어 다음 차례에 보낸다.
+  // (6700 이전 DB로 되돌린 경우 함수가 없어 오류가 나므로, 그때는 예전처럼 그대로 보낸다.)
+  let startSupported = true
+  const begin = async (mail: Mail) => {
+    if (!startSupported) return true
+    const { data: started, error } = await db.rpc("email_send_started", { p_source: mail.source, p_id: mail.id })
+    if (error && /email_send_started/.test(error.message) && /(find|exist)/i.test(error.message)) { startSupported = false; return true }
+    if (error) { await mark(mail, "released"); return false }
+    return started === true
   }
   // 보냈다: 기록하지 못하면 ‘불확실’로 남겨 다시 보내지 않게 한다(그것도 안 되면 작업 기록에 남는다).
   const done = async (mail: Mail) => {
@@ -97,6 +121,7 @@ Deno.serve(async (request) => {
   }
   if (key) {
     for (const mail of mails) {
+      if (!(await begin(mail))) continue
       // 네트워크 오류로 답을 못 받아도 함수가 멈추지 않게 실패로 남긴다. 같은 Idempotency-Key 로 다시 보내므로 Resend가 두 번 보내지 않는다(24시간).
       let response: Response
       try {
@@ -121,6 +146,7 @@ Deno.serve(async (request) => {
         for (const mail of mails) {
           // 연결이 끊겼으면 남은 메일은 보내지 않는다(아래에서 선점을 풀어 다음 차례에 보낸다).
           if (client.broken) break
+          if (!(await begin(mail))) { handled.add(mail.id); continue }
           try { await client.send(sender, mail.to, buildMessage({ from: fromHeader, to: mail.to, subject: mail.subject, text: mail.text, html: mail.html, id: mail.id })); handled.add(mail.id); await done(mail) } catch (error) {
             const message = String((error as Error)?.message ?? error).replaceAll(mail.to, "(받는 주소)").slice(0, 300)
             reason ||= message

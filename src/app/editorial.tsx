@@ -21,8 +21,8 @@ export function TwoDots({ apart = false, faded = false }: { apart?: boolean; fad
 export function Eyebrow({ mark, label, en }: { mark?: string; label: string; en?: string }) {
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs">
-      {mark && <span className="font-semibold text-accent">{mark}</span>}
-      <span aria-hidden="true" className="h-px w-8 bg-accent/40" />
+      {mark && <span className="shrink-0 font-semibold text-accent">{mark}</span>}
+      <span aria-hidden="true" className="h-px w-8 shrink-0 bg-accent/40" />
       <span className="font-semibold">{label}</span>
       {en && <span className="tracking-[0.16em] text-muted-foreground">{en}</span>}
     </div>

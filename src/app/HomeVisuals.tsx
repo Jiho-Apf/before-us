@@ -187,7 +187,7 @@ export function Journey() {
           );
         })}
       </ol>
-      <div className="mb-4 mt-[4.5rem] flex flex-wrap items-center justify-center gap-x-6 gap-y-3"><ApplyButton /><Link to="/faq" className={`text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline ${interaction}`}>자주 묻는 질문 보기</Link></div>
+      <div className="mb-4 mt-[4.5rem] flex flex-wrap items-center justify-center gap-x-6 gap-y-3"><ApplyButton /><Link to="/faq" className={`inline-flex min-h-11 items-center text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline ${interaction}`}>자주 묻는 질문 보기</Link></div>
     </div>
   );
 }

@@ -158,11 +158,63 @@ function AdminShell({ role }: { role: Role }) {
 
 // ─────────────────────────────────────────────
 // 대시보드: 오늘 처리할 일. 역할마다 볼 수 있는 자료가 달라서, 못 불러온 칸은 빼고 나머지를 보여 준다.
-const JOB_LABEL: Record<string, string> = { noon: "정오 공개", deadlines: "응답 마감", retention: "보존 기간 정리", email: "메일 발송", reminders: "마감 전 알림", programs: "교류 진행", "program-retention": "교류 글 정리", "cohort-eve": "기수 전날 알림", "storage-cleanup": "사진 파일 정리", withdrawals: "탈퇴 계정 삭제", "job-watchdog": "예약 작업 점검" };
+const JOB_LABEL: Record<string, string> = { noon: "정오 공개", deadlines: "응답 마감", retention: "보존 기간 정리", email: "메일 발송", reminders: "마감 전 알림", programs: "교류 진행", "program-retention": "교류 글 정리", "cohort-eve": "기수 전날 알림", "storage-cleanup": "사진 파일 정리", withdrawals: "탈퇴 계정 삭제", "job-watchdog": "예약 작업 점검", "photo-check": "사진 확인", "metric-snapshot": "집계 기록", backup: "대표 PC 백업", "backup-expire": "백업 만료 정리", "backup-deletions": "삭제 이력 내보내기" };
 const JOB_KEYS: Record<string, string> = { missed: "시각을 놓침", precheck: "공개 전 점검에서 멈춤", waiting: "소개 없는 날 알림", expired: "기한 지나 마무리", started: "교류 시작", deciding: "만남 선택 열림", files: "지울 사진 파일", overdue: "기한 지남", unknown: "발송 여부 불확실", kept: "남겨 둠", problems: "확인할 것", sent: "보냄", failed: "실패", reason: "사유", closed: "마감", published: "공개", cancelled: "취소", entries: "교류 글", proposals: "약속 제안", orphanPhotos: "남은 사진", letterPhotos: "편지 사진", error: "오류", deleted: "삭제", reminded: "알림", gaveUp: "3번 실패해 멈춤", removed: "지운 파일", notified: "알림", members: "탈퇴 회원", snapshots: "프로필 사본", inquiries: "문의", audits: "감사 기록", notifications: "읽은 알림", testPayments: "테스트 결제" };
 const jobDetail = (detail: Record<string, unknown> | null) => Object.entries(detail ?? {}).map(([key, value]) => `${JOB_KEYS[key] ?? key} ${typeof value === "object" ? JSON.stringify(value) : String(value)}`.slice(0, 120)).join(" · ") || "처리할 것 없음";
 const maybe = <T,>(task: Promise<T>) => task.then(value => value, () => null);
 
+// 정오 공개 상태(3차 검수 R3-16): 실패 경고가 떠도 먼저 ‘이미 공개됐는지’를 본다. 공개되지 않았고 12:30 전일 때만 한 번 다시 실행한다.
+// 이미 공개된 소개는 다음 날로 옮기지 않고, 메일 문제는 아래 ‘메일 확인 필요’에서 따로 다룬다.
+type NoonSide = { member: Brief; openedAt: string | null; response: string | null; notification: { emailedAt: string | null; emailStatus: string | null; attempts: number | null } | null };
+type NoonIntro = { id: string; status: string; verdict: string; revealAt: string; publishedAt: string | null; a: NoonSide; b: NoonSide };
+const NOON_VERDICT: Record<string, string> = { "not-published": "아직 공개 안 됨", missed: "공개 시간을 놓쳐 취소됨", cancelled: "공개 전 취소됨", published: "공개됨", "mail-issue": "공개됨 · 메일 확인 필요", closed: "마무리됨" };
+function NoonStatusPanel() {
+  const { ask, dialog } = useConfirm();
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const { data, reload } = useLoad(() => call<{ day: string; noonRuns: { startedAt: string; ok: boolean | null }[]; introductions: NoonIntro[] }>("admin_noon_status"));
+  if (!data) return null;
+  const intros = data.introductions ?? [];
+  const last = data.noonRuns?.at(-1);
+  const pending = intros.filter(item => item.verdict === "not-published");
+  const kstMinutes = (() => { const now = new Date(Date.now() + 9 * 3600000); return now.getUTCHours() * 60 + now.getUTCMinutes(); })();
+  const canRun = pending.length > 0 && kstMinutes >= 12 * 60 && kstMinutes < 12 * 60 + 30;
+  const run = async () => {
+    const ok = await ask({ title: "정오 공개를 한 번 다시 실행할까요?", body: `아직 공개되지 않은 소개 ${pending.length}건만 공개해요. 이미 공개된 소개는 그대로예요. 12:30이 지나면 실행하지 말고 정오 공개 복구 절차를 따라 주세요.`, confirm: "한 번 실행" });
+    if (ok === null) return;
+    setBusy(true); const result = await call("admin_run_noon").then(() => null, (error: Error) => error.message); setBusy(false);
+    setMessage(result || "다시 실행했어요. 아래 상태를 확인해 주세요."); await reload();
+  };
+  return <section className={`${box} mt-6 p-5`} aria-labelledby="noon-status-title">
+    <h2 id="noon-status-title" className="text-sm font-semibold">오늘 정오 공개 · {intros.length}건</h2>
+    <p className="mt-1 text-xs text-muted-foreground">정오 작업 {last ? `${kstDateTime(last.startedAt)} · ${last.ok === false ? "실패" : "완료"}` : "아직 기록 없음"}</p>
+    {intros.length ? <ul className="mt-3 divide-y divide-border text-xs">{intros.map(item => <li key={item.id} className="flex items-start justify-between gap-3 py-2"><span className="min-w-0 flex-1">{item.a.member?.name ?? "?"} · {item.b.member?.name ?? "?"}<span className="block text-muted-foreground">메일 {[item.a, item.b].map(side => side.notification?.emailedAt ? "보냄" : side.notification?.emailStatus === "unknown" ? "불확실" : side.notification ? "대기" : "없음").join(" / ")}</span></span><span className={`shrink-0 whitespace-nowrap ${item.verdict === "published" || item.verdict === "closed" ? "text-muted-foreground" : "font-semibold text-destructive"}`}>{NOON_VERDICT[item.verdict] ?? item.verdict}</span></li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">오늘 공개할 소개가 없어요.</p>}
+    {pending.length > 0 && <div className="mt-3 flex flex-wrap items-center gap-2"><Button size="sm" variant="outline" disabled={!canRun || busy} onClick={() => void run()}>정오 공개 한 번 다시 실행</Button><span className="text-[11px] text-muted-foreground">{canRun ? "12:00~12:30에만 실행할 수 있어요." : "12:30이 지났거나 정오 전이에요. 정오 공개 복구 절차를 따라 주세요."}</span></div>}
+    <Notice text={message} />
+    {dialog}
+  </section>;
+}
+// 메일 확인 필요(3차 검수 R3-15): 보냈는지 모르는 메일(불확실)과 세 번 실패한 메일. 다시 보내면 두 통이 갈 수 있어서 이유를 남기고 고른다.
+type EmailIssue = { source: "notification" | "queue"; id: string; kind: string; title: string; member: Brief; state: "unknown" | "gave-up"; attempts: number | null; error: string | null; createdAt: string };
+function EmailIssuesPanel() {
+  const { ask, dialog } = useConfirm();
+  const [message, setMessage] = useState("");
+  const { data, reload } = useLoad(() => call<EmailIssue[]>("admin_email_issues", { p_days: 7 }));
+  if (!data || !data.length) return null;
+  const retry = async (item: EmailIssue) => {
+    const reason = await ask({ title: "이 메일을 한 번 더 보낼까요?", body: item.state === "unknown" ? "보냈는지 확실하지 않은 메일이에요. 다시 보내면 두 통을 받을 수 있어요. 회원이 받지 못했다고 확인한 경우에만 보내 주세요." : "세 번 보내지 못한 메일이에요. 원인을 확인한 뒤 다시 보내 주세요.", confirm: "한 번 더 보내기", reason: { label: "다시 보내는 이유(5자 이상, 감사 기록에 남아요)", required: true } });
+    if (reason === null) return;
+    if (reason.trim().length < 5) { setMessage("이유를 5자 이상 적어 주세요."); return; }
+    const result = await call("admin_email_retry", { p_source: item.source, p_id: item.id, p_reason: reason.trim() }).then(() => null, (error: Error) => error.message);
+    setMessage(result || "다시 보낼 차례에 넣었어요."); await reload();
+  };
+  return <section className={`${box} mt-6 p-5`} aria-labelledby="email-issues-title">
+    <h2 id="email-issues-title" className="text-sm font-semibold text-destructive">메일 확인 필요 · {data.length}건(최근 7일)</h2>
+    <ul className="mt-3 divide-y divide-border text-xs">{data.map(item => <li key={`${item.source}-${item.id}`} className="flex items-start justify-between gap-3 py-2"><span className="min-w-0 flex-1"><span className="font-semibold">{item.title}</span> · {item.member?.name ?? (item.source === "queue" ? "문의 답변" : "?")}<span className="block text-muted-foreground">{item.state === "unknown" ? "보냈는지 불확실" : `${item.attempts ?? 3}번 실패`} · {kstDateTime(item.createdAt)}{item.error ? ` · ${item.error.slice(0, 60)}` : ""}</span></span><Button size="sm" variant="outline" className="shrink-0" onClick={() => void retry(item)}>한 번 더 보내기</Button></li>)}</ul>
+    <Notice text={message} />
+    {dialog}
+  </section>;
+}
 // 처리 순서: 안전 → 회원이 기다리는 답 → 신청·사진 → 소개 준비
 const TASK_ORDER = ["처리할 신고", "답변 대기 문의", "회원 요청", "검토할 신청서", "확인할 새 사진", "오래 기다리는 회원", "정오 예약"];
 export function LiveAdminHome() {
@@ -175,7 +227,7 @@ export function LiveAdminHome() {
       maybe(call<{ status: string; urgent: boolean }[]>("admin_list_reports").then(rows => rows.filter(row => row.status !== "closed"))),
       maybe(call<{ status: string }[]>("admin_list_inquiries").then(rows => rows.filter(row => row.status !== "answered"))),
       maybe(call<{ status: string }[]>("admin_list_requests").then(rows => rows.filter(row => row.status !== "decided"))),
-      maybe(table<{ job: string; started_at: string; ok: boolean | null; detail: Record<string, unknown> | null }>("job_runs", query => query.select("job, started_at, ok, detail").order("started_at", { ascending: false }).limit(8))),
+      maybe(table<{ job: string; started_at: string; ok: boolean | null; detail: Record<string, unknown> | null }>("job_runs", query => query.select("job, started_at, ok, detail").order("started_at", { ascending: false }).limit(60)).then(rows => rows.filter(row => row.detail?.zero !== true).slice(0, 8))),
       maybe(table<{ started_at: string; ok: boolean | null; detail: { sent?: number; failed?: number; gaveUp?: number; reason?: string } | null }>("job_runs", query => query.select("started_at, ok, detail").eq("job", "email").gt("started_at", day).order("started_at", { ascending: false }).limit(1))),
       maybe(table<{ id: number; at: string; context: string | null; message: string | null; path: string | null }>("client_errors", query => query.select("id, at, context, message, path").gt("at", new Date(Date.now() - 7 * 86400000).toISOString()).order("id", { ascending: false }).limit(20))),
       // 정오 공개·응답 마감·교류·알림 작업이 실패하면 맨 위에 알린다(최근 24시간).
@@ -206,7 +258,7 @@ export function LiveAdminHome() {
   const sources = Object.entries(submitted.reduce<Record<string, number>>((all, item) => ({ ...all, [item.source || "응답 없음"]: (all[item.source || "응답 없음"] ?? 0) + 1 }), {})).sort((a, b) => b[1] - a[1]);
   return <>
     <Title lead="실제 회원 자료예요. 열람과 처리는 모두 감사 기록에 남아요.">오늘 처리할 일</Title>
-    {data.failedJobs.length > 0 && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-destructive"><span className="font-semibold">예약 작업이 실패했어요</span> · {data.failedJobs.map(job => `${JOB_LABEL[job.job] ?? job.job} ${kstDateTime(job.started_at)}`).join(" · ")}<br /><span className="text-xs">정오 공개가 실패했다면 Supabase SQL 편집기에서 <code>select public.run_noon();</code>을 한 번 실행해 주세요. {data.failedJobs[0].detail?.error ? `오류: ${String(data.failedJobs[0].detail.error).slice(0, 120)}` : ""}</span></p>}
+    {data.failedJobs.length > 0 && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-destructive"><span className="font-semibold">예약 작업이 실패했어요</span> · {data.failedJobs.map(job => `${JOB_LABEL[job.job] ?? job.job} ${kstDateTime(job.started_at)}`).join(" · ")}<br /><span className="text-xs">정오 공개가 실패했다면 먼저 소개·매칭에서 해당 소개가 이미 공개됐는지(공개 시각·두 분 응답) 확인해 주세요. 공개되지 않았고 지금이 12:30 전이면 Supabase SQL 편집기에서 <code>select public.run_noon();</code>을 한 번 실행해요. 12:30이 지나 실행하면 공개 대신 ‘준비 지연’으로 취소되니, 그때는 정오 공개 복구 절차를 따라 주세요. 이미 공개된 소개는 다음 날로 옮기지 않아요. {data.failedJobs[0].detail?.error ? `오류: ${String(data.failedJobs[0].detail.error).slice(0, 120)}` : ""}</span></p>}
     {data.mail?.ok === false && <p role="alert" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm leading-6 text-destructive"><span className="font-semibold">메일 발송이 실패하고 있어요</span> · {kstDateTime(data.mail.started_at)} · 실패 {data.mail.detail?.failed ?? 0}통{data.mail.detail?.gaveUp ? ` · 3번 실패해 더 보내지 않는 메일 ${data.mail.detail.gaveUp}통` : ""}{data.mail.detail?.reason ? ` · ${data.mail.detail.reason.slice(0, 120)}` : ""}<br /><span className="text-xs">Supabase → Edge Functions → Secrets의 MAIL_FROM·SMTP_USER(메일 주소)·SMTP_PASS(앱 비밀번호)를 확인해 주세요. 사이트 안 알림은 그대로 보여요.</span></p>}
     {urgent > 0 && <Link to="/admin/safety?tab=reports" role="alert" className="mb-5 block rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-semibold text-destructive">긴급 신고 {urgent}건 · 먼저 확인해 주세요 →</Link>}
     {/* 지금 처리할 일(GPT 최종 U11): 숫자 카드보다 실제로 손댈 일을 먼저, 처리 순서대로. 숫자 전체는 아래에 접어 둔다. */}
@@ -223,6 +275,8 @@ export function LiveAdminHome() {
     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{tiles.map(([label, count, to]) => <Link key={label} to={to} className={`${box} p-5 transition-colors hover:border-primary/40`}><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-3xl font-light tabular-nums text-primary">{count}</p></Link>)}</div>
     </details>
     <WeeklyNotes />
+    <NoonStatusPanel />
+    <EmailIssuesPanel />
     <section className={`${box} mt-6 p-5`}><h2 className="flex items-center gap-2 text-sm font-semibold"><Bell size={15} className="text-accent" />예약 작업 기록</h2>{data.jobs.length ? <ul className="mt-3 divide-y divide-border text-xs">{data.jobs.map((job, index) => <li key={index} className="flex flex-wrap justify-between gap-2 py-2"><span><span className="font-semibold">{JOB_LABEL[job.job] ?? job.job}</span> · {job.ok === false ? <span className="font-semibold text-destructive">실패</span> : "완료"} · <span className="text-muted-foreground">{jobDetail(job.detail)}</span></span><span className="text-muted-foreground">{kstDateTime(job.started_at)}</span></li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">아직 실행 기록이 없어요. 정오 작업은 매일 12:00에 돌아요.</p>}</section>
     {data.applications && <section className={`${box} mt-6 p-5`}><h2 className="text-sm font-semibold">유입 경로 · 제출한 신청서 {submitted.length}건</h2>{sources.length ? <ul className="mt-3 grid gap-2 text-xs sm:grid-cols-2">{sources.map(([label, count]) => <li key={label} className="flex items-center gap-3"><span className="w-28 shrink-0 text-muted-foreground">{label}</span><span className="h-2 rounded-full bg-primary/70" style={{ width: `${Math.max(6, Math.round(count / submitted.length * 100))}%` }} /><span className="tabular-nums">{count}</span></li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">아직 제출한 신청서가 없어요. 홍보 링크 끝에 ?from=instagram · ?from=threads 를 붙이면 경로가 자동으로 채워져요.</p>}</section>}
     <section className={`${box} mt-6 p-5`}><h2 className="flex items-center gap-2 text-sm font-semibold"><Bug size={15} className="text-accent" />화면 오류 · 최근 7일 {data.errors.length ? `${data.errors.length}건` : ""}</h2>{data.errors.length ? <ul className="mt-3 divide-y divide-border text-xs">{data.errors.map(item => <li key={item.id} className="py-2 leading-5"><span className="text-muted-foreground">{kstDateTime(item.at)} · {item.path ?? "-"} · {item.context ?? "-"}</span><br />{item.message}</li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">회원 화면에서 난 오류가 없어요. 오류가 나면 이메일·전화번호를 지운 채로 여기에 모여요.</p>}</section>
@@ -511,7 +565,7 @@ export function LiveIntroductions() {
 
 // ─────────────────────────────────────────────
 // 신고·문의: 신고(자동 감지 포함) · 고객 문의 · 회원 요청 · 첫 마디
-type Report = { id: string; source: string; type: string; description: string | null; urgent: boolean; status: string; createdAt: string; resolution: string | null; handledAt: string | null; reporter: Brief; target: Brief; introductionId: string | null; introductionStatus: string | null; introductionRevealAt: string | null; programId: string | null; programStatus: string | null };
+type Report = { supplements?: { at: string; type?: string; description?: string; urgent?: boolean }[]; id: string; source: string; type: string; description: string | null; urgent: boolean; status: string; createdAt: string; resolution: string | null; handledAt: string | null; reporter: Brief; target: Brief; introductionId: string | null; introductionStatus: string | null; introductionRevealAt: string | null; programId: string | null; programStatus: string | null };
 type InquiryRow = { id: string; userId: string | null; type: string; name: string; email: string; body: string; status: keyof typeof INQUIRY_STATUS; answerBody: string | null; answeredAt: string | null; createdAt: string; member: Brief };
 type RequestRow = { id: string; kind: keyof typeof REQUEST_LABELS; description: string | null; status: string; decision: string | null; urgent: boolean; createdAt: string; decidedAt: string | null; member: Brief };
 const REPORT_STATUS: Record<string, string> = { new: "새 신고", reviewing: "검토 중", checking: "사실 확인", action: "조치", closed: "종결" };
@@ -611,6 +665,7 @@ function ReportsPanel({ role }: { role: Role }) {
       <MemberBrief label="대상" member={report.target} />
       {(report.introductionId || report.programId) && <p className="flex flex-wrap gap-3 text-xs">{report.introductionId && <Link to={`/admin/introductions?intro=${report.introductionId}`} className="text-primary hover:underline">이어진 소개 · {INTRO_LABEL[report.introductionStatus ?? ""] ?? report.introductionStatus}{report.introductionRevealAt ? ` · ${kstDay(report.introductionRevealAt)}` : ""} →</Link>}{report.programId && <Link to={`/admin/programs?id=${report.programId}`} className="text-primary hover:underline">이어진 교류 · {PROGRAM_LABEL[report.programStatus ?? ""] ?? report.programStatus} →</Link>}</p>}
       {report.description && <p className="whitespace-pre-wrap text-xs leading-6">{report.description}</p>}
+      {Array.isArray(report.supplements) && report.supplements.length > 0 && <div className="rounded-md bg-muted/50 px-3 py-2 text-xs"><p className="font-semibold">보완 {report.supplements.length}건</p><ul className="mt-1 space-y-1">{report.supplements.map((item: { at: string; type?: string; description?: string; urgent?: boolean }, index: number) => <li key={index}>{kstDateTime(item.at)}{item.type ? ` · ${item.type}` : ""} · {item.description}</li>)}</ul></div>}
       {report.resolution && <p className="text-xs text-muted-foreground">처리 메모 · {report.resolution}</p>}
       {report.programId && !exchanges[report.id] && <Button size="sm" variant="outline" className="h-8 text-xs" disabled={!!busy} onClick={() => void openExchange(report)}>교류 내용 열람</Button>}
       {exchanges[report.id] && <ReportExchangeView data={exchanges[report.id]} onClose={() => setExchanges(current => { const next = { ...current }; delete next[report.id]; return next; })} />}

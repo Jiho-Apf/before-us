@@ -1,5 +1,22 @@
 # 프로젝트 내부 지침 — 플라비(FLAVIE, 2026-10-30 전 이름 비포어스 · BEFORE US) V6
 
+## 108 — GPT 3차 검수 대응 (2026-11-06, 되돌림 지점 `before-r111-third-review`, 마이그레이션 6500~7500)
+- 지시문: `노트시그널\FLAVIE_Claude_Third_Review_Action_Prompt_2026-11-05.md`. 재검수 묶음은 `검수 단계(GPT)\4차 대응 (2026-11-06)\`(R3 34개 표·회귀 연결표·시험 증거·전후 캡처·대표 문서·최종 판정). 날짜·가격(39,000원)·환불·이월·권리는 바꾸지 않았다.
+- 동의: `consent.matching`은 키 이름은 그대로, 뜻은 **선택 ‘추가 정보 수집·이용’**. 서버 필수는 collection·provision·review·statement·pledge. 거부하면 서버가 저장·제출 때 핵심 키만 남기고(`strip_extra_from_draft`, 보류 요청 `preferences.request·requestNote`는 남김), 화면은 추가 정보를 기기에만 14일 둔다. 철회는 `withdraw_extra_consent()`(내 정보 › 신청서 고치기 카드 아래, 진행 중 소개가 있어도 됨 · 재검토 없음).
+- 두 탭 충돌: 동의·공개·보류 값은 서버 최신 값을 따르고 ‘끄는 쪽’만 남긴다(다시 켜려면 새로 체크).
+- 백업: 평문을 디스크에 쓰지 않는다(메모리→암호화→`.enc.part`→확인→이름 바꾸기). 만료는 `backup:expire`로 따로, 삭제 이력은 `backup:deletions`, 바깥 사본 `backup:offsite`, 매달 `backup:dr-rehearsal`. 설정 `%USERPROFILE%\.flavie\backup.json`(BOM 허용). 작업 스케줄러 등록은 대표가 한다.
+- 예약 작업: 0건이어도 차례마다 한 줄(`detail.zero=true`, 2일 보관) → 대시보드 ‘예약 작업 기록’은 0건 줄을 숨긴다. 바깥 감시는 anon `public_health()`(`ok`·작업별 late·lastFailed).
+- 메일: 선점 → `email_send_started` → 결과. 시작 기록이 없으면 다시 보내고, 시작했는데 결과가 없으면 ‘불확실’(자동 재발송 없음) → 운영진 ‘메일 확인 필요’에서 이유 5자 이상 적고 한 번 더(`admin_email_retry`).
+- 정오: 운영진 ‘정오 공개 상태’(`admin_noon_status`) → 아직 공개 안 된 소개만 12:00~12:30에 `admin_run_noon` 한 번. 이미 공개한 소개는 옮기지 않는다. 12:30이 지나면 ‘준비 지연’ 취소.
+- 사진 정리: 선점 표(claim_id)가 맞을 때만 줄을 지운다(`storage_cleanup_claim/finish/unclaim`, storage-cleanup v9). 사진을 상대에게 주기 전 바이트 확인(진짜 JPG·GPS 없음, `_shared/photo-check.ts`).
+- 회고: ‘약속일 지나 마무리(completed)’와 ‘본인이 만났다고 답함(met)’을 나눈다. 약속일이 지난 교류만 먼저 ‘실제로 만났나요?’를 묻고, 못 만났으면 감상을 묻지 않고 신고 길을 안내. 자기보고는 만남 증명으로 세지 않는다.
+- 쉬는 중·교류 마무리 뒤 자동 쉬기에는 정오 시계와 ‘다음 만날 분께’를 숨기고 ‘지금은 쉬는 중’만. 다시 받기는 본인이 누를 때만.
+- 오류 안내는 상태 코드로 나눈다(503·401·403·404·오프라인·시간 초과·충돌) + 문의용 오류 번호(`LoadFailure`, `src/app/errors.tsx`).
+- 누르는 곳: 단독 링크·단추는 44px(`min-h-11`, 글 안 작은 칩은 `.hit-44` 보이지 않는 덧칸). 검사기는 `scripts/checks/`(target-size OR 조건, 200% 글자 에뮬레이션, 압축 서버 성능 7회, CLS 세션 창, real-ui 하네스, task-flows R3-27, cohort-boundaries).
+- 결제: `payments_open()`=false 동안 일반 회원은 주문을 만들 수 없다(결제 시험 계정만 `payment_testers`).
+- SNS 링크는 `config.social.verified`가 true일 때만 보인다(계정 소유 확인 전에는 숨김).
+- 배포 순서: 마이그레이션 6500~7500 → 함수 4개(storage-cleanup·send-notifications·partner-photo·letter-photo) → 화면. 새 화면은 7300(회고 met)이 꼭 있어야 한다. 6600 이전 DB에 storage-cleanup v9를 올리지 않는다.
+
 ## 107 — 줄 넘김 묶음 정리 (2026-11-05 사용자 요청, 되돌림 지점 `before-r110-wrap-groups`)
 - 사용자 기준(소개·매칭 ‘이름 · 모두 · 여성’ / ‘남성’을 보고): 단순한 글자 줄 바꿈이 아니라, 요소가 줄을 넘어갈 때 **묶음이 깨지지 않게** 시각적으로 깔끔하게. 과하지 않게.
 - 규칙 1 · 종류가 다르면 줄을 나눈다: 입력칸(이름·메모·이메일)은 휴대폰에서 한 줄 전체(`w-full sm:max-w-…`), 그 아래 고르기·단추 줄. 넓은 화면은 한 줄로 둬도 된다.

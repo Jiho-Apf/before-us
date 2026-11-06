@@ -382,6 +382,11 @@ body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-ins
   }
 }
 
+/* 누름 영역 넓히기(내부 목표 44×44): 겉모습은 그대로 두고, 보이지 않는 덧칸으로 누르는 영역만 가운데 기준 44px까지 넓힌다.
+   작은 칩·날짜 단추처럼 눈에 보이는 크기를 키우면 무거워지는 곳에만 쓴다(옆 단추와 겹치지 않게 간격이 있는 곳). */
+.hit-44 { position: relative; }
+.hit-44::after { content: ""; position: absolute; top: min(0px, calc((100% - 44px) / 2)); bottom: min(0px, calc((100% - 44px) / 2)); left: min(0px, calc((100% - 44px) / 2)); right: min(0px, calc((100% - 44px) / 2)); }
+
 /* 회원 화면 바탕: 옅은 라벤더 위로, 맨 위에만 아주 은은한 보라 기운을 둔다(흰 카드가 자연스럽게 떠 보이게). */
 .member-wash { background-image: radial-gradient(90% 360px at 60% 0%, var(--member-wash), transparent); }
 :root { --member-wash: color-mix(in oklch, var(--primary) 7%, transparent); }

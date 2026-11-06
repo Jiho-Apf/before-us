@@ -33,7 +33,7 @@ async function submitLive(input: { type: string; name: string; email: string; bo
 }
 
 const time = (at: string) => kstDateTime(at)
-const chip = "min-h-10 whitespace-nowrap rounded-full border px-3 py-2.5 text-[13px] transition-colors duration-200 motion-reduce:transition-none sm:px-4"
+const chip = "min-h-11 rounded-full border px-3 py-2.5 text-[13px] transition-colors duration-200 motion-reduce:transition-none sm:px-4"
 
 function InquiryLookup() {
   useInquiries()
@@ -138,7 +138,7 @@ export default function InquiryPage() {
             <input type="text" tabIndex={-1} autoComplete="off" aria-hidden="true" value={website} onChange={(event) => setWebsite(event.target.value)} className="hidden" name="website" />
             <div className="space-y-3 rounded-2xl bg-mist p-5 text-xs leading-6">
               <p className="text-muted-foreground"><span className="font-semibold text-foreground">개인정보 수집·이용</span> · 이메일, 부를 이름(선택), 문의 내용을 문의 확인과 답변에만 쓰고, {INQUIRY_POLICY.retention} 동안 보관한 뒤 지워요. 동의하지 않으면 문의를 남길 수 없어요.</p>
-              <Label className="flex items-start gap-3 text-xs">
+              <Label className="flex min-h-11 cursor-pointer items-center gap-3 text-xs">
                 <Checkbox checked={consent} onCheckedChange={(value) => setConsent(value === true)} />
                 위 내용을 확인했고, 문의 응대를 위한 개인정보 수집·이용에 동의해요.
               </Label>
