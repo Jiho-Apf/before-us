@@ -10,12 +10,16 @@ import { createHash, randomBytes } from "node:crypto"
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, writeSync, appendFileSync } from "node:fs"
 import net from "node:net"
 import { homedir } from "node:os"
-import { dirname, join } from "node:path"
+import { dirname, join, relative } from "node:path"
 import { fileURLToPath } from "node:url"
 import { decrypt, encrypt } from "./backup-crypto.mjs"
 
 export const code = join(dirname(fileURLToPath(import.meta.url)), "..")
-export const KEEP_DAYS = 30
+export const KEEP_DAYS = 30 // 약속한 기한: 만든 지 30일 안에 없앤다(처리방침의 ‘최대 30일’)
+export const CLEAN_AFTER_DAYS = 29 // 지우기 시작: 만든 지 29일. 만료 정리가 매일 돌면 늦어도 29일+24시간 = 30일 안에 지워진다(GPT 4차 R4-05)
+export const PART_AFTER_MS = 3600000 // 끝나지 못한 암호문 임시 파일(.part)을 지울 수 있게 되는 때: 쓴 지 1시간
+export const DELETIONS_STALE_HOURS = 26 // 삭제 이력이 이보다 오래 갱신되지 않으면 알린다(매일 내보내기 + 여유 2시간)
+const DAY = 86400000
 export const BUCKETS = ["application-photos", "letter-photos"]
 export const DELETIONS = "삭제 이력"
 export const PROJECT = "mmrqcefipllmcqztksqm"
@@ -162,15 +166,36 @@ export function warn(cfg, title, lines) {
   return file
 }
 
-// 만료 처리(백업 실행과 독립 · 같은 규칙을 로컬·삭제 이력·바깥 사본에 똑같이):
-//  · 백업 폴더: manifest 의 expiresAt(없으면 폴더 이름 시각 + 30일)이 지나면 폴더째 삭제
-//  · 삭제 이력 파일: 파일 이름 시각 + 30일
-//  · 끝나지 못한 암호문 임시 파일(.part): 1시간 지나면 삭제(암호문이지만 쓸모가 없어서)
+// 만료 처리(백업 실행과 독립 · 같은 규칙을 로컬·삭제 이력·바깥 사본에 똑같이 · GPT 3차 R3-03 · 4차 R4-05):
+//  · 백업 폴더·삭제 이력 파일: 만든 때(이름의 시각) + 29일이 지나면 지운다. 약속한 기한은 + 30일이다.
+//    매일 한 번 돌면 기한 안에 지워진다. 컴퓨터가 꺼져 있어 기한을 넘겨 지웠으면 late 에 남긴다(숨기지 않는다).
+//  · 끝나지 못한 암호문 임시 파일(.part): 쓴 지 1시간이 지나면 ‘지울 수 있음’. 실제로 지우는 때는 그다음 실행이다 → 두 시각을 따로 남긴다.
 //  · 예전 버전이 남긴 평문(.enc·manifest·기록이 아닌 파일): 바로 암호화(키가 있을 때)
 export function expireRoot(dir, { now, key = null, keyId = null, label, mustExist = true }) {
-  const result = { label, dir, removed: [], kept: 0, parts: 0, sealed: 0, errors: [] }
+  const result = { label, dir, removed: [], kept: 0, parts: 0, sealed: 0, errors: [], late: [], partFiles: [] }
   if (!existsSync(dir)) { if (mustExist) result.errors.push(`폴더를 찾을 수 없어요: ${dir}`); return result }
   const nowMs = now().getTime()
+  const iso = (ms) => new Date(ms).toISOString()
+  const dropPart = (file) => {
+    const eligible = statSync(file).mtimeMs + PART_AFTER_MS
+    if (nowMs < eligible) return
+    rmSync(file, { force: true })
+    if (existsSync(file)) throw new Error(`지워지지 않았어요: ${file}`)
+    result.parts++
+    result.partFiles.push({ file: relative(dir, file).replace(/\\/g, "/"), eligibleAt: iso(eligible), removedAt: iso(nowMs) })
+  }
+  // 만든 때 born 기준으로 지울 때가 됐으면 지우고 true. 기한(30일)을 넘겨 지웠거나 지우지 못했으면 그 사실을 남긴다.
+  const dropExpired = (path, name, born, hint = Infinity) => {
+    const eligible = Math.min(born + CLEAN_AFTER_DAYS * DAY, Number.isFinite(hint) ? hint : Infinity)
+    if (nowMs < eligible) return false
+    const deadline = born + KEEP_DAYS * DAY
+    const lateHours = nowMs > deadline ? Math.round(((nowMs - deadline) / 3600000) * 10) / 10 : 0
+    rmSync(path, { recursive: true, force: true })
+    if (existsSync(path)) throw new Error(`지워지지 않았어요${lateHours ? `(약속한 30일을 ${lateHours}시간 넘김)` : ""}: ${path}`)
+    result.removed.push(name)
+    if (lateHours) result.late.push({ name, lateHours })
+    return true
+  }
   for (const name of readdirSync(dir)) {
     const path = join(dir, name)
     try {
@@ -179,9 +204,11 @@ export function expireRoot(dir, { now, key = null, keyId = null, label, mustExis
       if (st.isDirectory() && name === DELETIONS) {
         for (const file of readdirSync(path)) {
           const fp = join(path, file)
-          const t = timeOfName(file)
-          if (file.endsWith(".part") && nowMs - statSync(fp).mtimeMs > 3600000) { rmSync(fp, { force: true }); result.parts++; continue }
-          if (Number.isFinite(t) && nowMs >= t + KEEP_DAYS * 86400000) { rmSync(fp, { force: true }); if (existsSync(fp)) throw new Error(`지워지지 않았어요: ${fp}`); result.removed.push(`${DELETIONS}/${file}`) } else result.kept++
+          try {
+            if (file.endsWith(".part")) { dropPart(fp); continue }
+            const t = timeOfName(file)
+            if (!Number.isFinite(t) || !dropExpired(fp, `${DELETIONS}/${file}`, t)) result.kept++
+          } catch (error) { result.errors.push(`${DELETIONS}/${file}: ${String(error?.message ?? error).split(/\r?\n/)[0].slice(0, 200)}`) }
         }
         continue
       }
@@ -189,24 +216,107 @@ export function expireRoot(dir, { now, key = null, keyId = null, label, mustExis
       let manifest = null
       try { manifest = JSON.parse(readFileSync(join(path, "manifest.json"), "utf8")) } catch { /* 끝나지 않은 백업 · 예전 백업 */ }
       const born = Number.isFinite(timeOfName(name)) ? timeOfName(name) : st.mtimeMs
-      const expires = manifest?.expiresAt ? Date.parse(manifest.expiresAt) : born + KEEP_DAYS * 86400000
-      if (nowMs >= expires) {
-        rmSync(path, { recursive: true, force: true })
-        if (existsSync(path)) throw new Error(`지워지지 않았어요: ${path}`)
-        result.removed.push(name)
-        continue
-      }
+      if (dropExpired(path, name, born, manifest?.expiresAt ? Date.parse(manifest.expiresAt) : Infinity)) continue
       result.kept++
       for (const file of walk(path)) {
-        if (file.endsWith(".part")) { if (nowMs - statSync(file).mtimeMs > 3600000) { rmSync(file, { force: true }); result.parts++ } continue }
+        if (file.endsWith(".part")) { dropPart(file); continue }
         if (file.endsWith(".enc") || file.endsWith("manifest.json") || file.endsWith(".log")) continue
         if (!key) { result.errors.push(`평문 파일이 남아 있어요(키가 없어 암호화하지 못함): ${file}`); continue }
         writeFileSync(`${file}.enc`, encrypt(key, readFileSync(file))); rmSync(file, { force: true }); result.sealed++
       }
-      if (result.sealed && !manifest?.encryption && key) writeAtomic(join(path, "manifest.json"), JSON.stringify({ ...(manifest ?? {}), expiresAt: new Date(expires).toISOString(), encryption: { alg: "aes-256-gcm", keyId, sealedLater: true } }, null, 2))
+      if (result.sealed && !manifest?.encryption && key) writeAtomic(join(path, "manifest.json"), JSON.stringify({ ...(manifest ?? {}), expiresAt: new Date(born + CLEAN_AFTER_DAYS * DAY).toISOString(), mustBeGoneBy: new Date(born + KEEP_DAYS * DAY).toISOString(), encryption: { alg: "aes-256-gcm", keyId, sealedLater: true } }, null, 2))
     } catch (error) {
       result.errors.push(`${name}: ${String(error?.message ?? error).split(/\r?\n/)[0].slice(0, 200)}`)
     }
   }
   return result
+}
+
+// ── 백업의 상태(GPT 4차 R4-03·R4-04)
+//  complete  : 자료·스키마·목록이 있고, 목록에 오른 사진을 모두 받았고, 지문이 맞는다 → ‘정상 복구 지점’
+//  partial   : 자료·스키마는 있지만 사진을 일부(또는 전부) 받지 못했거나 지문이 달랐다 → 지우지는 않지만 복구 지점으로 쓰지 않는다
+//  unfinished: manifest 가 없다(도중에 멈춘 백업)
+//  invalid   : manifest 는 있는데 필수 파일이 없거나 개수가 맞지 않는다(손상)
+//  legacy    : 2026-11-05 이전 형식(형식 값 없음 · 경로 그대로의 .enc)
+const REQUIRED = ["data.json.enc", "schema.json.enc", "index.json.enc"]
+const photosFailed = (photos) => Object.values(photos ?? {}).some((r) => (r?.failed ?? 0) > 0 || (r?.mismatched ?? 0) > 0 || !!r?.error)
+const statusOf = (manifest) => (manifest.status === "partial" || manifest.status === "failed" || photosFailed(manifest.photos) ? "partial" : manifest.status === "complete" || manifest.format === 2 ? "complete" : "partial")
+// 키 없이 빠르게 보는 판정(바깥 사본·만료 안내용). 실제로 풀리는지는 verifyBackup 이 확인한다.
+export function backupState(folder) {
+  if (!existsSync(join(folder, "manifest.json"))) return { state: "unfinished", manifest: null, problems: [] }
+  let manifest
+  try { manifest = JSON.parse(readFileSync(join(folder, "manifest.json"), "utf8")) } catch { return { state: "invalid", manifest: null, problems: ["manifest.json을 읽을 수 없어요"] } }
+  const hasIndex = existsSync(join(folder, "index.json.enc")), hasFiles = existsSync(join(folder, "files"))
+  if (manifest.format === undefined) return hasIndex || hasFiles ? { state: "invalid", manifest, problems: ["형식 값이 없는데 새 형식의 파일이 있어요"] } : { state: "legacy", manifest, problems: [] }
+  if (!(manifest.format >= 2)) return { state: "invalid", manifest, problems: [`모르는 형식이에요: ${manifest.format}`] }
+  const problems = REQUIRED.filter((name) => !existsSync(join(folder, name))).map((name) => `필수 파일이 없어요: ${name}`)
+  const count = hasFiles ? readdirSync(join(folder, "files")).filter((f) => f.endsWith(".enc")).length : 0
+  if (count !== manifest.files) problems.push(`사진 파일 수가 달라요(manifest ${manifest.files} · 폴더 ${count})`)
+  if (problems.length) return { state: "invalid", manifest, problems }
+  return { state: statusOf(manifest), manifest, problems: [] }
+}
+// 풀기·복구 전에 하는 완전한 확인: 평문을 디스크에 쓰기 전에, 메모리에서만 한다. 어긋나면 한국어 이유로 던진다.
+//  · 형식 2·3: 자료·스키마·목록 필수 → 전부 풀리는지 → (형식 3) 암호문 안에 봉인된 목록의 자료·스키마 지문·상태·시각이 manifest·파일과 같은지
+//    → 목록의 사진이 모두 있고 지문이 같은지 → 목록에 없는 사진 파일이 끼어 있지 않은지 → 부분 백업이면 allowPartial 일 때만
+//  · 예전 형식: 형식 값이 없고 새 형식 파일도 없을 때만. data.json.enc 는 꼭 있어야 한다.
+export function verifyBackup(folder, key, keyId, { allowPartial = false } = {}) {
+  if (!existsSync(join(folder, "manifest.json"))) throw new Error("manifest.json이 없어요(끝나지 않은 백업이에요).")
+  let manifest
+  try { manifest = JSON.parse(readFileSync(join(folder, "manifest.json"), "utf8")) } catch { throw new Error("manifest.json을 읽을 수 없어요.") }
+  if (manifest.encryption?.keyId && manifest.encryption.keyId !== keyId) throw new Error(`이 백업은 다른 키(${manifest.encryption.keyId})로 잠겨 있어요. 지금 키: ${keyId}`)
+  const encFiles = walk(folder).filter((f) => f.endsWith(".enc"))
+  const rel = (f) => relative(folder, f).replace(/\\/g, "/")
+  const newShape = existsSync(join(folder, "index.json.enc")) || existsSync(join(folder, "files"))
+  if (manifest.format === undefined && newShape) throw new Error("manifest에 형식 값이 없는데 새 형식의 파일이 있어요(manifest가 바뀌었을 수 있어요).")
+  if (manifest.format !== undefined && !(manifest.format === 2 || manifest.format === 3)) throw new Error(`모르는 백업 형식이에요: ${manifest.format}`)
+  if (manifest.format === undefined) {
+    if (!existsSync(join(folder, "data.json.enc"))) throw new Error("필수 파일이 없어요: data.json.enc")
+    const files = new Map()
+    for (const f of encFiles) { try { files.set(rel(f), decrypt(key, readFileSync(f))) } catch (error) { throw new Error(`${rel(f)}: ${error.message}`) } }
+    return { legacy: true, format: 1, status: "legacy", manifest, files }
+  }
+  for (const name of REQUIRED) if (!existsSync(join(folder, name))) throw new Error(`필수 파일이 없어요: ${name}`)
+  const opened = new Map()
+  for (const f of encFiles) { try { opened.set(rel(f), decrypt(key, readFileSync(f))) } catch (error) { throw new Error(`${rel(f)}: ${error.message}`) } }
+  const data = opened.get("data.json.enc"), schema = opened.get("schema.json.enc")
+  let sealed
+  try { sealed = JSON.parse(opened.get("index.json.enc").toString()) } catch { throw new Error("목록(index.json.enc)의 내용을 읽을 수 없어요.") }
+  let list, status
+  if (manifest.format === 3) {
+    if (Array.isArray(sealed) || sealed?.format !== 3 || !Array.isArray(sealed.files)) throw new Error("manifest는 형식 3인데 목록은 그 형식이 아니에요.")
+    if (sealed.at !== manifest.at) throw new Error("manifest와 목록의 백업 시각이 달라요(다른 백업의 파일이 섞였어요).")
+    for (const [name, bytes] of [["data.json.enc", data], ["schema.json.enc", schema]]) {
+      const want = sealed.required?.[name]
+      if (!want || want.sha256 !== sha256(bytes) || want.bytes !== bytes.length) throw new Error(`${name}의 지문이 목록에 봉인된 값과 달라요.`)
+    }
+    if (sealed.status !== manifest.status) throw new Error(`manifest의 상태(${manifest.status})와 목록에 봉인된 상태(${sealed.status})가 달라요.`)
+    if (sealed.status === "complete" && ((sealed.missing?.length ?? 0) > 0 || photosFailed(sealed.photos))) throw new Error("목록 안의 상태와 받지 못한 사진 기록이 서로 맞지 않아요.")
+    list = sealed.files
+    status = sealed.status === "complete" && !photosFailed(manifest.photos) ? "complete" : "partial"
+  } else {
+    if (!Array.isArray(sealed)) throw new Error("manifest는 형식 2인데 목록은 그 형식이 아니에요.")
+    list = sealed
+    status = statusOf(manifest)
+  }
+  try { JSON.parse(data.toString()); JSON.parse(schema.toString()) } catch { throw new Error("자료 또는 스키마 파일의 내용을 읽을 수 없어요.") }
+  if (manifest.files !== list.length) throw new Error(`manifest의 사진 수(${manifest.files})와 목록의 사진 수(${list.length})가 달라요.`)
+  const items = []
+  const listed = new Set()
+  for (const item of list) {
+    const bytes = opened.get(item.file)
+    if (!bytes) throw new Error(`목록에 있는 사진 파일이 없어요: ${item.file}`)
+    if (sha256(bytes) !== item.sha256) throw new Error(`사진 지문이 달라요: ${item.file}`)
+    if (listed.has(item.file)) throw new Error(`목록에 같은 파일이 두 번 있어요: ${item.file}`)
+    listed.add(item.file)
+    items.push({ bucket: item.bucket, path: item.path, file: item.file, sha256: item.sha256, bytes })
+  }
+  for (const name of opened.keys()) if (!REQUIRED.includes(name) && !listed.has(name)) throw new Error(`목록에 없는 파일이 끼어 있어요: ${name}`)
+  if (status !== "complete" && !allowPartial) throw new Error("부분 백업이에요(사진을 다 받지 못했거나 지문이 달랐어요). 정상 복구 지점으로 쓸 수 없어요. 일부러 열려면 --allow-partial 을 붙여 주세요.")
+  return { legacy: false, format: manifest.format, status, manifest, data, schema, items, sealed: manifest.format === 3 ? sealed : null }
+}
+// 삭제 이력 파일(가장 최근 것부터). 이름의 시각으로 정렬한다.
+export function deletionExports(dir) {
+  const folder = join(dir, DELETIONS)
+  if (!existsSync(folder)) return []
+  return readdirSync(folder).filter((f) => /^deletions_.*\.json\.enc$/.test(f) && Number.isFinite(timeOfName(f))).sort((a, b) => timeOfName(b) - timeOfName(a)).map((file) => ({ file, path: join(folder, file), at: timeOfName(file) }))
 }

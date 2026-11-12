@@ -365,18 +365,84 @@ try {
   // ── 저장 실패(503) 뒤 다시 시도: 내 정보 쉬기 저장
   page = await open(browser, M, "/profile#pause", { mobile: true, fail: "rpc/set_pause" })
   await press(page, "잠시 쉬기", "#pause button"); await sleep(1500)
-  const failText = await page.evaluate(() => document.querySelector('#pause [role="status"]')?.innerText ?? '')
+  const failText = await page.evaluate(() => document.querySelector('#pause [role="alert"]')?.innerText ?? '')
   const paused3 = (await pg("select paused_at is not null p from public.profiles where id = $1", [M]))[0].p
-  ok("쉬기 저장이 실패하면 ‘쉬어요’라고 하지 않고 실패 문장(오류 번호)을 보여요 · 서버도 그대로", failText.length > 0 && !failText.includes("새 소개를 잠시 쉬어요") && !paused3, failText)
+  ok("쉬기 저장이 실패하면 ‘쉬어요’라고 하지 않고 오류 표시(alert)로 실패 문장(오류 번호)을 보여요 · 서버도 그대로", failText.length > 0 && !failText.includes("새 소개를 잠시 쉬어요") && !paused3, failText)
   page.failing = null
   await press(page, "잠시 쉬기", "#pause button"); await waitText(page, "새 소개를 잠시 쉬어요")
   const paused4 = (await pg("select paused_at is not null p from public.profiles where id = $1", [M]))[0].p
   ok("다시 누르면 저장돼요", paused4)
   await page.close()
+
+  // ── 출시 점검 B1·B3·A3: 정오 시계·기다리는 동안 묶음은 소개를 받을 수 있는 회원에게만, 신청서에는 기수·첫 소개 날
+  {
+    const texts = {}
+    for (const [key, who, url] of [["approved", P, "/today"], ["pending", W, "/today"], ["draft", D, "/apply"]]) { const pg1 = await open(browser, who, url, { mobile: true }); texts[key] = await bodyText(pg1); await pg1.close() }
+    ok("승인되고 기수가 시작된 회원의 오늘 화면에는 ‘다음 정오까지’ 시계가 보여요", /다음 정오까지|지금, 정오예요/.test(texts.approved))
+    ok("검토를 기다리는 회원의 오늘 화면에는 ‘다음 정오까지’ 시계가 없어요(내일 정오에 올 것처럼 읽히지 않게)", !/다음 정오까지|지금, 정오예요/.test(texts.pending), texts.pending.slice(0, 60))
+    await pg("update public.applications set status = 'rejected' where member_id = $1", [W])
+    const pg2 = await open(browser, W, "/today", { mobile: true }); const rejected = await bodyText(pg2); await pg2.close()
+    await pg("update public.applications set status = 'submitted' where member_id = $1", [W])
+    ok("소개 어려움 상태에는 ‘기다리는 동안’ 묶음과 정오 시계가 없어요", !rejected.includes("기다리는 동안") && !/다음 정오까지/.test(rejected))
+    ok("신청서를 쓰는 중에 ‘지금 제출하면 ○○로 접수 · 첫 소개 ○월 ○일 정오’가 보여요", /지금 제출하면 .{1,6}로 접수돼요\. 첫 소개는 .+ 정오부터예요/.test(texts.draft), texts.draft.match(/지금 제출하면[^.]*\.[^.]*\./)?.[0] ?? "")
+  }
+  // ── 회고(R3-23 · R4-15): 약속일이 지난 교류에서 세 단추를 실제로 눌러 저장·답 바꾸기·미만남 안내·삭제·재작성까지
+  {
+    const KB1 = await member("refl1@example.test", "가온", "여성", "남성", 900, "010-3101-2001", "주말엔 조용한 산책을 좋아해요.")
+    const KB2 = await member("refl2@example.test", "도윤", "남성", "여성", 910, "010-3101-2002", "주말엔 자전거를 타요.")
+    const intro2 = (await one(O, "select public.admin_reserve_introduction($1, $2, (public.kst_today() + 3), '두 분 모두 조용한 산책을 좋아한다고 적으셨어요.') id", [KB1, KB2], "aal2")).id
+    await pg("update public.introductions set reveal_at = now() - interval '1 minute', respond_by = now() + interval '23 hours', view_until = now() + interval '23 hours' where id = $1", [intro2])
+    await pg("select public.run_noon()")
+    for (const m of [KB1, KB2]) { await sql(m, "select public.record_introduction_view($1)", [intro2]); await sql(m, "select public.respond_introduction($1, 'positive')", [intro2]) }
+    const prog = (await one(KB1, "select public.my_program() v")).v
+    for (const m of [KB1, KB2]) await sql(m, "select public.choose_program_plan($1, 'A')", [prog.id])
+    const start = (await pg("select (public.kst_today() + 2)::text d"))[0].d
+    await sql(KB2, "select public.propose_program_start($1, $2::date)", [prog.id, start])
+    await sql(KB1, "select public.confirm_program($1, $2::date)", [prog.id, start])
+    const letter = (who, day, kind, body) => sql(who, "select public.submit_program_entry($1, $2, $3, $4, null)", [prog.id, day, kind, body])
+    for (let day = 1; day <= 3; day++) {
+      await at(await plus(start, day - 1), "10:00"); await pg("select public.run_programs()")
+      await letter(KB1, day, "letter", `가짜 편지 ${day}일째예요. 천천히 걷는 걸 좋아해요.`)
+      await letter(KB2, day, "letter", `가짜 답장 ${day}일째예요. 주말엔 자전거를 타요.`)
+    }
+    await at(await plus(start, 3), "09:05"); await pg("select public.run_programs()")
+    for (const m of [KB1, KB2]) await sql(m, "select public.choose_meeting($1, 'positive')", [prog.id])
+    const meet = await plus(start, 6)
+    const proposal = (await one(KB1, "select public.propose_appointment($1, $2, '전시·미술관', '종로구', '공개된 미술관', '천천히 보고 이야기해요') v", [prog.id, JSON.stringify([{ date: meet, start: "14:00", end: "17:00" }])])).v.proposals[0]
+    await sql(KB2, "select public.accept_appointment($1, 0)", [proposal.id])
+    await at(await plus(meet, 2), "00:05"); await pg("select public.run_programs()")
+    const row = async () => (await pg("select met, body from public.reflections where program_id = $1 and member_id = $2", [prog.id, KB1]))[0] ?? null
+    const page = await open(browser, KB1, "/today", { mobile: true })
+    const calls = track(page)
+    ok("회고: 약속일이 지난 교류는 먼저 ‘실제로 만났나요?’와 세 단추를 보여요", (await bodyText(page)).includes("실제로 만났나요?") && await page.evaluate(() => ["만났어요", "아직 만나지 못했어요", "답하지 않을게요"].every((t) => [...document.querySelectorAll("button")].some((b) => b.innerText.trim() === t))))
+    await press(page, "아직 만나지 못했어요", "button"); await waitText(page, "만나지 못했군요")
+    const t1 = await bodyText(page), r1 = await row()
+    ok("‘아직 만나지 못했어요’ → 서버 저장(not_met) · 감상 대신 신고 길(평일 10~18시·112) 안내 · 한 줄은 선택", r1?.met === "not_met" && r1.body === null && t1.includes("두 사람 화면") && t1.includes("112") && !t1.includes("만나 보니 어땠나요?"), JSON.stringify(r1))
+    await press(page, "답 바꾸기", "button"); await sleep(400)
+    await press(page, "만났어요", "button"); await waitText(page, "만나 보니 어땠나요?")
+    const r2 = await row()
+    ok("‘답 바꾸기’ → ‘만났어요’로 바뀌어 저장되고 질문이 감상으로 바뀌어요", r2?.met === "met" && (await bodyText(page)).includes("만나 보니 어땠나요?"), JSON.stringify(r2))
+    await page.type('textarea[aria-label="만남 뒤, 남기는 한 줄"]', "가짜 한 줄이에요. 대화가 편안했어요.")
+    await press(page, "한 줄 남기기", "button"); await waitText(page, "남겨 주셨어요")
+    const r3 = await row()
+    ok("한 줄을 남기면 답(met)은 그대로 두고 글이 저장돼요", r3?.met === "met" && r3.body === "가짜 한 줄이에요. 대화가 편안했어요.", JSON.stringify(r3))
+    const removed = await press(page, "지우기", "button"); await waitText(page, "남긴 내용을 지웠어요")
+    const r4 = await row()
+    ok("‘지우기’ → 서버에서 줄이 사라지고 다시 ‘실제로 만났나요?’부터 물어요", removed && r4 === null && (await bodyText(page)).includes("실제로 만났나요?"), JSON.stringify(r4))
+    await press(page, "답하지 않을게요", "button"); await waitText(page, "괜찮아요")
+    const r5 = await row()
+    const state = (await pg("select status, paused_at is not null paused from public.profiles where id = $1", [KB1]))[0]
+    ok("지운 뒤 ‘답하지 않을게요’로 다시 저장돼요(skip) · 회원 상태는 그대로", r5?.met === "skip" && state.status === "active", JSON.stringify({ r5, state }))
+    ok("회고 저장·삭제는 서버 함수로만 오가요", calls.includes("save_reflection") && calls.includes("delete_reflection"))
+    await page.close(); await clock(null)
+  }
+} catch (error) {
+  // 도중에 멈추면(서버 꺼짐 등) 통과로 끝내지 않는다
+  results.push({ name: "시험이 도중에 멈춤", pass: false, detail: String(error?.message ?? error) }); console.log("✗ 시험이 도중에 멈춤 ·", error?.message ?? error)
 } finally {
   const pass = results.filter((r) => r.pass).length
   console.log(`\nR3-27 과제 흐름: ${pass}/${results.length} 통과`)
   if (opt.out) writeFileSync(opt.out, JSON.stringify({ ranAt: new Date().toISOString(), base: BASE, results }, null, 1))
   await browser.close()
-  process.exit(pass === results.length ? 0 : 1)
+  process.exit(results.length > 0 && pass === results.length ? 0 : 1)
 }

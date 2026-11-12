@@ -12,7 +12,9 @@
 //      MAIL_FROM(예: 플라비 <그 메일 주소>) · Supabase 함수는 465 포트(SSL)만 쓸 수 있다.
 // 보낸 사람 이름은 MAIL_FROM 에 무엇이 적혀 있든 BRAND(서비스 이름)로 보낸다. 이름을 바꿀 때 비밀 값을 고치지 않아도 되게.
 //   공통: SITE_URL(버튼이 열 사이트 주소, 없으면 공개 사이트)
-// 아무것도 없으면 보내지 않고 건너뛴다(사이트 안 알림은 그대로 보인다). 이때 보낼 메일이 쌓여 있으면 작업 기록에 남겨 대시보드가 경고한다(한 시간에 한 번).
+// 아무것도 없으면 보내지 않고 건너뛴다(사이트 안 알림은 그대로 보인다). 이때는 차례마다 ‘보낼 수 없음(blocked · ok=false)’으로 남긴다(R4-02):
+//   함수가 불렸다는 것(생존)과 메일을 보낼 수 있다는 것(준비)은 다르다. 대시보드에 보이는 경고 줄만 한 시간에 한 번으로 줄이고(나머지는 zero 줄),
+//   상태는 설정을 고칠 때까지 계속 실패로 둔다 → public_health 의 lastFailed·mailReady 가 정상으로 바뀌지 않는다. 대기 메일 유무는 detail.waiting 으로 구분.
 // 한 통이 실패하면 사유를 남기고 다음 차례(5분 뒤)에 다시 보낸다. 3번 시도한 메일은 더 보내지 않는다(claim_email_notifications · record_email_result).
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.49.4"
 import { buildMessage, parseAddress } from "./mime.ts"
@@ -44,7 +46,8 @@ ${body ? `<p style="margin:0 0 24px;font-size:15px;line-height:1.85;color:#4A467
 async function record(db: SupabaseClient<any, "public", any>, sent: number, failed: number, reason: string, gaveUp = 0, unknown = 0, extra: Record<string, unknown> = {}) {
   const zero = !sent && !failed && !reason && !unknown
   const detail = { sent, failed, ...(gaveUp ? { gaveUp } : {}), ...(unknown ? { unknown } : {}), ...(reason ? { reason } : {}), ...extra }
-  const ok = !failed && !reason && !unknown
+  // blocked(보낼 수 없는 상태)는 보낸 것·실패한 것이 0이어도 성공이 아니다
+  const ok = !failed && !reason && !unknown && extra.blocked !== true
   const { error } = await db.rpc("record_job_run", { p_job: "email", p_ok: ok, p_detail: detail, p_zero: zero })
   if (!error) return
   // 6800 이전 DB(되돌린 경우): 예전처럼 표에 바로 남긴다(0통은 남기지 않음)
@@ -65,15 +68,18 @@ Deno.serve(async (request) => {
   const { data: allowed, error: tokenError } = await db.rpc("cron_token_ok", { p_token: request.headers.get("x-cron-token") ?? "" })
   if (tokenError || allowed !== true) return Response.json({ error: "예약 작업만 부를 수 있어요." }, { status: 401 })
   if (!from || (!key && !(smtp.host && smtp.user && smtp.pass))) {
-    // 보낼 메일이 있는데 설정이 없으면 대시보드가 알 수 있게 남긴다(같은 경고는 한 시간에 한 번만).
-    const { data: waiting } = await db.rpc("pending_email_notifications", { p_limit: 1 })
-    if ((waiting ?? []).length) {
+    // 설정이 없으면 차례마다 ‘보낼 수 없음’(ok=false)으로 남긴다. 보낼 메일이 쌓여 있을 때의 경고 줄(reason)만 한 시간에 한 번,
+    // 그 사이 차례와 대기 0통 차례는 조용한 줄(zero)로 남긴다 — 그래도 ok=false 라 상태는 정상으로 바뀌지 않는다.
+    const { data: waiting, error: waitingError } = await db.rpc("pending_email_notifications", { p_limit: 1 })
+    const hasWaiting = waitingError ? null : (waiting ?? []).length > 0
+    const blocked = { blocked: true, notConfigured: true, waiting: hasWaiting }
+    if (hasWaiting !== false) {
       const since = new Date(Date.now() - 3600000).toISOString()
-      const { count } = await db.from("job_runs").select("id", { count: "exact", head: true }).eq("job", "email").eq("ok", false).gt("started_at", since)
-      if (!count) await record(db, 0, 0, NOT_CONFIGURED)
-      else await record(db, 0, 0, "", 0, 0, { notConfigured: true })
-    } else await record(db, 0, 0, "", 0, 0, { notConfigured: true })
-    return Response.json({ skipped: NOT_CONFIGURED })
+      const { data: recent } = await db.from("job_runs").select("detail").eq("job", "email").eq("ok", false).gt("started_at", since)
+      const warned = ((recent ?? []) as { detail: Record<string, unknown> | null }[]).some((row) => row.detail?.zero !== true)
+      await record(db, 0, 0, warned ? "" : NOT_CONFIGURED, 0, 0, blocked)
+    } else await record(db, 0, 0, "", 0, 0, blocked)
+    return Response.json({ skipped: NOT_CONFIGURED, blocked: true, waiting: hasWaiting })
   }
   const site = (Deno.env.get("SITE_URL") ?? "https://before-us-3jr4.vercel.app").replace(/\/$/, "")
   // p_tracks_start: 이 함수는 보내기 직전에 ‘보내기 시작’을 따로 남긴다(6700). 6700 이전 DB에는 이 인자가 없어 예전처럼 다시 부른다.

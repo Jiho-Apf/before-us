@@ -7,13 +7,19 @@
 //      · 암호문은 `.enc.part`에 쓰고 디스크까지 내린 뒤(fsync) 다시 읽어 풀어 보고 같을 때만 `.enc`로 이름을 바꾼다.
 //      · 사진 파일 이름(회원 번호가 든 경로)은 폴더에 드러나지 않게 번호(files/000001.enc)로 저장하고, 경로 목록은 암호화한 index.json.enc 에 둔다.
 //      → 강제 종료·전원 차단·디스크 가득 참이어도 디스크에는 암호문(완성 또는 .part)만 남는다. 다음 실행을 기다릴 필요가 없다.
+//  - 결과는 셋 중 하나다(GPT 4차 R4-03):
+//      · 정상(complete · 종료 코드 0): 자료·스키마와, 목록에 오른 사진을 모두 받았고 지문도 맞다 → 복구 지점.
+//      · 부분(partial · 종료 코드 3): 사진을 일부(또는 전부) 받지 못했거나 버킷 목록을 못 읽었거나 지문이 달랐다.
+//        폴더는 남기지만 manifest·봉인된 목록에 partial 로 적고, 바깥 사본·복구 도구는 이것을 복구 지점으로 쓰지 않는다. 안내 파일 + 서버 기록(실패).
+//      · 실패(종료 코드 1): 도중에 멈췄다. manifest 가 없다.
+//  - 목록(index.json.enc)은 암호문 안에 자료·스키마의 지문, 사진 목록, 받지 못한 사진, 상태를 함께 봉인한다(형식 3). 풀 때 이것으로 완전한지 확인한다.
 //  - 만료(최대 30일)는 백업과 따로 `npm run backup:expire`(작업 스케줄러로 매일)가 처리한다. 이 백업도 시작할 때 한 번 같은 정리를 한다.
 //  - 끝나면 서버 작업 기록에 ‘backup’ 결과(숫자만)를 남긴다 → 공개 상태(public_health)에서 백업 나이가 보인다.
 //  - 복구: `npm run backup:open -- <백업 폴더> <풀어 둘 폴더>` 또는 재해 복구 절차(문서) → 자료를 넣은 뒤 최신 삭제 이력 적용(apply_deletion_log).
 import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs"
 import { join } from "node:path"
 import { KEY_FILE, loadKey } from "./backup-crypto.mjs"
-import { BUCKETS, KEEP_DAYS, PROJECT, expireRoot, log, pipeDownload, query, reportRun, sealFile, settings, stampOf, warn, writeAtomic, cliSync, code } from "./backup-lib.mjs"
+import { BUCKETS, CLEAN_AFTER_DAYS, KEEP_DAYS, PROJECT, expireRoot, log, pipeDownload, query, reportRun, sealFile, settings, stampOf, warn, writeAtomic, cliSync, code } from "./backup-lib.mjs"
 
 const cfg = settings()
 const now = cfg.now()
@@ -57,7 +63,7 @@ try {
   parts.push(`'auth.users', (select coalesce(jsonb_agg(t), '[]'::jsonb) from (select id, email, encrypted_password, email_confirmed_at, created_at, updated_at, last_sign_in_at, raw_user_meta_data, banned_until, deleted_at from auth.users) t)`)
   const data = query(cfg, `select jsonb_build_object(${parts.join(", ")}) as data`)[0].data
   const counts = Object.fromEntries(Object.entries(data).map(([name, rows]) => [name, rows.length]))
-  sealFile(key, Buffer.from(JSON.stringify(data)), join(target, "data.json.enc"), { onStage: stage })
+  const dataSeal = sealFile(key, Buffer.from(JSON.stringify(data)), join(target, "data.json.enc"), { onStage: stage })
   console.log(`자료 ${tables.length + 1}개 표 저장(암호화)`)
 
   // 2) 스키마 지문(개인정보 없음): 적용된 마이그레이션 · 함수 권한 · 표 RLS · 저장소 버킷 설정 → 복구 뒤 같은지 맞춰 본다
@@ -68,50 +74,63 @@ try {
     'rls', (select coalesce(jsonb_agg(c.relname || '|' || c.relrowsecurity order by 1), '[]'::jsonb) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r'),
     'buckets', (select coalesce(jsonb_agg(jsonb_build_object('id', id, 'public', public, 'limit', file_size_limit, 'mime', allowed_mime_types) order by id), '[]'::jsonb) from storage.buckets)
   ) as schema`)[0].schema
-  sealFile(key, Buffer.from(JSON.stringify(schema)), join(target, "schema.json.enc"), { onStage: stage })
+  const schemaSeal = sealFile(key, Buffer.from(JSON.stringify(schema)), join(target, "schema.json.enc"), { onStage: stage })
 
   // 3) 사진: 버킷마다 목록 → 한 장씩 파이프로 받아 메모리에서 암호화. 신청 사진은 DB에 적힌 지문(sha256)과 맞춰 본다.
   const known = new Map((data.application_photos ?? []).concat(data.photo_replacements ?? []).map((row) => [row.path, row.sha256]))
   const index = []
+  const missing = [] // 받지 못한 사진(경로는 암호문 안의 목록에만 적는다)
   const photos = {}
   let seq = 0
   for (const bucket of BUCKETS) {
-    const result = { saved: 0, failed: 0, mismatched: 0 }
+    const result = { listed: 0, saved: 0, failed: 0, mismatched: 0 }
     try {
       const listed = JSON.parse(cliSync(cfg, ["storage", "ls", "-r", `ss:///${bucket}`, "--linked", "--experimental", "--output-format", "json", "--workdir", code]).replace(/^[^{]*/, "")).paths ?? []
-      for (const remote of listed.filter((path) => /\.(jpe?g|png|webp)$/i.test(path))) {
+      const wanted = listed.filter((path) => /\.(jpe?g|png|webp)$/i.test(path))
+      result.listed = wanted.length
+      for (const remote of wanted) {
         const path = remote.replace(new RegExp(`^/${bucket}/`), "")
         let bytes
-        try { bytes = await pipeDownload(cfg, remote) } catch (error) { result.failed++; log(cfg, { job: "backup", photo: "failed", bucket, error: String(error?.message ?? error).slice(0, 160) }); continue }
+        try { bytes = await pipeDownload(cfg, remote) } catch (error) { result.failed++; missing.push({ bucket, path, why: "download" }); log(cfg, { job: "backup", photo: "failed", bucket, error: String(error?.message ?? error).slice(0, 160) }); continue }
         stage("downloaded", { bucket })
         const file = `files/${String(++seq).padStart(6, "0")}.enc`
         const sealed = sealFile(key, bytes, join(target, file), { onStage: stage })
         bytes.fill(0)
-        if (bucket === "application-photos" && known.has(path) && known.get(path) !== sealed.sha256) result.mismatched++
+        if (bucket === "application-photos" && known.has(path) && known.get(path) !== sealed.sha256) { result.mismatched++; missing.push({ bucket, path, why: "sha256" }) }
         index.push({ bucket, path, file, bytes: sealed.bytes, sha256: sealed.sha256 })
         result.saved++
       }
     } catch (error) {
       if (error?.code === "ENOSPC") throw error
       result.error = String(error?.stderr || error?.message || error).split(/\r?\n/)[0].slice(0, 200)
+      missing.push({ bucket, path: null, why: "list" })
     }
     photos[bucket] = result
     console.log(`${bucket} 저장 ${result.saved}장${result.failed ? ` · 실패 ${result.failed}장` : ""}${result.mismatched ? ` · 지문 다름 ${result.mismatched}장` : ""}${result.error ? ` · ${result.error}` : ""}`)
   }
-  sealFile(key, Buffer.from(JSON.stringify(index)), join(target, "index.json.enc"), { onStage: stage })
+  const totalFailed = Object.values(photos).reduce((n, r) => n + r.failed + r.mismatched + (r.error ? 1 : 0), 0)
+  const status = totalFailed === 0 ? "complete" : "partial"
+  // 목록은 암호문 안에 봉인한다: 자료·스키마의 지문, 사진 목록, 받지 못한 사진, 상태. manifest(평문)가 바뀌어도 풀 때 이것과 맞춰 본다.
+  sealFile(key, Buffer.from(JSON.stringify({ format: 3, at: now.toISOString(), status, required: { "data.json.enc": dataSeal, "schema.json.enc": schemaSeal }, photos, files: index, missing })), join(target, "index.json.enc"), { onStage: stage })
 
-  // 4) manifest(숫자·시각만 · 마지막에 써서 ‘끝난 백업’ 표시)
+  // 4) manifest(숫자·시각만 · 마지막에 써서 ‘끝난 백업’ 표시). status 가 complete 인 것만 복구 지점이다.
   writeAtomic(join(target, "manifest.json"), JSON.stringify({
-    format: 2, at: now.toISOString(), expiresAt: new Date(now.getTime() + KEEP_DAYS * 86400000).toISOString(), project: PROJECT,
+    format: 3, status, at: now.toISOString(),
+    expiresAt: new Date(now.getTime() + CLEAN_AFTER_DAYS * 86400000).toISOString(), // 이때부터 만료 정리가 지운다(29일)
+    mustBeGoneBy: new Date(now.getTime() + KEEP_DAYS * 86400000).toISOString(), // 약속한 기한(30일)
+    project: PROJECT,
     counts, photos, files: index.length, schemaMigrations: schema.migrations?.length ?? 0, lastMigration: schema.migrations?.at?.(-1) ?? null,
     encryption: { alg: "aes-256-gcm", keyId },
-    restore: "재해 복구 절차(문서) · 자료를 넣은 뒤 최신 ‘삭제 이력’ 파일로 deletion_log 를 채우고 select public.apply_deletion_log(); · 복구 환경은 outbound_paused 를 먼저 켠다",
+    restore: "재해 복구 절차(문서) · 먼저 backup:restore-check 로 복구 지점과 삭제 이력을 확인 · 자료를 넣은 뒤 최신 ‘삭제 이력’ 파일로 deletion_log 를 채우고 select public.apply_deletion_log(); · 복구 환경은 outbound_paused 를 먼저 켠다",
   }, null, 2))
-  const totalFailed = Object.values(photos).reduce((n, r) => n + r.failed + r.mismatched + (r.error ? 1 : 0), 0)
-  log(cfg, { job: "backup", ok: totalFailed === 0, folder: stamp, tables: tables.length + 1, files: index.length, failed: totalFailed })
-  reportRun(cfg, "backup", totalFailed === 0, { tables: tables.length + 1, files: index.length, failed: totalFailed })
-  if (totalFailed) warn(cfg, "백업은 끝났지만 일부 사진을 받지 못했어요", [`폴더 ${stamp} · 실패 ${totalFailed}건 · 다시 실행해 주세요.`])
-  console.log("백업 끝", counts)
+  log(cfg, { job: "backup", ok: status === "complete", status, folder: stamp, tables: tables.length + 1, files: index.length, failed: totalFailed })
+  reportRun(cfg, "backup", status === "complete", { status, tables: tables.length + 1, files: index.length, failed: totalFailed })
+  if (status !== "complete") {
+    const detail = Object.entries(photos).map(([bucket, r]) => `${bucket}: 목록 ${r.error ? "읽지 못함" : `${r.listed}장`} · 받음 ${r.saved}장${r.failed ? ` · 받지 못함 ${r.failed}장` : ""}${r.mismatched ? ` · 지문 다름 ${r.mismatched}장` : ""}`)
+    warn(cfg, "부분 백업이에요(사진을 모두 받지 못했어요) · 복구 지점으로 쓰지 않아요", [`폴더 ${stamp}`, ...detail, "이 폴더는 지우지 않아도 돼요(30일 뒤 자동으로 지워져요). 바깥 사본으로는 올라가지 않아요.", "인터넷과 Supabase CLI 로그인을 확인하고 `npm run backup`을 다시 실행해 주세요. 직전의 정상 백업은 그대로 있어요."])
+    console.log(`부분 백업(복구 지점 아님) · 종료 코드 3`, counts)
+    process.exitCode = 3
+  } else console.log("백업 끝", counts)
   if (!existsSync(KEY_FILE) && !process.env.FLAVIE_BACKUP_KEY) console.log("키 파일을 찾을 수 없어요. 키를 따로 보관했는지 확인해 주세요.")
   if (!cfg.offsite) console.log("바깥 사본 폴더(offsite)가 설정되지 않았어요. `npm run backup:offsite` 안내를 확인해 주세요.")
 } catch (error) {

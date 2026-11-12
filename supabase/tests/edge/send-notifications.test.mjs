@@ -11,6 +11,7 @@
 //  K7 본문을 보내는 도중 연결이 끊김(끝 표시 전) → 확실히 안 감 → 선점을 풀고 다음 차례에 보냄
 //  K8 Resend 경로: 보내기 시작 뒤 응답 없이 멈춤 → 불확실 · 정상이면 보냄(멱등키 notification-<id>)
 //  K9 복구 환경 스위치(outbound_paused)가 켜져 있으면 아무것도 잡지 않는다
+//  K10 (GPT 4차 R4-02) 메일 설정이 없으면 차례마다 ‘보낼 수 없음’(ok=false) — 경고 줄만 한 시간에 한 번 · 대기 0통도 구분 · 설정을 고치면 정상
 import assert from "node:assert/strict"
 import { join } from "node:path"
 import { startEdge, repo } from "./harness.mjs"
@@ -305,6 +306,74 @@ await q("insert into public.admin_roles (user_id, role) values ($1, 'owner')", [
   await od.q("select public.notify($1, 'new-introduction', '오늘의 인연이 도착했어요', '확인해 주세요.', '/us', 'mail-order')", [M])
   const res = await (await h(new Request("http://edge.test/send-notifications", { method: "POST", headers: { "x-cron-token": tok } }))).json()
   ok("배포 순서 바뀜(새 함수 v19 + 6700 이전 DB): 예전 방식으로 보낸다(한 통)", res.sent === 1 && delivered.filter((x) => x.includes("mail-order@example.test")).length === 1)
+}
+// K10 (R4-02 · E01): 메일 설정 없음 — ‘함수가 불림(생존)’과 ‘보낼 수 있음(준비)’을 나눈다
+{
+  const mk = async (file, env = {}) => {
+    const e = await startEdge({ env })
+    e.state.connectTls = async () => fakeConn()
+    await e.q("select set_config('app.now', (public.kst_at(public.kst_today(), '13:00'))::text, false)")
+    const tok = (await e.q("select value from public.private_values where name = 'cron_token'"))[0].value
+    const h = await e.load(file)
+    const go = async () => (await h(new Request("http://edge.test/send-notifications", { method: "POST", headers: { "x-cron-token": tok } }))).json()
+    const runs = () => e.q("select ok, detail from public.job_runs where job = 'email' order by id")
+    const health = async () => (await e.q("select public.public_health() v"))[0].v
+    const waitOne = async (name) => {
+      const M = (await e.q("insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id", [`${name}@example.test`, { adult: true, terms_version: "t", privacy_version: "t" }]))[0].id
+      await e.q("update public.profiles set notify_email = true where id = $1", [M])
+      await e.q("select public.notify($1, 'new-introduction', '오늘의 인연이 도착했어요', '확인해 주세요.', '/us', $2)", [M, name])
+      return M
+    }
+    return { e, go, runs, health, waitOne }
+  }
+  // 대조군(고치기 전 함수 8aa3231): 설정 없음 + 대기 1통 → 첫 차례는 실패, 둘째 차례는 ok=true 로 바뀐다(결함 재현 · 검수 E01)
+  {
+    const c = await mk(join(repo, "supabase/tests/edge/fixtures/send-notifications-v19-8aa3231/index.ts"))
+    await c.waitOne("mail-blocked-old")
+    await c.go(); await c.go()
+    const r = await c.runs()
+    ok("K10 대조군(고치기 전 8aa3231): 설정 없음 + 대기 1통의 둘째 차례가 ok=true 로 기록된다(결함 재현)", r.length === 2 && r[0].ok === false && r[1].ok === true && r[1].detail.notConfigured === true)
+    ok("K10 대조군: 그래서 공개 상태의 메일 작업이 ‘최근 실패 아님’으로 바뀐다(가짜 정상)", (await c.health()).jobs.find((j) => j.job === "email").lastFailed === false)
+  }
+  // 고친 함수
+  const n = await mk(FN)
+  // 설정 없음 + 대기 0통: 성공이 아니다(보낼 수 없음) · 대기 없음으로 구분 · 조용한 줄
+  const r0 = await n.go()
+  let rows = await n.runs()
+  ok("K10: 설정 없음 + 대기 0통 → ok=false · blocked · waiting=false(조용한 줄 zero)", r0.blocked === true && r0.waiting === false && rows.length === 1 && rows[0].ok === false && rows[0].detail.blocked === true && rows[0].detail.waiting === false && rows[0].detail.zero === true && !rows[0].detail.reason)
+  // 설정 없음 + 대기 1통: 첫 차례는 경고 줄(reason), 반복 차례는 조용한 줄 — 그래도 계속 ok=false
+  const W = await n.waitOne("mail-blocked-new")
+  await n.go(); await n.go(); await n.go()
+  rows = await n.runs()
+  ok("K10: 설정 없음 + 대기 1통 첫 차례 → 경고 줄(ok=false · 이유 · waiting=true)", rows[1].ok === false && /메일 발송 설정/.test(rows[1].detail.reason) && rows[1].detail.waiting === true && rows[1].detail.zero !== true)
+  ok("K10: 반복 차례 → 경고 줄은 늘지 않지만(zero) 상태는 계속 ok=false · blocked", rows.length === 4 && rows.slice(2).every((r) => r.ok === false && r.detail.blocked === true && r.detail.zero === true && !r.detail.reason))
+  let h = await n.health()
+  ok("K10: 공개 상태 — 메일 작업 lastFailed=true · mailReady=false · ok=false(호출은 살아 있어 late=false)", h.jobs.find((j) => j.job === "email").lastFailed === true && h.jobs.find((j) => j.job === "email").late === false && h.mailReady === false && h.ok === false)
+  // 한 시간이 지나면 경고 줄을 다시 한 번 남긴다
+  await n.e.q("update public.job_runs set started_at = started_at - interval '61 minutes' where job = 'email'")
+  await n.go()
+  rows = await n.runs()
+  ok("K10: 한 시간 뒤에도 그대로면 경고 줄을 다시 한 번 남긴다", rows.length === 5 && /메일 발송 설정/.test(rows[4].detail.reason) && rows[4].ok === false)
+  ok("K10: 보내지 못한 메일은 그대로 대기(선점·시도 횟수 변화 없음)", await n.e.q("select email_attempts, emailed_at, email_lease_until from public.notifications where member_id = $1", [W]).then((r) => r[0].email_attempts === 0 && !r[0].emailed_at && !r[0].email_lease_until))
+  // 설정 복구: 같은 DB에 설정을 넣으면 보내고 ok=true · mailReady=true
+  Object.assign(n.e.state.env, { SMTP_HOST: "smtp.example.test", SMTP_USER: "sender@example.test", SMTP_PASS: "app-password", MAIL_FROM: "플라비 <sender@example.test>" })
+  smtp = {}
+  const fixed = await n.go()
+  rows = await n.runs()
+  h = await n.health()
+  ok("K10: 설정을 고치면 대기 메일을 보내고 ok=true · mailReady=true 로 돌아온다", fixed.sent === 1 && rows.at(-1).ok === true && !rows.at(-1).detail.blocked && h.mailReady === true && h.jobs.find((j) => j.job === "email").lastFailed === false && delivered.filter((x) => x.includes("mail-blocked-new@example.test")).length === 1)
+  // 되돌리기 호환: 고친 함수 + 6800 이전 DB(record_job_run 없음) — 경고 줄만 예전처럼 표에 남기고, ok=true 줄은 만들지 않는다
+  {
+    const o = await startEdge({ until: "20261106006800", env: {} })
+    const tok = (await o.q("select value from public.private_values where name = 'cron_token'"))[0].value
+    const hh = await o.load(FN)
+    const M = (await o.q("insert into auth.users (email, raw_user_meta_data) values ('mail-blocked-olddb@example.test', $1) returning id", [{ adult: true, terms_version: "t", privacy_version: "t" }]))[0].id
+    await o.q("update public.profiles set notify_email = true where id = $1", [M])
+    await o.q("select public.notify($1, 'new-introduction', '오늘의 인연이 도착했어요', '확인해 주세요.', '/us', 'mail-blocked-olddb')", [M])
+    for (let i = 0; i < 3; i++) await hh(new Request("http://edge.test/send-notifications", { method: "POST", headers: { "x-cron-token": tok } }))
+    const r = await o.q("select ok from public.job_runs where job = 'email' order by id")
+    ok("K10 되돌리기(고친 함수 + 6800 이전 DB): 경고 줄 한 번(ok=false)만 남고 ok=true 줄은 생기지 않는다", r.length === 1 && r[0].ok === false)
+  }
 }
 console.log(`메일 함수 단계별 멈춤 시험 통과: ${passed}개`)
 process.exit(0)

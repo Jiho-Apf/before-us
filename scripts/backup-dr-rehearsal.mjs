@@ -6,10 +6,15 @@
 //  4. 새 환경: 저장소의 마이그레이션(GitHub)으로 스키마 → 복구 환경 스위치(메일 내보내기 멈춤) → 인증 관계(auth.users) → 표 → 두 버킷 파일(메모리에서 바로)
 //     → 최신 삭제 이력 적용(apply_deletion_log) → 사진 정리 → 스키마 지문(마이그레이션·함수 권한·RLS·버킷) 비교.
 //  5. 확인: X와 X의 사진이 되살아나지 않음 · A·B 자료와 사진 바이트 일치 · 백업 안의 오래된 삭제 이력만 쓰면 X가 되살아남(대조) · 메일·예약 작업 차단.
+//  6. 삭제 이력의 신선도(GPT 4차 R4-06): 삭제 이력을 뽑은 ‘뒤’에 Y가 더 탈퇴하고 나서 원본을 잃는다.
+//     → 복구 전 확인(backup-restore-check)은 ‘회원 접근을 열지 않음’(종료 코드 4)으로 판정한다. 실제로 그 삭제 이력만 적용하면 Y가 되살아나 있다(대조).
+//     → 그 기간을 덮는 더 새 삭제 이력이 있을 때만 ‘열어도 됨’이 되고, 적용하면 Y와 Y의 사진도 사라진다.
+//     복구 지점은 verifyBackup 으로 고른다(정상 백업만 · 필수 파일·봉인된 목록·지문 확인 · R4-03·04).
 //  실제 Supabase 새 프로젝트로의 복구는 같은 순서를 대표용 안내(문서)의 명령으로 한다. 이 리허설은 실제 서버·실제 Storage API에 닿지 않는다.
 import { PGlite } from "@electric-sql/pglite"
 import { createHash, randomBytes } from "node:crypto"
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs"
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs"
+import { spawnSync } from "node:child_process"
 import http from "node:http"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -19,7 +24,8 @@ import assert from "node:assert/strict"
 const KEY = randomBytes(32).toString("hex") // 리허설 전용 키(실제 키는 쓰지 않는다)
 process.env.FLAVIE_BACKUP_KEY = KEY
 const { decrypt, loadKey } = await import("./backup-crypto.mjs")
-const { key } = loadKey()
+const { key, keyId } = loadKey()
+const { verifyBackup } = await import("./backup-lib.mjs")
 const code = join(dirname(fileURLToPath(import.meta.url)), "..")
 const sha = (b) => createHash("sha256").update(b).digest("hex")
 let passed = 0
@@ -38,15 +44,15 @@ async function fresh() {
   return db
 }
 const work = mkdtempSync(join(tmpdir(), "flavie-dr-"))
-const local = join(work, "이 컴퓨터 백업"), offsite = join(work, "바깥 사본(클라우드 폴더)")
+const local = join(work, "이 컴퓨터 백업"), offsite = join(work, "바깥 사본(클라우드 폴더)"), offsiteFresh = join(work, "바깥 사본(더 새 삭제 이력이 있는 경우)")
 try {
   // ── 1. 원본(가짜)
   const live = await fresh()
   const storage = new Map() // `${bucket}/${path}` → 바이트(원본 Storage 흉내 · 메모리)
   const meta = { adult: true, terms_version: "dr", privacy_version: "dr" }
   const user = async (email) => (await live.query("insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id", [email, meta])).rows[0].id
-  const [A, B, X] = [await user("a@dr.test"), await user("b@dr.test"), await user("x@dr.test")]
-  for (const [m, name] of [[A, "가윤"], [B, "나준"], [X, "다온"]]) {
+  const [A, B, X, Y] = [await user("a@dr.test"), await user("b@dr.test"), await user("x@dr.test"), await user("y@dr.test")]
+  for (const [m, name] of [[A, "가윤"], [B, "나준"], [X, "다온"], [Y, "라희"]]) {
     await live.query("insert into public.applications (member_id, draft, status) values ($1, $2, 'submitted')", [m, { values: { "self.name": name, "self.bio": `${name}의 가짜 소개예요.` } }])
     for (const slot of ["photo.face", "photo.upper"]) {
       const path = `${m}/${slot}-dr.jpg`, bytes = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), randomBytes(2048)])
@@ -74,10 +80,10 @@ try {
   })
   await new Promise((r) => server.listen(0, "127.0.0.1", r))
   const env = { ...process.env, FLAVIE_BACKUP_KEY: KEY, FLAVIE_BACKUP_ROOT: local, FLAVIE_OFFSITE_DIR: offsite, FLAVIE_BACKUP_FAKE_CLI: join(code, "supabase/tests/backup/fake-supabase-cli.mjs"), FAKE_SQL_URL: `http://127.0.0.1:${server.address().port}`, FLAVIE_BACKUP_WARN_DIR: join(work, "안내"), FLAVIE_BACKUP_REPORT: "0" }
-  const run = async (script) => {
+  const run = async (script, extra = {}) => {
     // 원본 DB가 이 프로세스 안에 있어, 자식이 끝날 때까지 이벤트를 돌리며 기다린다(spawnSync는 쓸 수 없음)
     const { spawn } = await import("node:child_process")
-    return new Promise((resolve) => { const c = spawn(process.execPath, [join(code, "scripts", script)], { env, cwd: code, stdio: ["ignore", "pipe", "pipe"] }); let out = ""; c.stdout.on("data", (d) => (out += d)); c.stderr.on("data", (d) => (out += d)); c.on("exit", (status) => resolve({ status, out })) })
+    return new Promise((resolve) => { const c = spawn(process.execPath, [join(code, "scripts", script)], { env: { ...env, ...extra }, cwd: code, stdio: ["ignore", "pipe", "pipe"] }); let out = ""; c.stdout.on("data", (d) => (out += d)); c.stderr.on("data", (d) => (out += d)); c.on("exit", (status) => resolve({ status, out })) })
   }
   const b1 = await run("backup.mjs")
   if (b1.status !== 0) console.log(b1.out.slice(-1500))
@@ -90,6 +96,15 @@ try {
   await new Promise((r) => setTimeout(r, 1100)) // 삭제 이력 파일 이름(초 단위)이 백업 폴더와 다르게
   ok("2. 삭제 이력 내보내기(암호화 · 바깥 사본에도)", (await run("backup-deletions.mjs")).status === 0)
   ok("2. 바깥 사본 복사(지문 확인)", (await run("backup-offsite.mjs")).status === 0)
+  // ── 2-1. 삭제 이력을 뽑은 ‘뒤’에 Y가 탈퇴해 지워진다(이 삭제는 바깥 사본의 삭제 이력에 없다) → 그 직후 원본을 잃는다
+  await live.query("update public.profiles set status = 'withdrawal_requested', deletion_due_at = now() - interval '1 minute' where id = $1", [Y])
+  await live.query("select public.run_withdrawal_deletion()")
+  ok("2-1. 삭제 이력 추출 뒤 Y도 지워졌다(원본에는 삭제 이력 2건 · 바깥 사본의 파일에는 1건)", (await live.query("select count(*)::int n from public.deletion_log")).rows[0].n === 2)
+  const lostAt = new Date().toISOString()
+  // 견줄 경우: 잃기 전에 삭제 이력을 한 번 더 뽑을 수 있었다면(계획된 이전 등) — 따로 둔 사본에만 넣는다
+  cpSync(offsite, offsiteFresh, { recursive: true })
+  await new Promise((r) => setTimeout(r, 1100))
+  ok("2-1. (견줄 경우 준비) 더 새 삭제 이력은 따로 둔 사본에만 있다", (await run("backup-deletions.mjs", { FLAVIE_OFFSITE_DIR: offsiteFresh, FLAVIE_BACKUP_ROOT: join(work, "견줄 경우 로컬") })).status === 0 && readdirSync(join(offsiteFresh, "삭제 이력")).length === 2 && readdirSync(join(offsite, "삭제 이력")).length === 1)
   server.close()
 
   // ── 3. 재해: 원본 DB·이 컴퓨터를 잃음
@@ -101,11 +116,15 @@ try {
   // ── 4. 새 환경에 복구
   const target = await fresh()
   const newStorage = new Map()
-  const folder = readdirSync(offsite).filter((n) => /^\d{4}-/.test(n) && existsSync(join(offsite, n, "manifest.json"))).sort().at(-1)
-  const manifest = JSON.parse(readFileSync(join(offsite, folder, "manifest.json"), "utf8"))
-  assert.equal(manifest.encryption.keyId, loadKey().keyId)
-  const open = (rel) => decrypt(key, readFileSync(join(offsite, folder, rel)))
-  const data = JSON.parse(open("data.json.enc").toString()), schema = JSON.parse(open("schema.json.enc").toString()), index = JSON.parse(open("index.json.enc").toString())
+  // 복구 전 확인: 복구 지점(정상 백업)과 삭제 이력의 신선도 — 아무것도 바꾸지 않는 판정 도구
+  const check = (dir, args) => { const r = spawnSync(process.execPath, [join(code, "scripts", "backup-restore-check.mjs"), dir, ...args], { env: { ...process.env, FLAVIE_BACKUP_KEY: KEY }, encoding: "utf8" }); let v = null; try { v = JSON.parse(r.stdout.slice(r.stdout.indexOf("{"), r.stdout.lastIndexOf("}") + 1)) } catch { /* 판정 없음 */ } return { status: r.status, v } }
+  const gate = check(offsite, ["--lost-at", lostAt])
+  ok("4-0. 복구 전 확인: 삭제 이력이 원본을 잃은 때보다 오래됐다 → ‘회원 접근을 열지 않음’(종료 코드 4)", gate.status === 4 && gate.v?.memberAccess === "closed" && gate.v?.unclearMinutes >= 0 && Date.parse(gate.v?.unclearFrom) < Date.parse(lostAt))
+  const folder = gate.v.backup
+  const checked = verifyBackup(join(offsite, folder), key, keyId) // 정상 백업만 통과(필수 파일·봉인된 목록·사진 지문)
+  ok("4-0. 복구 지점은 정상 백업(status complete · 형식 3)이고 필수 파일·목록·지문 확인을 통과했다", checked.status === "complete" && checked.format === 3 && checked.manifest.status === "complete")
+  const manifest = checked.manifest
+  const data = JSON.parse(checked.data.toString()), schema = JSON.parse(checked.schema.toString()), index = checked.items
   // 4-1 스키마: 백업 때 적용돼 있던 마이그레이션이 새 환경에 모두 있는지(새 환경은 저장소의 마이그레이션으로 만든다)
   const restoredVersions = (await target.query("select version from supabase_migrations.schema_migrations")).rows.map((r) => r.version)
   ok("4-1. 스키마: 백업 때의 마이그레이션이 새 환경에 모두 적용돼 있다", schema.migrations.every((v) => restoredVersions.includes(v)))
@@ -123,7 +142,7 @@ try {
   ok("4-2. 인증 관계: 계정·프로필·신청서가 같은 번호로 이어진다", (await target.query("select count(*)::int n from public.profiles p join auth.users u on u.id = p.id join public.applications a on a.member_id = p.id where p.id = any($1)", [[A, B]])).rows[0].n === 2)
   // 4-3 두 버킷: 파일을 메모리에서 바로 새 저장소로(실제로는 CLI가 이름 있는 파이프에서 읽어 올림 · Supabase CLI 2.121.0으로 확인)
   for (const item of index) {
-    const bytes = open(item.file)
+    const bytes = item.bytes
     assert.equal(sha(bytes), item.sha256)
     newStorage.set(`${item.bucket}/${item.path}`, bytes)
     await target.query("insert into storage.objects (bucket_id, name) values ($1, $2) on conflict do nothing", [item.bucket, item.path])
@@ -138,18 +157,20 @@ try {
   await target.query("insert into public.deletion_log (member_id, deleted_at) select member_id, deleted_at from jsonb_populate_recordset(null::public.deletion_log, $1) on conflict (member_id) do nothing", [JSON.stringify(latest.rows)])
   const removed = (await target.query("select public.apply_deletion_log() n")).rows[0].n
   // 사진 정리 함수 흉내: 대기열에서 쓰이지 않는 파일을 선점 → 지움 → 정리(실제로는 storage-cleanup 함수를 한 번 부른다)
-  const gone = []
-  for (const bucket of ["application-photos", "letter-photos"]) {
-    await target.exec("set role service_role")
-    const listed = (await target.query("select path from public.storage_cleanup_batch(5000) where bucket = $1", [bucket])).rows.map((r) => r.path)
-    const claim = (await target.query("select public.storage_cleanup_claim($1, $2) v", [bucket, listed])).rows[0].v
-    await target.exec("reset role")
-    for (const p of claim.paths) { newStorage.delete(`${bucket}/${p}`); gone.push([bucket, p]) }
-    await target.query("delete from storage.objects where bucket_id = $1 and name = any($2)", [bucket, claim.paths]) // Storage API 삭제 흉내
-    await target.exec("set role service_role")
-    await target.query("select public.storage_cleanup_finish($1, $2, $3)", [bucket, claim.paths, claim.claim])
-    await target.exec("reset role")
+  const cleanup = async () => {
+    for (const bucket of ["application-photos", "letter-photos"]) {
+      await target.exec("set role service_role")
+      const listed = (await target.query("select path from public.storage_cleanup_batch(5000) where bucket = $1", [bucket])).rows.map((r) => r.path)
+      const claim = (await target.query("select public.storage_cleanup_claim($1, $2) v", [bucket, listed])).rows[0].v
+      await target.exec("reset role")
+      for (const p of claim.paths) newStorage.delete(`${bucket}/${p}`)
+      await target.query("delete from storage.objects where bucket_id = $1 and name = any($2)", [bucket, claim.paths]) // Storage API 삭제 흉내
+      await target.exec("set role service_role")
+      await target.query("select public.storage_cleanup_finish($1, $2, $3)", [bucket, claim.paths, claim.claim])
+      await target.exec("reset role")
+    }
   }
+  await cleanup()
   // ── 5. 확인
   ok("5. 최신 삭제 이력을 적용하면 X 계정이 다시 지워진다", removed === 1 && (await target.query("select count(*)::int n from auth.users where id = $1", [X])).rows[0].n === 0)
   ok("5. X의 프로필·신청서·사진 행이 되살아나지 않는다", (await target.query("select (select count(*) from public.profiles where id = $1) + (select count(*) from public.applications where member_id = $1) + (select count(*) from public.application_photos where member_id = $1) n", [X])).rows[0].n === 0)
@@ -171,6 +192,16 @@ try {
   await target.exec("reset role")
   ok("5. 복구 환경에서는 메일을 하나도 잡지 않는다(outbound_paused)", claimed === 0)
   ok("5. 복구 환경에는 예약 작업(pg_cron)이 없다(일정 마이그레이션을 올리지 않음 · 실제 Supabase에서는 안내 문서의 unschedule 단계)", (await target.query("select to_regclass('cron.job') r")).rows[0].r === null)
+  // ── 6. 삭제 이력의 신선도(R4-06)
+  ok("6. 대조: 낡은 삭제 이력만 적용한 지금, 추출 뒤에 탈퇴한 Y의 계정·신청서·사진이 되살아나 있다(그래서 회원 접근을 닫아 둔다)", (await target.query("select (select count(*) from auth.users where id = $1) + (select count(*) from public.applications where member_id = $1) n", [Y])).rows[0].n === 2 && [...newStorage.keys()].some((k) => k.includes(Y)))
+  ok("6. 닫아 둔 동안 메일 내보내기는 계속 멈춰 있다(outbound_paused 그대로)", (await target.query("select value from public.private_values where name = 'outbound_paused'")).rows[0].value === "true")
+  const freshGate = check(offsiteFresh, ["--lost-at", lostAt])
+  ok("6. 그 기간을 덮는 더 새 삭제 이력이 있으면: ‘열어도 됨’(종료 코드 0 · 불명확한 기간 0분)", freshGate.status === 0 && freshGate.v?.memberAccess === "open" && freshGate.v?.unclearMinutes === 0 && freshGate.v?.deletionRows === 2)
+  const newer = JSON.parse(decrypt(key, readFileSync(join(offsiteFresh, "삭제 이력", freshGate.v.deletions))).toString())
+  await target.query("insert into public.deletion_log (member_id, deleted_at) select member_id, deleted_at from jsonb_populate_recordset(null::public.deletion_log, $1) on conflict (member_id) do nothing", [JSON.stringify(newer.rows)])
+  const removedY = (await target.query("select public.apply_deletion_log() n")).rows[0].n
+  await cleanup()
+  ok("6. 더 새 삭제 이력을 적용하면 Y 계정·신청서·사진 파일도 사라진다(A·B는 그대로)", removedY === 1 && (await target.query("select (select count(*) from auth.users where id = $1) + (select count(*) from public.applications where member_id = $1) n", [Y])).rows[0].n === 0 && ![...newStorage.keys()].some((k) => k.includes(Y)) && (await target.query("select count(*)::int n from auth.users where id = any($1)", [[A, B]])).rows[0].n === 2)
   ok("5. 이 리허설 동안 디스크에 평문이 생기지 않았다(바깥 사본·작업 폴더 검사)", walkPlain(work).length === 0)
   await target.close()
 } finally {

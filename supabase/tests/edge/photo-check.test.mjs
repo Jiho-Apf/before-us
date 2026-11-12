@@ -13,11 +13,15 @@ let passed = 0
 const ok = (label, value) => { assert.ok(value, label); passed++; console.log("✓", label) }
 const { checkJpeg } = await import("../../functions/_shared/photo-check.ts")
 
-// 가짜 JPG 만들기: 마커 조각들 + 본문 시작(FFDA) + 끝(FFD9)
+// 진짜 JPG: 크롬 캔버스(toBlob, 0.9)가 만든 64×80 그림(fixtures/photos · 가짜 그림). 그 사이에 조각을 끼워 반례를 만든다.
+import { readFileSync } from "node:fs"
+import { createHash } from "node:crypto"
+const REAL = Buffer.from(readFileSync(join(repo, "supabase/tests/edge/fixtures/photos/canvas-64x80.jpg.b64"), "utf8").trim(), "base64")
 const seg = (marker, body) => { const b = Buffer.from(body); const len = Buffer.alloc(2); len.writeUInt16BE(b.length + 2); return Buffer.concat([Buffer.from([0xff, marker]), len, b]) }
-const jfif = seg(0xe0, Buffer.from("JFIF\0\x01\x01\0\0\x01\0\x01\0\0", "latin1"))
-const scan = Buffer.concat([Buffer.from([0xff, 0xda, 0x00, 0x08, 1, 1, 0, 0, 0x3f, 0]), Buffer.from("가짜 압축 자료"), Buffer.from([0xff, 0xd9])])
-const jpeg = (...parts) => new Uint8Array(Buffer.concat([Buffer.from([0xff, 0xd8]), ...parts, scan]))
+const jfif = Buffer.alloc(0)
+// 시작 표시(FFD8) 바로 뒤에 조각을 끼운 진짜 JPG
+const jpeg = (...parts) => new Uint8Array(Buffer.concat([REAL.subarray(0, 2), ...parts, REAL.subarray(2)]))
+const sha = (bytes) => createHash("sha256").update(bytes).digest("hex")
 function exif(little, tags) {
   const head = Buffer.from(little ? "II" : "MM", "latin1")
   const w16 = (v) => { const b = Buffer.alloc(2); little ? b.writeUInt16LE(v) : b.writeUInt16BE(v); return b }
@@ -28,7 +32,28 @@ function exif(little, tags) {
 }
 const clean = jpeg(jfif)
 const withGps = jpeg(jfif, exif(true, [0x0112, 0x8825]))
-ok("1) 캔버스로 다시 그린 것 같은 깨끗한 JPG는 통과", checkJpeg(clean).ok)
+const first = checkJpeg(clean)
+ok("1) 크롬 캔버스가 만든 진짜 JPG는 통과하고 가로·세로(64×80)를 읽는다", first.ok && first.width === 64 && first.height === 80)
+// R4-08 반례: 틀만 있고 그림이 없는 파일
+const six = new Uint8Array([0xff, 0xd8, 0xff, 0xda, 0x00, 0x02])
+ok("1) (R4-08) 시작+본문 표시 6바이트는 거절", !checkJpeg(six).ok)
+const fakeScan = Buffer.concat([Buffer.from([0xff, 0xd8]), seg(0xe0, Buffer.from("JFIF\0\x01\x01\0\0\x01\0\x01\0\0", "latin1")), Buffer.from([0xff, 0xda, 0x00, 0x08, 1, 1, 0, 0, 0x3f, 0]), Buffer.from("가짜 압축 자료"), Buffer.from([0xff, 0xd9])])
+ok("1) (R4-08) 표·크기 정보 없이 마커와 가짜 압축 글자만 있는 파일(예전 시험의 ‘깨끗한 JPG’)은 거절", !checkJpeg(new Uint8Array(fakeScan)).ok)
+ok("1) (R4-08) 본문 도중에 잘린 파일은 거절", !checkJpeg(clean.subarray(0, clean.length - 200)).ok)
+ok("1) (R4-08) 끝 표시(FFD9)가 없는 파일은 거절", !checkJpeg(clean.subarray(0, clean.length - 2)).ok)
+ok("1) (R4-08) 끝 표시 뒤에 자료가 붙은 파일은 거절", !checkJpeg(new Uint8Array(Buffer.concat([REAL, Buffer.from("뒤에 붙인 자료")]))).ok)
+const sofAt = REAL.indexOf(Buffer.from([0xff, 0xc0]))
+const huge = Buffer.from(REAL); huge.writeUInt16BE(5000, sofAt + 5); huge.writeUInt16BE(5000, sofAt + 7)
+ok("1) (R4-08) 적힌 크기가 4096px을 넘으면 거절", sofAt > 0 && !checkJpeg(new Uint8Array(huge)).ok && /크기/.test(checkJpeg(new Uint8Array(huge)).reason))
+const big = Buffer.from(REAL); big.writeUInt16BE(4000, sofAt + 5); big.writeUInt16BE(3000, sofAt + 7)
+ok("1) (R4-08) 적힌 크기에 비해 압축 자료가 터무니없이 적으면 거절(크기만 부풀린 파일)", !checkJpeg(new Uint8Array(big)).ok)
+const noTables = Buffer.concat([REAL.subarray(0, 2), REAL.subarray(sofAt)])
+ok("1) (R4-08) 양자화 표가 없는 파일은 거절", !checkJpeg(new Uint8Array(noTables)).ok)
+const { sameAsRegistered, sha256Hex } = await import("../../functions/_shared/photo-check.ts")
+ok("1) (R4-08) 지문 계산이 Node의 sha256과 같다", (await sha256Hex(clean)) === sha(clean))
+ok("1) (R4-08) 등록 값과 지문·크기가 같으면 통과", (await sameAsRegistered(clean, first, { sha256: sha(clean), width: 64, height: 80 })).ok)
+ok("1) (R4-08) 등록 뒤 바뀐 파일(지문 다름)은 거절", !(await sameAsRegistered(clean, first, { sha256: "0".repeat(64), width: 64, height: 80 })).ok)
+ok("1) (R4-08) 등록한 가로·세로와 다르면 거절", !(await sameAsRegistered(clean, first, { sha256: sha(clean), width: 1280, height: 1600 })).ok)
 ok("1) 방향·기종만 있는 EXIF(II)는 통과(위치 정보 아님)", checkJpeg(jpeg(jfif, exif(true, [0x0112, 0x010f]))).ok)
 ok("1) EXIF(II)에 위치 정보 묶음(0x8825)이 있으면 거절", !checkJpeg(withGps).ok && /GPS/.test(checkJpeg(withGps).reason))
 ok("1) EXIF(MM · 큰 끝 순서)의 위치 정보도 거절", !checkJpeg(jpeg(jfif, exif(false, [0x8825]))).ok)
@@ -68,6 +93,19 @@ const r2 = await ask(B, gps)
 const flagged = (await q("select detail from public.job_runs where job = 'photo-check' order by id desc limit 1"))[0]
 ok("2) 위치 정보가 든 사진은 주소를 주지 않고(403) 운영진 기록(photo-check)에 남는다", r2.status === 403 && !r2.body.url && flagged?.detail.path === gps && /GPS/.test(flagged.detail.error))
 ok("2) 소개 상대가 아닌 회원은 403", (await ask(C, good)).status === 403)
+// R4-08: 등록 줄이 있으면 지문·크기 대조
+const reg = (member, slot, path, bytes, w = 64, h = 80) => q("insert into public.application_photos (member_id, slot, path, mime, bytes, width, height, sha256, recent_confirmed, rights_confirmed) values ($1, $2, $3, 'image/jpeg', $4, $5, $6, $7, true, true)", [member, slot, path, bytes.length, w, h, sha(bytes)])
+await reg(A, "photo.face", good, clean)
+ok("2) (R4-08) 등록한 지문·크기와 같은 파일은 주소를 받는다", (await ask(B, good)).status === 200)
+const swapped = jpeg(seg(0xfe, Buffer.from("등록 뒤 바꿔치기한 파일")))
+edge.state.bytes.set(`application-photos/${good}`, swapped)
+const r3 = await ask(B, good)
+const flagged2 = (await q("select detail from public.job_runs where job = 'photo-check' order by id desc limit 1"))[0]
+ok("2) (R4-08) 등록 뒤 저장소 파일이 바뀌면(구조는 정상이어도) 주소를 주지 않고 운영진 기록에 남는다", r3.status === 403 && !r3.body.url && flagged2?.detail.path === good && /바뀐 파일/.test(flagged2.detail.error))
+edge.state.bytes.set(`application-photos/${good}`, six)
+ok("2) (R4-08) 6바이트 가짜 파일은 주소를 받지 못한다", (await ask(B, good)).status === 403)
+edge.state.bytes.set(`application-photos/${good}`, clean)
+ok("2) (R4-08) 원래 파일로 돌아오면 다시 주소를 받는다(사용자가 교체·복구 가능)", (await ask(B, good)).status === 200)
 ok("2) 로그인 없이 부르면 401", (await partner(new Request("http://edge.test/partner-photo", { method: "POST", body: JSON.stringify({ path: good }) }))).status === 401)
 // R3-20: 차단으로 닫힌 뒤 · 탈퇴 요청 뒤에는 주소 재발급 거절
 await asMember(B, "select public.block_member($1)", [A])

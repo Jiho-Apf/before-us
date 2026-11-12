@@ -6,10 +6,15 @@
 //      FAKE_CP_MODE=mid   : 절반만 쓰고 멈춤(받는 도중 강제 종료 시험)
 //      FAKE_CP_MODE=after : 다 쓰고 파이프를 닫은 뒤 끝나지 않고 멈춤(받은 직후 강제 종료 시험)
 //      FAKE_CP_MODE=fail  : 오류로 끝남(종료 코드 1)
+//      FAKE_CP_FAIL_MATCH=글자   : 경로에 이 글자가 든 사진만 오류로 끝남(일부 실패 · GPT 4차 R4-03)
+//      FAKE_CP_CORRUPT_MATCH=글자: 경로에 이 글자가 든 사진은 바이트가 바뀌어 옴(지문 불일치)
+//      FAKE_LS_FAIL=버킷 이름    : 그 버킷의 목록 조회가 오류로 끝남
+//      FAKE_KNOWN=1              : 가짜 자료의 application_photos 에 신청 사진 두 장의 지문(sha256)을 넣는다
 //      FAKE_MARKER        : 멈출 때 남기는 표시 파일
 //  - FAKE_REPORT_LOG: record_backup_run 호출을 이 파일에 한 줄씩 남긴다(서버 기록 흉내)
 import { appendFileSync, readFileSync, writeFileSync, existsSync } from "node:fs"
 import net from "node:net"
+import { createHash } from "node:crypto"
 
 const args = process.argv.slice(2)
 const out = (value) => process.stdout.write(`가짜 CLI\n${JSON.stringify(value)}`)
@@ -33,16 +38,18 @@ if (args[0] === "db" && args[1] === "query") {
   else if (sql.includes("information_schema.tables")) out({ rows: [{ table_name: "profiles" }, { table_name: "notifications" }, { table_name: "application_photos" }] })
   else if (sql.includes("supabase_migrations")) out({ rows: [{ schema: { migrations: ["20261106006500"], functions: [], rls: [], buckets: [] } }] })
   else if (sql.includes("deletion_log")) out({ rows: [{ rows: [{ member_id: "00000000-0000-4000-8000-00000000f0de", deleted_at: "2026-11-01T00:00:00Z" }] }] })
-  else out({ rows: [{ data: { profiles: [{ id: "00000000-0000-4000-8000-00000000f001", email: "fake-member@example.test" }], notifications: [], application_photos: [], "auth.users": [{ id: "00000000-0000-4000-8000-00000000f001", email: "fake-member@example.test" }] } }] })
+  else out({ rows: [{ data: { profiles: [{ id: "00000000-0000-4000-8000-00000000f001", email: "fake-member@example.test" }], notifications: [], application_photos: process.env.FAKE_KNOWN ? ["u1/a.jpg", "u1/b.jpg"].map((path) => ({ path, sha256: createHash("sha256").update(photoBytes(`/application-photos/${path}`)).digest("hex") })) : [], "auth.users": [{ id: "00000000-0000-4000-8000-00000000f001", email: "fake-member@example.test" }] } }] })
 } else if (args[0] === "storage" && args[1] === "ls") {
   const bucket = args.find((a) => a.startsWith("ss:///")).slice(6)
+  if (process.env.FAKE_LS_FAIL === bucket) { process.stderr.write("가짜 CLI: 목록 조회 실패"); process.exit(1) }
   if (url) out(await (await remote("/storage/list", bucket)).json())
   else out({ paths: [`/${bucket}/u1/a.jpg`, `/${bucket}/u1/b.jpg`] })
 } else if (args[0] === "storage" && args[1] === "cp") {
   const source = args[2].replace(/^ss:\/\//, ""), target = args[3]
   const bytes = url ? Buffer.from(await (await remote("/storage/object", source)).arrayBuffer()) : photoBytes(source)
   const mode = process.env.FAKE_CP_MODE
-  if (mode === "fail") { process.stderr.write("가짜 CLI: 내려받기 실패"); process.exit(1) }
+  if (process.env.FAKE_CP_CORRUPT_MATCH && source.includes(process.env.FAKE_CP_CORRUPT_MATCH)) bytes[bytes.length - 1] ^= 1
+  if (mode === "fail" || (process.env.FAKE_CP_FAIL_MATCH && source.includes(process.env.FAKE_CP_FAIL_MATCH))) { process.stderr.write("가짜 CLI: 내려받기 실패"); process.exit(1) }
   const marker = process.env.FAKE_MARKER
   const markOnce = (stage) => { if (marker && !existsSync(marker)) writeFileSync(marker, JSON.stringify({ stage, source })) }
   if (!target.startsWith("\\\\.\\pipe\\")) { process.stderr.write("가짜 CLI: 이 시험의 백업은 파이프로만 받아요"); process.exit(1) }

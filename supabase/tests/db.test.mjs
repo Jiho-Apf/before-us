@@ -2838,6 +2838,7 @@ await db.exec("reset role")
       email_queue: [null, "메일 대기열(문의 답변 등): 보낸 뒤 대기열 정리 · 3일 뒤 더 보내지 않음"],
       greetings: [null, "첫 마디: 회원이 지우거나 탈퇴하면 삭제"],
       inquiries: [null, "문의: 답변 뒤 3년"],
+      test_accounts: [null, "시험 계정 지정(R4-10): 대표가 해제하거나 계정 삭제와 함께 · 뺀 숫자 이름만"],
       inquiry_lookup_failures: [null, "비회원 문의 조회 실패(메일 해시·시각만, R3-17): 1일"],
       introductions: [null, "소개 사본·궁합·닮은 두 문장·소개 이유: 끝난 뒤 30일 · 진행 기록: 끝난 뒤 3년(탈퇴하면 연결 끊김)"],
       job_runs: [null, "작업 기록: 90일 · 0건 줄은 2일(R3-06·6800) · 개인정보 아님"],
@@ -3525,7 +3526,10 @@ await db.exec("reset role")
     const made = (await one("select public.submit_inquiry('서비스 이용 방법', '가짜', 'lookup-r4@example.test', '조회 제한 시험용 문의예요.', true) v")).v
     ok("R3-17: 맞는 접수 번호·메일이면 조회된다", (await one("select public.find_inquiry($1, 'lookup-r4@example.test') v", [made.id])).v?.id === made.id)
     for (let i = 0; i < 10; i++) await q("select public.find_inquiry($1, 'lookup-r4@example.test')", [`Q-000000-0000000${i}`])
-    await expectError("R3-17: 같은 메일로 틀린 조회가 1시간 10번이면 잠시 막는다", () => q("select public.find_inquiry($1, 'lookup-r4@example.test')", [made.id]), /확인 요청이 많아요/)
+    // (7600 · R4-11) 예전 시험은 ‘틀린 조회 10번 뒤에는 맞는 조회도 막힌다’였는데, 그것이 R4-11 결함(남이 주인의 조회를 잠글 수 있음)이라 아래처럼 바꿨다:
+    //  한도를 넘으면 ‘틀린 조회’만 막고, 맞는 접수 번호·메일은 그대로 보인다.
+    await expectError("R3-17: 같은 메일로 틀린 조회가 1시간 10번이면 그 뒤 틀린 조회는 잠시 막는다", () => q("select public.find_inquiry('Q-000000-00000099', 'lookup-r4@example.test')"), /확인 요청이 많아/)
+    ok("R4-11: 틀린 조회가 한도를 넘어도 맞는 접수 번호·메일은 조회된다", (await one("select public.find_inquiry($1, 'lookup-r4@example.test') v", [made.id])).v?.id === made.id)
     ok("R3-17: 다른 메일의 조회는 막히지 않는다", (await one("select public.find_inquiry('Q-000000-AAAAAAAA', 'other-r4@example.test') v")).v === null)
     await expectError("R3-17: 비회원은 조회 실패 기록을 읽을 수 없다", () => q("select * from public.inquiry_lookup_failures"), /permission denied/)
     await as("postgres")
@@ -3734,6 +3738,291 @@ await db.exec("reset role")
     await expectError("R3-30: 비회원은 집계 표를 읽을 수 없다", () => q("select * from public.metric_counters"), /permission denied/)
     await as("postgres")
     ok("R3-30: 본인 만남 응답은 사람 단위로 따로 센다(실제 만남 증명 아님)", (await counter("self_report_met")) >= before.met)
+  }
+  // ── GPT 4차 재검수 대응(7600 · 2026-11-12): R4-09 회고 집계 단위 · R4-10 시험 계정 격리 · R4-11 문의 조회 · R4-12 공개 상태 · R4-18 장애 구제
+  {
+    await as("postgres")
+    await clock(null)
+    const counterAt = async (name, cohort = null) => Number((await one("select coalesce(sum(value), 0) v from public.metric_counters where name = $1 and ($2::int is null or cohort = $2)", [name, cohort])).v)
+    const approvedPerson = async (gender, desired) => {
+      const id = await person()
+      await applyAs(id, { ...coreValues(gender, desired), "consent.matching": true }, baseSharing); await q("select public.submit_application()"); await approve(id)
+      return id
+    }
+    const reserve = async (a, b) => { await as(O, "aal2"); const id = (await one("select public.admin_reserve_introduction($1, $2, (public.kst_today() + 2), '두 분 모두 주말 산책을 좋아한다고 적으셨어요.') id", [a, b])).id; await as("postgres"); return id }
+    const publish = async (id) => { await as("postgres"); await q("update public.introductions set reveal_at = now() - interval '2 minutes', respond_by = now() + interval '23 hours', view_until = now() + interval '23 hours' where id = $1", [id]); await q("select public.run_noon()") }
+    const openAs = async (m, id, choice = null) => { await as(m); await q("select public.record_introduction_view($1)", [id]); if (choice) await q("select public.respond_introduction($1, $2)", [id, choice]); await as("postgres") }
+    const expire = async (id) => { await as("postgres"); await q("update public.introductions set respond_by = now() - interval '1 minute' where id = $1", [id]); await q("select public.run_introduction_deadlines()") }
+    const closedPair = async (X, Y) => {
+      await as("postgres")
+      const intro = (await one("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b, published_at, mutual_at, closed_at, end_reason) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'closed', now() - interval '1 day', now() - interval '12 hours', now() - interval '1 hour', '{}', '{}', now() - interval '1 day', now() - interval '20 hours', now() - interval '1 hour', 'completed') returning id", [X, Y])).id
+      return (await one("insert into public.programs (introduction_id, member_a, member_b, status, plan_a, plan_b, start_on, agree_by, started_at, meeting_on, closed_at, end_reason) values ($1, $2, $3, 'closed', 'A', 'A', public.kst_today() - 8, now() - interval '9 days', now() - interval '8 days', public.kst_today() - 3, now() - interval '1 day', 'completed') returning id", [intro, X, Y])).id
+    }
+
+    // R4-09: 자기보고 집계 단위 = 회원 × 교류. 바꾸면 옮겨 세고, 스스로 지우면 빼고, 기간 파기·탈퇴는 그대로 둔다
+    {
+      const X = await person(), Y = await person(), Y2 = await person()
+      await applyAs(X, { ...coreValues("여성", "남성"), "consent.matching": true }, baseSharing); await q("select public.submit_application()"); await approve(X)
+      const p1 = await closedPair(X, Y), p2 = await closedPair(X, Y2)
+      const base = { met: await counterAt("self_report_met"), not: await counterAt("self_report_not_met"), skip: await counterAt("self_report_skip") }
+      const now3 = async () => [(await counterAt("self_report_met")) - base.met, (await counterAt("self_report_not_met")) - base.not, (await counterAt("self_report_skip")) - base.skip]
+      await as(X); await q("select public.save_reflection($1, null, 'met')", [p1]); await as("postgres")
+      eq("R4-09: 처음 저장 → met +1", await now3(), [1, 0, 0])
+      await as(X); await q("select public.save_reflection($1, null, 'met')", [p1]); await q("select public.save_reflection($1, '대화가 편안했어요. 다음에도 천천히요.', null)", [p1]); await as("postgres")
+      eq("R4-09: 같은 값 다시 저장·한 줄만 고치기 → 그대로(같은 줄은 한 번만 센다)", await now3(), [1, 0, 0])
+      await as(X); await q("select public.save_reflection($1, null, 'not_met')", [p1]); await as("postgres")
+      eq("R4-09: 응답을 바꾸면 옮겨 센다(met −1 · not_met +1)", await now3(), [0, 1, 0])
+      await as(X); await q("select public.delete_reflection($1)", [p1]); await as("postgres")
+      eq("R4-09: 본인이 지우면 셌던 칸에서 뺀다(정정·철회)", await now3(), [0, 0, 0])
+      await as(X); await q("select public.save_reflection($1, null, 'met')", [p1]); await as("postgres")
+      eq("R4-09: 지운 뒤 다시 써도 1(예전에는 2로 중복 — 검수 R4-09 재현 경로)", await now3(), [1, 0, 0])
+      await as(X); await q("select public.delete_reflection($1)", [p1]); await q("select public.save_reflection($1, null, 'met')", [p1]); await q("select public.delete_reflection($1)", [p1]); await q("select public.save_reflection($1, null, 'met')", [p1]); await as("postgres")
+      eq("R4-09: 저장·삭제를 되풀이해도 원문 한 줄 = 숫자 1", [await now3(), (await one("select count(*)::int n from public.reflections where member_id = $1", [X])).n], [[1, 0, 0], 1])
+      await as(X); await q("select public.save_reflection($1, null, 'skip')", [p2]); await as("postgres")
+      eq("R4-09: 같은 회원의 다른 교류는 따로 센다(회원 × 교류)", await now3(), [1, 0, 1])
+      // 기수를 옮긴 뒤 답을 바꿔도 처음 셌던 기수 칸에서 뺀다
+      const c1 = await counterAt("self_report_met", 1)
+      await q("update public.applications set cohort_number = 2 where member_id = $1", [X])
+      await as(X); await q("select public.save_reflection($1, null, 'not_met')", [p1]); await as("postgres")
+      eq("R4-09: 기수 이동 뒤 정정 — 셌던 기수(1) 칸에서 빼고 지금 기수(2) 칸에 더한다(음수 칸 없음)", [await counterAt("self_report_met", 1), await counterAt("self_report_not_met", 2), (await one("select count(*)::int n from public.metric_counters where value < 0")).n], [c1 - 1, (await counterAt("self_report_not_met", 2)), 0])
+      eq("R4-09: 정정 뒤 합계", await now3(), [0, 1, 1])
+      await q("update public.applications set cohort_number = 1 where member_id = $1", [X])
+      // 다음 소개에 반영된 줄은 지금처럼 지울 수 없고 숫자도 그대로
+      await q("update public.reflections set used_at = now() where member_id = $1 and program_id = $2", [X, p2])
+      await as(X)
+      await expectError("R4-09: 반영된 줄은 지울 수 없다(숫자도 그대로)", () => q("select public.delete_reflection($1)", [p2]), /지울 수 있는 한 줄이 없어요/)
+      await as("postgres")
+      eq("R4-09: 반영 표시만 바뀐 줄은 다시 세지 않는다", await now3(), [0, 1, 1])
+      // 회원이 셈 칸을 직접 바꿀 수 없다
+      await as(X)
+      await expectError("R4-09: 회원은 회고 표를 직접 고칠 수 없다(셈 칸 포함)", async () => { const r = await q("update public.reflections set counted_met = null where member_id = $1 returning id", [X]); if (r.length === 0) throw new Error("permission denied (0 rows)") }, /permission denied|row-level/)
+      await as("postgres")
+      // 기간 파기(1년): 원문은 지워지고 숫자는 남는다
+      await q("update public.reflections set created_at = now() - interval '13 months' where member_id = $1", [X])
+      await q("select public.run_retention()")
+      eq("R4-09: 보존 기간 파기 — 원문 0줄 · 누적 숫자는 그대로", [(await one("select count(*)::int n from public.reflections where member_id = $1", [X])).n, await now3()], [0, [0, 1, 1]])
+      // 탈퇴(계정 삭제)로 줄이 지워져도 숫자는 남는다
+      const W = await person(), W2 = await person()
+      await applyAs(W, { ...coreValues("여성", "남성"), "consent.matching": true }, baseSharing); await q("select public.submit_application()"); await approve(W)
+      const pw = await closedPair(W, W2)
+      await as(W); await q("select public.save_reflection($1, null, 'met')", [pw]); await q("select public.request_withdrawal(array[]::text[], null)"); await as("postgres")
+      await q("update public.profiles set deletion_due_at = now() - interval '1 minute' where id = $1", [W])
+      await q("select public.run_withdrawal_deletion()")
+      eq("R4-09: 탈퇴로 계정·원문이 지워져도 누적 숫자는 남는다", [(await one("select count(*)::int n from public.profiles where id = $1", [W])).n, await now3()], [0, [1, 1, 1]])
+      await as(O, "aal2")
+      ok("R4-09: 운영진 정의 문구가 ‘회원×교류 단위’로 바뀌었다", (await one("select public.admin_metric_snapshots(1) v")).v.definitions.self_report.includes("회원×교류"))
+      await as("postgres")
+    }
+
+    // R4-10: 시험 계정 격리 — 대표만 지정 · 실회원과 소개 불가 · 집계 제외 · payment_testers 와 별개
+    {
+      const T = await person()
+      const before = { signed: await counterAt("signed_up"), applied: await counterAt("applied"), approved: await counterAt("approved_ever"), intro: await counterAt("introduced"), met: await counterAt("self_report_met") }
+      await as(T)
+      await expectError("R4-10: 회원은 스스로 시험 계정이 될 수 없다", () => q("select public.admin_set_test_account($1, true, '내가 시험 계정')", [T]), /대표만/)
+      await expectError("R4-10: 회원은 시험 계정 표를 읽을 수 없다", () => q("select * from public.test_accounts"), /permission denied/)
+      await expectError("R4-10: 회원은 시험 계정 표에 넣을 수 없다", () => q("insert into public.test_accounts (member_id) values ($1)", [T]), /permission denied/)
+      await as(O, "aal1")
+      await expectError("R4-10: 대표라도 2단계 인증 전에는 지정할 수 없다", () => q("select public.admin_set_test_account($1, true, '시험')", [T]), /대표만/)
+      await as(O, "aal2")
+      const set = (await one("select public.admin_set_test_account($1, true, '아이폰 가입 확인용') v", [T])).v
+      ok("R4-10: 대표(2단계 인증)가 지정한다 · 감사 기록", set.test === true && set.changed === true && (await one("select count(*)::int n from public.audit_log where action = '시험 계정 지정' and target = $1", [T])).n === 1)
+      eq("R4-10: 같은 지정을 다시 불러도 그대로(숫자를 두 번 빼지 않음)", (await one("select public.admin_set_test_account($1, true, '다시') v", [T])).v.changed, false)
+      ok("R4-10: 운영진은 시험 계정 번호 목록을 본다", (await one("select public.admin_test_accounts() v")).v.some((x) => x.member === T))
+      await as("postgres")
+      eq("R4-10: 지정하는 순간 이미 올라간 가입 숫자를 뺀다", await counterAt("signed_up"), before.signed - 1)
+      eq("R4-10: 결제 시험 계정(payment_testers)과는 별개다", (await one("select count(*)::int n from public.payment_testers where member_id = $1", [T])).n, 0)
+      const snap0 = (await one("select public.take_metric_snapshot('test') v")).v.current
+      const seats = (await one("select public.cohort_count(1, '여성') n")).n
+      await applyAs(T, { ...coreValues("여성", "남성"), "consent.matching": true }, baseSharing); await q("select public.submit_application()")
+      await approve(T)
+      eq("R4-10: 시험 계정의 신청·승인은 누적 숫자에 들어가지 않는다", [await counterAt("applied"), await counterAt("approved_ever")], [before.applied, before.approved])
+      const snap1 = (await one("select public.take_metric_snapshot('test') v")).v.current
+      ok("R4-10: 그날 현재 숫자(활성·승인)에도 들어가지 않고, 시험 계정 수는 따로 보인다", snap1.approvedNow === snap0.approvedNow && snap1.membersActive === snap0.membersActive && snap1.testAccountsNow >= 1)
+      eq("R4-10: 기수 자리 수에도 세지 않는다(시험 계정이 1기로 승인돼도 그대로)", (await one("select public.cohort_count(1, '여성') n")).n, seats)
+      // 실회원과는 소개로 묶을 수 없다(어느 경로든) · 시험 계정끼리는 된다
+      const R = await approvedPerson("남성", "여성")
+      await as(O, "aal2")
+      await expectError("R4-10: 시험 계정과 실회원은 소개 예약이 거절된다", () => q("select public.admin_reserve_introduction($1, $2, (public.kst_today() + 2), '두 분 모두 주말 산책을 좋아한다고 적으셨어요.')", [T, R]), /시험 계정과 실제 회원/)
+      await as("postgres")
+      await expectError("R4-10: 표에 바로 넣어도 막힌다(트리거)", () => q("insert into public.introductions (member_a, member_b, note, status, reveal_at, respond_by, view_until, snapshot_a, snapshot_b) values ($1, $2, '두 분 모두 산책을 좋아하셨어요.', 'reserved', now() + interval '1 day', now() + interval '2 days', now() + interval '2 days', '{}', '{}')", [R, T]), /시험 계정과 실제 회원/)
+      const T2 = await person()
+      await as(O, "aal2"); await q("select public.admin_set_test_account($1, true, '아이폰 가입 확인용 2')", [T2]); await as("postgres")
+      await applyAs(T2, { ...coreValues("남성", "여성"), "consent.matching": true }, baseSharing); await q("select public.submit_application()"); await approve(T2)
+      const it = await reserve(T, T2)
+      await publish(it)
+      eq("R4-10: 시험 계정끼리는 소개할 수 있고(공개됨), 소개 누적 숫자는 그대로", [(await one("select status from public.introductions where id = $1", [it])).status, await counterAt("introduced")], ["published", before.intro])
+      await openAs(T, it, "positive"); await openAs(T2, it, "positive")
+      eq("R4-10: 서로 선택해도 누적(mutual)은 그대로", (await one("select status from public.introductions where id = $1", [it])).status, "mutual")
+      await as(O, "aal2")
+      await expectError("R4-10: 소개 기록이 생긴 뒤에는 시험 표시를 풀 수 없다(실회원 집계에 섞이지 않게)", () => q("select public.admin_set_test_account($1, false, '해제')", [T]), /이미 소개 기록이 있는 계정/)
+      await expectError("R4-10: 소개 기록이 있는 실회원을 뒤늦게 시험 계정으로 바꿀 수 없다", async () => { const A = await approvedPerson("여성", "남성"), B = await approvedPerson("남성", "여성"); await reserve(A, B); await as(O, "aal2"); await q("select public.admin_set_test_account($1, true, '뒤늦게')", [A]) }, /이미 소개 기록이 있는 계정/)
+      // 시험 계정의 만남 응답도 세지 않는다
+      await as("postgres")
+      const T3 = await person(), T4 = await person()
+      await applyAs(T3, { ...coreValues("여성", "남성"), "consent.matching": true }, baseSharing); await q("select public.submit_application()"); await approve(T3)
+      const applied1 = await counterAt("applied"), approved1 = await counterAt("approved_ever"), signed1 = await counterAt("signed_up")
+      await as(O, "aal2"); await q("select public.admin_set_test_account($1, true, '제출 뒤 지정')", [T3]); await q("select public.admin_set_test_account($1, true, '짝')", [T4]); await as("postgres")
+      eq("R4-10: 제출·승인 뒤에 지정하면 그 계정이 올린 가입·신청·처음 승인을 뺀다", [await counterAt("signed_up"), await counterAt("applied"), await counterAt("approved_ever")], [signed1 - 2, applied1 - 1, approved1 - 1])
+      await as(O, "aal2"); await q("select public.admin_set_test_account($1, false, '실수로 지정')", [T4]); await as("postgres")
+      eq("R4-10: 소개 전이면 해제할 수 있고, 뺐던 숫자를 되돌린다", [await counterAt("signed_up"), (await one("select count(*)::int n from public.test_accounts where member_id = $1", [T4])).n], [signed1 - 1, 0])
+      await as(O, "aal2"); await q("select public.admin_set_test_account($1, true, '짝')", [T4]); await as("postgres")
+      const pt = await closedPair(T3, T4)
+      const metBefore = await counterAt("self_report_met")
+      await as(T3); await q("select public.save_reflection($1, null, 'met')", [pt]); await as("postgres")
+      eq("R4-10: 시험 계정의 만남 응답은 세지 않는다", await counterAt("self_report_met"), metBefore)
+      // 계정을 지우면 표시도 함께 지워진다
+      await q("delete from auth.users where id = $1", [T4])
+      eq("R4-10: 계정을 지우면 시험 표시도 함께 사라진다", (await one("select count(*)::int n from public.test_accounts where member_id = $1", [T4])).n, 0)
+    }
+
+    // R4-11: 비회원 문의 조회 — 틀린 조회가 쌓여도 주인의 맞는 조회는 언제나 된다 · 남의 문의는 여전히 알 수 없다
+    {
+      await as("postgres")
+      await q("delete from public.inquiry_lookup_failures")
+      await as("anon")
+      const id = (await one("select public.submit_inquiry('서비스 이용 방법', '가짜', 'r4-victim@example.test', '가짜 문의 내용이에요. 열 글자 넘게 적어요.', true) v")).v.id
+      for (let i = 0; i < 10; i++) eq(`R4-11: 틀린 번호 ${i + 1}번째는 null`, (await one("select public.find_inquiry($1, 'r4-victim@example.test') v", [`Q-000000-BAD${i}0000`])).v, null)
+      await expectError("R4-11: 한도를 넘은 틀린 조회는 안내 문장으로 거절(번호·메일을 다시 확인하라고 알림)", () => q("select public.find_inquiry('Q-000000-BAD99999', 'r4-victim@example.test')"), /접수 번호나 메일이 맞지 않아요/)
+      ok("R4-11: 그래도 주인의 맞는 조회는 된다(예전에는 1시간 잠김 — 검수 R4-11)", (await one("select public.find_inquiry($1, 'r4-victim@example.test') v", [id])).v.status === "received")
+      ok("R4-11: 소문자·공백이 달라도 맞는 조회는 된다", (await one("select public.find_inquiry($1, '  R4-Victim@Example.test ') v", [id.toLowerCase()])).v.id === id)
+      await expectError("R4-11: 다른 메일로는 맞는 번호를 넣어도 보이지 않는다(한도 안이면 null · 넘으면 같은 안내)", async () => { const r = (await one("select public.find_inquiry($1, 'r4-other@example.test') v", [id])).v; if (r === null) throw new Error("접수 번호나 메일이 맞지 않아요(null)") }, /접수 번호나 메일이 맞지 않아요/)
+      await as("postgres")
+      eq("R4-11: 한도를 넘은 틀린 조회는 기록을 더 쌓지 않는다(표가 끝없이 커지지 않음)", (await one("select count(*)::int n from public.inquiry_lookup_failures where key_hash = md5('inquiry-lookup:r4-victim@example.test')")).n, 10)
+      ok("R4-11: 실패 기록에는 메일 해시와 시각만 있다", (await one("select string_agg(column_name, ',' order by column_name) c from information_schema.columns where table_schema = 'public' and table_name = 'inquiry_lookup_failures'")).c === "at,id,key_hash")
+      // 전체 한도(10분 300번)가 차도 맞는 조회는 된다
+      await q("insert into public.inquiry_lookup_failures (key_hash) select md5('flood-' || g) from generate_series(1, 300) g")
+      await as("anon")
+      ok("R4-11: 전체 틀린 조회가 300번을 넘어도 맞는 조회는 된다", (await one("select public.find_inquiry($1, 'r4-victim@example.test') v", [id])).v.id === id)
+      await as("postgres")
+      await q("delete from public.inquiry_lookup_failures")
+    }
+
+    // R4-12: 공개 상태 — ok 의 범위를 밝히고, 백업·메일 준비·오늘 정오를 따로 본다
+    {
+      await as("postgres")
+      const late = async (now, last) => (await one("select public.noon_run_late($1::timestamptz, $2::timestamptz) v", [now, last])).v
+      eq("R4-12: 정오 12:14(한국 시각)에는 아직 늦음이 아니다", await late("2026-11-16 12:14:00+09", "2026-11-15 12:00:05+09"), false)
+      eq("R4-12: 12:15가 지났는데 오늘 12시 뒤 기록이 없으면 늦음(어제 기록은 26시간 안이어도)", await late("2026-11-16 12:15:00+09", "2026-11-15 12:00:05+09"), true)
+      eq("R4-12: 오늘 12:00 기록이 있으면 늦음이 아니다", await late("2026-11-16 12:20:00+09", "2026-11-16 12:00:03+09"), false)
+      eq("R4-12: 오늘 오전의 수동 실행은 정오 실행으로 치지 않는다", await late("2026-11-16 12:20:00+09", "2026-11-16 09:30:00+09"), true)
+      eq("R4-12: 기록이 아예 없으면 12:15 뒤 늦음", await late("2026-11-16 13:00:00+09", null), true)
+      eq("R4-12: 자정 무렵(다음 날 00:10)에는 오늘 정오 전이라 이 기준으로는 늦음이 아니다", await late("2026-11-17 00:10:00+09", "2026-11-16 12:00:03+09"), false)
+      // 모든 서버 작업을 방금 돈 것으로 채운다
+      await q("delete from public.job_runs")
+      await q("insert into public.job_runs (job, started_at, finished_at, ok, detail) select e.job, now(), now(), true, '{\"zero\":true}' from public.job_expectations() e where e.job not like 'backup%'")
+      const afterNoon = (await one("select (now() at time zone 'Asia/Seoul')::time >= time '12:15' v")).v
+      if (afterNoon) await q("update public.job_runs set started_at = greatest(started_at, ((now() at time zone 'Asia/Seoul')::date + time '12:00') at time zone 'Asia/Seoul') where job = 'noon'")
+      await as("anon")
+      let h = (await one("select public.public_health() v")).v
+      ok("R4-12: 서버 작업이 모두 정상이면 ok=true 지만, 백업 기록이 없으면 backupOk=false 로 따로 보인다", h.ok === true && h.backupOk === false && h.backupIncludedInOk === false && h.okCovers === "server-jobs")
+      ok("R4-12: 메일 함수가 정상 기록이면 mailReady=true · 정오 누락 아님", h.mailReady === true && h.noonLateToday === false)
+      ok("R4-12: 작업 줄 모양은 그대로(바깥 감시 호환) · 개인정보 없음", h.jobs.every((j) => Object.keys(j).sort().join() === "job,lastFailed,lastRunMinutes,late,ownerPc") && !/@|[0-9a-f]{8}-[0-9a-f]{4}-/.test(JSON.stringify(h)))
+      await as("postgres")
+      // 메일 설정 없음(blocked) 기록 → mailReady=false · ok=false
+      await q("select public.record_job_run('email', false, '{\"blocked\":true,\"notConfigured\":true,\"waiting\":false}'::jsonb, true)")
+      await as("anon"); h = (await one("select public.public_health() v")).v; await as("postgres")
+      ok("R4-12: 메일이 ‘보낼 수 없음’이면 mailReady=false · ok=false(호출은 살아 있어 late=false)", h.mailReady === false && h.ok === false && h.jobs.find((j) => j.job === "email").late === false && h.jobs.find((j) => j.job === "email").lastFailed === true)
+      await q("select public.record_job_run('email', true, '{\"sent\":0,\"failed\":0}'::jsonb, true)")
+      // 백업 기록이 모두 있으면 backupOk=true, 오래되면 false — ok 는 그대로
+      await q("select public.record_backup_run('backup', true, '{}')"); await q("select public.record_backup_run('backup-expire', true, '{}')"); await q("select public.record_backup_run('backup-deletions', true, '{}')")
+      await as("anon"); h = (await one("select public.public_health() v")).v; await as("postgres")
+      ok("R4-12: 백업 세 작업이 모두 제때 성공이면 backupOk=true", h.ok === true && h.backupOk === true)
+      await q("update public.job_runs set started_at = now() - interval '9 days' where job = 'backup'")
+      await as("anon"); h = (await one("select public.public_health() v")).v; await as("postgres")
+      ok("R4-12: 백업이 오래되면 backupOk=false 인데 ok 는 true 그대로(그래서 둘을 함께 봐야 함)", h.ok === true && h.backupOk === false && h.jobs.find((j) => j.job === "backup").late === true)
+      await q("select public.record_backup_run('backup', false, '{\"partial\":true}')")
+      await as("anon"); h = (await one("select public.public_health() v")).v; await as("postgres")
+      ok("R4-12: 마지막 백업이 실패(부분 백업 포함)면 backupOk=false", h.backupOk === false && h.jobs.find((j) => j.job === "backup").lastFailed === true)
+      // 오늘 정오 기록이 없으면(12:15 뒤) 공개 상태와 매시간 점검이 잡는다 — 실제 시각이 12:15 뒤일 때만 확인할 수 있다
+      await q("update public.job_runs set started_at = ((now() at time zone 'Asia/Seoul')::date + time '11:00') at time zone 'Asia/Seoul' - interval '1 day' + interval '2 hours' where job = 'noon'")
+      await as("anon"); h = (await one("select public.public_health() v")).v; await as("postgres")
+      const watch = (await one("select public.run_job_watchdog() v")).v.problems.join(" · ")
+      if (afterNoon) ok("R4-12: (지금 12:15 뒤) 어제 13시 기록뿐이면 noonLateToday=true · ok=false · 점검도 ‘오늘 12시 뒤 기록 없음’", h.noonLateToday === true && h.ok === false && h.jobs.find((j) => j.job === "noon").late === true && /정오 공개\(noon\) (오늘 12시 뒤 기록 없음|기록 늦음)/.test(watch))
+      else ok("R4-12: (지금 12:15 전) 어제 13시 기록이면 아직 늦음이 아니다", h.noonLateToday === false && h.jobs.find((j) => j.job === "noon").late === false && !/오늘 12시 뒤 기록 없음/.test(watch))
+      await q("delete from public.job_runs where job = 'job-watchdog' and started_at > now() - interval '1 minute'")
+    }
+
+    // R4-18: 장애 시간에 응답 기회를 잃은 소개의 구제 — 닫힌 소개를 다시 열지 않고 ‘운영 사정’ 표시만
+    {
+      await as("postgres")
+      const A = await approvedPerson("여성", "남성"), B = await approvedPerson("남성", "여성"), C = await approvedPerson("여성", "남성"), D = await approvedPerson("여성", "남성"), E = await approvedPerson("여성", "남성")
+      // 1) 한쪽만 응답(A 긍정) · B는 열어 봤지만 답하지 못함 → 무응답 마감
+      const i1 = await reserve(A, B); await publish(i1)
+      await openAs(A, i1, "positive"); await openAs(B, i1)
+      await expire(i1)
+      const s1 = await one("select status, end_reason, response_a, response_b, published_at::text p, respond_by::text r, closed_at::text c, count_b from public.introductions where id = $1", [i1])
+      ok("R4-18: 준비 — 무응답으로 닫히고, 열어 본 쪽이 답하지 않아 같은 두 사람 재소개가 막혀 있다", s1.status === "closed" && s1.end_reason === "nonresponse" && s1.count_b === true && (await one("select public.pair_reintro_reason($1, $2) v", [A, B])).v === "nonresponse")
+      await as(B)
+      await expectError("R4-18: 회원은 구제 함수를 부를 수 없다", () => q("select public.admin_excuse_nonresponse($1, '내가 못 봤어요. 다시 열어 주세요.')", [i1]), /운영진 권한/)
+      await as(O, "aal1")
+      await expectError("R4-18: 운영진도 2단계 인증 전에는 안 된다", () => q("select public.admin_excuse_nonresponse($1, '11시 직전 로그인 장애가 있었어요.')", [i1]), /운영진 권한/)
+      await as(O, "aal2")
+      await expectError("R4-18: 이유(5자 이상)가 없으면 거절", () => q("select public.admin_excuse_nonresponse($1, '장애')", [i1]), /이유를 5~300자/)
+      const done = (await one("select public.admin_excuse_nonresponse($1, '11-16 10:40~11:10 로그인 장애로 답할 수 없었어요.') v", [i1])).v
+      await as("postgres")
+      const s2 = await one("select status, end_reason, response_a, response_b, published_at::text p, respond_by::text r, closed_at::text c, count_a, count_b, outage_reason from public.introductions where id = $1", [i1])
+      ok("R4-18: 표시만 남는다 — 상태·마감 사유·공개 시각·응답 기한·닫힌 시각은 그대로(다시 열지 않음)", done.changed === true && s2.status === "closed" && s2.end_reason === "nonresponse" && s2.p === s1.p && s2.r === s1.r && s2.c === s1.c)
+      ok("R4-18: 이미 한 응답(A 긍정)은 그대로 보존", s2.response_a === "positive" && s2.response_b === null && done.responseA === "positive")
+      ok("R4-18: 답하지 못한 쪽의 ‘무응답 1번’·소개 횟수로 세지 않는다", s2.count_a === false && s2.count_b === false)
+      eq("R4-18: 같은 두 사람을 다시 소개할 수 있다(예외 ‘outage’로 표시)", [(await one("select public.pair_reintro_reason($1, $2) v", [A, B])).v, (await one("select public.reintro_exception(i) v from public.introductions i where i.id = $1", [i1])).v], [null, "outage"])
+      ok("R4-18: 감사 기록에 이유가 남는다", (await one("select reason from public.audit_log where action = '장애 구제(무응답 소개)' and target = $1", [i1])).reason.includes("로그인 장애"))
+      eq("R4-18: 양쪽에 안내 알림이 한 번씩 간다", (await one("select count(*)::int n from public.notifications where dedupe_key like $1", [`outage:${i1}:%`])).n, 2)
+      await as(O, "aal2")
+      eq("R4-18: 두 번 눌러도 한 번만 처리(멱등)", (await one("select public.admin_excuse_nonresponse($1, '같은 장애를 한 번 더 눌렀어요.') v", [i1])).v.changed, false)
+      await as("postgres")
+      eq("R4-18: 다시 눌러도 알림·감사 기록이 늘지 않는다", [(await one("select count(*)::int n from public.notifications where dedupe_key like $1", [`outage:${i1}:%`])).n, (await one("select count(*)::int n from public.audit_log where action = '장애 구제(무응답 소개)' and target = $1", [i1])).n], [2, 1])
+      // 2) 두 번 연속 무응답으로 자동 쉬기 → 둘째 소개를 구제하면 쉬기가 풀리고, 다음 무응답 때 구제된 소개는 세지 않는다
+      const i2 = await reserve(C, B); await publish(i2); await openAs(B, i2); await expire(i2)
+      ok("R4-18: 구제된 첫 소개는 ‘연속 무응답’으로 세지 않는다 → 둘째 무응답에도 자동 쉬기 없음", (await one("select paused_at from public.profiles where id = $1", [B])).paused_at === null)
+      const i3 = await reserve(D, B); await publish(i3); await openAs(B, i3); await expire(i3)
+      ok("R4-18: 구제하지 않은 무응답이 두 번 이어지면 지금처럼 자동 쉬기", (await one("select paused_by from public.profiles where id = $1", [B])).paused_by === "auto")
+      await as(O, "aal2")
+      const r3 = (await one("select public.admin_excuse_nonresponse($1, '정오 알림 메일이 4시간 늦게 나갔어요.', false) v", [i3])).v
+      await as("postgres")
+      ok("R4-18: 그 소개 때문에 자동으로 쉬게 된 회원은 쉬기가 풀린다 · 알림 끄기(p_notify=false)도 된다", r3.resumed === 1 && r3.notified === false && (await one("select paused_at from public.profiles where id = $1", [B])).paused_at === null && (await one("select count(*)::int n from public.notifications where dedupe_key like $1", [`outage:${i3}:%`])).n === 0)
+      // 본인이 고른 쉬기는 풀지 않는다
+      await as(B); await q("select public.set_paused(true)"); await as(O, "aal2")
+      await q("select public.admin_excuse_nonresponse($1, '같은 날 장애로 함께 표시해요.')", [i2])
+      await as("postgres")
+      ok("R4-18: 본인이 고른 쉬기는 구제해도 그대로", (await one("select paused_by from public.profiles where id = $1", [B])).paused_by !== "auto" && (await one("select paused_at from public.profiles where id = $1", [B])).paused_at !== null)
+      await as(B); await q("select public.set_paused(false)"); await as("postgres")
+      // 3) 실제 거절은 되돌리지 않는다
+      const i4 = await reserve(E, B); await publish(i4); await openAs(E, i4, "negative"); await openAs(B, i4); await expire(i4)
+      await as(O, "aal2")
+      await expectError("R4-18: 한쪽이 실제로 거절한 소개는 구제하지 않는다", () => q("select public.admin_excuse_nonresponse($1, '장애 시간과 겹쳤다고 주장해요.')", [i4]), /이미 답한 내용이 있는 소개/)
+      await as("postgres")
+      eq("R4-18: 거절 기록은 그대로 재소개를 막는다", (await one("select public.pair_reintro_reason($1, $2) v", [E, B])).v, "declined")
+      // 4) 공개 전 실패(30분 넘게 못 열어 취소)는 대상이 아니다 — 원래 다시 예약할 수 있다
+      await as("postgres")
+      const F2 = await approvedPerson("여성", "남성"), G2 = await approvedPerson("남성", "여성")
+      const i5 = await reserve(F2, G2)
+      await q("update public.introductions set reveal_at = now() - interval '45 minutes', respond_by = now() + interval '23 hours', view_until = now() + interval '23 hours' where id = $1", [i5])
+      await q("select public.run_noon()")
+      const s5 = await one("select status, end_reason, published_at from public.introductions where id = $1", [i5])
+      await as(O, "aal2")
+      await expectError("R4-18: 공개 전 실패(missed-window)는 구제 대상이 아니다(이미 다시 예약 가능)", () => q("select public.admin_excuse_nonresponse($1, '정오 작업이 돌지 않았어요.')", [i5]), /공개되지 않은 소개/)
+      await as("postgres")
+      ok("R4-18: 공개 전 실패는 기존 규칙대로 재소개가 열려 있다", s5.published_at === null && s5.end_reason === "missed-window" && (await one("select public.pair_reintro_reason($1, $2) v", [F2, G2])).v === null)
+      // 5) 진행 중·서로 선택·신고·오래된 소개는 거절
+      await as("postgres")
+      const H2 = await approvedPerson("여성", "남성"), J2 = await approvedPerson("남성", "여성")
+      const i6 = await reserve(H2, J2); await publish(i6)
+      await as(O, "aal2")
+      await expectError("R4-18: 아직 진행 중인 소개는 대상이 아니다", () => q("select public.admin_excuse_nonresponse($1, '아직 마감 전인 소개예요.')", [i6]), /답이 없어 마무리된 소개만/)
+      await openAs(H2, i6); await expire(i6)
+      await q("update public.introductions set closed_at = now() - interval '15 days' where id = $1", [i6])
+      await as(O, "aal2")
+      await expectError("R4-18: 닫힌 지 14일이 지난 소개는 대상이 아니다", () => q("select public.admin_excuse_nonresponse($1, '너무 오래된 소개예요.')", [i6]), /14일이 지난/)
+      await as("postgres")
+      await q("update public.introductions set closed_at = now() - interval '1 day' where id = $1", [i6])
+      await q("insert into public.reports (reporter_id, target_id, introduction_id, source, type, description) values ($1, $2, $3, 'member', '불쾌한 말', '가짜 신고 내용이에요. 확인해 주세요.')", [H2, J2, i6])
+      await as(O, "aal2")
+      await expectError("R4-18: 신고가 있는 소개는 대상이 아니다", () => q("select public.admin_excuse_nonresponse($1, '신고가 있는 소개예요.')", [i6]), /신고가 있는 소개/)
+      await as("postgres")
+    }
+    await as("postgres")
+    await clock(null)
   }
 }
 // ⟦GPT 3차 검수 대응 시험 끝⟧

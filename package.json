@@ -16,7 +16,8 @@
     "backup:deletions": "node scripts/backup-deletions.mjs",
     "backup:offsite": "node scripts/backup-offsite.mjs",
     "backup:dr-rehearsal": "node scripts/backup-dr-rehearsal.mjs",
-    "test:backup": "node supabase/tests/backup/backup-tools.test.mjs",
+    "backup:restore-check": "node scripts/backup-restore-check.mjs",
+    "test:backup": "node supabase/tests/backup/backup-tools.test.mjs && node supabase/tests/backup/backup-integrity.test.mjs",
     "test:edge": "node supabase/tests/edge/smtp.test.mjs && node supabase/tests/edge/toss.test.mjs && node supabase/tests/edge/storage-cleanup.test.mjs && node supabase/tests/edge/send-notifications.test.mjs && node supabase/tests/edge/photo-check.test.mjs"
   },
   "dependencies": {

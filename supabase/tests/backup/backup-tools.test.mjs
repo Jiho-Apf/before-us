@@ -6,7 +6,7 @@
 //  3) 백업(가짜 CLI): 두 버킷 · 디스크에는 암호문·manifest·기록만 · 경로(회원 번호)는 폴더 이름에 드러나지 않음 · 서버 기록
 //  4) 강제 종료(받는 도중 · 받은 직후 · 암호문 쓰기 직후 · 확인 직후) · 디스크 가득 참(주입) · 디스크 오류(실제 EISDIR)
 //     → ‘다음 실행 전’ 디스크 어디에도 가짜 평문·원본 이미지 바이트가 없다
-//  5) 만료(백업과 독립): 가짜 시각으로 40일 동안 새 백업 없이 → 로컬·삭제 이력·바깥 사본 모두 정책대로 지움 · 실패하면 경고·종료 코드·서버 기록
+//  5) 만료(백업과 독립): 가짜 시각으로 새 백업 없이 → 만든 지 29일부터 지워 30일 안에 로컬·삭제 이력·바깥 사본 모두 지움(4차 R4-05 · 경계·늦게 지움은 backup-integrity.test.mjs) · 실패하면 경고·종료 코드·서버 기록
 //  6) 삭제 이력 내보내기 · 바깥 사본(지문 확인) · 예전 버전이 남긴 평문은 만료 정리 때 바로 암호화
 import assert from "node:assert/strict"
 import { execFileSync, spawn, spawnSync } from "node:child_process"
@@ -74,7 +74,7 @@ try {
   const folders = readdirSync(root).filter((n) => /^\d{4}-/.test(n))
   const manifest = JSON.parse(readFileSync(join(root, folders[0], "manifest.json"), "utf8"))
   ok("3) 가짜 CLI로 백업이 끝난다(폴더 이름은 날짜_시분초 KST)", r3.status === 0 && /백업 끝/.test(r3.stdout) && folders.length === 1 && folders[0] === "2026-11-02_120000")
-  ok("3) manifest에 두 버킷이 모두 있고 각각 2장 · 만료 30일 · 키 번호 · 형식 2", manifest.photos["application-photos"].saved === 2 && manifest.photos["letter-photos"].saved === 2 && Date.parse(manifest.expiresAt) - Date.parse(manifest.at) === 30 * 86400000 && manifest.encryption.keyId === loadKey().keyId && manifest.format === 2)
+  ok("3) manifest에 두 버킷이 모두 있고 각각 2장 · 약속 기한 30일(지우기 시작 29일) · 키 번호 · 형식 3 · 상태 complete", manifest.photos["application-photos"].saved === 2 && manifest.photos["letter-photos"].saved === 2 && Date.parse(manifest.mustBeGoneBy) - Date.parse(manifest.at) === 30 * 86400000 && Date.parse(manifest.expiresAt) - Date.parse(manifest.at) === 29 * 86400000 && manifest.encryption.keyId === loadKey().keyId && manifest.format === 3 && manifest.status === "complete")
   ok("3) 디스크에는 암호문·manifest·기록만 있다(평문 0개)", strayIn(root).length === 0 && plaintextIn(root).length === 0)
   ok("3) 폴더·파일 이름에 사진 경로(회원 번호 폴더)가 드러나지 않는다", walk(join(root, folders[0])).every((f) => !/u1|a\.jpg|b\.jpg/.test(f)))
   ok("3) manifest에는 숫자·시각만(회원 메일·경로 없음)", !/fake-member|u1\//.test(JSON.stringify(manifest)))
@@ -133,7 +133,7 @@ try {
     const croot = join(work, "cpfail")
     const r = run("backup.mjs", croot, { FAKE_CP_MODE: "fail", FLAVIE_BACKUP_NOW: T0 })
     const m = JSON.parse(readFileSync(join(croot, "2026-11-02_120000", "manifest.json"), "utf8"))
-    ok("4) CLI가 사진을 내려받지 못하면 실패로 세고(4장) 평문 없음", r.status === 0 && m.photos["application-photos"].failed === 2 && m.photos["letter-photos"].failed === 2 && plaintextIn(croot).length === 0)
+    ok("4) CLI가 사진을 내려받지 못하면 실패로 세고(4장) 부분 백업(종료 코드 3 · status partial) · 평문 없음", r.status === 3 && m.status === "partial" && m.photos["application-photos"].failed === 2 && m.photos["letter-photos"].failed === 2 && plaintextIn(croot).length === 0)
   }
 
   // 5) 만료 — 백업과 독립 · 로컬·삭제 이력·바깥 사본 같은 규칙 · 가짜 시각 40일
@@ -145,14 +145,17 @@ try {
     ok("5) (준비) 바깥 사본 복사(지문 확인)", run("backup-offsite.mjs", xroot, { FLAVIE_BACKUP_NOW: T0, FLAVIE_OFFSITE_DIR: off }).status === 0 && existsSync(join(off, "2026-11-02_120000", "manifest.json")))
     ok("5) 바깥 사본에도 평문·임시 파일 없음", plaintextIn(off).length === 0 && strayIn(off).length === 0)
     const count = () => [readdirSync(xroot).filter((n) => /^\d{4}-/.test(n)).length, readdirSync(join(xroot, "삭제 이력")).length, readdirSync(off).filter((n) => /^\d{4}-/.test(n)).length, readdirSync(join(off, "삭제 이력")).length]
-    const day29 = run("backup-expire.mjs", xroot, { FLAVIE_BACKUP_NOW: at(29.9), FLAVIE_OFFSITE_DIR: off })
-    ok("5) 29.9일째: 새 백업이 없어도 아직 아무것도 지우지 않는다", day29.status === 0 && JSON.stringify(count()) === "[1,1,1,1]")
-    const day40 = run("backup-expire.mjs", xroot, { FLAVIE_BACKUP_NOW: at(40), FLAVIE_OFFSITE_DIR: off })
-    ok("5) 40일째(그동안 새 백업 없음): 만료 정리만으로 로컬 백업·삭제 이력·바깥 사본·바깥 삭제 이력이 모두 지워진다", day40.status === 0 && JSON.stringify(count()) === "[0,0,0,0]")
+    ok("5) (준비) 28.9일째에도 삭제 이력은 매일 내보내고 있다", run("backup-deletions.mjs", xroot, { FLAVIE_BACKUP_NOW: at(28.89), FLAVIE_OFFSITE_DIR: off }).status === 0)
+    const day28 = run("backup-expire.mjs", xroot, { FLAVIE_BACKUP_NOW: at(28.9), FLAVIE_OFFSITE_DIR: off })
+    ok("5) 28.9일째: 새 백업이 없어도 아직 아무것도 지우지 않는다", day28.status === 0 && JSON.stringify(count()) === "[1,2,1,2]")
+    const day29 = run("backup-expire.mjs", xroot, { FLAVIE_BACKUP_NOW: at(29.5), FLAVIE_OFFSITE_DIR: off })
+    ok("5) 29.5일째(약속한 30일 전): 만료 정리만으로 로컬 백업·바깥 사본과 T0 삭제 이력이 지워진다(늦지 않음 · 종료 코드 0)", day29.status === 0 && JSON.stringify(count()) === "[0,1,0,1]")
+    const day58 = run("backup-expire.mjs", xroot, { FLAVIE_BACKUP_NOW: at(58.5), FLAVIE_OFFSITE_DIR: off })
+    ok("5) 58.5일째(그동안 새 백업 없음): 나중에 내보낸 삭제 이력도 제 기한 안에 지워져 로컬·바깥 모두 비었다", day58.status === 0 && JSON.stringify(count()) === "[0,0,0,0]")
     const logLines = readFileSync(join(xroot, "백업 기록.log"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((l) => l.job === "backup-expire")
-    ok("5) 만료 실행마다 기록(백업 기록.log)과 서버 기록(backup-expire)이 남는다", logLines.at(-1).removed === 4 && logLines.at(-1).ok === true && (readFileSync(join(work, "expire-report.log"), "utf8").match(/record_backup_run\('backup-expire', true/g) ?? []).length >= 2)
+    ok("5) 만료 실행마다 기록(백업 기록.log)과 서버 기록(backup-expire)이 남는다", logLines.at(-2).removed === 4 && logLines.at(-1).removed === 2 && logLines.at(-1).ok === true && logLines.at(-1).late === 0 && (readFileSync(join(work, "expire-report.log"), "utf8").match(/record_backup_run\('backup-expire', true/g) ?? []).length >= 3)
     // 서버 기록이 실패해도(인터넷 끊김) 만료는 끝까지 하고, 기록에 남긴다
-    const offline = run("backup-expire.mjs", xroot, { FLAVIE_BACKUP_NOW: at(41), FLAVIE_OFFSITE_DIR: off, FAKE_REPORT_FAIL: "1" })
+    const offline = run("backup-expire.mjs", xroot, { FLAVIE_BACKUP_NOW: at(59), FLAVIE_OFFSITE_DIR: off, FAKE_REPORT_FAIL: "1" })
     ok("5) 서버 기록이 실패해도 만료 정리는 끝까지 한다(로컬 기록에 report: failed)", offline.status === 0 && /"report":"failed"/.test(readFileSync(join(xroot, "백업 기록.log"), "utf8")))
   }
   // 만료 실패 ① 바깥 사본 폴더가 연결되지 않음(외장 디스크 빠짐) → 종료 코드 1 · 안내 · 서버 기록(실패)

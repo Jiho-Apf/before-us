@@ -45,7 +45,7 @@ function nextFor(data: MemberSnapshot): Next {
   if (!app || app === "draft") return { label: app ? "신청 이어서 쓰기" : "신청 시작하기", to: "/apply", note: app ? "쓰던 곳부터 이어서 쓸 수 있어요." : "최근 사진 3장과 간단한 소개를 준비해 주세요." };
   if (app === "needs_changes") return { label: "보완할 내용 확인하기", to: "/apply", note: "운영진이 남긴 안내를 확인하고 고쳐 주세요." };
   if (app === "approved") return BETA || data.perk === "unlimited"
-    ? { label: "오늘 화면 보기", to: "/today", note: "소개가 준비되면 정오에 오늘 화면과 메일로 알려 드려요." }
+    ? { label: "오늘 화면 보기", to: "/today", note: data.cohort && new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10) < data.cohort.startsOn ? `${cohortName(data.cohort.number)} 첫 소개는 ${kstDay(`${data.cohort.startsOn}T12:00:00+09:00`)} 정오부터예요.` : "소개가 준비되면 정오에 오늘 화면과 메일로 알려 드려요." }
     : { label: "이용 확인하기", to: "/payments", note: "승인된 분만 소개비를 결제할 수 있어요. 결제 화면에서 다시 확인해요." };
   if (app === "rejected" || app === "withdrawn") return { label: "내 정보 보기", to: "/profile", note: "궁금한 점은 문의하기로 남겨 주세요." };
   return { label: "신청 상태 보기", to: "/today", note: "운영진이 신청서를 읽고 있어요. 검토가 끝나면 알려 드려요." };

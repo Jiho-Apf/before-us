@@ -91,6 +91,7 @@ function todayState(data: MemberSnapshot): TodayState {
   if (data.notices?.status === "withdrawal_requested") return { label: "탈퇴 요청", title: "탈퇴 요청을 받았어요.", action: "문의하기", to: "/contact?type=개인정보·탈퇴", body: "상대 노출과 알림은 멈췄고, 계정과 자료는 삭제 예정일까지 지워요. 그 전에 다시 이용하려면 문의하기로 남겨 주세요." };
   if (data.notices?.status === "suspended") return { label: "이용 정지", title: "지금은 소개를 받을 수 없어요.", action: "문의·요청 남기기", to: "/support", body: `운영진 안내 · ${(data.notices.suspended_reason || "운영 정책에 따라 이용이 잠시 멈췄어요").replace(/[.。\s]+$/, "")}. 다르게 생각되면 문의·요청에서 ‘결정 재검토 요청’을 남겨 주세요.` };
   const waitingForStart = !!cohort && kstToday() < cohort.startsOn && intro.status === "waiting";
+  const resumeFrom = waitingForStart && cohort ? `${cohortName(cohort.number)} 첫 소개(${noonOf(cohort.startsOn)} 정오)부터` : "다음 정오부터";
   const program = data.program;
   if (program && program.status !== "closed") {
     if (program.status === "choosing") return { label: "함께 정하기", title: "어떻게 시작할지 함께 정해요.", action: "교류 방식 정하기", to: "/exchange", body: `A 편지·B 첫 장면 중 하나와 시작일을 ${kstDateTime(program.agreeBy)}까지 함께 정해 주세요.`, clock: { at: program.agreeBy, label: "교류 방식 마감까지", note: "두 분이 같은 방식과 시작일을 확인하면 시작돼요." } };
@@ -123,7 +124,7 @@ function todayState(data: MemberSnapshot): TodayState {
   if (holdAt && Date.parse(holdAt) <= Date.now()) return { label: "잠시 멈춤", title: "사진을 바꾸면 새 소개를 다시 준비해요.", action: "사진 바꾸기", to: "/profile#photos", body: "운영진이 요청한 사진 교체가 7일 동안 이뤄지지 않아 새 소개를 잠시 멈췄어요. 새 사진을 올리면 바로 다시 준비해요. 신청과 지금 사진은 그대로예요." };
   if (application.status === "approved" && data.notices?.paused_at) return data.notices.paused_by === "operator"
     ? { label: "잠시 멈춤", title: "운영진이 새 소개를 잠시 멈췄어요.", action: "문의하기", to: "/contact", body: "확인할 일이 있어 새 소개 준비를 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." }
-    : { label: "잠시 쉬는 중", title: "새 소개를 잠시 쉬고 있어요.", action: "새 소개는 쉬고 있어요", to: null, rest: true, body: data.notices.paused_by === "auto" ? "답하지 않은 소개가 이어졌거나 교류를 마쳐서 새 소개를 쉬고 있어요. 다시 받기를 누르면 다음 정오부터 다시 준비해요." : "쉬는 동안에는 새 소개를 준비하지 않아요. 다시 받기를 누르면 다음 정오부터 다시 준비해요." };
+    : { label: "잠시 쉬는 중", title: "새 소개를 잠시 쉬고 있어요.", action: "새 소개는 쉬고 있어요", to: null, rest: true, body: data.notices.paused_by === "auto" ? `답하지 않은 소개가 이어졌거나 교류를 마쳐서 새 소개를 쉬고 있어요. 다시 받기를 누르면 ${resumeFrom} 다시 준비해요.` : `쉬는 동안에는 새 소개를 준비하지 않아요. 다시 받기를 누르면 ${resumeFrom} 다시 준비해요.` };
   if (application.status === "approved" && waitingForStart && cohort) return kstToday() === dayBefore(cohort.startsOn)
     ? { label: `${cohortName(cohort.number)} · 내일 시작`, title: "내일 정오부터 첫 소개가 시작돼요.", action: "내 정보 확인하기", to: "/profile", body: "잘 맞는 분이 준비되면 내일 정오에 이 화면과 두 사람 화면에서 알려 드릴게요. 준비가 더 걸리면 그것도 알려 드릴게요." }
     : { label: `${cohortName(cohort.number)} · 시작 전`, title: `${cohortName(cohort.number)} 첫 소개는 ${noonOf(cohort.startsOn)} 정오부터예요.`, action: "내 정보 확인하기", to: "/profile", body: `같은 기수의 분들과 함께 첫 소개를 받아요. 시작 전날 한 번 더 알려 드릴게요.${BEFORE_US.beta.active ? "" : " 시작 전에는 소개비를 언제든 전액 환불받을 수 있어요."}` };
@@ -160,7 +161,7 @@ function LiveTodayView() {
           <h1 id="today-title" className="mt-5 text-3xl font-semibold leading-[1.4] sm:text-[34px]">{state.title}</h1>
           <p className="mt-3 text-xs text-muted-foreground"><time dateTime={today()}>{kstDay(new Date())}</time> · 서울</p>
         </div>
-        {!state.rest && <NoonClock tone="plain" target={state.clock} />}
+        {!state.rest && (state.clock || noonApplies(data)) && <NoonClock tone="plain" target={state.clock} />}
       </header>
       {reflectable(data) && <ReflectionCard key={data.program!.id} programId={data.program!.id} dated={data.program!.endReason === "completed"} />}
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
@@ -369,7 +370,13 @@ export function WindowCard({ folded = false }: { folded?: boolean } = {}) {
 // 기다리는 동안(GPT 검수 F1): 무엇을 또 써야 하는 목록처럼 보이지 않게, 받는 사람별로 나누고 처음에는 하나만 펼친다.
 //   앞으로 만날 한 사람에게: 첫 마디(소개된 분이 가장 먼저 봄) · 아직 모르는 당신에게(서로 고르면 전해지는 편지)
 //   소개할 분을 고르는 플라비에게: 창가 질문(운영진만 봄)
+// 정오에 소개가 올 수 있는 상태인지: 승인 · 계정 정상 · 쉬지 않음 · 내 기수가 시작됨. 아니면 ‘다음 정오까지’ 시계를 보이지 않는다(출시 점검 B1).
+function noonApplies(data: MemberSnapshot) {
+  return data.application?.status === "approved" && data.notices?.status === "active" && !data.notices.paused_at && (!data.cohort || kstToday() >= data.cohort.startsOn);
+}
 function WaitingShelf({ data }: { data: MemberSnapshot }) {
+  // 소개를 받을 수 없는 상태(보류 · 소개 어려움 · 철회 · 정지 · 탈퇴 요청)에는 ‘앞으로 만날 분께’ 묶음을 보이지 않는다(출시 점검 B3).
+  if (data.notices?.status !== "active" || !["submitted", "reviewing", "needs_changes", "approved"].includes(data.application?.status ?? "")) return null;
   const first = !!data.application && data.application.status !== "draft" && data.introduction.status === "waiting";
   const approved = data.application?.status === "approved" && data.introduction.status !== "published" && data.introduction.status !== "mutual";
   if (!first && !approved) return null;
@@ -701,7 +708,7 @@ function nextIntroText(data: MemberSnapshot) {
   if (status === "submitted" || status === "reviewing") return "확인이 끝나면 소개를 준비해요";
   if (status === "needs_changes") return "보완이 끝나면 소개를 준비해요";
   if (status !== "approved") return null;
-  if (data.notices?.paused_at) return "다시 받으면 다음 정오부터";
+  if (data.notices?.paused_at) return data.cohort && kstToday() < data.cohort.startsOn ? `다시 받으면 ${cohortName(data.cohort.number)} 첫 소개부터` : "다시 받으면 다음 정오부터";
   if (data.introduction.status === "published") return "지금 소개가 열려 있어요";
   if (data.introduction.status === "mutual") return "교류를 마치면 다음 소개를 준비해요";
   return waitedDays(data) >= BEFORE_US.noonGuidance.waitingNoteAfterDays ? "찾는 데 시간이 걸리고 있어요" : "다음 소개 · 준비되는 날 정오";
@@ -716,6 +723,8 @@ function LiveProfileView() {
   const { data, error, loading, reload } = useMemberSnapshot();
   const [message, setMessage] = useState("");
   const [pauseMessage, setPauseMessage] = useState("");
+  const [pauseFailed, setPauseFailed] = useState(false);
+  const beforeStart = !!data?.cohort && kstToday() < data.cohort.startsOn;
   const [pausing, setPausing] = useState(false);
   // 알림·회고의 /profile#pause 같은 주소로 오면 그 칸으로 내려 준다(#photos는 사진 칸이 직접 처리).
   useEffect(() => {
@@ -734,7 +743,7 @@ function LiveProfileView() {
   const paused = !!notices?.paused_at;
   // 검토 중·승인·보류 상태에서 고치면 다시 확인을 받는데, 진행 중인 소개·교류가 있으면 끝난 뒤에만 보낼 수 있다. 들어가기 전에 먼저 알린다.
   const editBlocked = data.application && ["reviewing", "approved", "held"].includes(data.application.status) ? editBlockReason(data.introduction, data.program) : null;
-  const togglePause = async () => { setPausing(true); const result = await setPaused(!paused); setPausing(false); setPauseMessage(result.error || (paused ? "다시 받기로 바꿨어요. 다음 정오부터 소개를 준비해요." : "새 소개를 잠시 쉬어요. 진행 중인 소개는 그대로 이어져요.")); await reload(); };
+  const togglePause = async () => { setPausing(true); const result = await setPaused(!paused); setPausing(false); setPauseFailed(!!result.error); setPauseMessage(result.error || (paused ? `다시 받기로 바꿨어요. ${beforeStart ? `${cohortName(data!.cohort!.number)} 첫 소개(${noonOf(data!.cohort!.startsOn)} 정오)부터` : "다음 정오부터"} 소개를 준비해요.` : "새 소개를 잠시 쉬어요. 진행 중인 소개는 그대로 이어져요.")); await reload(); };
   return (
     <section className="space-y-10">
       <PageHeader mark="내 정보" label="계정과 신청" en="ABOUT ME" title="내 정보" lead="지금 어디쯤인지, 다음에 무엇을 하면 되는지 먼저 보여 드려요." />
@@ -758,7 +767,7 @@ function LiveProfileView() {
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">소개 신청서 고치기</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{!data?.application || data.application.status === "draft" ? "쓰던 곳부터 이어서 쓸 수 있어요." : data.application.status === "submitted" ? "검토 전이라 바로 고칠 수 있어요." : ["rejected", "withdrawn"].includes(data.application.status) || editBlocked ? "" : "고친 내용을 ‘수정 내용 제출’로 보내면 운영진이 다시 확인해요. 그동안 새 소개 준비는 잠시 멈춰요."}</p>{data?.application && ["rejected", "withdrawn"].includes(data.application.status) ? <p className="mt-4 text-xs leading-6 text-muted-foreground">지금 상태에서는 신청서를 고칠 수 없어요. 문의하기로 남겨 주시면 확인해 드릴게요.</p> : editBlocked ? <><p role="status" className="mt-4 rounded-xl bg-mist p-4 text-xs leading-6">{editBlocked}</p>{data.application?.status === "approved" && <p className="mt-3 text-xs leading-6 text-muted-foreground">사진은 지금도 <a href="#photos" className="font-semibold text-primary underline-offset-4 hover:underline">내 사진</a>에서 바꿀 수 있어요.</p>}</> : <div className="mt-4 grid grid-cols-2 gap-2">{[["나에 대해", 0], ["사진", 1], ["원하는 만남", 2], ["공개·동의", 3]].map(([label, step]) => <Button key={label} asChild variant="outline" className={`h-auto justify-between rounded-xl border-border px-4 py-3 text-xs ${interaction}`}>{step === 1 && data.application?.status === "approved" ? <a href="#photos">{label} <ArrowUpRight size={13} /></a> : <Link to={`/apply?edit=1&step=${step}`}>{label} <ArrowUpRight size={13} /></Link>}</Button>)}</div>}{data.application && data.application.status !== "draft" && <ExtraConsentWithdraw />}</Sheet>
         <Sheet className="p-6"><p className="text-xs font-semibold text-accent">알림 설정</p><div className="mt-4 space-y-3 text-sm"><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.notice_daily_waiting} onCheckedChange={value => void toggle("notice_daily_waiting", value === true)} />소개가 없는 날에도 정오에 사이트에서 알려 주세요. <span className="text-muted-foreground">(선택)</span></label><label className="flex items-start gap-3 leading-6"><Checkbox className="mt-1" checked={!!notices?.marketing_opt_in} onCheckedChange={value => void toggle("marketing_opt_in", value === true)} />새 소식과 혜택 안내를 받을게요. <span className="whitespace-nowrap text-muted-foreground">(선택 · 광고성 정보)</span></label></div><fieldset className="mt-5 border-t border-border pt-4"><legend className="sr-only">알림 받을 방법</legend><p className="text-xs font-semibold">알림 받을 방법{!BETA_ACTIVE && <span className="font-normal text-muted-foreground"> · 카카오톡·문자 중 1개 이상</span>}</p>{BETA_ACTIVE && <p className="mt-1.5 text-xs leading-6">지금은 메일과 사이트로 알려 드려요.</p>}<div className="mt-3 flex flex-wrap gap-2">{([["kakao", "카카오톡"], ["sms", "문자"], ["email", "메일"]] as const).filter(([key]) => !(BETA_ACTIVE && key === "email")).map(([key, label]) => <button key={key} type="button" aria-pressed={channels[key]} onClick={() => void setChannel(key, !channels[key])} className={`rounded-full border px-4 py-2 text-xs ${interaction} ${channels[key] ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/40"}`}>{label}{BETA_ACTIVE && <span className="ml-1.5 text-[10px] opacity-75">정식 운영부터</span>}</button>)}</div>{BETA_ACTIVE && <p className="mt-2 text-[11px] leading-5 text-muted-foreground">정식 운영부터 받을 방법이에요. 하나 이상 골라 두세요.</p>}</fieldset><fieldset className="mt-5 border-t border-border pt-4"><legend className="sr-only">메일로 받을 알림</legend><p className="text-xs font-semibold">메일로 받을 알림</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{([[false, "중요한 것만", "소개 도착·마감·약속처럼 할 일이 있을 때만"], [true, "모두 받기", "상대가 편지를 보냈을 때 같은 소식까지"]] as const).map(([all, label, sub]) => <button key={label} type="button" aria-pressed={!!notices?.email_all === all} onClick={() => void saveNoticeSettings({ email_all: all }).then(result => { setMessage(result.error || "메일 받을 범위를 바꿨어요."); return reload(); })} className={`rounded-xl border p-3 text-left ${interaction} ${!!notices?.email_all === all ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"}`}><span className="block text-xs font-semibold">{label}{!all && " (기본)"}</span><span className="mt-1 block text-[11px] leading-5 text-muted-foreground">{sub}</span></button>)}</div></fieldset><p className="mt-4 text-[11px] leading-5 text-muted-foreground">모든 알림은 사이트에서 늘 보여 드려요. 메일은 가입한 주소로 보내고, 밤 10시~아침 8시에는 보내지 않고 아침에 보내요.</p><HomeScreenTip compact className="mt-4" />{message && <p role="status" className="mt-3 text-xs text-primary">{message}</p>}</Sheet>
       </div>
-      {data?.application?.status === "approved" && notices?.status === "active" && <Sheet id="pause" className="scroll-mt-24 flex flex-wrap items-center justify-between gap-5 p-6"><div className="min-w-0 max-w-xl"><p className="text-xs font-semibold text-accent">새 소개 {paused ? "다시 받기" : "잠시 쉬기"}</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{paused ? notices.paused_by === "operator" ? "운영진이 확인할 일이 있어 새 소개를 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." : `${kstDay(notices.paused_at!)}부터 쉬고 있어요. 다시 받기를 누르면 다음 정오부터 소개를 준비해요.` : "여행·바쁜 시기처럼 잠시 쉬고 싶을 때 눌러 주세요. 진행 중인 소개는 그대로 이어지고, 새 소개만 멈춰요."}</p>{pauseMessage && <p role="status" className="mt-2 text-xs text-primary">{pauseMessage}</p>}</div><Button variant={paused ? "default" : "outline"} disabled={pausing || notices.paused_by === "operator"} onClick={() => void togglePause()} className="h-11 shrink-0 rounded-xl border-border px-5">{paused ? "다시 받기" : "잠시 쉬기"}</Button></Sheet>}
+      {data?.application?.status === "approved" && notices?.status === "active" && <Sheet id="pause" className="scroll-mt-24 flex flex-wrap items-center justify-between gap-5 p-6"><div className="min-w-0 max-w-xl"><p className="text-xs font-semibold text-accent">새 소개 {paused ? "다시 받기" : "잠시 쉬기"}</p><p className="mt-3 text-sm leading-7 text-muted-foreground">{paused ? notices.paused_by === "operator" ? "운영진이 확인할 일이 있어 새 소개를 잠시 멈췄어요. 궁금한 점은 문의하기로 남겨 주세요." : `${kstDay(notices.paused_at!)}부터 쉬고 있어요. 다시 받기를 누르면 ${beforeStart ? `${cohortName(data.cohort!.number)} 첫 소개(${noonOf(data.cohort!.startsOn)} 정오)부터` : "다음 정오부터"} 소개를 준비해요.` : "여행·바쁜 시기처럼 잠시 쉬고 싶을 때 눌러 주세요. 진행 중인 소개는 그대로 이어지고, 새 소개만 멈춰요."}</p>{pauseMessage && <p role={pauseFailed ? "alert" : "status"} className={`mt-2 text-xs ${pauseFailed ? "text-destructive" : "text-primary"}`}>{pauseMessage}</p>}</div><Button variant={paused ? "default" : "outline"} disabled={pausing || notices.paused_by === "operator"} onClick={() => void togglePause()} className="h-11 shrink-0 rounded-xl border-border px-5">{paused ? "다시 받기" : "잠시 쉬기"}</Button></Sheet>}
       <VouchCard />
       <FirstWordCard />
       <div id="my-safety" className="scroll-mt-24"><AvoidContactsCard /></div>
