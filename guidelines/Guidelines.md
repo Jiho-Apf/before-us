@@ -1,5 +1,14 @@
 # 프로젝트 내부 지침 — 플라비(FLAVIE, 2026-10-30 전 이름 비포어스 · BEFORE US) V6
 
+## 109 — GPT 4차 검수 대응 + 운영 적용 (2026-11-12 작업, 2026-11-19 운영 적용, 되돌림 지점 `before-r112-fourth-review`, 마이그레이션 7600)
+- 2026-11-19 09:57 KST 운영 적용: 마이그레이션 6500~7600(12개) → storage-cleanup v9 · send-notifications v19 · partner-photo v6 · letter-photo v2 → 화면 `b33c058`(main·beta). 적용 전 백업 `2026-11-19_095553`(complete). 기록은 `검수 단계(GPT)\5차 대응 (2026-11-12)\02 운영 적용 기록`.
+- 메일: 설정이 없으면 차례마다 실패(`blocked`)로 남긴다. 경고 줄만 한 시간에 한 번. 공개 상태 `public_health()`에 `mailReady`·`backupOk`·`noonLateToday`(12:15 지나 오늘 정오 기록 없음)·`backupIncludedInOk:false`.
+- 백업 종료 코드: 0 정상 · 3 부분(사진 누락 등, `status: partial`) · 1 실패 · 4 회원 접근 닫힘(`backup:restore-check`, 삭제 이력이 원본 소실보다 오래됨). 바깥 사본·풀기는 정상본만(부분은 `--include-partial`·`--allow-partial`). 새 백업은 형식 3(자료·스키마 지문을 암호문 목록에 봉인). 만료는 29일째부터(약속 30일).
+- 사진: `_shared/photo-check.ts`는 JPG 틀 전체(표·크기 정보·본문·끝 표시·4096px·1,200만 화소·자료량)를 보고, partner-photo는 등록 때 sha256·가로세로와 지금 파일을 대조한다. 화소 디코딩은 하지 않는다(운영진 눈 확인 + 지문 대조).
+- 서버 7600: 회고 자기보고 집계는 회원×교류 단위(본인 삭제는 빼고 기간 파기는 유지), `test_accounts`(대표만 지정, 실회원과 소개 금지, 집계 제외 · payment_testers와 별개), 문의 조회는 맞는 번호+메일이면 항상 통과, `admin_excuse_nonresponse`(무응답으로 닫힌 지 14일 안 소개에 ‘운영 사정’ 표시: 재소개 허용·무응답 횟수 제외·그 때문의 자동 쉬기 해제. 다시 열지 않는다). 운영진 화면 단추는 아직 없다.
+- 오늘 화면: ‘다음 정오까지’ 시계는 승인·정상·쉬지 않음·기수 시작 회원(또는 따로 정한 마감)에게만. ‘기다리는 동안’은 접수·검토·보완·승인 + 정상 계정만. 기수 시작 전 쉬기 해제 문구는 ‘○기 첫 소개(날짜 정오)부터’. 신청서 맨 위에 ‘지금 제출하면 ○○로 접수 · 첫 소개 ○월 ○일 정오’.
+- 시험: `scripts/checks/task-flows.mjs`(36개, 회고 세 단추 포함 · 도중에 멈추면 실패), `supabase/tests/backup/backup-integrity.test.mjs`(73개), db.test 1245.
+
 ## 108 — GPT 3차 검수 대응 (2026-11-06, 되돌림 지점 `before-r111-third-review`, 마이그레이션 6500~7500)
 - 지시문: `노트시그널\FLAVIE_Claude_Third_Review_Action_Prompt_2026-11-05.md`. 재검수 묶음은 `검수 단계(GPT)\4차 대응 (2026-11-06)\`(R3 34개 표·회귀 연결표·시험 증거·전후 캡처·대표 문서·최종 판정). 날짜·가격(39,000원)·환불·이월·권리는 바꾸지 않았다.
 - 동의: `consent.matching`은 키 이름은 그대로, 뜻은 **선택 ‘추가 정보 수집·이용’**. 서버 필수는 collection·provision·review·statement·pledge. 거부하면 서버가 저장·제출 때 핵심 키만 남기고(`strip_extra_from_draft`, 보류 요청 `preferences.request·requestNote`는 남김), 화면은 추가 정보를 기기에만 14일 둔다. 철회는 `withdraw_extra_consent()`(내 정보 › 신청서 고치기 카드 아래, 진행 중 소개가 있어도 됨 · 재검토 없음).
