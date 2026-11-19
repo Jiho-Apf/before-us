@@ -40,6 +40,11 @@ export function recruitingCohort(now = new Date()): CohortInfo {
 }
 
 // 실제 서버 모드에서는 서버 값이 올 때까지 null(설정 파일의 1기 날짜가 잠깐 보였다가 바뀌는 깜빡임을 막는다).
+// 신청 단추 문구(2026-11-19 대표 결정: 1기부터는 ‘무료’를 약속하지 않는다).
+export function applyLabel(cohort: CohortInfo | null, beta: boolean) {
+  if (beta && (!cohort || cohort.number === 0)) return cohort ? "무료 베타 신청하기" : "소개 신청하기"
+  return cohort ? `${cohortName(cohort.number)} 신청하기` : "소개 신청하기"
+}
 export function useRecruitingCohort(): CohortInfo | null {
   const [cohort, setCohort] = useState<CohortInfo | null>(() => LIVE ? null : recruitingCohort())
   useEffect(() => {

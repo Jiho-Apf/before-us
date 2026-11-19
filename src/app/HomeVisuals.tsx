@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { applyLabel, useRecruitingCohort } from "./cohort";
 import { Link } from "react-router";
 import { ArrowUpRight, BadgeAlert, CalendarX2, Check, Link2Off, LockOpen, PenLine, ShieldCheck, Siren, Smartphone, UserCheck } from "lucide-react";
 import { Button } from "./components/ui/button";
@@ -9,10 +10,12 @@ import { LIVE } from "./backend/client";
 // 참고: 로멜로(잡지 화보처럼 겹친 사진·종이 질감), 토스(한 화면에 한 메시지·긴 그림자), Linear(얇은 선 아이콘).
 // 사진은 Unsplash 라이선스(상업적 이용 가능)로 얼굴이 드러나지 않는 장면만 쓴다. 움직임은 ‘움직임 줄이기’ 설정에서 멈춘다.
 const BETA = LIVE && BEFORE_US.beta.active;
+// 신청 단추 글: 베타 모집 중이면 ‘무료 베타’, 그 뒤 기수는 ‘○기 신청하기’(2026-11-19 · 1기부터 무료를 약속하지 않음).
+function ApplyText() { return <>{applyLabel(useRecruitingCohort(), BETA)}</>; }
 const interaction = "transition-colors duration-200 motion-reduce:transition-none";
 const money = (amount: number) => `${amount.toLocaleString("ko-KR")}원`;
 const ApplyButton = ({ className = "" }: { className?: string }) => (
-  <Button asChild className={`h-12 rounded-full bg-[#F7D96B] px-7 text-[#2B2540] shadow-[0_14px_30px_-16px_rgba(180,140,20,0.7)] hover:bg-[#F2CF52] ${interaction} ${className}`}><Link to="/apply">{BETA ? "베타 무료로 신청하기" : "소개 신청하기"} <ArrowUpRight size={16} /></Link></Button>
+  <Button asChild className={`h-12 rounded-full bg-[#F7D96B] px-7 text-[#2B2540] shadow-[0_14px_30px_-16px_rgba(180,140,20,0.7)] hover:bg-[#F2CF52] ${interaction} ${className}`}><Link to="/apply"><ApplyText /> <ArrowUpRight size={16} /></Link></Button>
 );
 
 // 강조 밑줄: 문장 속 몇 군데만. 화면에 들어오면 얇은 보라 선이 왼쪽부터 천천히 그어진다(움직임 줄이기에서는 처음부터 그어져 있음).

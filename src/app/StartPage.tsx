@@ -5,7 +5,7 @@ import { Button } from "./components/ui/button";
 import { BEFORE_US } from "./config";
 import { LIVE } from "./backend/client";
 import { useMemberSnapshot, type MemberSnapshot } from "./backend/member";
-import { cohortName, useRecruitingCohort } from "./cohort";
+import { applyLabel, cohortName, useRecruitingCohort } from "./cohort";
 import { kstDay } from "./dates";
 import { Segments } from "./Segments";
 
@@ -14,6 +14,8 @@ import { Segments } from "./Segments";
 // 기존 가입·신청·결제를 그대로 쓰고, 긴 홈은 ‘자세히 보기’ 자원으로 둔다. 일정·요금은 공통 설정(서버 기수 · BEFORE_US.pricing)에서 읽는다.
 // 로그인한 분은 서버의 내 상태를 읽어 지금 필요한 다음 행동 하나로 안내한다(주소의 값은 믿지 않는다 · 베타에는 결제로 보내지 않는다).
 const BETA = LIVE && BEFORE_US.beta.active;
+// 신청 단추 글: 베타 모집 중이면 ‘무료 베타’, 그 뒤 기수는 ‘○기 신청하기’(2026-11-19 · 1기부터 무료를 약속하지 않음).
+function ApplyText() { return <>{applyLabel(useRecruitingCohort(), BETA)}</>; }
 const P = BEFORE_US.pricing;
 const won = (value: number) => `${value.toLocaleString("ko-KR")}원`;
 const day = (iso: string) => kstDay(`${iso}T12:00:00+09:00`).replace(/\s\(.\)$/, "");
@@ -59,7 +61,7 @@ function MemberNext() {
 }
 function PrimaryCta() {
   return <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-    <Button asChild className={`h-13 w-full rounded-full px-7 text-base sm:w-auto ${interaction}`}><Link to="/apply">{BETA ? "무료 베타 신청하기" : "소개 신청하기"} <ArrowRight size={17} /></Link></Button>
+    <Button asChild className={`h-13 w-full rounded-full px-7 text-base sm:w-auto ${interaction}`}><Link to="/apply"><ApplyText /> <ArrowRight size={17} /></Link></Button>
     <Link to="/two-starts" className={`inline-flex min-h-11 items-center text-sm font-semibold text-primary underline-offset-4 hover:underline ${interaction}`}>진행 방식 자세히 보기</Link>
   </div>;
 }
@@ -67,7 +69,7 @@ function PrimaryCta() {
 export default function StartPage() {
   const cohort = useRecruitingCohort();
   const signedIn = useSignedIn();
-  const schedule = cohort ? [BETA ? `${cohortName(cohort.number)} 무료` : `${cohortName(cohort.number)} 모집 중`, `신청 ${dayWithWeekday(cohort.applicationDeadline)}까지`, `첫 소개 ${day(cohort.startsOn)} 정오`] : null;
+  const schedule = cohort ? [BETA && cohort.number === 0 ? `${cohortName(cohort.number)} 무료` : `${cohortName(cohort.number)} 모집 중`, `신청 ${dayWithWeekday(cohort.applicationDeadline)}까지`, `첫 소개 ${day(cohort.startsOn)} 정오`] : null;
   return <div className="break-keep [overflow-wrap:anywhere] pb-16">
     {/* ① 무엇인지 */}
     <section aria-labelledby="start-title" className="pt-10 sm:pt-16">

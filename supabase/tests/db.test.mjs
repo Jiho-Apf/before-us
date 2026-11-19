@@ -206,7 +206,7 @@ await as(O, "aal2")
 await q("select public.admin_update_cohort(1, '2026-12-31', '2026-12-27', 10, 50, '{}')")
 const nextCohort = (await one("select public.admin_create_next_cohort() n")).n
 await as("postgres")
-eq("다음 기수는 매달 마지막 날 규칙으로 만든다", (await one("select starts_on::text s, application_deadline::text d from public.cohorts where number = $1", [nextCohort])), { s: "2027-02-28", d: "2027-02-24" })
+eq("다음 기수는 매달 마지막 날 규칙으로 만든다", (await one("select starts_on::text s, application_deadline::text d from public.cohorts where number = $1", [nextCohort])), { s: "2027-03-31", d: "2027-03-27" }) // 7700에서 2기가 2027-02-28로 옮겨져, 그다음은 3월 마지막 날
 await as(O, "aal2")
 await q("select public.admin_move_member_cohort($1, 1)", [F])
 // 이후 소개 점검을 위해 1기를 이미 시작한 것으로 둔다
